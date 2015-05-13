@@ -62,6 +62,7 @@ check.dependsOn installApp
 
 dependencies {
     compile files("${System.properties['java.home']}/../lib/tools.jar")
+    compile 'org.hdfgroup:hdf-java:2.6.1'
 
     compile 'org.broadinstitute:hellbender:Hellbender.0.1.1-SNAPSHOT'
 

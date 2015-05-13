@@ -44,9 +44,13 @@
 *  7.7 Governing Law. This Agreement shall be construed, governed, interpreted and applied in accordance with the internal laws of the Commonwealth of Massachusetts, U.S.A., without regard to conflict of laws principles.
 */
 
+import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.hdf5.HDF5Library;
+import org.broadinstitute.hellbender.utils.hdf5.HDF5Reader;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.io.File;
 
 /**
  * Unit test on {@link HDF5Library}.
@@ -55,15 +59,30 @@ import org.testng.annotations.Test;
  */
 public class HDF5LibraryUnitTests {
 
+
+    private File TEST_PON = new File("src/test/resources/org/broadinstitute/utils/hdf5/test_creation_of_panel.pon");
+
     @Test(groups = "supported")
     public void testIsSupported() {
-        Assert.assertTrue(HDF5Library.isSupported(s -> { System.err.println("ERROR " + s);}));
+        Assert.assertTrue(HDF5Library.isSupported());
     }
 
 
     @Test(dependsOnGroups = "supported")
-    public void testGetFile() {
+    public void testGetLibrary() {
         final HDF5Library library = HDF5Library.getLibrary();
+        Assert.assertNotNull(library);
+        Assert.assertSame(HDF5Library.getLibrary(), library);
+    }
+
+    @Test(dependsOnGroups = "supported")
+    public void testOpenReadOnly() {
+        final HDF5Reader reader = new HDF5Reader(TEST_PON);
+    }
+
+    @Test(dependsOnGroups = "supported",expectedExceptions = GATKException.class)
+    public void testOpenReadOnlyOnBadFile() {
+        final HDF5Reader reader = new HDF5Reader(new File("/tmp/nofile"));
     }
 
 }

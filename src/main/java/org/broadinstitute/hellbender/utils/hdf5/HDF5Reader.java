@@ -46,6 +46,7 @@
 package org.broadinstitute.hellbender.utils.hdf5;
 
 import ncsa.hdf.hdf5lib.H5;
+import ncsa.hdf.hdf5lib.HDF5Constants;
 import ncsa.hdf.hdf5lib.exceptions.HDF5LibraryException;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 
@@ -58,19 +59,61 @@ import java.io.File;
  */
 public class HDF5Reader {
 
-    private final int fileId;
+    private final File file;
+    private int fileId;
 
-    protected HDF5Reader(final File fileName) {
+    /**
+     * Creates a new HDF5 reader on a existing file.
+     *
+     * <p>
+     *
+     * </p>
+     *
+     * @param file the target file.
+     * @throws IllegalArgumentException if {@code file} is {@code null}.
+     * @throws GATKException if the HDF5 library is not supported or could not be initialized.
+     */
+    public HDF5Reader(final File file) {
+        HDF5Library.getLibrary();
+        if (file == null) {
+            throw new IllegalArgumentException("the file cannot be null.");
+        }
+        this.file = file;
         try {
-            fileId = H5.H5Fopen(fileName.getAbsolutePath(), 0, 0);
+            fileId = H5.H5Fopen(file.getAbsolutePath(), HDF5Constants.H5F_ACC_RDONLY, HDF5Constants.H5P_DEFAULT);
         } catch (final HDF5LibraryException e) {
             throw new GATKException(
-                    String.format("exception when opening '%s' for read-only access: %s",fileName.getAbsolutePath(), e.getMessage(),e));
+                    String.format("exception when opening '%s' for read-only access: %s",file.getAbsolutePath(), e.getMessage(),e));
         }
         if (fileId < 0) {
             throw new GATKException(
-                    String.format("failure when opening '%s' for read-only access; negative fileId: %d",fileName.getAbsolutePath(),fileId)
+                    String.format("failure when opening '%s' for read-only access; negative fileId: %d",file.getAbsolutePath(),fileId)
             );
         }
+    }
+
+    /**
+     * Close this file reader.
+     *
+     * <p>
+     *     Further file read operations will result in a {@link IllegalStateException}.
+     * </p>
+     */
+    public void close() {
+        if (isClosed()) {
+            return;
+        }
+        try {
+            H5.H5Fclose(fileId);
+            fileId = -1;
+        } catch (HDF5LibraryException e) {
+            throw new GATKException(
+                    String.format("failure when closing '%s' from read-only access: %s",file.getAbsolutePath(),e.getMessage()),e);
+        }
+    }
+
+
+    protected boolean isClosed() {
+        return fileId < 0;
     }
 }
