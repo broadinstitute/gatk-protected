@@ -4,7 +4,7 @@ buildscript {
      }
 
     dependencies {
-        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.0.1'
+        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.3.1'
     }
 }
 
@@ -78,7 +78,7 @@ def String deriveVersion(){
     try {
         logger.info("path is $System.env.PATH")
         exec {
-            commandLine "git", "describe", "--always", "--long"
+            commandLine "git", "describe", "--always"
             standardOutput = stdout;
 
             ignoreExitValue = true
@@ -88,8 +88,10 @@ def String deriveVersion(){
     }
     return stdout.size() > 0 ? stdout.toString().trim() : "version-unknown"
 }
-
-version = deriveVersion()
+final SNAPSHOT = "-SNAPSHOT"
+version = deriveVersion() + SNAPSHOT  //all builds are snapshot builds until we decide that there is something we want to keep
+boolean isRelease = ! version.endsWith(SNAPSHOT)
+logger.info("build for version:" + version)
 group = 'org.broadinstitute'
 
 
@@ -110,6 +112,8 @@ test {
     // set heap size for the test JVM(s)
     minHeapSize = "1G"
     maxHeapSize = "2G"
+    
+    maxParallelForks=2
   
     String CI = "$System.env.CI"
     if (CI == "true") {
@@ -155,26 +159,3 @@ task fatJar(type: Jar) {
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
-    from 'build/docs/javadoc'
-}
-
-task sourcesJar(type: Jar) {
-    from sourceSets.main.allSource
-    classifier = 'sources'
-}
-
-artifacts {
-    archives jar
-
-    archives javadocJar
-    archives sourcesJar
-}
-
-signing {
-    sign configurations.archives
-}
-
-
