@@ -63,7 +63,7 @@ dependencies {
     compile 'org.hdfgroup:hdf-java:2.6.1'
     compile 'org.apache.commons:commons-math3:3.5'
     compile 'org.broadinstitute:hellbender:Hellbender.0.1.1-SNAPSHOT'
-
+    compile 'org.apache.commons:commons-csv:1.1'
     testCompile 'org.testng:testng:6.8.8'
 }
 
