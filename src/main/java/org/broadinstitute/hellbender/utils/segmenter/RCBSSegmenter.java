@@ -4,9 +4,9 @@ import org.broadinstitute.hellbender.utils.R.RScriptExecutor;
 import org.broadinstitute.hellbender.utils.io.Resource;
 
 /**
- * Calls and Rscript to perform segmentation
+ * Calls an R script to perform segmentation
  */
-public class RCBSSegmenter extends RScriptExecutor {
+public final class RCBSSegmenter extends RScriptExecutor {
     private static final String R_SCRIPT = "CBS.R";
 
     public RCBSSegmenter(String sample_name, String tn_file, String output) {

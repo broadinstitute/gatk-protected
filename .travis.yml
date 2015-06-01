@@ -11,6 +11,7 @@ before_install:
 - unzip gradle-2.2.1-bin.zip
 - export PATH=`pwd`/gradle-2.2.1/bin:$PATH
 - sudo apt-get install -y --force-yes hdfview
+# Added from hellbender public
 - sudo mkdir -p /usr/local/lib/R/
 - mkdir -p site-library
 - sudo ln -sFv ~/site-library /usr/local/lib/R/site-library

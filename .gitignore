@@ -19,6 +19,7 @@ hs_err_pid*
 
 # IntelliJ project files.
 .idea
+.idea/
 
 # Build temporary files.
 .gradle
