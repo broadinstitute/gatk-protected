@@ -23,11 +23,11 @@ public class SegmenterTest {
 
     @Test
     public void testHCC1143() throws IOException {
-        final File INPUT_FILE = new File("/Users/aaronc/Documents/hellbender-protected/src/test/resources/segmenter/input/HCC1143.tsv");
-        final File EXPECTED = new File("/Users/aaronc/Documents/hellbender-protected/src/test/resources/segmenter/output/HCC1143_result.seg");
+        final File INPUT_FILE = new File("src/test/resources/segmenter/input/HCC1143.tsv");
+        final File EXPECTED = new File("src/test/resources/segmenter/output/HCC1143_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "HCC1143";
-        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.toString(), output.getAbsolutePath());
+        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(), output.getAbsolutePath());
         segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
@@ -45,11 +45,11 @@ public class SegmenterTest {
 
     @Test
     public void testHCC1143Short() throws IOException {
-        final File INPUT_FILE = new File("/Users/aaronc/Documents/hellbender-protected/src/test/resources/segmenter/input/HCC1143_short.tsv");
-        final File EXPECTED = new File("/Users/aaronc/Documents/hellbender-protected/src/test/resources/segmenter/output/HCC1143_short_result.seg");
+        final File INPUT_FILE = new File("src/test/resources/segmenter/input/HCC1143_short.tsv");
+        final File EXPECTED = new File("src/test/resources/segmenter/output/HCC1143_short_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "HCC1143";
-        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.toString(), output.getAbsolutePath());
+        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(), output.getAbsolutePath());
         segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
@@ -67,11 +67,11 @@ public class SegmenterTest {
 
     @Test
     public void testSimple() throws IOException {
-        final File INPUT_FILE = new File("/Users/aaronc/Documents/hellbender-protected/src/test/resources/segmenter/input/Simple.tsv");
-        final File EXPECTED = new File("/Users/aaronc/Documents/hellbender-protected/src/test/resources/segmenter/output/Simple_result.seg");
+        final File INPUT_FILE = new File("src/test/resources/segmenter/input/Simple.tsv");
+        final File EXPECTED = new File("src/test/resources/segmenter/output/Simple_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "Simple";
-        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.toString(), output.getAbsolutePath());
+        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(), output.getAbsolutePath());
         segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
