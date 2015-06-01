@@ -1,4 +1,5 @@
-options(error = quote({dump.frames(dumpto = "CBS_dump", to.file = TRUE); q()}))
+# Useful for debugging
+#options(error = quote({dump.frames(dumpto = "CBS_dump", to.file = TRUE); q()}))
 
 # Library used for segmentation
 library(DNAcopy)
