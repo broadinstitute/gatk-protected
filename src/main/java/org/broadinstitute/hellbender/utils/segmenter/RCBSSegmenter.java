@@ -9,12 +9,12 @@ import org.broadinstitute.hellbender.utils.io.Resource;
 public final class RCBSSegmenter extends RScriptExecutor {
     private static final String R_SCRIPT = "CBS.R";
 
-    public RCBSSegmenter(String sample_name, String tn_file, String output) {
+    public RCBSSegmenter(String sample_name, String tn_file, String output, Float min_log_value) {
         addScript(new Resource(R_SCRIPT, RCBSSegmenter.class));
-        addArgs(sample_name, tn_file, output);
+        addArgs(sample_name, tn_file, output, min_log_value);
     }
 
-    public void main(String[] args, String sample_name, String tn_file, String output) {
-        new RCBSSegmenter(sample_name, tn_file, output);
+    public void main(String[] args, String sample_name, String tn_file, String output, Float min_log_value) {
+        new RCBSSegmenter(sample_name, tn_file, output, min_log_value);
     }
 }

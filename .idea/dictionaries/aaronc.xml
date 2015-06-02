@@ -3456,6 +3456,7 @@
       <w>readhex</w>
       <w>readline</w>
       <w>recalc</w>
+      <w>recapseg</w>
       <w>recast</w>
       <w>reciprocal_trans</w>
       <w>reconcilePropertiesAndPrototype</w>
@@ -3765,6 +3766,7 @@
       <w>seekViewport</w>
       <w>seemsS4Object</w>
       <w>segment</w>
+      <w>segmenter</w>
       <w>segments</w>
       <w>segments.p</w>
       <w>segments.summary</w>

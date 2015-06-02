@@ -23,11 +23,13 @@ public class SegmenterTest {
 
     @Test
     public void testHCC1143() throws IOException {
+        float min_log_value = -10;
         final File INPUT_FILE = new File("src/test/resources/segmenter/input/HCC1143.tsv");
         final File EXPECTED = new File("src/test/resources/segmenter/output/HCC1143_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "HCC1143";
-        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(), output.getAbsolutePath());
+        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(),
+                output.getAbsolutePath(), min_log_value);
         segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
@@ -37,7 +39,9 @@ public class SegmenterTest {
         final List<CSVRecord> expectedRecord = expectedParser.getRecords();
         Assert.assertEquals(resultRecord.size(), expectedRecord.size());
         for (int i=0; i<resultRecord.size(); i++) {
-            Assert.assertEquals(Double.parseDouble(resultRecord.get(i).get("Segment_Mean")), Double.parseDouble(expectedRecord.get(i).get("Segment_Mean")), 0.0000000000001, "Different on line: "+(i+2));
+            Assert.assertEquals(Double.parseDouble(resultRecord.get(i).get("Segment_Mean")),
+                    Double.parseDouble(expectedRecord.get(i).get("Segment_Mean")), 0.0000000000001,
+                    "Different on line: "+(i+2));
         }
         parser.close();
         expectedParser.close();
@@ -45,11 +49,13 @@ public class SegmenterTest {
 
     @Test
     public void testHCC1143Short() throws IOException {
+        float min_log_value = -10;
         final File INPUT_FILE = new File("src/test/resources/segmenter/input/HCC1143_short.tsv");
         final File EXPECTED = new File("src/test/resources/segmenter/output/HCC1143_short_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "HCC1143";
-        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(), output.getAbsolutePath());
+        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(),
+                output.getAbsolutePath(), min_log_value);
         segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
@@ -59,7 +65,9 @@ public class SegmenterTest {
         final List<CSVRecord> expectedRecord = expectedParser.getRecords();
         Assert.assertEquals(resultRecord.size(), expectedRecord.size());
         for (int i=0; i<resultRecord.size(); i++) {
-            Assert.assertEquals(Double.parseDouble(resultRecord.get(i).get("Segment_Mean")), Double.parseDouble(expectedRecord.get(i).get("Segment_Mean")), 0.0000000000001, "Different on line: "+(i+2));
+            Assert.assertEquals(Double.parseDouble(resultRecord.get(i).get("Segment_Mean")),
+                    Double.parseDouble(expectedRecord.get(i).get("Segment_Mean")), 0.0000000000001,
+                    "Different on line: "+(i+2));
         }
         parser.close();
         expectedParser.close();
@@ -67,11 +75,13 @@ public class SegmenterTest {
 
     @Test
     public void testSimple() throws IOException {
+        float min_log_value = -10;
         final File INPUT_FILE = new File("src/test/resources/segmenter/input/Simple.tsv");
         final File EXPECTED = new File("src/test/resources/segmenter/output/Simple_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "Simple";
-        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(), output.getAbsolutePath());
+        final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(),
+                output.getAbsolutePath(), min_log_value);
         segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
@@ -81,7 +91,9 @@ public class SegmenterTest {
         final List<CSVRecord> expectedRecord = expectedParser.getRecords();
         Assert.assertEquals(resultRecord.size(), expectedRecord.size());
         for (int i=0; i<resultRecord.size(); i++) {
-            Assert.assertEquals(Double.parseDouble(resultRecord.get(i).get("Segment_Mean")), Double.parseDouble(expectedRecord.get(i).get("Segment_Mean")), 0.0000000000001, "Different on line: "+(i+2));
+            Assert.assertEquals(Double.parseDouble(resultRecord.get(i).get("Segment_Mean")),
+                    Double.parseDouble(expectedRecord.get(i).get("Segment_Mean")), 0.0000000000001,
+                    "Different on line: "+(i+2));
         }
         parser.close();
         expectedParser.close();
