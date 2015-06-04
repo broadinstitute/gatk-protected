@@ -22,15 +22,14 @@ public class SegmenterTest {
     }
 
     @Test
-    public void testHCC1143() throws IOException {
+    public void testHCC1143Reduced() throws IOException {
         float min_log_value = -10;
-        final File INPUT_FILE = new File("src/test/resources/segmenter/input/HCC1143.tsv");
-        final File EXPECTED = new File("src/test/resources/segmenter/output/HCC1143_result.seg");
+        final File INPUT_FILE = new File("src/test/resources/segmenter/input/HCC1143_reduced.tsv");
+        final File EXPECTED = new File("src/test/resources/segmenter/output/HCC1143_reduced_result.seg");
         final File output = createTempFile("recapseg.HCC1143", ".seg");
         String sampleName = "HCC1143";
         final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(),
                 output.getAbsolutePath(), min_log_value);
-        segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
         final CSVParser parser = new CSVParser(new FileReader(output), CSVFormat.TDF.withHeader());
@@ -56,7 +55,6 @@ public class SegmenterTest {
         String sampleName = "HCC1143";
         final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(),
                 output.getAbsolutePath(), min_log_value);
-        segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
         final CSVParser parser = new CSVParser(new FileReader(output), CSVFormat.TDF.withHeader());
@@ -82,7 +80,6 @@ public class SegmenterTest {
         String sampleName = "Simple";
         final RCBSSegmenter segmenter = new RCBSSegmenter(sampleName, INPUT_FILE.getAbsolutePath(),
                 output.getAbsolutePath(), min_log_value);
-        segmenter.exec();
         Assert.assertTrue(output.exists(), "R library was not written to temp file: " + output);
 
         final CSVParser parser = new CSVParser(new FileReader(output), CSVFormat.TDF.withHeader());
