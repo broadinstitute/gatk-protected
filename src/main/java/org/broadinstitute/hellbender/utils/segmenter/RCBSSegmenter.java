@@ -15,8 +15,4 @@ public final class RCBSSegmenter {
         exectutor.addArgs(sample_name, tn_file, output, min_log_value);
         exectutor.exec();
     }
-
-    public void main(String[] args, String sample_name, String tn_file, String output, Float min_log_value) {
-        new RCBSSegmenter(sample_name, tn_file, output, min_log_value);
-    }
 }
