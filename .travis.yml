@@ -10,16 +10,16 @@ before_install:
 - wget -N https://downloads.gradle.org/distributions/gradle-2.2.1-bin.zip
 - unzip gradle-2.2.1-bin.zip
 - export PATH=`pwd`/gradle-2.2.1/bin:$PATH
-- sudo apt-get install -y --force-yes hdfview
+- apt-get install -y --force-yes hdfview
 # Added from hellbender public
-- sudo mkdir -p /usr/local/lib/R/
+- mkdir -p /usr/local/lib/R/
 - mkdir -p site-library
-- sudo ln -sFv ~/site-library /usr/local/lib/R/site-library
-- sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
-- sudo add-apt-repository "deb http://cran.rstudio.com/bin/linux/ubuntu precise/"
-- sudo apt-get update
-- sudo apt-get install -y r-base-dev=3.1.3-1precise2
-- sudo apt-get install -y --force-yes r-base-core=3.1.3-1precise2
-- sudo Rscript scripts/install_R_packages.R
+- ln -sFv ~/site-library /usr/local/lib/R/site-library
+- apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
+- add-apt-repository "deb http://cran.rstudio.com/bin/linux/ubuntu precise/"
+- apt-get update
+- apt-get install -y r-base-dev=3.1.3-1precise2
+- apt-get install -y --force-yes r-base-core=3.1.3-1precise2
+- Rscript scripts/install_R_packages.R
 after_success:
 - gradle jacocoTestReport coveralls
