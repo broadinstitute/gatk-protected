@@ -8,9 +8,9 @@ addons:
 jdk:
 - oraclejdk8
 env:
+  matrix:
+  - TERM=dumb
   global:
-  - TERM=dumb 
-  - JAVA_LIBRARY_PATH=/usr/lib/jni
   - secure: Da9Brv5WKCE3z0bp5u52X1Rqul5C/r7idGj/yLhHnlEvHXPDQHaGXEQw4fNhRkB586lx6xilO8sra2FHoLDMKsqwE0h2+NKsrHQepTSFOR/fp/otoA/kiBue23ZfhsAEFn/uliVU36xLkt+LsyVqSKa+9JKDA5z1hXSemXGGVGw=
 cache:
   directories:
