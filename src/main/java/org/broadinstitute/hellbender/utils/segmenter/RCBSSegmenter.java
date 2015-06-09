@@ -12,12 +12,18 @@ public final class RCBSSegmenter {
 
     private RCBSSegmenter() {
     }
-
-    public static File segment(String sample_name, String tn_file, String output_file, Float min_log_value) {
+    /**
+     * @param sample_name Name of the sample being run through the segmenter
+     * @param tnFile Tangent-normalized targets file
+     * @param outputFile Full path to the outputted segment file
+     * @param minLogValue Any values under this threshold will be set to it
+     * @return File created by segmenter
+     */
+    public static File segment(String sample_name, String tnFile, String outputFile, Float minLogValue) {
         final RScriptExecutor exectutor = new RScriptExecutor();
         exectutor.addScript(new Resource(R_SCRIPT, RCBSSegmenter.class));
-        exectutor.addArgs(sample_name, tn_file, output_file, min_log_value);
+        exectutor.addArgs(sample_name, tnFile, outputFile, minLogValue);
         exectutor.exec();
-        return new File(output_file);
+        return new File(outputFile);
     }
 }

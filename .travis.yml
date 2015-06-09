@@ -10,7 +10,7 @@ before_install:
 - wget -N https://downloads.gradle.org/distributions/gradle-2.2.1-bin.zip
 - unzip gradle-2.2.1-bin.zip
 - export PATH=`pwd`/gradle-2.2.1/bin:$PATH
-- apt-get install -y --force-yes hdfview
+- sudo apt-get install -y --force-yes hdfview
 # Added from hellbender public
 - mkdir -p /usr/local/lib/R/
 - mkdir -p site-library
