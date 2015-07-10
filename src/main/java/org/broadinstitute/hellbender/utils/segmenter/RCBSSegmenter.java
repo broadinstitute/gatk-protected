@@ -20,10 +20,10 @@ public final class RCBSSegmenter {
      * @return File created by segmenter
      */
     public static File segment(String sample_name, String tnFile, String outputFile, Float minLogValue) {
-        final RScriptExecutor exectutor = new RScriptExecutor();
-        exectutor.addScript(new Resource(R_SCRIPT, RCBSSegmenter.class));
-        exectutor.addArgs(sample_name, tnFile, outputFile, minLogValue);
-        exectutor.exec();
+        final RScriptExecutor executor = new RScriptExecutor();
+        executor.addScript(new Resource(R_SCRIPT, RCBSSegmenter.class));
+        executor.addArgs(sample_name, tnFile, outputFile, minLogValue);
+        executor.exec();
         return new File(outputFile);
     }
 }
