@@ -1,8 +1,10 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.broadinstitute.hellbender.utils.tsv.TableUtils;
+import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +33,30 @@ public final class TargetCoverageUtils {
             return reader.stream().collect(Collectors.toList());
         } catch (UncheckedIOException e) {
             throw e.getCause();
+        }
+    }
+
+    /**
+     * write a list of targets with coverage to file
+     */
+    public static void writeTargetsWithCoverage(final File outFile, final String sampleName,
+                                                List<TargetCoverage> targets) throws IOException {
+        try (final TableWriter<TargetCoverage> writer = TableUtils.writer(outFile,
+                new TableColumnCollection("name", "contig", "start", "stop", sampleName),
+
+                //lambda for filling an initially empty DataLine
+                (target, dataLine) -> {
+                    final String name = target.getName();
+                    final SimpleInterval interval = target.getInterval();
+                    final String contig = interval.getContig();
+                    final int start = interval.getStart();
+                    final int end = interval.getEnd();
+                    final double coverage = target.getCoverage();
+                    dataLine.append(name).append(contig).append(start, end).append(coverage);
+                })) {
+            for (final TargetCoverage target : targets) {
+                writer.writeRecord(target);
+            }
         }
     }
 }

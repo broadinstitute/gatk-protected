@@ -28,16 +28,15 @@ public final class SNPSegmenterUnitTest extends BaseTest {
         final float minLogValue = -10.f;
         final String sampleName = "TCGA-02-0001-01C-01D-0182-01";
 
-        final File snpFile = new File(TEST_SUB_DIR + "snps.simplified_for_allelic_fraction_segmentation.tsv");
+        final File snpFile = new File(TEST_SUB_DIR + "snps-simplified-for-allelic-fraction-segmentation.tsv");
         final List<AllelicCount> snpCounts = new Pulldown(snpFile, hg19Header).asList();
 
         final File resultFile = createTempFile("snp-segmenter-test-result", ".seg");
-        final File segmentFile = SNPSegmenter.findSegments(snpCounts, allelicFractionSkew, sampleName,
-                resultFile, minLogValue);
+        SNPSegmenter.writeSegmentFile(snpCounts, allelicFractionSkew, sampleName, resultFile, minLogValue);
 
         final File expectedFile = new File(TEST_SUB_DIR + "snp-segmenter-test-expected.seg");
 
-        Assert.assertTrue(segmentFile.exists(), "SNPSegmenterTest output was not written to temp file: " + resultFile);
+        Assert.assertTrue(resultFile.exists(), "SNPSegmenterTest output was not written to temp file: " + resultFile);
         assertEqualSegments(resultFile, expectedFile);
     }
 
@@ -46,7 +45,7 @@ public final class SNPSegmenterUnitTest extends BaseTest {
     public void testTransformAllelicCounts() throws IOException {
         final double allelicFractionSkew = 0.96;
 
-        final File snpFile = new File(TEST_SUB_DIR + "snps.simplified_for_allelic_fraction_transformation.tsv");
+        final File snpFile = new File(TEST_SUB_DIR + "snps-simplified-for-allelic-fraction-transformation.tsv");
         final List<AllelicCount> snpCounts = new Pulldown(snpFile, hg19Header).asList();
 
         final List<TargetCoverage> resultTargets = snpCounts.stream()

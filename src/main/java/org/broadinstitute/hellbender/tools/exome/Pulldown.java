@@ -119,4 +119,11 @@ public final class Pulldown {
         final Pulldown pulldown = (Pulldown) o;
         return header.equals(pulldown.header) && counts.equals(pulldown.counts);
     }
+
+    @Override
+    public int hashCode() {
+        int result = header.hashCode();
+        result = 31 * result + counts.hashCode();
+        return result;
+    }
 }

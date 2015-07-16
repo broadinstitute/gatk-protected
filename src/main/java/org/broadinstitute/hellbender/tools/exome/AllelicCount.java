@@ -3,9 +3,6 @@ package org.broadinstitute.hellbender.tools.exome;
 import htsjdk.samtools.util.Interval;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 /**
  * Reference and alternate allele counts at a SNP site specified by an interval.
  *
@@ -46,5 +43,13 @@ public final class AllelicCount {
         final AllelicCount count = (AllelicCount) o;
         return interval.equals(count.interval) && refReadCount == count.refReadCount
                 && altReadCount == count.altReadCount;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = interval.hashCode();
+        result = 31 * result + refReadCount;
+        result = 31 * result + altReadCount;
+        return result;
     }
 }
