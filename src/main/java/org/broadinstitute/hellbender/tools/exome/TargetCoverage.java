@@ -73,4 +73,20 @@ public final class TargetCoverage extends Target {
             }
         }
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof TargetCoverage)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        TargetCoverage that = (TargetCoverage) o;
+        return getInterval().equals(that.getInterval()) && Math.abs(coverage - that.coverage) < 0.0000000000001;
+    }
 }
