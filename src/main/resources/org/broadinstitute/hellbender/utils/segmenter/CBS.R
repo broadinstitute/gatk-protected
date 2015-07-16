@@ -22,7 +22,7 @@ output_file=argv[["output_file"]]
 # Use a function for debugging purposes
 segment_data = function(sample_name, tn_file, output_file, min_log_value=-10) {
 	# Read in file and extract needed data
-	tn = read.table(tn_file, sep="\t", stringsAsFactors=FALSE, header=TRUE)
+	tn = read.table(tn_file, sep="\t", stringsAsFactors=FALSE, header=TRUE, check.names=FALSE)
 	contig = tn[,"contig"]
 	pos = tn[,"stop"]
 	dat = 2^tn[,sample_name]
@@ -41,6 +41,9 @@ segment_data = function(sample_name, tn_file, output_file, min_log_value=-10) {
 
 	# Convention for column names
 	colnames(segmented) = c("Sample", "Chromosome", "Start", "End", "Num_Probes", "Segment_Mean")
+
+	# Undo conversion of sample_name to R format (retain dashes, spaces, etc.)
+	segmented[,"Sample"] = sample_name
 
     # Order based on contig (already ordered based on start)
     sorting = unique(naturalsort(segmented[,"Chromosome"]))

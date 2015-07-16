@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.tools.exome;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.broadinstitute.hellbender.utils.tsv.TableUtils;
+import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,26 +50,27 @@ public final class TargetCoverage extends Target {
         this.coverage = coverage;
     }
 
-<<<<<<< HEAD
-=======
     /**
-     * read a list of targets with coverage from a file
+     * write a list of targets with coverage to file
      */
-    public static List<TargetCoverage> readTargetsWithCoverage(final File file) throws IOException {
-        try (final TableReader<TargetCoverage> reader = TableUtils.reader(file,
-                (columns, formatExceptionFactory) -> {
-                    if (!columns.matchesAll(0, "CONTIG", "START", "END", "NAME"))   //coverage is fifth column w/ header = <sample name>
-                        throw formatExceptionFactory.apply("Bad header");
+    public static void writeTargetsWithCoverage(final File outFile, final String sampleName,
+                                                List<TargetCoverage> targets) throws IOException {
+        try (final TableWriter<TargetCoverage> writer = TableUtils.writer(outFile,
+                new TableColumnCollection("name", "contig", "start", "stop", sampleName),
 
-                    // return the lambda to translate dataLines into targets.
-                    return (dataLine) -> new TargetCoverage(dataLine.get(3),
-                            new SimpleInterval(dataLine.get(0), dataLine.getInt(1), dataLine.getInt(2)),
-                            dataLine.getDouble(4));
+                //lambda for filling an initially empty DataLine
+                (target, dataLine) -> {
+                    final String name = target.getName();
+                    final SimpleInterval interval = target.getInterval();
+                    final String contig = interval.getContig();
+                    final int start = interval.getStart();
+                    final int end = interval.getEnd();
+                    final double coverage = target.getCoverage();
+                    dataLine.append(name).append(contig).append(start, end).append(coverage);
                 })) {
-            return reader.stream().collect(Collectors.toList());
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
+            for (final TargetCoverage target : targets) {
+                writer.writeRecord(target);
+            }
         }
     }
->>>>>>> 5a9f284... Port of ReCapSeg Caller
 }

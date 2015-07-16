@@ -27,9 +27,9 @@ public final class AllelicCount {
 
     public int getAltReadCount() {  return altReadCount;        }
 
-    public TargetCoverage asTargetCoverage(final double allelicFractionSkew) {
-        final double coverage = ((double) altReadCount / (refReadCount + altReadCount)) - (allelicFractionSkew/2.);
-        final TargetCoverage countAsTargetCoverage = new TargetCoverage("target", new SimpleInterval(interval),
+    public TargetCoverage asTargetCoverage(final String name, final double allelicFractionSkew) {
+        final double coverage = Math.abs((double) altReadCount / (refReadCount + altReadCount) - allelicFractionSkew/2);
+        final TargetCoverage countAsTargetCoverage = new TargetCoverage(name, new SimpleInterval(interval),
                 coverage);
         return countAsTargetCoverage;
     }

@@ -1,9 +1,47 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-//class SNPSegmenterTest(unittest.TestCase):
+import org.broadinstitute.hellbender.utils.test.BaseTest;
+import org.broadinstitute.hellbender.utils.tsv.DataLine;
+import org.broadinstitute.hellbender.utils.tsv.TableReader;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
-//
-//        def test_transform_allelic_fractions(self):
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Unit tests for {@link SNPSegmenter}.
+ *
+ * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
+ */
+public final class SNPSegmenterUnitTest extends BaseTest {
+    private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/tools/exome/";
+
+    //Tests that segments are correctly determined using allelic-count data from SNPs.
+    @Test
+    public void testAllelicFractionBasedSegmentation() throws IOException {
+        final double allelicFractionSkew = 1.;
+        final float minLogValue = -10.f;
+        final String sampleName = "TCGA-02-0001-01C-01D-0182-01";
+        final File snpFile = new File(TEST_SUB_DIR + "snps.simplified_for_allelic_fraction_segmentation.tsv");
+        final File expectedFile = new File(TEST_SUB_DIR + "snp-segmenter-test-expected.seg");
+
+        final List<AllelicCount> snpCounts = new Pulldown(snpFile, hg19Header).asList();
+
+        final File resultFile = createTempFile("snp-segmenter-test-result", ".seg");
+        final File segmentFile = SNPSegmenter.findSegments(snpCounts, allelicFractionSkew, sampleName,
+                resultFile, minLogValue);
+        Assert.assertTrue(segmentFile.exists(), "SNPSegmenterTest output was not written to temp file: " + resultFile);
+        assertEqualSegments(resultFile, expectedFile);
+    }
+
+    //        def test_transform_allelic_fractions(self):
 //        """
 //        Tests that the allelic fractions are transformed correctly.
 //        """
@@ -46,54 +84,8 @@ package org.broadinstitute.hellbender.tools.exome;
 //        "Transformed allelic fraction must be %s but it was %s."
 //        % (gt_transformed_allelic_fractions[index], transformed_allelic_fraction))
 
-import htsjdk.samtools.SAMFileHeader;
-import htsjdk.samtools.SAMFileReader;
-import htsjdk.samtools.SamReader;
-import htsjdk.samtools.SamReaderFactory;
-import org.broadinstitute.hellbender.utils.GenomeLocParser;
-import org.broadinstitute.hellbender.utils.fasta.CachingIndexedFastaSequenceFile;
-import org.broadinstitute.hellbender.utils.test.BaseTest;
-import org.broadinstitute.hellbender.utils.tsv.DataLine;
-import org.broadinstitute.hellbender.utils.tsv.TableReader;
-import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
-
-/**
- * Unit tests for {@link SNPSegmenter}.
- *
- * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
- */
-public final class SNPSegmenterUnitTest extends BaseTest {
-    private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/tools/exome/";
-
-    //Tests that segments are correctly determined using allelic-count data from SNPs.
-    @Test
-    public void testAllelicFractionBasedSegmentation() throws IOException {
-        final double allelicFractionSkew = 1.;
-        final float minLogValue = -10.f;
-        final String sampleName = "TCGA-02-0001-01C-01D-0182-01";
-        final File snpFile = new File(TEST_SUB_DIR + "snps.simplified_for_allelic_fraction_transformation.tsv");
-        final File expectedFile = new File(TEST_SUB_DIR + "snp-segmenter-test-expected.seg");
-
-        final List<AllelicCount> snpCounts = new Pulldown(snpFile, hg19Header).asList();
-
-        final File resultFile = createTempFile("snp-segmenter-test-result", ".seg");
-        final File segmentFile = SNPSegmenter.findSegments(snpCounts, allelicFractionSkew, sampleName,
-                resultFile, minLogValue);
-
-        Assert.assertTrue(segmentFile.exists(), "SNPSegmenterTest output was not written to temp file: " + resultFile);
-        assertEqualSegments(resultFile, expectedFile);
-    }
-
     /**
-     * Compares the content of two segmenter output files.  Borrowed from SegmenterTest, extract later?
+     * Compares the content of two segmenter output files.
      * @param actualOutput the actual segmenter output containing file.
      * @param expectedOutput the expected segmenter output containing file.
      * @throws NullPointerException if either {@code actualOutput} or {@code expectedOutput} is {@code null}.
@@ -103,29 +95,28 @@ public final class SNPSegmenterUnitTest extends BaseTest {
     private void assertEqualSegments(final File actualOutput, final File expectedOutput) throws IOException {
         try (final SegmentReader actual = new SegmentReader(actualOutput);
              final SegmentReader expected = new SegmentReader(expectedOutput)) {
-            final List<Segment> actualSegments = actual.stream().collect(Collectors.toList());
-            final List<Segment> expectedSegments = expected.stream().collect(Collectors.toList());
-            Assert.assertEquals(actualSegments, expectedSegments);
+            final List<SegmentMean> actualSegmentMeans = actual.stream().collect(Collectors.toList());
+            final List<SegmentMean> expectedSegmentMeans = expected.stream().collect(Collectors.toList());
+            Assert.assertEquals(actualSegmentMeans, expectedSegmentMeans);
         }
     }
 
     /**
-     * Represent a Segment in the segmenter output.  Borrowed from SegmenterTest, temporary until structure of
-     * ModelSegment class decided on.
+     * Represent a Segment in the segmenter output.
      */
-    private static class Segment {
+    private static class SegmentMean {
         public final double segmentMean;
 
-        public Segment(final double segmentMean) {
+        public SegmentMean(final double segmentMean) {
             this.segmentMean = segmentMean;
         }
 
         @Override
         public boolean equals(final Object other) {
-            if (!(other instanceof Segment))
+            if (!(other instanceof SegmentMean))
                 return false;
-            final Segment otherSegment = (Segment) other;
-            return Math.abs(otherSegment.segmentMean - segmentMean) < 0.0000000000001;
+            final SegmentMean otherSegmentMean = (SegmentMean) other;
+            return Math.abs(otherSegmentMean.segmentMean - segmentMean) < 0.0000000000001;
         }
 
         @Override
@@ -135,17 +126,16 @@ public final class SNPSegmenterUnitTest extends BaseTest {
     }
 
     /**
-     * Tsv reader for the Segmenter output.  Borrowed from SegmenterTest, temporary until structure of
-     * ModelSegment class decided on.
+     * Tsv reader for the Segmenter output.
      */
-    private static class SegmentReader extends TableReader<Segment> {
+    private static class SegmentReader extends TableReader<SegmentMean> {
         public SegmentReader(final File file) throws IOException {
             super(file);
         }
 
         @Override
-        protected Segment createRecord(DataLine dataLine) {
-            return new Segment(dataLine.getDouble("Segment_Mean"));
+        protected SegmentMean createRecord(DataLine dataLine) {
+            return new SegmentMean(dataLine.getDouble("Segment_Mean"));
         }
     }
 }

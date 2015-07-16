@@ -43,7 +43,7 @@ public final class Pulldown {
 
         try (final TableReader<AllelicCount> reader = TableUtils.reader(inputFile,
                 (columns, formatExceptionFactory) -> {
-                    if (!columns.matchesExactly("SEQ", "POS", "REF", "ALT"))
+                    if (!columns.matchesExactly("SEQ", "POS", "REF_COUNT", "ALT_COUNT"))
                         throw formatExceptionFactory.apply("Bad header");
 
                     // return the lambda to translate dataLines into Pulldown rows.
@@ -90,9 +90,8 @@ public final class Pulldown {
      * @param outputFile    file to write to (if it exists, it will be overwritten)
      */
     public void write(final File outputFile) {
-
         try (final TableWriter<AllelicCount> writer = TableUtils.writer(outputFile,
-                new TableColumnCollection("SEQ", "POS", "REF", "ALT"),
+                new TableColumnCollection("SEQ", "POS", "REF_COUNT", "ALT_COUNT"),
                 //lambda for filling an initially empty DataLine
                 (count, dataLine) -> {
                     final Interval interval = count.getInterval();
