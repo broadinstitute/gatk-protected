@@ -3,6 +3,15 @@ package org.broadinstitute.hellbender.tools.exome;
 import htsjdk.samtools.util.Locatable;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
+import org.broadinstitute.hellbender.utils.tsv.TableReader;
+import org.broadinstitute.hellbender.utils.tsv.TableUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Exome analysis target.
@@ -55,7 +64,7 @@ public class Target implements Locatable {
         return name;
     }
 
-    /*
+    /**
      * Three methods to implement Locatable
      */
 
