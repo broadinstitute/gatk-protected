@@ -55,7 +55,7 @@ public class Target implements Locatable {
         return name;
     }
 
-    /*
+    /**
      * Three methods to implement Locatable
      */
 
