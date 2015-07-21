@@ -22,7 +22,9 @@ public final class RCBSSegmenter {
     public static File segment(String sample_name, String tnFile, String outputFile, Float minLogValue) {
         final RScriptExecutor exectutor = new RScriptExecutor();
         exectutor.addScript(new Resource(R_SCRIPT, RCBSSegmenter.class));
-        exectutor.addArgs(sample_name, tnFile, outputFile, minLogValue);
+        /*--args is needed for Rscript to recognize other arguments properly*/
+        exectutor.addArgs("--args", "--sample_name="+sample_name, "--targets_file="+tnFile, "--output_file="+outputFile,
+                "--min_log_value="+minLogValue);
         exectutor.exec();
         return new File(outputFile);
     }
