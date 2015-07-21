@@ -23,8 +23,8 @@ output_file=argv[["output_file"]]
 segment_data = function(sample_name, tn_file, output_file, min_log_value=-10) {
 	# Read in file and extract needed data
 	tn = read.table(tn_file, sep="\t", stringsAsFactors=FALSE, header=TRUE, check.names=FALSE)
-	contig = tn[,"contig"]
-	pos = tn[,"stop"]
+	contig = tn[,"CONTIG"]
+	pos = tn[,"END"]
 	dat = 2^tn[,sample_name]
 
 	# Create CNA object

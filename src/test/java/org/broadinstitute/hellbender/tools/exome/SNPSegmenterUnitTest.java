@@ -2,8 +2,6 @@ package org.broadinstitute.hellbender.tools.exome;
 
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
-import org.broadinstitute.hellbender.utils.tsv.DataLine;
-import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -29,7 +27,7 @@ public final class SNPSegmenterUnitTest extends BaseTest {
         final String sampleName = "TCGA-02-0001-01C-01D-0182-01";
 
         final File snpFile = new File(TEST_SUB_DIR + "snps-simplified-for-allelic-fraction-segmentation.tsv");
-        final List<AllelicCount> snpCounts = new Pulldown(snpFile, hg19Header).asList();
+        final List<AllelicCount> snpCounts = new AllelicCountCollection(snpFile).getCounts();
 
         final File resultFile = createTempFile("snp-segmenter-test-result", ".seg");
         SNPSegmenter.writeSegmentFile(snpCounts, allelicFractionSkew, sampleName, resultFile, minLogValue);
@@ -37,7 +35,17 @@ public final class SNPSegmenterUnitTest extends BaseTest {
         final File expectedFile = new File(TEST_SUB_DIR + "snp-segmenter-test-expected.seg");
 
         Assert.assertTrue(resultFile.exists(), "SNPSegmenterTest output was not written to temp file: " + resultFile);
-        assertEqualSegments(resultFile, expectedFile);
+
+//        TODO fix this up once Segment is refactored
+        final List<TargetCoverage> targetsFromSNPCounts = snpCounts.stream()
+                .map(count -> count.asTargetCoverage("snp-target", allelicFractionSkew)).collect(Collectors.toList());
+        final ExonCollection<TargetCoverage> exonCollectionFromSNPCounts =
+                new HashedListExonCollection<>(targetsFromSNPCounts);
+
+        final List<Segment> result = SegmentUtils.readUncalledSegments(resultFile, exonCollectionFromSNPCounts);
+        final List<Segment> expected = SegmentUtils.readUncalledSegments(expectedFile, exonCollectionFromSNPCounts);
+
+        Assert.assertEquals(result, expected);
     }
 
     //Tests that allelic counts are correctly transformed to target coverages.
@@ -46,7 +54,7 @@ public final class SNPSegmenterUnitTest extends BaseTest {
         final double allelicFractionSkew = 0.96;
 
         final File snpFile = new File(TEST_SUB_DIR + "snps-simplified-for-allelic-fraction-transformation.tsv");
-        final List<AllelicCount> snpCounts = new Pulldown(snpFile, hg19Header).asList();
+        final List<AllelicCount> snpCounts = new AllelicCountCollection(snpFile).getCounts();
 
         final List<TargetCoverage> resultTargets = snpCounts.stream()
                 .map(count -> count.asTargetCoverage("snp-target", allelicFractionSkew)).collect(Collectors.toList());
@@ -73,62 +81,5 @@ public final class SNPSegmenterUnitTest extends BaseTest {
             new TargetCoverage("snp-target", new SimpleInterval("1", 704935, 704935), 0.4597979797979797));
 
         Assert.assertEquals(resultTargets, expectedTargets);
-    }
-
-    /**
-     * Compares the content of two segmenter output files.
-     * @param actualOutput the actual segmenter output containing file.
-     * @param expectedOutput the expected segmenter output containing file.
-     * @throws NullPointerException if either {@code actualOutput} or {@code expectedOutput} is {@code null}.
-     * @throws IOException if any was thrown when reading the input files.
-     * @throws AssertionError if there are significant between both files.
-     */
-    private void assertEqualSegments(final File actualOutput, final File expectedOutput) throws IOException {
-        try (final SegmentReader actual = new SegmentReader(actualOutput);
-             final SegmentReader expected = new SegmentReader(expectedOutput)) {
-            final List<SegmentMean> actualSegmentMeans = actual.stream().collect(Collectors.toList());
-            final List<SegmentMean> expectedSegmentMeans = expected.stream().collect(Collectors.toList());
-            Assert.assertEquals(actualSegmentMeans, expectedSegmentMeans);
-        }
-    }
-
-    /**
-     * Represent a Segment in the segmenter output.
-     */
-    private static class SegmentMean {
-        public final double segmentMean;
-
-        public SegmentMean(final double segmentMean) {
-            this.segmentMean = segmentMean;
-        }
-
-        @Override
-        public boolean equals(final Object other) {
-            if (!(other instanceof SegmentMean)) {
-                return false;
-            }
-
-            final SegmentMean otherSegmentMean = (SegmentMean) other;
-            return Math.abs(otherSegmentMean.segmentMean - segmentMean) < 0.0000000000001;
-        }
-
-        @Override
-        public int hashCode() {
-            return Double.hashCode(segmentMean);
-        }
-    }
-
-    /**
-     * Tsv reader for the Segmenter output.
-     */
-    private static class SegmentReader extends TableReader<SegmentMean> {
-        public SegmentReader(final File file) throws IOException {
-            super(file);
-        }
-
-        @Override
-        protected SegmentMean createRecord(DataLine dataLine) {
-            return new SegmentMean(dataLine.getDouble("Segment_Mean"));
-        }
     }
 }

@@ -42,17 +42,17 @@ public final class TargetCoverageUtils {
     public static void writeTargetsWithCoverage(final File outFile, final String sampleName,
                                                 List<TargetCoverage> targets) throws IOException {
         try (final TableWriter<TargetCoverage> writer = TableUtils.writer(outFile,
-                new TableColumnCollection("name", "contig", "start", "stop", sampleName),
+                new TableColumnCollection("CONTIG", "START", "END", "NAME", sampleName),
 
                 //lambda for filling an initially empty DataLine
                 (target, dataLine) -> {
-                    final String name = target.getName();
                     final SimpleInterval interval = target.getInterval();
                     final String contig = interval.getContig();
                     final int start = interval.getStart();
                     final int end = interval.getEnd();
+                    final String name = target.getName();
                     final double coverage = target.getCoverage();
-                    dataLine.append(name).append(contig).append(start, end).append(coverage);
+                    dataLine.append(contig).append(start, end).append(name).append(coverage);
                 })) {
             for (final TargetCoverage target : targets) {
                 writer.writeRecord(target);

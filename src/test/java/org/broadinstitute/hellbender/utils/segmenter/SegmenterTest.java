@@ -69,6 +69,7 @@ public class SegmenterTest extends BaseTest {
         }
     }
 
+    //        TODO fix this up once Segment is refactored
     /**
      * Represent a Segment in the segmenter output.
      */
