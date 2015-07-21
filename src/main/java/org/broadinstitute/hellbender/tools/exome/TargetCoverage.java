@@ -1,14 +1,6 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import org.broadinstitute.hellbender.utils.SimpleInterval;
-import org.broadinstitute.hellbender.utils.tsv.TableReader;
-import org.broadinstitute.hellbender.utils.tsv.TableUtils;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Exome analysis target with coverage
@@ -49,4 +41,19 @@ public final class TargetCoverage extends Target {
         this.coverage = coverage;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof TargetCoverage)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        TargetCoverage that = (TargetCoverage) o;
+        return getInterval().equals(that.getInterval()) && Math.abs(coverage - that.coverage) < 0.0000000000001;
+    }
 }
