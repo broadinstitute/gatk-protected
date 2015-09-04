@@ -1,6 +1,4 @@
-# This is some random comment
-# Hello world
-CONTIG	START	END	NAME	MySampleName
+contig	start	stop	name	MySampleName
 chr	100	101	arbitrary_name	1.0
 chr	102	103	arbitrary_name	1.0
 chr	104	105	arbitrary_name	1.0

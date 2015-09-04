@@ -68,6 +68,26 @@ public final class TargetCoverageUtils {
         }
     }
 
+    public static TargetCollection<TargetCoverage> readReadCountCollectionIntoTargetCollection(final File file) {
+        try (final TableReader<TargetCoverage> reader = TableUtils.reader(file,
+                (columns, formatExceptionFactory) -> {
+                    if (!columns.containsAll(ExomeReadCounts.EXON_NAME_COLUMN_NAME, ExomeReadCounts.EXON_CONTIG_COLUMN_NAME, ExomeReadCounts.EXON_START_COLUMN_NAME,
+                            ExomeReadCounts.EXON_END_COLUMN_NAME) || (columns.columnCount() < 5))
+
+                        throw formatExceptionFactory.apply("Bad header");
+                    //return the lambda to translate dataLines into targets
+                    //coverage is fifth column w/ header = <sample name>, so we use the column index.
+                    return (dataLine) -> new TargetCoverage(dataLine.get(ExomeReadCounts.EXON_NAME_COLUMN_NAME),
+                            new SimpleInterval(dataLine.get(ExomeReadCounts.EXON_CONTIG_COLUMN_NAME),
+                                    dataLine.getInt(ExomeReadCounts.EXON_START_COLUMN_NAME), dataLine.getInt(ExomeReadCounts.EXON_END_COLUMN_NAME)),
+                            dataLine.getDouble(4));
+                })) {
+            return new HashedListTargetCollection<>(reader.stream().collect(Collectors.toList()));
+        } catch (final IOException | UncheckedIOException e) {
+            throw new UserException.CouldNotReadInputFile(file, e);
+        }
+    }
+
 
     /**
      * write a list of targets with coverage to file
