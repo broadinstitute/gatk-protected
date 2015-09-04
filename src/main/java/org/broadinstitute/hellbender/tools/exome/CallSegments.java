@@ -36,6 +36,9 @@ public final class CallSegments extends CommandLineProgram{
     protected static final String Z_THRESHOLD_SHORT_NAME = "Z";
     protected static final String Z_THRESHOLD_LONG_NAME = "threshold";
 
+    protected static final String LEGACY_FORMAT_SHORT_NAME = "legacy";
+    protected static final String LEGACY_FORMAT_LONG_NAME = "is_legacy_format";
+
     protected static final String SAMPLE_LONG_NAME = "sample";
 
     @Argument(
@@ -79,11 +82,26 @@ public final class CallSegments extends CommandLineProgram{
     )
     protected double zThreshold = ReCapSegCaller.DEFAULT_Z_SCORE_THRESHOLD;
 
+    @Argument(
+            doc = "(Advanced) Use the python recapseg target format (*.tn.*) as input, which is typically generated " +
+                    "by ``recapseg tumor_pcov``, instead of the Hellbender format.",
+            shortName = LEGACY_FORMAT_SHORT_NAME,
+            fullName = LEGACY_FORMAT_LONG_NAME,
+            optional = true
+
+    )
+    protected boolean isLegacy = false;
+
+
     @Override
     protected Object doWork() {
 
-
-        final TargetCollection<TargetCoverage> targets = TargetCoverageUtils.readModeledTargetFileIntoTargetCollection(targetsFile);
+        TargetCollection<TargetCoverage> targets;
+        if (isLegacy) {
+            targets = TargetCoverageUtils.readModeledTargetFileIntoTargetCollection(targetsFile);
+        } else {
+            targets = TargetCoverageUtils.readReadCountCollectionIntoTargetCollection(targetsFile);
+        }
 
         final List<ModeledSegment> segments = SegmentUtils.readModeledSegmentsFromSegfile(segmentsFile);
 
