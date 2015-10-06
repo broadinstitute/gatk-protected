@@ -1,7 +1,6 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import htsjdk.samtools.util.IntervalList;
-import org.apache.logging.log4j.Level;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.ArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
@@ -113,17 +112,17 @@ public final class GetHetCoverage extends CommandLineProgram {
 
         final HetPulldownCalculator hetPulldown = new HetPulldownCalculator(REF_ARGUMENTS.getReferenceFile(), snpFile);
 
-        logger.log(Level.INFO, "Getting normal het pulldown...");
+        logger.info("Getting normal het pulldown...");
         final Pulldown normalHetPulldown = hetPulldown.getNormal(normalBAMFile, hetAlleleFraction, pvalThreshold);
         normalHetPulldown.write(normalHetOutputFile);
-        logger.log(Level.INFO, "Normal het pulldown written to " + normalHetOutputFile.toString());
+        logger.info("Normal het pulldown written to " + normalHetOutputFile.toString());
 
         final IntervalList normalHetIntervals = normalHetPulldown.getIntervals();
 
-        logger.log(Level.INFO, "Getting tumor het pulldown...");
+        logger.info("Getting tumor het pulldown...");
         final Pulldown tumorHetPulldown = hetPulldown.getTumor(tumorBAMFile, normalHetIntervals);
         tumorHetPulldown.write(tumorHetOutputFile);
-        logger.log(Level.INFO, "Tumor het pulldown written to " + tumorHetOutputFile.toString());
+        logger.info("Tumor het pulldown written to " + tumorHetOutputFile.toString());
 
         return "SUCCESS";
     }
