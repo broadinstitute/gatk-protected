@@ -10,7 +10,7 @@ import java.util.List;
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
-public interface LocalSampler {
+public interface LocalSampler<T extends DataCollection> {
     /**
      * Generate a single sample of a local parameter (i.e., a list of segment-level or site-level samples)
      * from its conditional probability density function, which is a vector-valued function that depends on global
@@ -19,10 +19,10 @@ public interface LocalSampler {
      * @param rng               random number generator
      * @param globalParameters  list of global-parameter values
      * @param localParameters   list of lists of local-parameter values at each segment or site
-     * @param data              list of lists of data (e.g., a list of lists of site-level ref and alt counts)
+     * @param dataCollection    collection of data sets (e.g., site-level ref and alt counts)
      * @return                  single sample of a local parameter (i.e., a list of segment-level or site-level samples)
      */
     List<Double> sample(final RandomGenerator rng,
                         final List<Double> globalParameters, final List<List<Double>> localParameters,
-                        final List<List<Double>> data);
+                        final T dataCollection);
 }

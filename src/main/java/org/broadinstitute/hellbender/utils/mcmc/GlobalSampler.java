@@ -10,7 +10,7 @@ import java.util.List;
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
-public interface GlobalSampler {
+public interface GlobalSampler<T extends DataCollection> {
     /**
      * Generate a single sample of a global parameter from its conditional probability density function,
      * which is a univariate function that depends on global parameters, local (i.e., segment-level or site-level)
@@ -19,10 +19,10 @@ public interface GlobalSampler {
      * @param rng               random number generator
      * @param globalParameters  list of global-parameter values
      * @param localParameters   list of lists of local-parameter values at each segment or site
-     * @param data              list of lists of data (e.g., a list of lists of site-level ref and alt counts)
+     * @param dataCollection    collection of data sets (e.g., site-level ref and alt counts)
      * @return                  single sample of a global parameter
      */
     double sample(final RandomGenerator rng,
                   final List<Double> globalParameters, final List<List<Double>> localParameters,
-                  final List<List<Double>> data);
+                  final T dataCollection);
 }
