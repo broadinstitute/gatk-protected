@@ -31,7 +31,6 @@ public final class SliceSampler {
      * Creates a new sampler, given a random number generator, a continuous, univariate, unimodal
      * log probability density function, an initial value of the random variable to use in slice construction,
      * hard limits on the random variable, and a step width.
-     *
      * @param rng      random number generator
      * @param logPDF   continuous, univariate, unimodal log probability density function (up to proportionality)
      * @param xInitial initial value to use in slice construction; if outside [xMin, xMax], forced to be within
@@ -48,6 +47,20 @@ public final class SliceSampler {
         this.xMax = xMax;
         this.width = width;
         this.exponentialDistribution = new ExponentialDistribution(rng, 1.);
+    }
+
+    /**
+     * Creates a new sampler, given a random number generator, a continuous, univariate, unimodal
+     * log probability density function, an initial value of the random variable to use in slice construction,
+     * and a step width.
+     * @param rng      random number generator
+     * @param logPDF   continuous, univariate, unimodal log probability density function (up to proportionality)
+     * @param xInitial initial value to use in slice construction
+     * @param width    step width for slice expansion
+     */
+    public SliceSampler(final RandomGenerator rng, final Function<Double, Double> logPDF,
+                        final double xInitial, final double width) {
+        this(rng, logPDF, xInitial, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, width);
     }
 
     /**

@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
-public final class GibbsSampler<T extends ParameterizedState, U extends DataCollection> {
+public final class GibbsSampler {
     private static final int RANDOM_SEED = 42;
     private static final RandomGenerator rng =
             RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
@@ -29,13 +29,13 @@ public final class GibbsSampler<T extends ParameterizedState, U extends DataColl
 
     private final int numSamples;
 
-    private final ParameterizedModel<T, U> model;
+    private final ParameterizedModel model;
 
-    private final List<T> samples;
+    private final List<ParameterizedState> samples;
 
     private boolean isMCMCRunComplete = false;
 
-    public GibbsSampler(final int numSamples, final ParameterizedModel<T, U> model) {
+    public GibbsSampler(final int numSamples, final ParameterizedModel model) {
         if (numSamples <= 0) {
             throw new IllegalArgumentException("Number of samples must be positive.");
         }
@@ -51,7 +51,7 @@ public final class GibbsSampler<T extends ParameterizedState, U extends DataColl
             if (sample % NUMBER_OF_SAMPLES_PER_LOG_ENTRY == 0) {
                 logger.info(sample + " of " + numSamples + " samples generated.");
             }
-            model.doGibbsUpdate(rng);
+            model.update(rng);
             samples.add(model.state());
         }
         logger.info(numSamples + " of " + numSamples + " samples generated.");
@@ -59,13 +59,13 @@ public final class GibbsSampler<T extends ParameterizedState, U extends DataColl
         isMCMCRunComplete = true;
     }
 
-    public <T> List<T> getSamples(final String parameterName, final int numBurnIn) {
+    public <T> List<T> getSamples(final String parameterName, final Class<T> type, final int numBurnIn) {
         if (numBurnIn < 0 || numBurnIn >= numSamples) {
             throw new IllegalArgumentException("Invalid number of burn-in samples.");
         }
         if (!isMCMCRunComplete) {
             runMCMC();
         }
-        return (List<T>) samples.stream().map(s -> s.getParameter(parameterName).value()).collect(Collectors.toList()).subList(numBurnIn, numSamples);
+        return samples.stream().map(s -> s.get(parameterName, type)).collect(Collectors.toList()).subList(numBurnIn, numSamples);
     }
 }

@@ -24,13 +24,13 @@ public final class SliceSamplerUnitTest {
     private static final RandomGenerator rng =
             RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
 
-    private static double relativeError(final double x, final double y) {
-        return Math.abs(x - y) / (2 * (x + y));
+    private static double relativeError(final double x, final double xTrue) {
+        return Math.abs((x - xTrue) / xTrue);
     }
 
     /**
      * Test slice sampling of a normal distribution.  Checks that input mean and standard deviation are recovered
-     * to a relative error of 0.1 % and 1%, respectively.
+     * by 20000 samples to a relative error of 0.05% and 2%, respectively.
      */
     @Test
     public void testSliceSamplingOfNormalDistribution() {
@@ -43,13 +43,13 @@ public final class SliceSamplerUnitTest {
         final double xMin = Double.NEGATIVE_INFINITY;
         final double xMax = Double.POSITIVE_INFINITY;
         final double width = 0.5;
-        final int numSamples = 10000;
+        final int numSamples = 20000;
         final SliceSampler normalSampler = new SliceSampler(rng, normalLogPDF, xInitial, xMin, xMax, width);
         final List<Double> samples = normalSampler.sample(numSamples);
 
         final double sampleMean = new Mean().evaluate(Doubles.toArray(samples));
         final double sampleStandardDeviation = new StandardDeviation().evaluate(Doubles.toArray(samples));
-        Assert.assertEquals(relativeError(sampleMean, mean), 0., 0.001);
-        Assert.assertEquals(relativeError(sampleStandardDeviation, standardDeviation), 0., 0.01);
+        Assert.assertEquals(relativeError(sampleMean, mean), 0., 0.0005);
+        Assert.assertEquals(relativeError(sampleStandardDeviation, standardDeviation), 0., 0.02);
     }
 }

@@ -2,23 +2,32 @@ package org.broadinstitute.hellbender.utils.mcmc;
 
 import org.broadinstitute.hellbender.utils.Utils;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class DataCollection {
-    private final List<Data> collection;
+public final class DataCollection {
+    private final Map<String, Data<?>> datasetMap = new HashMap<>();
 
-    public DataCollection(final List<Data> collection) {
-        Utils.nonNull(collection, "The data collection cannot be null.");
-        this.collection = new ArrayList<>(collection);
+    public DataCollection(final List<Data<?>> datasets) {
+        Utils.nonNull(datasets, "The list of datasets cannot be null.");
+        for (final Data<?> dataset : datasets) {
+            if (datasetMap.containsKey(dataset.name())) {
+                throw new IllegalArgumentException("The list of datasets cannot contain duplicate parameter names.");
+            }
+            datasetMap.put(dataset.name(), dataset);
+        }
     }
 
-    public List<Data> get() {
-        return Collections.unmodifiableList(collection);
-    }
-
-    public Data get(final int index) {
-        return collection.get(index);
+    @SuppressWarnings("unchecked")
+    public <T> List<T> get(final String datasetName) {
+        try {
+            return (List<T>) datasetMap.get(datasetName).values();
+        } catch (final NullPointerException | ClassCastException e) {
+            if (e instanceof NullPointerException) {
+                throw new IllegalArgumentException("Can only get pre-existing datasets; check dataset name.");
+            }
+            throw new UnsupportedOperationException("Type specified in method type parameter does not match pre-existing type of dataset.");
+        }
     }
 }

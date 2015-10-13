@@ -12,30 +12,33 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-/**
- * Created by slee on 09/10/15.
- */
-public class Data<T extends Number> {
-    private final List<T> data;
+public final class Data<N extends Number> {
+    private final String name;
+    private final List<N> data;
 
-    public Data(final List<T> data) {
-        Utils.nonNull(data, "The data cannot be null.");
+    public Data(final String name, final List<N> data) {
+        Utils.nonNull(name, "The name of the dataset cannot be null.");
+        Utils.nonNull(data, "The dataset cannot be null.");
+        if (data.size() == 0) {
+            throw new IllegalArgumentException("The dataset cannot be empty.");
+        }
+        this.name = name;
         this.data = new ArrayList<>(data);
     }
 
-    public int size() {
-        return data.size();
+    public Data(final String name, final File file, final Function<String, N> parse) {
+        this(name, loadData(file, parse));
     }
 
-    public List<T> values() {
+    protected String name() {
+        return name;
+    }
+
+    protected List<N> values() {
         return Collections.unmodifiableList(data);
     }
 
-    public T value(final int index) {
-        return data.get(index);
-    }
-
-    public static <T extends Number> Data<T> loadData(final File file, final Function<String, T> parse) {
+    private static <T> List<T> loadData(final File file, final Function<String, T> parse) {
         final List<T> list = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
@@ -45,6 +48,6 @@ public class Data<T extends Number> {
         } catch (final IOException e) {
             throw new UserException.CouldNotReadInputFile(file, e);
         }
-        return new Data<>(list);
+        return list;
     }
 }
