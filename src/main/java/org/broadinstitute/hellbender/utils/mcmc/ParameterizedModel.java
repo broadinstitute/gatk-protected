@@ -21,6 +21,9 @@ public final class ParameterizedModel {
         private final Map<String, Sampler<?>> samplerMap = new HashMap<>();
 
         public GibbsBuilder(final ParameterizedState state, final DataCollection dataCollection) {
+            if (dataCollection.size() == 0) {
+                throw new IllegalArgumentException("The collection of datasets cannot be empty.");
+            }
             this.state = state;
             this.dataCollection = dataCollection;
         }

@@ -2,25 +2,38 @@ package org.broadinstitute.hellbender.utils.mcmc;
 
 import org.broadinstitute.hellbender.utils.Utils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public final class DataCollection {
     private final Map<String, Data<?>> datasetMap = new HashMap<>();
 
-    public DataCollection(final List<Data<?>> datasets) {
-        Utils.nonNull(datasets, "The list of datasets cannot be null.");
+    public DataCollection(final Collection<Data<?>> datasets) {
+        Utils.nonNull(datasets, "The collection of datasets cannot be null.");
         for (final Data<?> dataset : datasets) {
             if (datasetMap.containsKey(dataset.name())) {
-                throw new IllegalArgumentException("The list of datasets cannot contain duplicate parameter names.");
+                throw new IllegalArgumentException("Each dataset in the collection must have a unique name.");
             }
             datasetMap.put(dataset.name(), dataset);
         }
     }
 
+    public DataCollection() {
+        this(Collections.emptyList());
+    }
+
+    protected int size() {
+        return datasetMap.values().size();
+    }
+
+    protected void add(final Data<?> dataset) {
+        if (datasetMap.containsKey(dataset.name())) {
+            throw new IllegalArgumentException("Cannot add a dataset with the same name as another dataset in the collection.");
+        }
+        datasetMap.put(dataset.name(), dataset);
+    }
+
     @SuppressWarnings("unchecked")
-    public <T> List<T> get(final String datasetName) {
+    protected <T> List<T> get(final String datasetName) {
         try {
             return (List<T>) datasetMap.get(datasetName).values();
         } catch (final NullPointerException | ClassCastException e) {

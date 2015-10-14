@@ -38,6 +38,14 @@ public final class Data<N extends Number> {
         return Collections.unmodifiableList(data);
     }
 
+    protected N value(final int index) {
+        return data.get(index);
+    }
+
+    protected int size() {
+        return data.size();
+    }
+
     private static <T> List<T> loadData(final File file, final Function<String, T> parse) {
         final List<T> list = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
