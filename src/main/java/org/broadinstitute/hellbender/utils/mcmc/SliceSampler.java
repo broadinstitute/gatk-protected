@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * Implements slice sampling of a continuous, univariate probability density function, which is assumed to be unimodal.
- * See Neal 2003 at https://projecteuclid.org/euclid.aos/1056562461 for details.
+ * Implements slice sampling of a continuous, univariate, unnormalized probability density function,
+ * which is assumed to be unimodal.  See Neal 2003 at https://projecteuclid.org/euclid.aos/1056562461 for details.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -28,7 +28,7 @@ public final class SliceSampler {
     private final ExponentialDistribution exponentialDistribution;
 
     /**
-     * Creates a new sampler, given a random number generator, a continuous, univariate, unimodal
+     * Creates a new sampler, given a random number generator, a continuous, univariate, unimodal, unnormalized
      * log probability density function, an initial value of the random variable to use in slice construction,
      * hard limits on the random variable, and a step width.
      * @param rng      random number generator
@@ -50,7 +50,7 @@ public final class SliceSampler {
     }
 
     /**
-     * Creates a new sampler, given a random number generator, a continuous, univariate, unimodal
+     * Creates a new sampler, given a random number generator, a continuous, univariate, unimodal, unnormalized
      * log probability density function, an initial value of the random variable to use in slice construction,
      * and a step width.
      * @param rng      random number generator

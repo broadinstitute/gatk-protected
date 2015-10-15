@@ -31,9 +31,6 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
     private static final double MEAN_TRUTH = 1.;
     private static final double MEAN_POSTERIOR_STANDARD_DEVIATION_TRUTH = 0.01;
 
-    private static final List<Parameter<?>> INITIAL_PARAMETER_VALUES =
-            Arrays.asList(new Parameter<>("variance", VARIANCE_INITIAL), new Parameter<>("mean", MEAN_INITIAL));
-
     private static final int NUM_SAMPLES = 500;
     private static final int NUM_BURN_IN = 250;
 
@@ -45,47 +42,55 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
         return Math.abs((x - xTrue) / xTrue);
     }
 
-    private final class GaussianModel {
-        private final ParameterizedModel model;
+    private final class GaussianModeller {
+        private final ParameterizedModel<ParameterizedState, DataCollection> model;
+        private final Sampler<Double, ParameterizedState, DataCollection> varianceSampler;
+        private final Sampler<Double, ParameterizedState, DataCollection> meanSampler;
 
-        private GaussianModel(final List<Parameter<?>> parameters, final File datapointsFile) {
-            final ParameterizedState state = new ParameterizedState(parameters);
+        private GaussianModeller(final double varianceInitial, final double meanInitial, final File datapointsFile) {
+            final List<Parameter<?>> initialParameters =
+                    Arrays.asList(new Parameter<>("variance", varianceInitial), new Parameter<>("mean", meanInitial));
+            final ParameterizedState initialState = new ParameterizedState(initialParameters);
+
             final Data<Double> datapoints = new Data<>("datapoints", datapointsFile, Double::parseDouble);
-            final DataCollection data = new DataCollection(Collections.singletonList(datapoints));
-            model = new ParameterizedModel.GibbsBuilder(state, data)
+            final DataCollection dataset = new DataCollection(Collections.singletonList(datapoints));
+
+            varianceSampler = (rng, state, data) -> {
+                final Function<Double, Double> logConditionalPDF =
+                        newVariance -> -0.5 * Math.log(newVariance) * data.<Double>get("datapoints").size() +
+                                data.<Double>get("datapoints").stream()
+                                        .mapToDouble(c -> -normalTerm(c, state.get("mean", Double.class), newVariance))
+                                        .sum();
+
+                final SliceSampler sampler =
+                        new SliceSampler(rng, logConditionalPDF, state.get("variance", Double.class),
+                                VARIANCE_MIN, VARIANCE_MAX, VARIANCE_WIDTH);
+                return sampler.sample();
+            };
+
+            meanSampler = (rng, state, data) -> {
+                final Function<Double, Double> logConditionalPDF =
+                        newMean -> data.<Double>get("datapoints").stream()
+                                .mapToDouble(c -> -normalTerm(c, newMean, state.get("variance", Double.class)))
+                                .sum();
+
+                final SliceSampler sampler =
+                        new SliceSampler(rng, logConditionalPDF, state.get("mean", Double.class), MEAN_WIDTH);
+                return sampler.sample();
+            };
+
+            model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset)
                     .addParameterSampler("variance", varianceSampler)
                     .addParameterSampler("mean", meanSampler)
                     .build();
         }
-
-        private final Sampler<Double> varianceSampler = (rng, state, data) -> {
-            final Function<Double, Double> logConditionalPDF =
-                    newVariance -> -0.5 * Math.log(newVariance) * data.<Double>get("datapoints").size() +
-                            data.<Double>get("datapoints").stream()
-                                    .mapToDouble(c -> -normalTerm(c, state.get("mean", Double.class), newVariance))
-                                    .sum();
-
-            final SliceSampler sampler =
-                    new SliceSampler(rng, logConditionalPDF, state.get("variance", Double.class), VARIANCE_MIN, VARIANCE_MAX, VARIANCE_WIDTH);
-            return sampler.sample();
-        };
-
-        private final Sampler<Double> meanSampler = (rng, state, data) -> {
-            final Function<Double, Double> logConditionalPDF =
-                    newMean -> data.<Double>get("datapoints").stream()
-                            .mapToDouble(c -> -normalTerm(c, newMean, state.get("variance", Double.class)))
-                            .sum();
-
-            final SliceSampler sampler =
-                    new SliceSampler(rng, logConditionalPDF, state.get("mean", Double.class), MEAN_WIDTH);
-            return sampler.sample();
-        };
     }
 
     @Test
     public void testRunMCMCOnGaussianModel() {
-        final GaussianModel model = new GaussianModel(INITIAL_PARAMETER_VALUES, COVERAGES_FILE);
-        final GibbsSampler gibbsSampler = new GibbsSampler(NUM_SAMPLES, model.model);
+        final GaussianModeller modeller = new GaussianModeller(VARIANCE_INITIAL, MEAN_INITIAL, COVERAGES_FILE);
+        final GibbsSampler<ParameterizedState, DataCollection> gibbsSampler =
+                new GibbsSampler<>(NUM_SAMPLES, modeller.model, ParameterizedState.class);
         gibbsSampler.runMCMC();
 
         final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples("variance", Double.class, NUM_BURN_IN));

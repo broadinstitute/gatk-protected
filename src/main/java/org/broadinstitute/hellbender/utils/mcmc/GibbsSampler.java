@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
-public final class GibbsSampler {
+public final class GibbsSampler<S extends ParameterizedState, T extends DataCollection> {
     private static final int RANDOM_SEED = 42;
     private static final RandomGenerator rng =
             RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
@@ -29,20 +29,23 @@ public final class GibbsSampler {
 
     private final int numSamples;
 
-    private final ParameterizedModel model;
+    private final ParameterizedModel<S, T> model;
 
-    private final List<ParameterizedState> samples;
+    private final Class<S> stateClass;
+
+    private final List<S> samples;
 
     private boolean isMCMCRunComplete = false;
 
-    public GibbsSampler(final int numSamples, final ParameterizedModel model) {
+    public GibbsSampler(final int numSamples, final ParameterizedModel<S, T> model, final Class<S> stateClass) {
         if (numSamples <= 0) {
             throw new IllegalArgumentException("Number of samples must be positive.");
         }
         this.numSamples = numSamples;
         this.model = model;
         samples = new ArrayList<>(numSamples);
-        samples.add(model.state());
+        this.stateClass = stateClass;
+        samples.add(model.state(stateClass));
     }
 
     public void runMCMC() {
@@ -52,14 +55,15 @@ public final class GibbsSampler {
                 logger.info(sample + " of " + numSamples + " samples generated.");
             }
             model.update(rng);
-            samples.add(model.state());
+
+            samples.add(model.state(stateClass));
         }
         logger.info(numSamples + " of " + numSamples + " samples generated.");
         logger.info("MCMC sampling complete.");
         isMCMCRunComplete = true;
     }
 
-    public <T> List<T> getSamples(final String parameterName, final Class<T> type, final int numBurnIn) {
+    public <U> List<U> getSamples(final String parameterName, final Class<U> type, final int numBurnIn) {
         if (numBurnIn < 0 || numBurnIn >= numSamples) {
             throw new IllegalArgumentException("Invalid number of burn-in samples.");
         }

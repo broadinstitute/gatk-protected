@@ -4,7 +4,7 @@ import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.*;
 
-public final class ParameterizedState {
+public class ParameterizedState {
     private final Map<String, Parameter<?>> parameterMap = new HashMap<>();
 
     public ParameterizedState(final List<Parameter<?>> parameters) {
@@ -21,9 +21,17 @@ public final class ParameterizedState {
         this(new ArrayList<>(state.parameterMap.values()));
     }
 
-    public <T> T get(final String parameterName, final Class<T> type) {
+    public <T> ParameterizedState(final String parameterNamePrefix, final T parameterValue, final int numCopies) {
+        this(initializeParameterCopies(parameterNamePrefix, parameterValue, numCopies));
+    }
+
+    public <T> ParameterizedState(final String parameterNamePrefix, final List<T> parameterValues) {
+        this(initializeParameters(parameterNamePrefix, parameterValues));
+    }
+
+    protected <T> T get(final String parameterName, final Class<T> parameterValueClass) {
         try {
-            return type.cast(parameterMap.get(parameterName).value());
+            return parameterValueClass.cast(parameterMap.get(parameterName).value());
         } catch (final NullPointerException | ClassCastException e) {
             if (e instanceof NullPointerException) {
                 throw new IllegalArgumentException("Can only get pre-existing parameters; check parameter name.");
@@ -46,5 +54,23 @@ public final class ParameterizedState {
         } catch (final NullPointerException e) {
             throw new UnsupportedOperationException("Can only update pre-existing parameters; check parameter name.");
         }
+    }
+
+    private static <T> List<Parameter<?>> initializeParameterCopies(final String parameterNamePrefix,
+                                                                    final T parameterValue, final int numCopies) {
+        final List<Parameter<?>> initialParameters = new ArrayList<>();
+        for (int i = 0; i < numCopies; i++) {
+            initialParameters.add(new Parameter<>(parameterNamePrefix + i, parameterValue));
+        }
+        return initialParameters;
+    }
+
+    private static <T> List<Parameter<?>> initializeParameters(final String parameterNamePrefix,
+                                                               final List<T> parameterValues) {
+        final List<Parameter<?>> initialParameters = new ArrayList<>();
+        for (int i = 0; i < parameterValues.size(); i++) {
+            initialParameters.add(new Parameter<>(parameterNamePrefix + i, parameterValues.get(i)));
+        }
+        return initialParameters;
     }
 }

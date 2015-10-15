@@ -4,7 +4,7 @@ import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.*;
 
-public final class DataCollection {
+public class DataCollection {
     private final Map<String, Data<?>> datasetMap = new HashMap<>();
 
     public DataCollection(final Collection<Data<?>> datasets) {
