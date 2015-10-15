@@ -12,14 +12,11 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
- * Implements Gibbs sampling of a multivariate probability density function.  Variables are separated into global
- * and local (i.e., segment-level or site-level) parameters.  The probability density function is assumed to be
- * independent across segments/sites for each local parameter.  Univariate conditional probability density functions are
- * sampled using {@link SliceSampler} and are assumed to be unimodal.
+ * Implements Gibbs sampling of a multivariate probability density function.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
-public final class GibbsSampler<S extends ParameterizedState, T extends DataCollection> {
+public final class GibbsSampler<S extends AbstractParameterizedState, T extends DataCollection> {
     private static final int RANDOM_SEED = 42;
     private static final RandomGenerator rng =
             RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
@@ -31,21 +28,18 @@ public final class GibbsSampler<S extends ParameterizedState, T extends DataColl
 
     private final ParameterizedModel<S, T> model;
 
-    private final Class<S> stateClass;
-
     private final List<S> samples;
 
     private boolean isMCMCRunComplete = false;
 
-    public GibbsSampler(final int numSamples, final ParameterizedModel<S, T> model, final Class<S> stateClass) {
+    public GibbsSampler(final int numSamples, final ParameterizedModel<S, T> model) {
         if (numSamples <= 0) {
             throw new IllegalArgumentException("Number of samples must be positive.");
         }
         this.numSamples = numSamples;
         this.model = model;
         samples = new ArrayList<>(numSamples);
-        this.stateClass = stateClass;
-        samples.add(model.state(stateClass));
+        samples.add(model.state());
     }
 
     public void runMCMC() {
@@ -55,8 +49,7 @@ public final class GibbsSampler<S extends ParameterizedState, T extends DataColl
                 logger.info(sample + " of " + numSamples + " samples generated.");
             }
             model.update(rng);
-
-            samples.add(model.state(stateClass));
+            samples.add(model.state());
         }
         logger.info(numSamples + " of " + numSamples + " samples generated.");
         logger.info("MCMC sampling complete.");

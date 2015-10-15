@@ -79,7 +79,7 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
                 return sampler.sample();
             };
 
-            model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset)
+            model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset, ParameterizedState.class)
                     .addParameterSampler("variance", varianceSampler)
                     .addParameterSampler("mean", meanSampler)
                     .build();
@@ -90,7 +90,7 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
     public void testRunMCMCOnGaussianModel() {
         final GaussianModeller modeller = new GaussianModeller(VARIANCE_INITIAL, MEAN_INITIAL, COVERAGES_FILE);
         final GibbsSampler<ParameterizedState, DataCollection> gibbsSampler =
-                new GibbsSampler<>(NUM_SAMPLES, modeller.model, ParameterizedState.class);
+                new GibbsSampler<>(NUM_SAMPLES, modeller.model);
         gibbsSampler.runMCMC();
 
         final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples("variance", Double.class, NUM_BURN_IN));

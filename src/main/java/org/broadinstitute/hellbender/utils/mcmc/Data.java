@@ -34,15 +34,15 @@ public final class Data<N extends Number> {
         return name;
     }
 
-    protected List<N> values() {
+    public List<N> values() {
         return Collections.unmodifiableList(data);
     }
 
-    protected N value(final int index) {
+    public N value(final int index) {
         return data.get(index);
     }
 
-    protected int size() {
+    public int size() {
         return data.size();
     }
 

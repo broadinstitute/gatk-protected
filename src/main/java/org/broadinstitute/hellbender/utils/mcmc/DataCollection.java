@@ -33,7 +33,7 @@ public class DataCollection {
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> List<T> get(final String datasetName) {
+    public <T> List<T> get(final String datasetName) {
         try {
             return (List<T>) datasetMap.get(datasetName).values();
         } catch (final NullPointerException | ClassCastException e) {

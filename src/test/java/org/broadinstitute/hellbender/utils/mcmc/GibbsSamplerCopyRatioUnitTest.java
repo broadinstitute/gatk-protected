@@ -10,6 +10,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -65,34 +66,44 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         return Math.abs((x - xTrue) / xTrue);
     }
 
-    private final class SegmentMeans extends ParameterizedState {
-        private static final String NAME_PREFIX = "meanInSegment";
-
-        public SegmentMeans(final double mean, final int numSegments) {
-            super(NAME_PREFIX, mean, numSegments);
-        }
+    private final class SegmentMeans extends AbstractParameterizedState {
+        private static final String MEAN_IN_SEGMENT_PREFIX = "meanInSegment";
 
         public SegmentMeans(final List<Double> means) {
-            super(NAME_PREFIX, means);
+            super(MEAN_IN_SEGMENT_PREFIX, means);
+        }
+
+        public SegmentMeans(final SegmentMeans segmentMeans) {
+            super(segmentMeans);
+        }
+
+        @Override
+        protected <S extends AbstractParameterizedState> S copy(final Class<S> stateClass) {
+            return stateClass.cast(new SegmentMeans(this));
         }
 
         public double getMeanInSegment(final int segment) {
-            return get(NAME_PREFIX + segment, Double.class);
+            return get(MEAN_IN_SEGMENT_PREFIX + segment, Double.class);
         }
     }
 
-    private final class CopyRatioState extends ParameterizedState {
+    private final class CopyRatioState extends AbstractParameterizedState {
         private static final String VARIANCE_NAME = "variance";
         private static final String MEANS_NAME = "means";
 
-        public CopyRatioState(final List<Parameter<?>> parameters) {
-            super(parameters);
+        public CopyRatioState(final double variance, final double mean, final int numSegments) {
+            super(Arrays.asList(
+                    new Parameter<>(VARIANCE_NAME, variance),
+                    new Parameter<>(MEANS_NAME, new SegmentMeans(Collections.nCopies(numSegments, mean)))));
         }
 
-        public CopyRatioState(final double variance, final double mean, final int numSegments) {
-            this(Arrays.asList(
-                    new Parameter<>(VARIANCE_NAME, variance),
-                    new Parameter<>(MEANS_NAME, new SegmentMeans(mean, numSegments))));
+        public CopyRatioState(final CopyRatioState state) {
+            super(state);
+        }
+
+        @Override
+        protected <S extends AbstractParameterizedState> S copy(final Class<S> stateClass) {
+            return stateClass.cast(new CopyRatioState(this));
         }
 
         public double variance() {
@@ -189,7 +200,7 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
                 return new SegmentMeans(means);
             };
 
-            model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset)
+            model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset, CopyRatioState.class)
                     .addParameterSampler("variance", varianceSampler)
                     .addParameterSampler("means", meansSampler)
                     .build();
@@ -215,7 +226,7 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         final CopyRatioModeller modeller =
                 new CopyRatioModeller(VARIANCE_INITIAL, MEAN_INITIAL, COVERAGES_FILE, NUM_TARGETS_PER_SEGMENT_FILE);
         final GibbsSampler<CopyRatioState, CopyRatioDataCollection> gibbsSampler =
-                new GibbsSampler<>(NUM_SAMPLES, modeller.model, CopyRatioState.class);
+                new GibbsSampler<>(NUM_SAMPLES, modeller.model);
         gibbsSampler.runMCMC();
         //check statistics of global-parameter posterior samples (i.e., posterior mean and standard deviation)
         final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples("variance", Double.class, NUM_BURN_IN));
@@ -228,7 +239,7 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         //check statistics of local-parameter posterior samples (i.e., posterior means and standard deviations)
         final Data<Double> meansTruth = new Data<>("meansTruth", MEANS_TRUTH_FILE, Double::parseDouble);
         final int numSegments = meansTruth.size();
-        final List<ParameterizedState> meansSamples = gibbsSampler.getSamples("means", ParameterizedState.class, NUM_BURN_IN);
+        final List<SegmentMeans> meansSamples = gibbsSampler.getSamples("means", SegmentMeans.class, NUM_BURN_IN);
         int numMeansOutsideOneSigma = 0;
         int numMeansOutsideTwoSigma = 0;
         int numMeansOutsideThreeSigma = 0;

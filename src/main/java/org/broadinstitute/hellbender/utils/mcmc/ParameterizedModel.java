@@ -2,31 +2,33 @@ package org.broadinstitute.hellbender.utils.mcmc;
 
 import org.apache.commons.math3.random.RandomGenerator;
 
-import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 
-public final class ParameterizedModel<S1 extends ParameterizedState, T1 extends DataCollection> {
+public final class ParameterizedModel<S1 extends AbstractParameterizedState, T1 extends DataCollection> {
     private enum UpdateMethod {
         GIBBS
     }
 
     private final S1 state;
     private final T1 dataCollection;
+    private final Class<S1> stateClass;
     private final Map<String, Sampler<?, S1, T1>> samplerMap;
     private final UpdateMethod updateMethod;
 
-    public static final class GibbsBuilder<S2 extends ParameterizedState, T2 extends DataCollection> {
+    public static final class GibbsBuilder<S2 extends AbstractParameterizedState, T2 extends DataCollection> {
         private final S2 state;
         private final T2 dataCollection;
+        private final Class<S2> stateClass;
         private final Map<String, Sampler<?, S2, T2>> samplerMap = new HashMap<>();
 
-        public GibbsBuilder(final S2 state, final T2 dataCollection) {
+        public GibbsBuilder(final S2 state, final T2 dataCollection, final Class<S2> stateClass) {
             if (dataCollection.size() == 0) {
                 throw new IllegalArgumentException("The collection of datasets cannot be empty.");
             }
             this.state = state;
             this.dataCollection = dataCollection;
+            this.stateClass = stateClass;
         }
 
         public <U> GibbsBuilder<S2, T2> addParameterSampler(final String parameterName, final Sampler<U, S2, T2> sampler) {
@@ -51,15 +53,16 @@ public final class ParameterizedModel<S1 extends ParameterizedState, T1 extends 
     private ParameterizedModel(final GibbsBuilder<S1, T1> builder) {
         this.state = builder.state;
         this.dataCollection = builder.dataCollection;
+        this.stateClass = builder.stateClass;
         this.samplerMap = builder.samplerMap;
         this.updateMethod = UpdateMethod.GIBBS;
     }
 
-    public S1 state(final Class<S1> stateClass) {
-        return (S1) state.copy();
+    protected S1 state() {
+        return state.copy(stateClass);
     }
 
-    public void update(final RandomGenerator rng) {
+    protected void update(final RandomGenerator rng) {
         if (updateMethod == UpdateMethod.GIBBS) {
             doGibbsUpdate(rng);
         }
