@@ -201,8 +201,8 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
             };
 
             model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset, CopyRatioState.class)
-                    .addParameterSampler("variance", varianceSampler)
-                    .addParameterSampler("means", meansSampler)
+                    .addParameterSampler(CopyRatioState.VARIANCE_NAME, varianceSampler)
+                    .addParameterSampler(CopyRatioState.MEANS_NAME, meansSampler)
                     .build();
         }
     }

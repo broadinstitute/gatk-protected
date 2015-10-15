@@ -18,7 +18,9 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
 
     private static final File COVERAGES_FILE = new File(TEST_SUB_DIR
             + "datapoints-for-gibbs-sampler-single-gaussian-test.txt");
+    private static final String DATAPOINTS_NAME = "datapoints";
 
+    private static final String VARIANCE_NAME = "variance";
     private static final double VARIANCE_MIN = 0.;
     private static final double VARIANCE_MAX = Double.POSITIVE_INFINITY;
     private static final double VARIANCE_WIDTH = 0.1;
@@ -26,6 +28,7 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
     private static final double VARIANCE_TRUTH = 1.;
     private static final double VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH = 0.014;
 
+    private static final String MEAN_NAME = "mean";
     private static final double MEAN_WIDTH = 0.1;
     private static final double MEAN_INITIAL = 5.;
     private static final double MEAN_TRUTH = 1.;
@@ -49,39 +52,39 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
 
         private GaussianModeller(final double varianceInitial, final double meanInitial, final File datapointsFile) {
             final List<Parameter<?>> initialParameters =
-                    Arrays.asList(new Parameter<>("variance", varianceInitial), new Parameter<>("mean", meanInitial));
+                    Arrays.asList(new Parameter<>(VARIANCE_NAME, varianceInitial), new Parameter<>(MEAN_NAME, meanInitial));
             final ParameterizedState initialState = new ParameterizedState(initialParameters);
 
-            final Data<Double> datapoints = new Data<>("datapoints", datapointsFile, Double::parseDouble);
+            final Data<Double> datapoints = new Data<>(DATAPOINTS_NAME, datapointsFile, Double::parseDouble);
             final DataCollection dataset = new DataCollection(Collections.singletonList(datapoints));
 
             varianceSampler = (rng, state, data) -> {
                 final Function<Double, Double> logConditionalPDF =
-                        newVariance -> -0.5 * Math.log(newVariance) * data.<Double>get("datapoints").size() +
-                                data.<Double>get("datapoints").stream()
-                                        .mapToDouble(c -> -normalTerm(c, state.get("mean", Double.class), newVariance))
+                        newVariance -> -0.5 * Math.log(newVariance) * data.<Double>get(DATAPOINTS_NAME).size() +
+                                data.<Double>get(DATAPOINTS_NAME).stream()
+                                        .mapToDouble(c -> -normalTerm(c, state.get(MEAN_NAME, Double.class), newVariance))
                                         .sum();
 
                 final SliceSampler sampler =
-                        new SliceSampler(rng, logConditionalPDF, state.get("variance", Double.class),
+                        new SliceSampler(rng, logConditionalPDF, state.get(VARIANCE_NAME, Double.class),
                                 VARIANCE_MIN, VARIANCE_MAX, VARIANCE_WIDTH);
                 return sampler.sample();
             };
 
             meanSampler = (rng, state, data) -> {
                 final Function<Double, Double> logConditionalPDF =
-                        newMean -> data.<Double>get("datapoints").stream()
-                                .mapToDouble(c -> -normalTerm(c, newMean, state.get("variance", Double.class)))
+                        newMean -> data.<Double>get(DATAPOINTS_NAME).stream()
+                                .mapToDouble(c -> -normalTerm(c, newMean, state.get(VARIANCE_NAME, Double.class)))
                                 .sum();
 
                 final SliceSampler sampler =
-                        new SliceSampler(rng, logConditionalPDF, state.get("mean", Double.class), MEAN_WIDTH);
+                        new SliceSampler(rng, logConditionalPDF, state.get(MEAN_NAME, Double.class), MEAN_WIDTH);
                 return sampler.sample();
             };
 
             model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset, ParameterizedState.class)
-                    .addParameterSampler("variance", varianceSampler)
-                    .addParameterSampler("mean", meanSampler)
+                    .addParameterSampler(VARIANCE_NAME, varianceSampler)
+                    .addParameterSampler(MEAN_NAME, meanSampler)
                     .build();
         }
     }
@@ -93,7 +96,7 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
                 new GibbsSampler<>(NUM_SAMPLES, modeller.model);
         gibbsSampler.runMCMC();
 
-        final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples("variance", Double.class, NUM_BURN_IN));
+        final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples(VARIANCE_NAME, Double.class, NUM_BURN_IN));
         final double variancePosteriorMean = new Mean().evaluate(varianceSamples);
         final double variancePosteriorStandardDeviation = new StandardDeviation().evaluate(varianceSamples);
         Assert.assertEquals(relativeError(variancePosteriorMean, VARIANCE_TRUTH), 0., 0.01);
@@ -101,7 +104,7 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
                 relativeError(variancePosteriorStandardDeviation, VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH),
                 0., 0.1);
 
-        final double[] meanSamples = Doubles.toArray(gibbsSampler.getSamples("mean", Double.class, NUM_BURN_IN));
+        final double[] meanSamples = Doubles.toArray(gibbsSampler.getSamples(MEAN_NAME, Double.class, NUM_BURN_IN));
         final double meanPosteriorMean = new Mean().evaluate(meanSamples);
         final double meanPosteriorStandardDeviation = new StandardDeviation().evaluate(meanSamples);
         Assert.assertEquals(relativeError(meanPosteriorMean, MEAN_TRUTH), 0., 0.01);
