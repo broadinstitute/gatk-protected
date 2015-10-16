@@ -16,16 +16,24 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Unit tests for {@link GibbsSampler}.
+ * Unit test for {@link GibbsSampler}.
  * <p>
- *     Test case is a toy copy-ratio model with 1 global and 1 local (segment-level) parameter.
- *     We consider a case with 100 segments, each of which has a number of targets that is drawn from a
+ *     Test performs Bayesian inference of a simple copy-ratio model with 1 global and 100 segment-level parameters.
+ *     We consider an exome with 100 segments, each of which has a number of targets that is drawn from a
  *     Poisson distribution with mean 100 in the generated data set.
- *     Data consists of a list of coverages at each site and a list of the number of targets in each segment.
+ * </p>
+ * <p>
+ *     Data consists of a list of coverages at each target and a list of the number of targets in each segment.
  *     Coverages are assumed to be drawn from a normal distribution in each segment.
+ * </p>
+ * <p>
  *     The mean of each normal distribution is given by a segment-level parameter;
- *     its distribution across segments is taken to be uniform in (0, 10) in the generated data.
+ *     the distribution of means across segments is taken to be uniform in (0, 10) in the generated data.
+ * </p>
+ * <p>
  *     The variance of each distribution is set by the global parameter, which is taken to be 1 in the generated data.
+ * </p>
+ * <p>
  *     Success of the test is determined by recovery of the input segment means and the global variance,
  *     as well as agreement of the standard deviations of the parameter posteriors with those given by both the
  *     python package emcee (see http://dan.iel.fm/emcee for details) and numerical evaluation in Mathematica
@@ -49,11 +57,11 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
     private static final double VARIANCE_WIDTH = 0.1;
     private static final double VARIANCE_INITIAL = 5.;
     private static final double VARIANCE_TRUTH = 1.;
-    private static final double VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH = 0.014;
+    private static final double VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH = 0.014;    //checked with emcee & analytic result
 
     private static final double MEAN_WIDTH = 0.1;
     private static final double MEAN_INITIAL = 5.;
-    private static final double MEAN_POSTERIOR_STANDARD_DEVIATION_MEAN_TRUTH = 0.1;
+    private static final double MEAN_POSTERIOR_STANDARD_DEVIATION_MEAN_TRUTH = 0.1;     //checked with emcee & analytic result
 
     private static final int NUM_SAMPLES = 500;
     private static final int NUM_BURN_IN = 250;
@@ -157,8 +165,8 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
             final CopyRatioDataCollection dataset = new CopyRatioDataCollection(coveragesFile, numTargetsPerSegmentFile);
             final CopyRatioState initialState = new CopyRatioState(initialVariance, initalMean, dataset.numSegments);
 
-            //Sampler for the variance global parameter.  The  relevant logConditionalPDF is given by
-            // the log of the product of Gaussian likelihoods for each target t:
+            //Sampler for the variance global parameter.  The relevant logConditionalPDF is given by
+            //the log of the product of Gaussian likelihoods for each target t:
             //      log[product_t variance^(-1/2) * exp(-(coverage_t - mean_t)^2 / (2 * variance))] + constant
             //which reduces to the form in code below.  Note that mean_t is identical for all targets in a segment.
             varianceSampler = (rng, state, data) -> {
