@@ -32,7 +32,7 @@ public abstract class AbstractParameterizedState {
             if (e instanceof NullPointerException) {
                 throw new IllegalArgumentException("Can only get pre-existing parameters; check parameter name.");
             }
-            throw new IllegalArgumentException("Specified type of parameter does not match pre-existing type.");
+            throw new IllegalArgumentException("Type of parameter specified in getter does not match pre-existing type.");
         }
     }
 

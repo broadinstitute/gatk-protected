@@ -40,7 +40,7 @@ public class DataCollection {
             if (e instanceof NullPointerException) {
                 throw new IllegalArgumentException("Can only get pre-existing datasets; check dataset name.");
             }
-            throw new UnsupportedOperationException("Type specified in method type parameter does not match pre-existing type of dataset.");
+            throw new UnsupportedOperationException("Type of dataset specified in getter does not match pre-existing type.");
         }
     }
 }

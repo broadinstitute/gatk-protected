@@ -239,7 +239,7 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         //check statistics of local-parameter posterior samples (i.e., posterior means and standard deviations)
         final Data<Double> meansTruth = new Data<>("meansTruth", MEANS_TRUTH_FILE, Double::parseDouble);
         final int numSegments = meansTruth.size();
-        final List<SegmentMeans> meansSamples = gibbsSampler.getSamples("means", SegmentMeans.class, NUM_BURN_IN);
+        final List<SegmentMeans> meansSamples = gibbsSampler.getSamples(CopyRatioState.MEANS_NAME, SegmentMeans.class, NUM_BURN_IN);
         int numMeansOutsideOneSigma = 0;
         int numMeansOutsideTwoSigma = 0;
         int numMeansOutsideThreeSigma = 0;
@@ -247,7 +247,9 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         for (int segment = 0; segment < numSegments; segment++) {
             final int j = segment;
             final double[] meanInSegmentSamples =
-                    Doubles.toArray(meansSamples.stream().map(s -> s.get("meanInSegment" + j, Double.class)).collect(Collectors.toList()));
+                    Doubles.toArray(meansSamples.stream()
+                            .map(s -> s.get(SegmentMeans.MEAN_IN_SEGMENT_PREFIX + j, Double.class))
+                            .collect(Collectors.toList()));
             final double meanPosteriorMean = new Mean().evaluate(meanInSegmentSamples);
             final double meanPosteriorStandardDeviation =
                     new StandardDeviation().evaluate(meanInSegmentSamples);
