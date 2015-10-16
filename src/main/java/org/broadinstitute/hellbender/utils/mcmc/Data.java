@@ -25,8 +25,9 @@ public final class Data<N extends Number> {
     /**
      * Constructs a Data object given a name and a list of numeric datapoints.
      * @param name  dataset name
-     * @param data  list of numeric datapoints
-     * @throws IllegalArgumentException if {@code data} is empty, or if either {@code name} or {@code data} are null
+     * @param data  List of numeric datapoints
+     * @throws IllegalArgumentException if {@code data} is empty, 
+     *                                  or if either {@code name} or {@code data} are {@code null}
      */
     public Data(final String name, final List<N> data) {
         Utils.nonNull(name, "The name of the dataset cannot be null.");
@@ -58,17 +59,17 @@ public final class Data<N extends Number> {
     }
 
     /**
-     * Returns an unmodifiable view of the list of datapoints held internally.
-     * @return  an unmodifiable view of the list of datapoints held internally
+     * Returns an unmodifiable view of the List of datapoints held internally.
+     * @return  an unmodifiable view of the List of datapoints held internally
      */
     public List<N> values() {
         return Collections.unmodifiableList(data);
     }
 
     /**
-     * Returns the value at the specified index in the list of datapoints held internally.
+     * Returns the value at the specified index in the List of datapoints held internally.
      * @param index index
-     * @return      value at {@code index} in the list of datapoints held internally
+     * @return      value at {@code index} in the List of datapoints held internally
      */
     public N value(final int index) {
         return data.get(index);
@@ -88,7 +89,7 @@ public final class Data<N extends Number> {
      * @param file  file containing datapoints
      * @param parse function to parse each line in file to its numeric value
      * @param <T>   type of datapoints
-     * @return      list of datapoints
+     * @return      List of datapoints
      */
     private static <T> List<T> loadData(final File file, final Function<String, T> parse) {
         final List<T> list = new ArrayList<>();
