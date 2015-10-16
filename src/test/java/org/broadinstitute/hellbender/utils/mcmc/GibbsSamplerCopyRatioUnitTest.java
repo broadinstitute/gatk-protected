@@ -16,7 +16,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Unit test for {@link GibbsSampler}.
+ * Unit test for {@link GibbsSampler}.  Demonstrates application of {@link GibbsSampler} to a {@ParameterizedModel}
+ * that is specified using helper classes extended from {@ParameterizedState} and {@DataCollection}.
  * <p>
  *     Test performs Bayesian inference of a simple copy-ratio model with 1 global and 100 segment-level parameters.
  *     We consider an exome with 100 segments, each of which has a number of targets that is drawn from a
@@ -66,13 +67,22 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
     private static final int NUM_SAMPLES = 500;
     private static final int NUM_BURN_IN = 250;
 
+    /**
+     * Calculates the exponent for a normal distribution; used in log-likelihood calculation below.
+     */
     private static double normalTerm(final double quantity, final double mean, final double variance) {
         return (quantity - mean) * (quantity - mean) / (2 * variance);
     }
 
+    /**
+     * Calculates relative error between x and xTrue, with respect to xTrue; used for checking statistics of
+     * posterior samples below.
+     */
     private static double relativeError(final double x, final double xTrue) {
         return Math.abs((x - xTrue) / xTrue);
     }
+
+    //In contrast to
 
     private final class SegmentMeans extends AbstractParameterizedState {
         private static final String MEAN_IN_SEGMENT_PREFIX = "meanInSegment";
@@ -155,15 +165,29 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         }
     }
 
+    /**
+     * We create a Modeller helper class to initialize the model state and specify the parameter samplers.
+     */
     private final class CopyRatioModeller {
+        //Create fields in the Modeller for the model and samplers.
         private final ParameterizedModel<CopyRatioState, CopyRatioDataCollection> model;
         private final Sampler<Double, CopyRatioState, CopyRatioDataCollection> varianceSampler;
-        private final Sampler<SegmentMeans, CopyRatioState, CopyRatioDataCollection> meansSampler;
+        private final Sampler<SegmentMeans, CopyRatioState, CopyRatioDataCollection> meansSampler;  //note that this returns a SegmentMeans sample
 
+        /**
+         * Constructor for the Modeller takes as parameters all quantities needed to construct the ParameterizedState
+         * (here, the initial variance and the initial mean) and the DataCollection
+         * (here, the coverage and target-number files).
+         */
         public CopyRatioModeller(final double initialVariance, final double initalMean,
                                  final File coveragesFile, final File numTargetsPerSegmentFile) {
+            //TODO
             final CopyRatioDataCollection dataset = new CopyRatioDataCollection(coveragesFile, numTargetsPerSegmentFile);
             final CopyRatioState initialState = new CopyRatioState(initialVariance, initalMean, dataset.numSegments);
+
+            //Implement Samplers for each parameter by overriding sample().  This can be done via a lambda that takes
+            //(rng, state, dataCollection) and returns a new sample of the parameter with type identical to that
+            //specified during initialization above.
 
             //Sampler for the variance global parameter.  The relevant logConditionalPDF is given by
             //the log of the product of Gaussian likelihoods for each target t:
@@ -187,11 +211,15 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
                 return sampler.sample();
             };
 
-             //Sampler for the segment-level mean parameters.  For each segment s, the relevant logConditionalPDF
-             //is given by the log of the product of Gaussian likelihoods for all targets t in that segment:
-             //     log[product_{t in s} exp(-(coverage_t - mean_s)^2 / (2 * variance))] + constant
-             //which reduces to the form in code below.  Note that a lambda is specified for each segment,
-             //so that meansSampler.sample() returns a SegmentMeans object that contains the means for all segments.
+            //Sampler for the segment-level mean parameters.  For each segment s, the relevant logConditionalPDF
+            //is given by the log of the product of Gaussian likelihoods for all targets t in that segment:
+            //     log[product_{t in s} exp(-(coverage_t - mean_s)^2 / (2 * variance))] + constant
+            //which reduces to the form in code below.  Note that a lambda is specified for each segment,
+            //so that meansSampler.sample() returns a SegmentMeans object that contains the means for all segments.
+            //NOTE: It is possible to shoot yourself in the foot here if you incorrectly specify the sampler!
+            //For example, note that there is no check that the number of segments sampled here matches the
+            //number of segments given during initialization.  Such consistency checks can be added (e.g., in the
+            //contructor of SegmentMeans), if desired, but may impact performance.
             meansSampler = (rng, state, data) -> {
                 final List<Double> means = new ArrayList<>();
                 for (int segment = 0; segment < data.numSegments; segment++) {
@@ -208,6 +236,9 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
                 return new SegmentMeans(means);
             };
 
+            //Build the ParameterizedModel using the GibbsBuilder pattern.
+            //Pass in the initial CopyRatioState and CopyRatioDataCollection, and specify the class of the CopyRatioState.
+            //Add samplers for each of the parameters, with names matching those used in initialization.
             model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset, CopyRatioState.class)
                     .addParameterSampler(CopyRatioState.VARIANCE_NAME, varianceSampler)
                     .addParameterSampler(CopyRatioState.MEANS_NAME, meansSampler)
@@ -216,27 +247,39 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
     }
 
     /**
-     * Tests the MCMC of a toy copy-ratio model.  Recovery of input values for the variance global parameter
-     * and the segment-level mean local parameter are checked.  In particular, the mean and standard deviation
-     * of the posterior for the variance must be recovered to within a relative error of 1% and 5%, respectively.
-     * Furthermore, the number of truth values for the segment-level means falling outside confidence intervals of
-     * 1-sigma, 2-sigma, and 3-sigma given by the posteriors in each segment should be roughly consistent with
-     * a normal distribution (i.e., ~32, ~5, and ~0, respectively; we allow for errors of 15, 6, and 2).
-     * Finally, the mean of the standard deviations of the posteriors for the segment-level means should be
-     * recovered to within a relative error of 5%.  With these specifications, this unit test is not overly
-     * brittle (i.e., it should pass for a large majority of randomly generated data sets), but it is still
-     * brittle enough to check for correctness of the sampling (for example, specifying a sufficiently
-     * incorrect likelihood will cause the test to fail).
+     * Tests Bayesian inference of a toy copy-ratio model via MCMC.
+     * <p>
+     *     Recovery of input values for the variance global parameter and the segment-level mean parameters is checked.
+     *     In particular, the mean and standard deviation of the posterior for the variance must be recovered to within
+     *     a relative error of 1% and 5%, respectively, in 250 samples (after 250 burn-in samples have been discarded).
+     * </p>
+     * <p>
+     *     Furthermore, the number of truth values for the segment-level means falling outside confidence intervals of
+     *     1-sigma, 2-sigma, and 3-sigma given by the posteriors in each segment should be roughly consistent with
+     *     a normal distribution (i.e., ~32, ~5, and ~0, respectively; we allow for errors of 15, 6, and 2).
+     *     Finally, the mean of the standard deviations of the posteriors for the segment-level means should be
+     *     recovered to within a relative error of 5%.
+     * </p>
+     * <p>
+     *     With these specifications, this unit test is not overly brittle (i.e., it should pass for a large majority
+     *     of randomly generated data sets), but it is still brittle enough to check for correctness of the sampling
+     *     (for example, specifying a sufficiently incorrect likelihood will cause the test to fail).
+     * </p>
      */
     @Test
     public void testRunMCMCOnCopyRatioSegmentedModel() {
-        //load data (coverages and number of targets in each segment)
+        //Create new instance of the Modeller helper class, passing all quantities needed to initialize state and data.
         final CopyRatioModeller modeller =
                 new CopyRatioModeller(VARIANCE_INITIAL, MEAN_INITIAL, COVERAGES_FILE, NUM_TARGETS_PER_SEGMENT_FILE);
+        //Create a GibbsSampler, passing the total number of samples (including burn-in samples)
+        //and the model held by the Modeller.
         final GibbsSampler<CopyRatioState, CopyRatioDataCollection> gibbsSampler =
                 new GibbsSampler<>(NUM_SAMPLES, modeller.model);
+        //Run the MCMC.
         gibbsSampler.runMCMC();
-        //check statistics of global-parameter posterior samples (i.e., posterior mean and standard deviation)
+
+        //Check that the statistics---i.e., the mean and standard deviation---of the variance posterior
+        //agree with those found by emcee/analytically to a relative error of 1% and 10%, respectively.
         final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples("variance", Double.class, NUM_BURN_IN));
         final double variancePosteriorMean = new Mean().evaluate(varianceSamples);
         final double variancePosteriorStandardDeviation = new StandardDeviation().evaluate(varianceSamples);
@@ -244,7 +287,9 @@ public final class GibbsSamplerCopyRatioUnitTest extends BaseTest {
         Assert.assertEquals(
                 relativeError(variancePosteriorStandardDeviation, VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH),
                 0., 0.1);
-        //check statistics of local-parameter posterior samples (i.e., posterior means and standard deviations)
+        //Check statistics---i.e., the mean and standard deviation---of the segment-level mean posteriors.
+        //In particular, check that the number of segments where the true mean falls outside confidence intervals
+        //is roughly consistent with a normal distribution.
         final Data<Double> meansTruth = new Data<>("meansTruth", MEANS_TRUTH_FILE, Double::parseDouble);
         final int numSegments = meansTruth.size();
         final List<SegmentMeans> meansSamples = gibbsSampler.getSamples(CopyRatioState.MEANS_NAME, SegmentMeans.class, NUM_BURN_IN);

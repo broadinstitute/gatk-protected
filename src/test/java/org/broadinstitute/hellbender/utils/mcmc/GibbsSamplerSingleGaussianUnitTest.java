@@ -1,7 +1,6 @@
 package org.broadinstitute.hellbender.utils.mcmc;
 
 import com.google.common.primitives.Doubles;
-import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
@@ -15,7 +14,8 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * Unit test for {@link GibbsSampler}.
+ * Unit test for {@link GibbsSampler}.  Demonstrates application of {@link GibbsSampler} to a {@ParameterizedModel}
+ * that is specified using {@ParameterizedState} and {@DataCollection}.
  * <p>
  *     Test performs Bayesian inference of a Gaussian model with 2 global parameters specifying the variance and the mean.
  * </p>
@@ -62,15 +62,19 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
         return (quantity - mean) * (quantity - mean) / (2 * variance);
     }
 
+    /**
+     * Calculates relative error between x and xTrue, with respect to xTrue; used for checking statistics of
+     * posterior samples below.
+     */
     private static double relativeError(final double x, final double xTrue) {
         return Math.abs((x - xTrue) / xTrue);
     }
 
     /**
-     * Helper class to organize the model and its parameter samplers.
+     * We create a Modeller helper class to initialize the model state and specify the parameter samplers.
      */
     private final class GaussianModeller {
-        //create fields in the Modeller for the model and samplers
+        //Create fields in the Modeller for the model and samplers.
         private final ParameterizedModel<ParameterizedState, DataCollection> model;
         private final Sampler<Double, ParameterizedState, DataCollection> varianceSampler;
         private final Sampler<Double, ParameterizedState, DataCollection> meanSampler;
@@ -80,30 +84,36 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
          * (here, the initial variance and the initial mean) and the DataCollection (here, the datapoints file).
          */
         private GaussianModeller(final double varianceInitial, final double meanInitial, final File datapointsFile) {
-            //construct the initial ParameterizedState by passing a list of Parameters of mixed type to the constructor
-            //the names, initial values, and types of each of the parameters are set here
+            //Construct the initial ParameterizedState by passing a list of Parameters of mixed type to the constructor.
+            //Names and initial value (and, implicitly, types) of each of the parameters are set here.
+            //Here, we name the variance parameter "variance" and set its initial value to 5.0,
+            //implicitly specifying it as a Double);  likewise, we name the mean parameter "mean" and also set its
+            //initial value to 5.0, implicitly specifying it as a Double.
             final List<Parameter<?>> initialParameters =
                     Arrays.asList(new Parameter<>(VARIANCE_NAME, varianceInitial), new Parameter<>(MEAN_NAME, meanInitial));
             final ParameterizedState initialState = new ParameterizedState(initialParameters);
 
-            //construct the DataCollection by passing a list of Data objects
-            //the names, values, and types of each of the Data objects are set here
+            //Construct the DataCollection by passing a list of Data objects to the constructor.
+            //Names, values, and types of each of the Data objects are set here.
+            //Here, we add a single Data object consisting of the 10,000 datapoints, which are loaded from a file,
+            //to the DataCollection dataset.
             final Data<Double> datapoints = new Data<>(DATAPOINTS_NAME, datapointsFile, Double::parseDouble);
             final DataCollection dataset = new DataCollection(Collections.singletonList(datapoints));
 
-            //below, we override sample() for each of the Samplers; this can be done via a lambda that takes
-            //(rng, state, data) and returns a new sample with type identical to that specified during initialization
+            //Implement Samplers for each parameter by overriding sample().  This can be done via a lambda that takes
+            //(rng, state, dataCollection) and returns a new sample of the parameter with type identical to that
+            //specified during initialization above.
 
-            //Sampler for the variance global parameter.  The relevant logConditionalPDF is given by
+            //Sampler for the variance global parameter.  The relevant log conditional PDF is given by
             //the log of the product of Gaussian likelihoods for each datapoint c_t:
             //      log[product_t variance^(-1/2) * exp(-(c_t - mean)^2 / (2 * variance))] + constant
             //which reduces to the form in code below.  Slice sampling is used here to generate a new sample,
-            //but, in general, any method can be used; e.g., if the conditional is from the exponential family,
-            //one could simply use the corresponding Distribution from Apache Commons.
-            varianceSampler = (rng, state, data) -> {
+            //but, in general, any method can be used; e.g., if the conditional PDF is from the exponential family,
+            //one can simply sample directly from the corresponding Distribution from Apache Commons.
+            varianceSampler = (rng, state, dataCollection) -> {
                 final Function<Double, Double> logConditionalPDF =
-                        newVariance -> -0.5 * Math.log(newVariance) * data.<Double>get(DATAPOINTS_NAME).size() +
-                                data.<Double>get(DATAPOINTS_NAME).stream()
+                        newVariance -> -0.5 * Math.log(newVariance) * dataCollection.<Double>get(DATAPOINTS_NAME).size() +
+                                dataCollection.<Double>get(DATAPOINTS_NAME).stream()
                                         .mapToDouble(c -> -normalTerm(c, state.get(MEAN_NAME, Double.class), newVariance))
                                         .sum();
 
@@ -113,13 +123,13 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
                 return sampler.sample();
             };
 
-            //Sampler for the mean global parameter.  The relevant logConditionalPDF is given by
+            //Sampler for the mean global parameter.  The relevant log conditional PDF is given by
             //the log of the product of Gaussian likelihoods for each datapoint c_t:
             //     log[product_t exp(-(c_t - mean)^2 / (2 * variance))] + constant
             //which reduces to the form in code below.
-            meanSampler = (rng, state, data) -> {
+            meanSampler = (rng, state, dataCollection) -> {
                 final Function<Double, Double> logConditionalPDF =
-                        newMean -> data.<Double>get(DATAPOINTS_NAME).stream()
+                        newMean -> dataCollection.<Double>get(DATAPOINTS_NAME).stream()
                                 .mapToDouble(c -> -normalTerm(c, newMean, state.get(VARIANCE_NAME, Double.class)))
                                 .sum();
 
@@ -128,9 +138,9 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
                 return sampler.sample();
             };
 
-            //build the ParameterizedModel using the GibbsBuilder pattern
-            //pass in the initial ParameterizedState, DataCollection, and specify the class of the ParameterizedState
-            //then add samplers for each of the parameters, with names matching those used in initialization
+            //Build the ParameterizedModel using the GibbsBuilder pattern.
+            //Pass in the initial ParameterizedState and DataCollection, and specify the class of the ParameterizedState.
+            //Add samplers for each of the parameters, with names matching those used in initialization.
             model = new ParameterizedModel.GibbsBuilder<>(initialState, dataset, ParameterizedState.class)
                     .addParameterSampler(VARIANCE_NAME, varianceSampler)
                     .addParameterSampler(MEAN_NAME, meanSampler)
@@ -138,22 +148,30 @@ public final class GibbsSamplerSingleGaussianUnitTest extends BaseTest {
         }
     }
 
+    /**
+     * Tests Bayesian inference of a Gaussian model via MCMC.  Recovery of input values for the variance and mean
+     * global parameters is checked.  In particular, the mean and standard deviation of the posteriors for
+     * both parameters must be recovered to within a relative error of 1% and 10%, respectively, in 250 samples
+     * (after 250 burn-in samples have been discarded).
+     */
     @Test
-    public void testRunMCMCOnGaussianModel() {
-        //create new instance of the Modeller helper class, passing all quantities needed to initialize state and data
+    public void testRunMCMCOnSingleGaussianModel() {
+        //Create new instance of the Modeller helper class, passing all quantities needed to initialize state and data.
         final GaussianModeller modeller = new GaussianModeller(VARIANCE_INITIAL, MEAN_INITIAL, COVERAGES_FILE);
-        //create a GibbsSampler, passing the total number of samples (including burn-in samples) and the model held by the Modeller
+        //Create a GibbsSampler, passing the total number of samples (including burn-in samples)
+        //and the model held by the Modeller.
         final GibbsSampler<ParameterizedState, DataCollection> gibbsSampler =
                 new GibbsSampler<>(NUM_SAMPLES, modeller.model);
-        //run the MCMC
+        //Run the MCMC.
         gibbsSampler.runMCMC();
 
-        //get the samples of each of the parameter posteriors (discarding burn-in samples) by passing the
-        //parameter name, type, and burn-in number to the getSamples method
+        //Get the samples of each of the parameter posteriors (discarding burn-in samples) by passing the
+        //parameter name, type, and burn-in number to the getSamples method.
         final double[] varianceSamples = Doubles.toArray(gibbsSampler.getSamples(VARIANCE_NAME, Double.class, NUM_BURN_IN));
         final double[] meanSamples = Doubles.toArray(gibbsSampler.getSamples(MEAN_NAME, Double.class, NUM_BURN_IN));
 
-        //check that the statistics of the posteriors agree with those found by emcee/analytically
+        //Check that the statistics---i.e., the means and standard deviations---of the posteriors
+        //agree with those found by emcee/analytically to a relative error of 1% and 10%, respectively.
         final double variancePosteriorMean = new Mean().evaluate(varianceSamples);
         final double variancePosteriorStandardDeviation = new StandardDeviation().evaluate(varianceSamples);
         Assert.assertEquals(relativeError(variancePosteriorMean, VARIANCE_TRUTH), 0., 0.01);
