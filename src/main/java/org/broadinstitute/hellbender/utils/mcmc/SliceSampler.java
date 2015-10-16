@@ -32,7 +32,7 @@ public final class SliceSampler {
      * log probability density function, an initial value of the random variable to use in slice construction,
      * hard limits on the random variable, and a step width.
      * @param rng      random number generator
-     * @param logPDF   continuous, univariate, unimodal log probability density function (up to proportionality)
+     * @param logPDF   continuous, univariate, unimodal log probability density function (up to additive constant)
      * @param xInitial initial value to use in slice construction; if outside [xMin, xMax], forced to be within
      * @param xMin     minimum allowed value of the random variable
      * @param xMax     maximum allowed value of the random variable
@@ -54,7 +54,7 @@ public final class SliceSampler {
      * log probability density function, an initial value of the random variable to use in slice construction,
      * and a step width.
      * @param rng      random number generator
-     * @param logPDF   continuous, univariate, unimodal log probability density function (up to proportionality)
+     * @param logPDF   continuous, univariate, unimodal log probability density function (up to additive constant)
      * @param xInitial initial value to use in slice construction
      * @param width    step width for slice expansion
      */
