@@ -9,6 +9,7 @@ import org.apache.commons.math3.util.MathUtils;
  * Created by lichtens on 8/25/15.
  */
 public class ParamUtils {
+    private ParamUtils () {}
 
     /**
      * Checks that the  input is within range and returns the same value or throws an {@link IllegalArgumentException}
@@ -103,5 +104,28 @@ public class ParamUtils {
             throw new IllegalArgumentException(message);
         }
         return val;
+    }
+
+    /**
+     * log the value in base b
+     *
+     * @param val -- The value to be logged.
+     * @param base -- The base of the logging
+     * @return the logged value.  If val is zero, returns Double.NEGATIVE_INFINITY.  If base is zero, returns -0.0.  If any input
+     *  is negative, returns Double.NaN.
+     */
+    public static double logb(final double val, final double base) {
+        return Math.log(val)/Math.log(base);
+    }
+
+    /**
+     * log the value in base 2
+     *
+     * @param val -- The value to be logged.
+     * @return the logged value.  If val is zero, returns Double.NEGATIVE_INFINITY.  If val
+     *  is negative, returns Double.NaN.
+     */
+    public static double log2(final double val) {
+        return Math.log(val)/Math.log(2.0);
     }
 }
