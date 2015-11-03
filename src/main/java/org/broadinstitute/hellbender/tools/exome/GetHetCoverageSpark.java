@@ -31,9 +31,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-@CommandLineProgramProperties(summary = "Counts reads in the input BAM", oneLineSummary = "Counts reads in a BAM file", programGroup = SparkProgramGroup.class)
+@CommandLineProgramProperties(
+        summary = "Gets alt/ref counts at SNP sites from the input BAM file",
+        oneLineSummary = "Gets alt/ref counts at SNP sites from a BAM file",
+        programGroup = SparkProgramGroup.class)
 public final class GetHetCoverageSpark extends GATKSparkTool {
-
     private static final long serialVersionUID = 1L;
 
     @Argument(

@@ -1,43 +1,72 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-import org.apache.commons.io.FileUtils;
+import htsjdk.samtools.SAMFileHeader;
+import htsjdk.samtools.SamReader;
+import htsjdk.samtools.SamReaderFactory;
+import htsjdk.samtools.util.Interval;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
-import org.broadinstitute.hellbender.utils.test.ArgumentsBuilder;
 import org.junit.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 
 public final class GetHetCoverageSparkIntegrationTest extends CommandLineProgramTest {
+    private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/tools/exome/";
 
-    private File testFile(final String fileName) {
-        return new File(getToolTestDataDir() +"/"+ fileName);
+    private static final File NORMAL_BAM_FILE = new File(TEST_SUB_DIR + "normal.sorted.bam");
+    private static final File TUMOR_BAM_FILE = new File(TEST_SUB_DIR + "tumor.sorted.bam");
+    private static final File SNP_FILE = new File(TEST_SUB_DIR + "common_SNP.interval_list");
+    private static final File REF_FILE = new File(hg19MiniReference);
+
+    private static SAMFileHeader normalHeader;
+    private static SAMFileHeader tumorHeader;
+
+    @BeforeClass
+    public void initHeaders() throws IOException {
+        try (final SamReader normalBamReader = SamReaderFactory.makeDefault().open(NORMAL_BAM_FILE);
+             final SamReader tumorBamReader = SamReaderFactory.makeDefault().open(TUMOR_BAM_FILE)) {
+            normalHeader = normalBamReader.getFileHeader();
+            tumorHeader = tumorBamReader.getFileHeader();
+        }
     }
-
-    private final File NA12878_BAM = testFile("exome-read-counts-NA12878.bam");
-
-    private final File INTERVALS_BED = testFile("exome-read-counts-intervals.bed");
-
-    private final File SAMPLE_COUNT_EXPECTED_OUTPUT = testFile("exome-read-counts-sample.output");
 
     @Test
-    public void test() throws Exception {
-        final File unsortedBam =  NA12878_BAM;
-        final File intervals =  INTERVALS_BED;
-        final File expectedTxt =  SAMPLE_COUNT_EXPECTED_OUTPUT;
-        final File outputTxt = createTempFile("na12878.coverage", ".txt");
-        ArgumentsBuilder args = new ArgumentsBuilder();
-        args.add("--"+ StandardArgumentDefinitions.INPUT_LONG_NAME); args.add(unsortedBam.getCanonicalPath());
-        args.add("--"+ ExomeReadCounts.EXOME_FILE_FULL_NAME); args.add(intervals.getCanonicalPath());
-        args.add("--"+StandardArgumentDefinitions.OUTPUT_LONG_NAME); args.add(outputTxt.getCanonicalPath());
+    public void testGetHetCoverageSpark() {
+        final File normalOutputFile = createTempFile("normal-test", ".txt");
+        final File tumorOutputFile = createTempFile("tumor-test", ".txt");
 
-        this.runCommandLine(args.getArgsArray());
+        final String[] arguments = {
+                "-" + GetHetCoverage.NORMAL_BAM_FILE_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
+                "-" + GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME, TUMOR_BAM_FILE.getAbsolutePath(),
+                "-" + GetHetCoverage.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
+                "-" + GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_SHORT_NAME, normalOutputFile.getAbsolutePath(),
+                "-" + GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath()
+        };
+        runCommandLine(arguments);
 
-        final String readInActual = FileUtils.readFileToString(outputTxt.getAbsoluteFile());
-        final String readInExpected = FileUtils.readFileToString(expectedTxt.getAbsoluteFile());
+        final Pulldown normalOutputPulldownCLP = new Pulldown(normalOutputFile, normalHeader);
+        final Pulldown tumorOutputPulldownCLP = new Pulldown(tumorOutputFile, tumorHeader);
 
-        Assert.assertEquals(readInExpected, readInActual);
+        final Pulldown normalHetPulldown = new Pulldown(normalHeader);
+        normalHetPulldown.add(new Interval("1", 10736, 10736), 9, 2);
+        normalHetPulldown.add(new Interval("1", 11522, 11522), 7, 4);
+        normalHetPulldown.add(new Interval("1", 12098, 12098), 8, 6);
+        normalHetPulldown.add(new Interval("1", 14630, 14630), 9, 8);
+        normalHetPulldown.add(new Interval("2", 14689, 14689), 6, 9);
+        normalHetPulldown.add(new Interval("2", 14982, 14982), 6, 5);
+
+        final Pulldown tumorHetPulldown = new Pulldown(tumorHeader);
+        tumorHetPulldown.add(new Interval("1", 11522, 11522), 7, 4);
+        tumorHetPulldown.add(new Interval("1", 12098, 12098), 8, 6);
+        tumorHetPulldown.add(new Interval("1", 14630, 14630), 9, 8);
+        tumorHetPulldown.add(new Interval("2", 14689, 14689), 6, 9);
+        tumorHetPulldown.add(new Interval("2", 14982, 14982), 6, 5);
+
+        Assert.assertEquals(normalHetPulldown, normalOutputPulldownCLP);
+        Assert.assertEquals(tumorHetPulldown, tumorOutputPulldownCLP);
     }
-
 }
