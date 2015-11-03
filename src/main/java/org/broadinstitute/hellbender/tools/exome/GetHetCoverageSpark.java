@@ -3,9 +3,6 @@ package org.broadinstitute.hellbender.tools.exome;
 import com.google.cloud.dataflow.sdk.options.PipelineOptions;
 import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.Locatable;
-import htsjdk.tribble.Feature;
-import htsjdk.tribble.FeatureCodec;
-import htsjdk.tribble.bed.BEDFeature;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -14,13 +11,11 @@ import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.SparkProgramGroup;
-import org.broadinstitute.hellbender.engine.FeatureManager;
 import org.broadinstitute.hellbender.engine.spark.BroadcastJoinReadsWithRefBases;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
-import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.collections.IntervalsSkipList;
 import org.broadinstitute.hellbender.utils.gcs.BucketUtils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
@@ -31,7 +26,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @CommandLineProgramProperties(summary = "Counts reads in the input BAM", oneLineSummary = "Counts reads in a BAM file", programGroup = SparkProgramGroup.class)
@@ -138,7 +135,15 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
     }
 
     private Tuple2<Integer, Integer> getAltRefTuple2(final Tuple2<GATKRead, ReferenceBases> readWithRefBases, final Locatable snpSite) {
-        return new Tuple2<>(0, 0); //should return (1, 0) if read is alt at over, (0, 1) if read is ref at over
+        final GATKRead read = readWithRefBases._1();
+        final ReferenceBases referenceBases = readWithRefBases._2();
+        final int offset = snpSite.getStart() - read.getStart();
+        final byte readBase = read.getBases()[offset];
+        final byte refBase = referenceBases.getBases()[offset];
+        if (readBase == refBase) {
+            return new Tuple2<>(0, 1);
+        }
+        return new Tuple2<>(1, 0);
     }
 
     private void print(final SortedMap<Locatable, Tuple2<Integer, Integer>> byKeySorted, final PrintStream ps) {

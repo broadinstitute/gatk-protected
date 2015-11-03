@@ -9,7 +9,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
-public final class GetHetPulldownSparkIntegrationTest extends CommandLineProgramTest {
+public final class GetHetCoverageSparkIntegrationTest extends CommandLineProgramTest {
 
     private File testFile(final String fileName) {
         return new File(getToolTestDataDir() +"/"+ fileName);
