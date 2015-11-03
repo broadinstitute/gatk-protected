@@ -20,10 +20,10 @@ import java.util.List;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public class AllelicCountCollection {
-    private static final String CONTIG_COLUMN_NAME = "CONTIG";
-    private static final String POSITION_COLUMN_NAME = "POS";
-    private static final String REF_COUNT_COLUMN_NAME = "REF_COUNT";
-    private static final String ALT_COUNT_COLUMN_NAME = "ALT_COUNT";
+    protected static final String CONTIG_COLUMN_NAME = "CONTIG";
+    protected static final String POSITION_COLUMN_NAME = "POS";
+    protected static final String REF_COUNT_COLUMN_NAME = "REF_COUNT";
+    protected static final String ALT_COUNT_COLUMN_NAME = "ALT_COUNT";
 
     private final List<AllelicCount> counts;
 

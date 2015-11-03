@@ -1,10 +1,12 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.Locatable;
 import htsjdk.tribble.Feature;
 import htsjdk.tribble.FeatureCodec;
 import htsjdk.tribble.bed.BEDFeature;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
@@ -13,6 +15,7 @@ import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.SparkProgramGroup;
 import org.broadinstitute.hellbender.engine.FeatureManager;
+import org.broadinstitute.hellbender.engine.spark.BroadcastJoinReadsWithRefBases;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
@@ -21,16 +24,14 @@ import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.collections.IntervalsSkipList;
 import org.broadinstitute.hellbender.utils.gcs.BucketUtils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
+import org.broadinstitute.hellbender.utils.reference.ReferenceBases;
 import scala.Tuple2;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @CommandLineProgramProperties(summary = "Counts reads in the input BAM", oneLineSummary = "Counts reads in a BAM file", programGroup = SparkProgramGroup.class)
@@ -39,24 +40,72 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
     private static final long serialVersionUID = 1L;
 
     @Argument(
-            doc = "File containing the common SNP sites for analysis",
-            shortName = ExomeReadCounts.EXOME_FILE_SHORT_NAME,
-            fullName = ExomeReadCounts.EXOME_FILE_FULL_NAME,
+            doc = "BAM file for normal sample.",
+            fullName = GetHetCoverage.NORMAL_BAM_FILE_FULL_NAME,
+            shortName = GetHetCoverage.NORMAL_BAM_FILE_SHORT_NAME,
             optional = false
     )
-    public File targetIntervalFile;
+    protected File normalBAMFile;
+
+    @Argument(
+            doc = "BAM file for tumor sample.",
+            fullName = GetHetCoverage.TUMOR_BAM_FILE_FULL_NAME,
+            shortName = GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME,
+            optional = false
+    )
+    protected File tumorBAMFile;
+
+    @Argument(
+            doc = "Interval-list file of common SNPs.",
+            fullName = GetHetCoverage.SNP_FILE_FULL_NAME,
+            shortName = GetHetCoverage.SNP_FILE_SHORT_NAME,
+            optional = false
+    )
+    protected File snpFile;
+
+    @Argument(
+            doc = "Output file for normal-sample ref/alt read counts (at heterozygous SNPs).",
+            fullName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
+            shortName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
+            optional = false
+    )
+    protected File normalHetOutputFile;
+
+    @Argument(
+            doc = "Output file for tumor-sample ref/alt read counts (at heterozygous SNPs in normal sample).",
+            fullName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
+            shortName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
+            optional = false
+    )
+    protected File tumorHetOutputFile;
+
+    @Argument(
+            doc = "Heterozygous allele fraction.",
+            fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
+            shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
+            optional = false
+    )
+    protected double hetAlleleFraction = 0.5;
+
+    @Argument(
+            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
+            fullName = GetHetCoverage.PVALUE_THRESHOLD_FULL_NAME,
+            shortName = GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME,
+            optional = false
+    )
+    protected double pvalThreshold = 0.05;
 
     @Argument(doc = "uri for the output file: a local file path",
             shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
             fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME,
             optional = true)
-    public String out;
+    protected String out;
 
     @Override
     protected void runTool(final JavaSparkContext ctx) {
-        final TargetCollection<Locatable> result = getTargetCollection();
+        final TargetCollection<Locatable> snps = getSNPs();
 
-        final IntervalsSkipList<Locatable> isl = new IntervalsSkipList<>(result.targets());
+        final IntervalsSkipList<Locatable> isl = new IntervalsSkipList<>(snps.targets());
         final Broadcast<IntervalsSkipList<Locatable>> islBroad = ctx.broadcast(isl);
 
         //NOTE: we hit some serialization error with lambdas in WellformedReadFilter
@@ -64,15 +113,15 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
 //        final ReadFilter readFilter = ctx.broadcast(new WellformedReadFilter(readsHeader));
         final JavaRDD<GATKRead> rawReads = getReads();
         final JavaRDD<GATKRead> reads = rawReads.filter(read -> !read.isUnmapped() && read.getStart() <= read.getEnd() && !read.isDuplicate());
+        final JavaPairRDD<GATKRead, ReferenceBases> readsWithRefBases = BroadcastJoinReadsWithRefBases.addBases(getReference(), reads);
 
-        //Bizzarely, this returns nondeterministic values
-//        final Map<Locatable, Long> byKey = reads.flatMap(read -> islBroad.getValue().getOverlapping(new SimpleInterval(read))).countByValue();
+        final Map<Locatable, Tuple2<Integer, Integer>> byKey = readsWithRefBases.flatMapToPair(readWithRefBases ->
+                        islBroad.getValue().getOverlapping(new SimpleInterval(readWithRefBases._1())).stream()
+                                .map(over -> new Tuple2<>(over, getAltRefTuple2(readWithRefBases, over)))
+                                .collect(Collectors.toList())
+        ).reduceByKey((t1, t2) -> new Tuple2<>(t1._1() + t2._1(), t1._2() + t2._2())).collectAsMap();
 
-        final Map<Locatable, Integer> byKey = reads.flatMapToPair(read ->
-                        islBroad.getValue().getOverlapping(new SimpleInterval(read)).stream().map(over -> new Tuple2<>(over, 1)).collect(Collectors.toList())
-        ).reduceByKey(Integer::sum).collectAsMap();
-
-        final SortedMap<Locatable, Integer> byKeySorted = new TreeMap<>(IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR);
+        final SortedMap<Locatable, Tuple2<Integer, Integer>> byKeySorted = new TreeMap<>(IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR);
         byKeySorted.putAll(byKey);
 
         print(byKeySorted, System.out);
@@ -88,30 +137,23 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
         }
     }
 
-    private void print(SortedMap<Locatable, Integer> byKeySorted, PrintStream ps) {
-        ps.println("CONTIG" + "\t" + "START" + "\t" + "END" + "\t" + "<ALL>");
+    private Tuple2<Integer, Integer> getAltRefTuple2(final Tuple2<GATKRead, ReferenceBases> readWithRefBases, final Locatable snpSite) {
+        return new Tuple2<>(0, 0); //should return (1, 0) if read is alt at over, (0, 1) if read is ref at over
+    }
+
+    private void print(final SortedMap<Locatable, Tuple2<Integer, Integer>> byKeySorted, final PrintStream ps) {
+        ps.println(AllelicCountCollection.CONTIG_COLUMN_NAME + "\t" + AllelicCountCollection.POSITION_COLUMN_NAME
+                + "\t" + AllelicCountCollection.ALT_COUNT_COLUMN_NAME + "\t" + AllelicCountCollection.REF_COUNT_COLUMN_NAME);
         for (final Locatable loc : byKeySorted.keySet()){
-            ps.println(loc.getContig() + "\t" + loc.getStart() + "\t" + loc.getEnd() + "\t" + byKeySorted.get(loc));
+            ps.println(loc.getContig() + "\t" + loc.getStart() + "\t" + byKeySorted.get(loc)._1() + "\t" + byKeySorted.get(loc)._2());
         }
     }
 
-    private TargetCollection<Locatable> getTargetCollection() {
-        //Target intervals
-        Utils.regularReadableUserFile(targetIntervalFile);
-        final FeatureCodec<? extends Feature, ?> codec = FeatureManager.getCodecForFile(targetIntervalFile);
-        final Class<? extends Feature> featureType = codec.getFeatureType();
-        final TargetCollection<BEDFeature> result;
-        if (BEDFeature.class.isAssignableFrom(featureType)) {
-            @SuppressWarnings("unchecked")
-            final FeatureCodec<BEDFeature, ?> bedFeatureCodec = (FeatureCodec<BEDFeature, ?>) codec;
-            result = TargetCollections.fromBEDFeatureFile(targetIntervalFile, bedFeatureCodec);
-        } else {
-            throw new UserException.BadInput(String.format("currently only BED formatted exome file are supported. '%s' does not seem to be a BED file",targetIntervalFile.getAbsolutePath()));
-        }
-        //NOTE: java does not allow conversion of List<BEDFeature> to List<Locatable>.
+    private TargetCollection<Locatable> getSNPs() {
+        final IntervalList snps = IntervalList.fromFile(snpFile);
+        //NOTE: java does not allow conversion of List<Interval> to List<Locatable>.
         //So we do this trick
-        final List<Locatable> targets = result.targets().stream().collect(Collectors.toList());
-        return new HashedListTargetCollection<>(targets);
+        return new HashedListTargetCollection<>(snps.getIntervals().stream().collect(Collectors.toList()));
     }
 }
 
