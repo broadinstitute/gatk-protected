@@ -42,14 +42,14 @@ public final class GetHetCoverageSparkIntegrationTest extends CommandLineProgram
                 "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
 //                "-" + GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME, TUMOR_BAM_FILE.getAbsolutePath(),
                 "-" + GetHetCoverage.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
-//                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
-                "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, normalOutputFile.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, normalOutputFile.getAbsolutePath(),
 //                "-" + GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath()
         };
         runCommandLine(arguments);
 
         final Pulldown normalOutputPulldownCLP = new Pulldown(normalOutputFile, normalHeader);
-        final Pulldown tumorOutputPulldownCLP = new Pulldown(tumorOutputFile, tumorHeader);
+//        final Pulldown tumorOutputPulldownCLP = new Pulldown(tumorOutputFile, tumorHeader);
 
         final Pulldown normalHetPulldown = new Pulldown(normalHeader);
         normalHetPulldown.add(new Interval("1", 10736, 10736), 9, 2);
@@ -59,14 +59,14 @@ public final class GetHetCoverageSparkIntegrationTest extends CommandLineProgram
         normalHetPulldown.add(new Interval("2", 14689, 14689), 6, 9);
         normalHetPulldown.add(new Interval("2", 14982, 14982), 6, 5);
 
-        final Pulldown tumorHetPulldown = new Pulldown(tumorHeader);
-        tumorHetPulldown.add(new Interval("1", 11522, 11522), 7, 4);
-        tumorHetPulldown.add(new Interval("1", 12098, 12098), 8, 6);
-        tumorHetPulldown.add(new Interval("1", 14630, 14630), 9, 8);
-        tumorHetPulldown.add(new Interval("2", 14689, 14689), 6, 9);
-        tumorHetPulldown.add(new Interval("2", 14982, 14982), 6, 5);
+//        final Pulldown tumorHetPulldown = new Pulldown(tumorHeader);
+//        tumorHetPulldown.add(new Interval("1", 11522, 11522), 7, 4);
+//        tumorHetPulldown.add(new Interval("1", 12098, 12098), 8, 6);
+//        tumorHetPulldown.add(new Interval("1", 14630, 14630), 9, 8);
+//        tumorHetPulldown.add(new Interval("2", 14689, 14689), 6, 9);
+//        tumorHetPulldown.add(new Interval("2", 14982, 14982), 6, 5);
 
         Assert.assertEquals(normalHetPulldown, normalOutputPulldownCLP);
-        Assert.assertEquals(tumorHetPulldown, tumorOutputPulldownCLP);
+//        Assert.assertEquals(tumorHetPulldown, tumorOutputPulldownCLP);
     }
 }

@@ -29,7 +29,7 @@ public final class HetPulldownCalculator {
 
     /** Set quality and read-depth thresholds for pulldown, interval threshold for indexing for SamLocusIterator. */
     private static final int MIN_QUALITY = 0;
-    private static final int READ_DEPTH_THRESHOLD = 10;
+    protected static final int READ_DEPTH_THRESHOLD = 10;
     private static final int MAX_INTERVALS_FOR_INDEX = 25000;
 
     public HetPulldownCalculator(final File refFile, final File snpFile) {

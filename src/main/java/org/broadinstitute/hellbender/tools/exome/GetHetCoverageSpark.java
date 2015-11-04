@@ -3,6 +3,8 @@ package org.broadinstitute.hellbender.tools.exome;
 import com.google.cloud.dataflow.sdk.options.PipelineOptions;
 import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.Locatable;
+import org.apache.commons.math3.stat.inference.AlternativeHypothesis;
+import org.apache.commons.math3.stat.inference.BinomialTest;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -22,13 +24,12 @@ import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.reference.ReferenceBases;
 import scala.Tuple2;
 
+import javax.persistence.Tuple;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @CommandLineProgramProperties(
@@ -37,6 +38,12 @@ import java.util.stream.Collectors;
         programGroup = SparkProgramGroup.class)
 public final class GetHetCoverageSpark extends GATKSparkTool {
     private static final long serialVersionUID = 1L;
+
+    @Override
+    public boolean requiresReads() { return true; }
+
+    @Override
+    public boolean requiresReference() { return true; }
 
 //    @Argument(
 //            doc = "BAM file for normal sample.",
@@ -77,22 +84,22 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
 //            optional = false
 //    )
 //    protected File tumorHetOutputFile;
-//
-//    @Argument(
-//            doc = "Heterozygous allele fraction.",
-//            fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
-//            shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
-//            optional = false
-//    )
-//    protected double hetAlleleFraction = 0.5;
-//
-//    @Argument(
-//            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
-//            fullName = GetHetCoverage.PVALUE_THRESHOLD_FULL_NAME,
-//            shortName = GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME,
-//            optional = false
-//    )
-//    protected double pvalThreshold = 0.05;
+
+    @Argument(
+            doc = "Heterozygous allele fraction.",
+            fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
+            shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
+            optional = false
+    )
+    protected static double hetAlleleFraction = 0.5;
+
+    @Argument(
+            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
+            fullName = GetHetCoverage.PVALUE_THRESHOLD_FULL_NAME,
+            shortName = GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME,
+            optional = false
+    )
+    protected static double pvalThreshold = 0.05;
 
     @Argument(doc = "uri for the output file: a local file path",
             shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
@@ -116,9 +123,11 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
 
         final Map<Locatable, Tuple2<Integer, Integer>> byKey = readsWithRefBases.flatMapToPair(readWithRefBases ->
                         islBroad.getValue().getOverlapping(new SimpleInterval(readWithRefBases._1())).stream()
-                                .map(over -> new Tuple2<>(over, getAltRefTuple2(readWithRefBases, over)))
-                                .collect(Collectors.toList())
-        ).reduceByKey((t1, t2) -> new Tuple2<>(t1._1() + t2._1(), t1._2() + t2._2())).collectAsMap();
+                                .map(over -> new Tuple2<>(over, getRefAltTuple2(readWithRefBases, over)))
+                                .collect(Collectors.toList()))
+                .reduceByKey((t1, t2) -> new Tuple2<>(t1._1() + t2._1(), t1._2() + t2._2()))
+                .filter(keyValue -> isRefAltCountHetCompatible(keyValue._2()))
+                .collectAsMap();
 
         final SortedMap<Locatable, Tuple2<Integer, Integer>> byKeySorted = new TreeMap<>(IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR);
         byKeySorted.putAll(byKey);
@@ -136,21 +145,21 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
         }
     }
 
-    private Tuple2<Integer, Integer> getAltRefTuple2(final Tuple2<GATKRead, ReferenceBases> readWithRefBases, final Locatable snpSite) {
+    private Tuple2<Integer, Integer> getRefAltTuple2(final Tuple2<GATKRead, ReferenceBases> readWithRefBases, final Locatable snpSite) {
         final GATKRead read = readWithRefBases._1();
         final ReferenceBases referenceBases = readWithRefBases._2();
         final int offset = snpSite.getStart() - read.getStart();
         final byte readBase = read.getBases()[offset];
         final byte refBase = referenceBases.getBases()[offset];
         if (readBase == refBase) {
-            return new Tuple2<>(0, 1);
+            return new Tuple2<>(1, 0);
         }
-        return new Tuple2<>(1, 0);
+        return new Tuple2<>(0, 1);
     }
 
     private void print(final SortedMap<Locatable, Tuple2<Integer, Integer>> byKeySorted, final PrintStream ps) {
         ps.println(AllelicCountCollection.CONTIG_COLUMN_NAME + "\t" + AllelicCountCollection.POSITION_COLUMN_NAME
-                + "\t" + AllelicCountCollection.ALT_COUNT_COLUMN_NAME + "\t" + AllelicCountCollection.REF_COUNT_COLUMN_NAME);
+                + "\t" + AllelicCountCollection.REF_COUNT_COLUMN_NAME + "\t" + AllelicCountCollection.ALT_COUNT_COLUMN_NAME);
         for (final Locatable loc : byKeySorted.keySet()){
             ps.println(loc.getContig() + "\t" + loc.getStart() + "\t" + byKeySorted.get(loc)._1() + "\t" + byKeySorted.get(loc)._2());
         }
@@ -161,6 +170,23 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
         //NOTE: java does not allow conversion of List<Interval> to List<Locatable>.
         //So we do this trick
         return new HashedListTargetCollection<>(snps.getIntervals().stream().collect(Collectors.toList()));
+    }
+
+    private static boolean isRefAltCountHetCompatible(final Tuple2<Integer, Integer> refAltCounts) {
+        final int refCount = refAltCounts._1();
+        final int altCount = refAltCounts._2();
+        final int totalCount = refCount + altCount;
+        final int majorReadCount = Math.max(refCount, altCount);
+        final int minorReadCount = Math.min(refCount, altCount);
+
+        if (majorReadCount == 0 || minorReadCount == 0 || totalCount <= HetPulldownCalculator.READ_DEPTH_THRESHOLD) {
+            return false;
+        }
+
+        final double pval = new BinomialTest().binomialTest(refCount + altCount, majorReadCount, hetAlleleFraction,
+                AlternativeHypothesis.TWO_SIDED);
+
+        return pval >= pvalThreshold;
     }
 }
 

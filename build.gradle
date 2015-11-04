@@ -121,7 +121,28 @@ dependencies {
         compile name: 'jhdf5'
     }
 
-    testCompile 'org.testng:testng:6.8.8'
+    testCompile 'org.testng:testng:6.9.6'
+
+    compile('org.objenesis:objenesis:1.2')
+    testCompile('org.objenesis:objenesis:2.1')
+
+    compile('de.javakaffee:kryo-serializers:0.26') {
+        exclude module: 'kryo' // use Spark's version
+    }
+
+    compile('com.esotericsoftware:kryo:3.0.3'){
+        exclude group: 'com.esotericsoftware', module: 'reflectasm'
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+
+    compile('com.esotericsoftware:reflectasm:1.10.0:shaded')
+}
+
+configurations {
+    compile.exclude module: 'jul-to-slf4j'
+    compile.exclude module: 'javax.servlet'
+    compile.exclude module: 'servlet-api'
+    compile.exclude group: 'com.esotericsoftware.kryo'
 }
 
 sourceCompatibility = 1.8
