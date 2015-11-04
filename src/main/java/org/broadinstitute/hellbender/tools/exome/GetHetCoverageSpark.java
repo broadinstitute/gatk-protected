@@ -38,21 +38,21 @@ import java.util.stream.Collectors;
 public final class GetHetCoverageSpark extends GATKSparkTool {
     private static final long serialVersionUID = 1L;
 
-    @Argument(
-            doc = "BAM file for normal sample.",
-            fullName = GetHetCoverage.NORMAL_BAM_FILE_FULL_NAME,
-            shortName = GetHetCoverage.NORMAL_BAM_FILE_SHORT_NAME,
-            optional = false
-    )
-    protected File normalBAMFile;
-
-    @Argument(
-            doc = "BAM file for tumor sample.",
-            fullName = GetHetCoverage.TUMOR_BAM_FILE_FULL_NAME,
-            shortName = GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME,
-            optional = false
-    )
-    protected File tumorBAMFile;
+//    @Argument(
+//            doc = "BAM file for normal sample.",
+//            fullName = GetHetCoverage.NORMAL_BAM_FILE_FULL_NAME,
+//            shortName = GetHetCoverage.NORMAL_BAM_FILE_SHORT_NAME,
+//            optional = false
+//    )
+//    protected File normalBAMFile;
+//
+//    @Argument(
+//            doc = "BAM file for tumor sample.",
+//            fullName = GetHetCoverage.TUMOR_BAM_FILE_FULL_NAME,
+//            shortName = GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME,
+//            optional = false
+//    )
+//    protected File tumorBAMFile;
 
     @Argument(
             doc = "Interval-list file of common SNPs.",
@@ -62,37 +62,37 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
     )
     protected File snpFile;
 
-    @Argument(
-            doc = "Output file for normal-sample ref/alt read counts (at heterozygous SNPs).",
-            fullName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
-            shortName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
-            optional = false
-    )
-    protected File normalHetOutputFile;
-
-    @Argument(
-            doc = "Output file for tumor-sample ref/alt read counts (at heterozygous SNPs in normal sample).",
-            fullName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
-            shortName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
-            optional = false
-    )
-    protected File tumorHetOutputFile;
-
-    @Argument(
-            doc = "Heterozygous allele fraction.",
-            fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
-            shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
-            optional = false
-    )
-    protected double hetAlleleFraction = 0.5;
-
-    @Argument(
-            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
-            fullName = GetHetCoverage.PVALUE_THRESHOLD_FULL_NAME,
-            shortName = GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME,
-            optional = false
-    )
-    protected double pvalThreshold = 0.05;
+//    @Argument(
+//            doc = "Output file for normal-sample ref/alt read counts (at heterozygous SNPs).",
+//            fullName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
+//            shortName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
+//            optional = false
+//    )
+//    protected File normalHetOutputFile;
+//
+//    @Argument(
+//            doc = "Output file for tumor-sample ref/alt read counts (at heterozygous SNPs in normal sample).",
+//            fullName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
+//            shortName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
+//            optional = false
+//    )
+//    protected File tumorHetOutputFile;
+//
+//    @Argument(
+//            doc = "Heterozygous allele fraction.",
+//            fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
+//            shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
+//            optional = false
+//    )
+//    protected double hetAlleleFraction = 0.5;
+//
+//    @Argument(
+//            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
+//            fullName = GetHetCoverage.PVALUE_THRESHOLD_FULL_NAME,
+//            shortName = GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME,
+//            optional = false
+//    )
+//    protected double pvalThreshold = 0.05;
 
     @Argument(doc = "uri for the output file: a local file path",
             shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,

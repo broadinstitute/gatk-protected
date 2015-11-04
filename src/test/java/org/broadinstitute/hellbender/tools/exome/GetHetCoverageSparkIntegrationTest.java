@@ -39,12 +39,12 @@ public final class GetHetCoverageSparkIntegrationTest extends CommandLineProgram
         final File tumorOutputFile = createTempFile("tumor-test", ".txt");
 
         final String[] arguments = {
-                "-" + GetHetCoverage.NORMAL_BAM_FILE_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
-                "-" + GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME, TUMOR_BAM_FILE.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
+//                "-" + GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME, TUMOR_BAM_FILE.getAbsolutePath(),
                 "-" + GetHetCoverage.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
-                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
-                "-" + GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_SHORT_NAME, normalOutputFile.getAbsolutePath(),
-                "-" + GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath()
+//                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, normalOutputFile.getAbsolutePath(),
+//                "-" + GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath()
         };
         runCommandLine(arguments);
 
