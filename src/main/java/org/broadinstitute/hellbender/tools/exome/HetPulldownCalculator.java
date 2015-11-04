@@ -40,7 +40,7 @@ public final class HetPulldownCalculator {
     /**
      * Provide flags for running getHetPulldown based on sample type (normal or tumor).
      */
-    private enum SampleType {
+    protected enum SampleType {
         NORMAL, TUMOR
     }
 

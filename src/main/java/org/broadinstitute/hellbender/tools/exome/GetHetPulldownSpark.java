@@ -8,6 +8,7 @@ import org.apache.commons.math3.stat.inference.BinomialTest;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
@@ -24,19 +25,26 @@ import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.reference.ReferenceBases;
 import scala.Tuple2;
 
-import javax.persistence.Tuple;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @CommandLineProgramProperties(
         summary = "Gets alt/ref counts at SNP sites from the input BAM file",
         oneLineSummary = "Gets alt/ref counts at SNP sites from a BAM file",
         programGroup = SparkProgramGroup.class)
-public final class GetHetCoverageSpark extends GATKSparkTool {
+public final class GetHetPulldownSpark extends GATKSparkTool {
+    protected static final String MODE_FULL_NAME = "mode";
+    protected static final String MODE_SHORT_NAME = "m";
+
+    protected static final String NORMAL_MODE_ARGUMENT = "normal";
+    protected static final String TUMOR_MODE_ARGUMENT = "tumor";
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -45,56 +53,32 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
     @Override
     public boolean requiresReference() { return true; }
 
-//    @Argument(
-//            doc = "BAM file for normal sample.",
-//            fullName = GetHetCoverage.NORMAL_BAM_FILE_FULL_NAME,
-//            shortName = GetHetCoverage.NORMAL_BAM_FILE_SHORT_NAME,
-//            optional = false
-//    )
-//    protected File normalBAMFile;
-//
-//    @Argument(
-//            doc = "BAM file for tumor sample.",
-//            fullName = GetHetCoverage.TUMOR_BAM_FILE_FULL_NAME,
-//            shortName = GetHetCoverage.TUMOR_BAM_FILE_SHORT_NAME,
-//            optional = false
-//    )
-//    protected File tumorBAMFile;
+    @Argument(
+            doc = "Mode for filtering SNP sites (normal mode performs binomial test to check for heterozygosity).",
+            fullName = MODE_FULL_NAME,
+            shortName = MODE_SHORT_NAME,
+            optional = false
+    )
+    protected String mode;
 
     @Argument(
-            doc = "Interval-list file of common SNPs.",
+            doc = "Interval-list file of common SNPs (normal-mode only).",
             fullName = GetHetCoverage.SNP_FILE_FULL_NAME,
             shortName = GetHetCoverage.SNP_FILE_SHORT_NAME,
             optional = false
     )
     protected File snpFile;
 
-//    @Argument(
-//            doc = "Output file for normal-sample ref/alt read counts (at heterozygous SNPs).",
-//            fullName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
-//            shortName = GetHetCoverage.NORMAL_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
-//            optional = false
-//    )
-//    protected File normalHetOutputFile;
-//
-//    @Argument(
-//            doc = "Output file for tumor-sample ref/alt read counts (at heterozygous SNPs in normal sample).",
-//            fullName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_FULL_NAME,
-//            shortName = GetHetCoverage.TUMOR_HET_REF_ALT_COUNTS_FILE_SHORT_NAME,
-//            optional = false
-//    )
-//    protected File tumorHetOutputFile;
-
     @Argument(
-            doc = "Heterozygous allele fraction.",
-            fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
-            shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
-            optional = false
+        doc = "Normal-mode heterozygous allele fraction.",
+        fullName = GetHetCoverage.HET_ALLELE_FRACTION_FULL_NAME,
+        shortName = GetHetCoverage.HET_ALLELE_FRACTION_SHORT_NAME,
+        optional = false
     )
     protected static double hetAlleleFraction = 0.5;
 
     @Argument(
-            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
+            doc = "Normal-mode p-value threshold for binomial test for heterozygous SNPs.",
             fullName = GetHetCoverage.PVALUE_THRESHOLD_FULL_NAME,
             shortName = GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME,
             optional = false
@@ -109,24 +93,31 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
 
     @Override
     protected void runTool(final JavaSparkContext ctx) {
+        if (!(mode.equals(NORMAL_MODE_ARGUMENT) || mode.equals(TUMOR_MODE_ARGUMENT))) {
+            throw new UserException.BadArgumentValue(MODE_FULL_NAME, mode, "Mode must be normal or tumor.");
+        }
         final TargetCollection<Locatable> snps = getSNPs();
 
         final IntervalsSkipList<Locatable> isl = new IntervalsSkipList<>(snps.targets());
         final Broadcast<IntervalsSkipList<Locatable>> islBroad = ctx.broadcast(isl);
 
-        //NOTE: we hit some serialization error with lambdas in WellformedReadFilter
-        //so for now we'll write some filters out explicitly.
-//        final ReadFilter readFilter = ctx.broadcast(new WellformedReadFilter(readsHeader));
         final JavaRDD<GATKRead> rawReads = getReads();
         final JavaRDD<GATKRead> reads = rawReads.filter(read -> !read.isUnmapped() && read.getStart() <= read.getEnd() && !read.isDuplicate());
         final JavaPairRDD<GATKRead, ReferenceBases> readsWithRefBases = BroadcastJoinReadsWithRefBases.addBases(getReference(), reads);
 
+        Function<Tuple2<Locatable, Tuple2<Integer, Integer>>, Boolean> filter;
+        if (mode.equals(NORMAL_MODE_ARGUMENT)) {
+            filter = keyValue -> isRefAltCountHetCompatible(keyValue._2());
+        } else {
+            filter = keyValue -> isOverCountThresholds(keyValue._2());
+        }
+
         final Map<Locatable, Tuple2<Integer, Integer>> byKey = readsWithRefBases.flatMapToPair(readWithRefBases ->
-                        islBroad.getValue().getOverlapping(new SimpleInterval(readWithRefBases._1())).stream()
-                                .map(over -> new Tuple2<>(over, getRefAltTuple2(readWithRefBases, over)))
-                                .collect(Collectors.toList()))
+                islBroad.getValue().getOverlapping(new SimpleInterval(readWithRefBases._1())).stream()
+                        .map(over -> new Tuple2<>(over, getRefAltTuple2(readWithRefBases, over)))
+                        .collect(Collectors.toList()))
                 .reduceByKey((t1, t2) -> new Tuple2<>(t1._1() + t2._1(), t1._2() + t2._2()))
-                .filter(keyValue -> isRefAltCountHetCompatible(keyValue._2()))
+                .filter(filter)
                 .collectAsMap();
 
         final SortedMap<Locatable, Tuple2<Integer, Integer>> byKeySorted = new TreeMap<>(IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR);
@@ -183,10 +174,18 @@ public final class GetHetCoverageSpark extends GATKSparkTool {
             return false;
         }
 
-        final double pval = new BinomialTest().binomialTest(refCount + altCount, majorReadCount, hetAlleleFraction,
+        final double pval = new BinomialTest().binomialTest(totalCount, majorReadCount, hetAlleleFraction,
                 AlternativeHypothesis.TWO_SIDED);
 
         return pval >= pvalThreshold;
+    }
+
+    private static boolean isOverCountThresholds(final Tuple2<Integer, Integer> refAltCounts) {
+        final int refCount = refAltCounts._1();
+        final int altCount = refAltCounts._2();
+        final int totalCount = refCount + altCount;
+
+        return refCount > 0 && altCount > 0 && totalCount > HetPulldownCalculator.READ_DEPTH_THRESHOLD;
     }
 }
 
