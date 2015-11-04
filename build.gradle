@@ -25,6 +25,7 @@ apply plugin: 'com.github.johnrengelman.shadow'
 mainClassName = "org.broadinstitute.hellbender.Main"
 
 import org.gradle.internal.os.*
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 def isMacOsX = OperatingSystem.current().macOsX
 def customJarPath = hasProperty("custom.jar.dir") ? property("custom.jar.dir") : null;
 
@@ -236,6 +237,17 @@ task wrapper(type: Wrapper) {
     gradleVersion = '2.7'
 }
 
+configurations {
+    sparkConfiguration {
+        extendsFrom runtime
+        // exclude Hadoop and Spark dependencies, since they are provided when running with Spark
+        // (ref: http://unethicalblogger.com/2015/07/15/gradle-goodness-excluding-depends-from-shadow.html)
+        exclude group: 'org.apache.hadoop'
+        exclude module: 'spark-core_2.10'
+        exclude group: 'org.slf4j'
+    }
+}
+
 shadowJar {
     manifest {
         attributes 'Implementation-Title': 'Hellbender-Protected-Tools',
@@ -258,5 +270,21 @@ shadowJar {
             ignoreExitValue = false
         }
     }
+}
+
+task sparkJar(type: ShadowJar) {
+    manifest {
+        attributes 'Implementation-Title': 'Hellbender-protected',
+                'Implementation-Version': version,
+                'Main-Class': 'org.broadinstitute.hellbender.Main'
+    }
+    configurations = [project.configurations.sparkConfiguration]
+    from(project.sourceSets.main.output)
+    baseName = project.name + '-all'
+    classifier = 'spark'
+    mergeServiceFiles()
+    relocate 'com.google.common', 'org.broadinstitute.hellbender.relocated.com.google.common'
+    zip64 true
+    exclude 'log4j.properties' // from adam jar as it clashes with hellbender-protected's log4j2.xml
 }
 
