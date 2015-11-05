@@ -260,6 +260,12 @@ shadowJar {
     mergeServiceFiles()
     zip64 true
 
+    // Suggested by the akka devs to make sure that we do not get the spark configuration error.
+    // http://doc.akka.io/docs/akka/snapshot/general/configuration.html#When_using_JarJar__OneJar__Assembly_or_any_jar-bundler
+    transform(com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+
     doLast {
         // Create a symlink to the newly created jar.  The name will be hellbender-protected.jar and
         //  it will be at the same level as the newly created jar.  (overwriting symlink, if it exists)
