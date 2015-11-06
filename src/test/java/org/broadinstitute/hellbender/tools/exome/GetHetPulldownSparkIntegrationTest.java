@@ -15,12 +15,19 @@ import java.io.File;
 import java.io.IOException;
 
 public final class GetHetPulldownSparkIntegrationTest extends CommandLineProgramTest {
-    private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/tools/exome/";
+//    private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/tools/exome/";
 
-    private static final File NORMAL_BAM_FILE = new File(TEST_SUB_DIR + "normal.sorted.bam");
-    private static final File TUMOR_BAM_FILE = new File(TEST_SUB_DIR + "tumor.sorted.bam");
-    private static final File SNP_FILE = new File(TEST_SUB_DIR + "common_SNP.interval_list");
-    private static final File REF_FILE = new File(hg19MiniReference);
+//    private static final File NORMAL_BAM_FILE = new File(TEST_SUB_DIR + "normal.sorted.bam");
+//    private static final File TUMOR_BAM_FILE = new File(TEST_SUB_DIR + "tumor.sorted.bam");
+//    private static final File SNP_FILE = new File(TEST_SUB_DIR + "common_SNP.interval_list");
+//    private static final File REF_FILE = new File(hg19MiniReference);
+
+    private static final String TEST_SUB_DIR = "/home/slee/working/hellbender-protected/alleliccapsegger/";
+
+    private static final File NORMAL_BAM_FILE = new File(TEST_SUB_DIR + "HCC1143BL_chr22_27M_37M.actual.bam");
+    private static final File TUMOR_BAM_FILE = new File(TEST_SUB_DIR + "HCC1143_chr22_27M_37M.actual.bam");
+    private static final File SNP_FILE = new File(TEST_SUB_DIR + "common_SNPs.chr22_27Mto37M.interval_list");
+    private static final File REF_FILE = new File(TEST_SUB_DIR + "Homo_sapiens_assembly19.fasta");
 
     private static SAMFileHeader normalHeader;
     private static SAMFileHeader tumorHeader;
