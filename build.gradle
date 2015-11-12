@@ -177,8 +177,9 @@ test {
 
     // set heap size for the test JVM(s)
     minHeapSize = "1G"
-    maxHeapSize = "2G"
+    maxHeapSize = "1.5G"
 
+	  jvmArgs '-Xmx2G'
     maxParallelForks=2
   
     String CI = "$System.env.CI"
