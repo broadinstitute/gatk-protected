@@ -7,6 +7,9 @@ env:
   global:
   - JAVA_LIBRARY_PATH=/usr/lib/jni
 
+  #limit gradle jvm memory usage
+  - GRADLE_OPTS=-Xmx1024m
+
   # If this changes, you will need to update the gradle build
   - HDF5_DIR=/hdf/
 
