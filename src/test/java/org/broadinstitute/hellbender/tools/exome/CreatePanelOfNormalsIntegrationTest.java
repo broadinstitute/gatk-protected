@@ -238,6 +238,7 @@ public class CreatePanelOfNormalsIntegrationTest extends CommandLineProgramTest 
             final HDF5PoN rightPoN = new HDF5PoN(rightFile);
             Assert.assertEquals(leftPoN.getSampleNames(), rightPoN.getSampleNames());
             Assert.assertEquals(new LinkedHashSet<>(leftPoN.getTargetNames()), new LinkedHashSet<>(rightPoN.getTargetNames()));
+            assertEqualsMatrix(leftPoN.getTargetVariances(), rightPoN.getTargetVariances(), true);
             assertEqualsMatrix(leftPoN.getTargetFactors(), rightPoN.getTargetFactors(), true);
             assertEqualsMatrix(leftPoN.getLogNormalizedCounts(), rightPoN.getLogNormalizedCounts(), true);
             assertEqualsMatrix(leftPoN.getLogNormalizedPInverseCounts(), rightPoN.getLogNormalizedPInverseCounts(), true);

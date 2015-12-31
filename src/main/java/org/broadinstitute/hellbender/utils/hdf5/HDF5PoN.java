@@ -3,13 +3,19 @@ package org.broadinstitute.hellbender.utils.hdf5;
 import htsjdk.samtools.util.Lazy;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.stat.descriptive.moment.Variance;
 import org.broadinstitute.hellbender.exceptions.GATKException;
+import org.broadinstitute.hellbender.tools.exome.Target;
+import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.IntPredicate;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * HDF5 File backed Panel of Normals data structure.
@@ -19,46 +25,46 @@ import java.util.function.IntPredicate;
 public final class HDF5PoN implements PoN {
 
     public final static String TARGET_FACTORS_GROUP_NAME = "/target_factors";
-
-    private final static String NORMALIZED_PCOV_GROUP_NAME = "/fnt_control_matrix";
-
-    private final static String VERSION_GROUP_NAME = "/version";
-
-    private final static String LOG_NORMALS_GROUP_NAME = "/log_normals";
-
-    private final static String LOG_NORMALS_PINV_GROUP_NAME = "/log_normals_pinv";
-
-    private final static String REDUCED_PON_GROUP_NAME = "/reduced_pon";
-
-    public final static String REDUCED_PON_PINV_GROUP_NAME = "/reduced_pon_pinv";
-
     public final static String TARGET_NAMES_PATH = TARGET_FACTORS_GROUP_NAME + "/index";
-
-    public final static String SAMPLE_NAMES_PATH = NORMALIZED_PCOV_GROUP_NAME + "/axis0";
-
+    public final static String TARGET_CONTIGS_PATH = TARGET_FACTORS_GROUP_NAME + "/contig";
+    public final static String TARGET_STARTS_PATH = TARGET_FACTORS_GROUP_NAME + "/start";
+    public final static String TARGET_ENDS_PATH = TARGET_FACTORS_GROUP_NAME + "/end";
     public final static String TARGET_FACTORS_PATH = TARGET_FACTORS_GROUP_NAME + "/values";
 
-    private final static String NORMALIZED_PCOV_PATH = NORMALIZED_PCOV_GROUP_NAME + "/block0_values";
-
-    public final static String LOG_NORMALS_PATH = LOG_NORMALS_GROUP_NAME + "/block0_values";
-
+    private final static String LOG_NORMALS_GROUP_NAME = "/log_normals";
+    public  final static String LOG_NORMALS_PATH = LOG_NORMALS_GROUP_NAME + "/block0_values";
     private final static String LOG_NORMALS_SAMPLE_NAMES_PATH = LOG_NORMALS_GROUP_NAME + "/block0_items";
+    private final static String LOG_NORMALS_TARGET_VARIANCES_PATH = LOG_NORMALS_GROUP_NAME + "/target_variances";
 
-    public final static String LOG_NORMALS_PINV_PATH = LOG_NORMALS_PINV_GROUP_NAME + "/block0_values";
+    private final static String NORMALIZED_PCOV_GROUP_NAME = "/fnt_control_matrix";
+    private final static String NORMALIZED_PCOV_PATH = NORMALIZED_PCOV_GROUP_NAME + "/block0_values";
+    public  final static String SAMPLE_NAMES_PATH = NORMALIZED_PCOV_GROUP_NAME + "/axis0";
 
-    public final static String REDUCED_PON_PATH = REDUCED_PON_GROUP_NAME + "/block0_values";
-
-    private final static String REDUCED_PON_TARGET_PATH = REDUCED_PON_GROUP_NAME + "/axis1";
-
-    public final static String REDUCED_PON_PINV_PATH = REDUCED_PON_PINV_GROUP_NAME + "/block0_values";
-
+    private final static String VERSION_GROUP_NAME = "/version";
     private final static String VERSION_PATH = VERSION_GROUP_NAME + "/values";
+
+    private final static String LOG_NORMALS_PINV_GROUP_NAME = "/log_normals_pinv";
+    public  final static String LOG_NORMALS_PINV_PATH = LOG_NORMALS_PINV_GROUP_NAME + "/block0_values";
+
+    private final static String REDUCED_PON_GROUP_NAME = "/reduced_pon";
+    public  final static String REDUCED_PON_PATH = REDUCED_PON_GROUP_NAME + "/block0_values";
+    private final static String REDUCED_PON_TARGET_NAMES_PATH = REDUCED_PON_GROUP_NAME + "/axis1";
+    private final static String REDUCED_PON_TARGET_CONTIGS_PATH = REDUCED_PON_GROUP_NAME + "/contig";
+    private final static String REDUCED_PON_TARGET_STARTS_PATH = REDUCED_PON_GROUP_NAME + "/start";
+    private final static String REDUCED_PON_TARGET_ENDS_PATH = REDUCED_PON_GROUP_NAME + "/end";
+
+    public final static String REDUCED_PON_PINV_GROUP_NAME = "/reduced_pon_pinv";
+    public final static String REDUCED_PON_PINV_PATH = REDUCED_PON_PINV_GROUP_NAME + "/block0_values";
 
     private final HDF5File file;
 
     private final Lazy<List<String>> targetNames;
 
-    private final Lazy<List<String>> reducedTargetNames;
+    private final Lazy<List<String>> panelTargetNames;
+
+    private final Lazy<List<Target>> targets;
+
+    private final Lazy<List<Target>> panelTargets;
 
     private final Lazy<List<String>> sampleNames;
 
@@ -74,8 +80,10 @@ public final class HDF5PoN implements PoN {
         this.file = file;
         targetNames = new Lazy<>(() -> readTargetNames(file));
         sampleNames = new Lazy<>(() -> readSampleNames(file));
+        targets = new Lazy<>(() -> readTargets(file));
+        panelTargets = new Lazy<>(() -> readPanelTargets(file));
         logNormalSampleNames = new Lazy<>(() -> readLogNormalizedSampleNames(file));
-        reducedTargetNames = new Lazy<>(() -> Collections.unmodifiableList(Arrays.asList(file.readStringArray(REDUCED_PON_TARGET_PATH))));
+        panelTargetNames = new Lazy<>(() -> Collections.unmodifiableList(Arrays.asList(file.readStringArray(REDUCED_PON_TARGET_NAMES_PATH))));
     }
 
         /**
@@ -101,6 +109,44 @@ public final class HDF5PoN implements PoN {
     }
 
     /**
+     * Reads the targets.
+     * @param reader the source HDF5 reader.
+     * @return never {@code null}.
+     * @throws GATKException if there was any problem reading the contents of the underlying HDF5 file.
+     */
+    private static List<Target> readTargets(final HDF5File reader) {
+        final String[] names = reader.readStringArray(TARGET_NAMES_PATH);
+        final String[] contigs = reader.readStringArray(TARGET_CONTIGS_PATH);
+        final int[] starts = reader.readIntegerArray(TARGET_STARTS_PATH);
+        final int[] ends = reader.readIntegerArray(TARGET_ENDS_PATH);
+
+        List<Target> result = new ArrayList<>();
+        for (int i = 0; i < names.length; i++) {
+            result.add(new Target(names[i], new SimpleInterval(contigs[i], starts[i], ends[i])));
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /**
+     * Reads the targets used in the panel of normals.
+     * @param reader the source HDF5 reader.
+     * @return never {@code null}.
+     * @throws GATKException if there was any problem reading the contents of the underlying HDF5 file.
+     */
+    private static List<Target> readPanelTargets(final HDF5File reader) {
+        final String[] names = reader.readStringArray(REDUCED_PON_TARGET_NAMES_PATH);
+        final String[] contigs = reader.readStringArray(REDUCED_PON_TARGET_CONTIGS_PATH);
+        final int[] starts = reader.readIntegerArray(REDUCED_PON_TARGET_STARTS_PATH);
+        final int[] ends = reader.readIntegerArray(REDUCED_PON_TARGET_ENDS_PATH);
+
+        List<Target> result = new ArrayList<>();
+        for (int i = 0; i < names.length; i++) {
+            result.add(new Target(names[i], new SimpleInterval(contigs[i], starts[i], ends[i])));
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /**
      * Reads the sample names.
      * @param reader the source HDF5 reader.
      * @return never {@code null}.
@@ -117,8 +163,16 @@ public final class HDF5PoN implements PoN {
     }
 
     @Override
-    public List<String> getPanelTargetNames() {
-        return reducedTargetNames.get();
+    public List<Target> getTargets() {
+        return targets.get();
+    }
+
+    @Override
+    public List<String> getPanelTargetNames() { return panelTargetNames.get(); }
+
+    @Override
+    public List<Target> getPanelTargets() {
+        return panelTargets.get();
     }
 
     @Override
@@ -127,10 +181,7 @@ public final class HDF5PoN implements PoN {
     }
 
     @Override
-    public List<String> getPanelSampleNames() {
-        return logNormalSampleNames.get();
-
-    }
+    public List<String> getPanelSampleNames() { return logNormalSampleNames.get(); }
 
     @Override
     public RealMatrix getTargetFactors() {
@@ -149,6 +200,15 @@ public final class HDF5PoN implements PoN {
         }
         file.makeGroup(TARGET_FACTORS_GROUP_NAME);
         file.makeDoubleArray(TARGET_FACTORS_PATH, targetFactors.getColumn(0));
+    }
+
+    @Override
+    public RealMatrix getTargetVariances() {
+        final double[] values = file.readDoubleArray(LOG_NORMALS_TARGET_VARIANCES_PATH);
+        if (values.length != targetNames.get().size()) {
+            throw new GATKException(String.format("wrong number of elements in the target variances recovered from file '%s': %d != %d", file.getFile(), values.length, targetNames.get().size()));
+        }
+        return new Array2DRowRealMatrix(values);
     }
 
     @Override
@@ -172,7 +232,7 @@ public final class HDF5PoN implements PoN {
     @Override
     public RealMatrix getReducedPanelCounts() {
         return readMatrixAndCheckDimensions(REDUCED_PON_PATH,
-                r -> r == reducedTargetNames.get().size(),
+                r -> r == panelTargetNames.get().size(),
                 c -> c <= getPanelSampleNames().size());
     }
 
@@ -180,7 +240,7 @@ public final class HDF5PoN implements PoN {
     public RealMatrix getReducedPanelPInverseCounts() {
         return readMatrixAndCheckDimensions(REDUCED_PON_PINV_PATH,
                 r -> r <= getPanelSampleNames().size(),
-                c -> c == reducedTargetNames.get().size());
+                c -> c == panelTargetNames.get().size());
     }
 
     @Override
@@ -270,9 +330,14 @@ public final class HDF5PoN implements PoN {
     /**
      * Changes the target names in the PoN.
      */
-    public void setTargetNames(final List<String> names) {
+    public void setTargets(final List<Target> targets) {
+        final List<String> names = targets.stream().map(Target::getName).collect(Collectors.toList());
         checkNameList(names);
+        final List<String> contigs = targets.stream().map(Target::getContig).collect(Collectors.toList());
         file.makeStringArray(TARGET_NAMES_PATH, names.toArray(new String[names.size()]));
+        file.makeStringArray(TARGET_CONTIGS_PATH, contigs.toArray(new String[names.size()]));
+        file.makeIntegerArray(TARGET_STARTS_PATH, targets.stream().mapToInt(Target::getStart).toArray());
+        file.makeIntegerArray(TARGET_ENDS_PATH, targets.stream().mapToInt(Target::getEnd).toArray());
     }
 
     /**
@@ -296,6 +361,10 @@ public final class HDF5PoN implements PoN {
     public void setLogNormalCounts(final RealMatrix counts) {
         Utils.nonNull(counts);
         file.makeDoubleMatrix(LOG_NORMALS_PATH, counts.getData());
+
+        final double[] targetVariances = IntStream.range(0, counts.getRowDimension())
+                .mapToDouble(row -> new Variance().evaluate(counts.getRow(row))).toArray();
+        file.makeDoubleArray(LOG_NORMALS_TARGET_VARIANCES_PATH, targetVariances);
     }
 
     public void setReducedPanelPInverseCounts(final RealMatrix counts) {
@@ -308,9 +377,14 @@ public final class HDF5PoN implements PoN {
         file.makeStringArray(LOG_NORMALS_SAMPLE_NAMES_PATH, names.toArray(new String[names.size()]));
     }
 
-    public void setPanelTargetNames(final List<String> names) {
+    public void setPanelTargets(final List<Target> targets) {
+        final List<String> names = targets.stream().map(Target::getName).collect(Collectors.toList());
         checkNameList(names);
-        file.makeStringArray(REDUCED_PON_TARGET_PATH, names.toArray(new String[names.size()]));
+        final List<String> contigs = targets.stream().map(Target::getContig).collect(Collectors.toList());
+        file.makeStringArray(REDUCED_PON_TARGET_NAMES_PATH, names.toArray(new String[names.size()]));
+        file.makeStringArray(REDUCED_PON_TARGET_CONTIGS_PATH, contigs.toArray(new String[names.size()]));
+        file.makeIntegerArray(REDUCED_PON_TARGET_STARTS_PATH, targets.stream().mapToInt(Target::getStart).toArray());
+        file.makeIntegerArray(REDUCED_PON_TARGET_ENDS_PATH, targets.stream().mapToInt(Target::getEnd).toArray());
     }
 
     private void checkNameList(List<String> names) {

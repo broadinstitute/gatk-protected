@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.utils.hdf5;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
+import org.broadinstitute.hellbender.tools.exome.Target;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.List;
@@ -27,6 +28,18 @@ public interface PoN {
     List<String> getTargetNames();
 
     /**
+     * Targets listed by their numerical index in this PoN.
+     *
+     * <p>
+     * The returned list cannot be modified and its content might change to reflect
+     * changes in the underlying PoN storing resource depending on the implementation.
+     * </p>
+     *
+     * @return never {@code null}.
+     */
+    List<Target> getTargets();
+
+    /**
      * Reduced PoN Target names listed by their numerical index in the reduced PoN.
      *
      * <p>
@@ -37,6 +50,18 @@ public interface PoN {
      * @return never {@code null}.
      */
     List<String> getPanelTargetNames();
+
+    /**
+     * Reduced PoN Targets listed by their numerical index in this PoN.
+     *
+     * <p>
+     * The returned list cannot be modified and its content might change to reflect
+     * changes in the underlying PoN storing resource depending on the implementation.
+     * </p>
+     *
+     * @return never {@code null}.
+     */
+    List<Target> getPanelTargets();
 
     /**
      * Sample names listed by their numerical index in this PoN.
@@ -141,8 +166,7 @@ public interface PoN {
      * Returns the log-normal pseudo-inverse matrix.
      *
      * <p>
-     * The return matrix is a modifiable detached copy of the values in the
-     * PoN.
+     * The returned matrix is a modifiable detached copy of the values in the PoN.
      * </p>
      *
      * @return never {@code null}, a matrix with dimensions {@code TxS} where {@code T} is the number of targets and
@@ -154,12 +178,15 @@ public interface PoN {
      * Returns the reduced PoN matrix.
      *
      * <p>
-     * The return matrix is a modifiable detached copy of the values in the
-     * PoN.
+     * Each column of the returned matrix corresponds to a single eigensample.
+     * </p>
+     *
+     * <p>
+     * The returned matrix is a modifiable detached copy of the values in the PoN.
      * </p>
      *
      * @return never {@code null}, a matrix with dimensions {@code TxE} where {@code T} is the number of targets and
-     * {@code E} the number of eigen samples.
+     * {@code E} the number of eigensamples.
      */
     RealMatrix getReducedPanelCounts();
 
@@ -172,12 +199,24 @@ public interface PoN {
      * </p>
      *
      * @return never {@code null}, a matrix with dimensions {@code ExT} where {@code T} is the number of targets and
-     * {@code E} the number of eigen samples.
+     * {@code E} the number of eigensamples.
      */
     RealMatrix getReducedPanelPInverseCounts();
 
     /**
+     * Returns the variances of log-normalized counts at each target.
+     *
+     * @return never {@code null}, a matrix with {@code Tx1} dimensions where {@code T}
+     * is the number of targets in this PoN.
+     */
+    RealMatrix getTargetVariances();
+
+    /**
      * Performs target factor normalization on a matrix.
+     *
+     * <p>
+     *     Each row (target) of the returned matrix equals the input row divided by the target factor for that row.
+     * </p>
      *
      * <p>
      *     The input matrix remains unchanged.
@@ -239,14 +278,14 @@ public interface PoN {
     /**
      * Applies tangent normalization.
      * <p>
-     *     The input row order is suppose to match the panels target order.
+     *     The input row order is supposed to match the panel's target order.
      * </p>
      *
      * @param input the input counts to normalize. This matrix dimension is TxS where T is the number of targets
      *              and S the number of count columns.
      * @param betaHats the beta-hats for the projection to use for the normalization. The dimension of this matrix
      *                  is NxS where N is the number of samples in the panel of choice and S is the number of count columns.
-     * @param useReduced whether to use the reduced or the full normal panel sample.
+     * @param useReduced whether to use the reduced or the full normal panel.
      * @return never {@code null}.
      */
     default RealMatrix tangentNormalization(final RealMatrix input, final RealMatrix betaHats, final boolean useReduced) {

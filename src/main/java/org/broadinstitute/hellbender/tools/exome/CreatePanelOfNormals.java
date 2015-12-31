@@ -260,9 +260,7 @@ public class CreatePanelOfNormals extends SparkToggleCommandLineProgram {
         try (final HDF5File file = new HDF5File(outFile, HDF5File.OpenMode.READ_WRITE)) {
             final HDF5PoN pon = new HDF5PoN(file);
             pon.setPanelSampleNames(readCounts.columnNames());
-            pon.setPanelTargetNames(readCounts.targets().stream()
-                    .map(Target::getName)
-                    .collect(Collectors.toList()));
+            pon.setPanelTargets(readCounts.targets());
             pon.setLogNormalCounts(readCounts.counts());
             pon.setLogNormalPInverseCounts(reduction.pseudoInverse);
             pon.setReducedPanelCounts(reduction.reduced);
@@ -273,20 +271,17 @@ public class CreatePanelOfNormals extends SparkToggleCommandLineProgram {
 
     private static void writeTargetFactorNormalizeReadCountsAndTargetFactors(final File outFile, final ReadCountCollection readCounts, final double[] targetFactors) {
         final List<String> sampleNames = readCounts.columnNames();
-        final List<String> targetNames = readCounts.targets().stream()
-                .map(Target::getName)
-                .collect(Collectors.toList());
         try (final HDF5File file = new HDF5File(outFile, HDF5File.OpenMode.CREATE)) {
             final HDF5PoN pon = new HDF5PoN(file);
             pon.setSampleNames(sampleNames);
-            pon.setTargetNames(targetNames);
+            pon.setTargets(readCounts.targets());
             pon.setTargetFactors(new Array2DRowRealMatrix(targetFactors));
             pon.setNormalCounts(readCounts.counts());
         }
     }
 
     /**
-     * Composes the preferred number of eigen values optional given the user input.
+     * Composes the preferred number of eigenvalues optional given the user input.
      *
      * @return an empty optional if the user elected to use the automatic/inferred value, otherwise
      * a strictly positive integer.
