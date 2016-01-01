@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.exome;
 
+import htsjdk.tribble.Feature;
 import htsjdk.tribble.FeatureCodec;
 import htsjdk.tribble.bed.BEDFeature;
 import org.apache.commons.collections4.list.SetUniqueList;
@@ -11,6 +12,7 @@ import org.broadinstitute.hellbender.cmdline.*;
 import org.broadinstitute.hellbender.cmdline.programgroups.ExomeAnalysisProgramGroup;
 import org.broadinstitute.hellbender.engine.FeatureManager;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.hdf5.HDF5File;
 import org.broadinstitute.hellbender.utils.hdf5.HDF5PoN;
@@ -32,11 +34,7 @@ import java.util.stream.IntStream;
  * Normalizes read counts given the PanelOfNormals.
  * <p/>
  * <p>
- * Currently this tool only performs target factor normalization.
- * </p>
- * <p/>
- * <p>
- * Subsequent version will perform tangent normalization as well.
+ * This tool performs target factor normalization and tangent normalization.
  * </p>
  *
  * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
@@ -85,14 +83,6 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File readCountsFile;
 
     @Argument(
-            doc = "target BED file.",
-            shortName = ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME,
-            fullName = ExomeStandardArgumentDefinitions.TARGET_FILE_LONG_NAME,
-            optional = true
-    )
-    protected File targetFile;
-
-    @Argument(
             doc = "panel Of normals HDF5 file",
             shortName = ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME,
             fullName = ExomeStandardArgumentDefinitions.PON_FILE_LONG_NAME,
@@ -138,8 +128,14 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
         Utils.regularReadableUserFile(ponFile);
         try (final HDF5File ponReader = new HDF5File(ponFile)) {
             final PoN pon = new HDF5PoN(ponReader);
-            final TargetCollection<? extends BEDFeature> exonCollection = readTargetCollection(targetFile);
-            final ReadCountCollection readCountCollection = readInputReadCounts(readCountsFile, exonCollection);
+            final TargetCollection<Target> targetCollection = new HashedListTargetCollection<Target>(pon.getTargets()) {
+                @Override
+                public String name(final Target target) {
+                    final String name = Utils.nonNull(target,"the input target cannot be null").getName();
+                    return (name == null || name.isEmpty()) ? null : name;
+                }
+            };
+            final ReadCountCollection readCountCollection = readInputReadCounts(readCountsFile, targetCollection);
             final ReadCountCollection targetFactorNormalized = applyTargetFactorNormalization(pon, readCountCollection);
             applyTangentNormalization(pon, readCountCollection, targetFactorNormalized);
             return "SUCCESS";
@@ -320,32 +316,6 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     }
 
     /**
-     * Reads the exon collection from a file.
-     * @param targetFile the input target file.
-     * @return never {@code null}.
-     */
-    private TargetCollection<? extends BEDFeature> readTargetCollection(final File targetFile) {
-        if (targetFile == null) {
-            return null;
-        } else {
-            Utils.regularReadableUserFile(targetFile);
-            final FeatureCodec<?, ?> codec = FeatureManager.getCodecForFile(targetFile);
-            logger.log(Level.INFO, String.format("Reading target intervals from exome file '%s' ...", new Object[]{targetFile.getAbsolutePath()}));
-            final Class<?> featureType = codec.getFeatureType();
-            if (BEDFeature.class.isAssignableFrom(featureType)) {
-                @SuppressWarnings("unchecked")
-                final FeatureCodec<? extends BEDFeature, ?> bedCodec = (FeatureCodec<? extends BEDFeature, ?>) codec;
-                final TargetCollection<? extends BEDFeature> result = TargetCollections.fromBEDFeatureFile(targetFile, bedCodec);
-                logger.log(Level.INFO, String.format("Found %d targets to analyze.", result.targetCount()));
-                return result;
-            } else {
-                throw new UserException.BadInput(String.format("currently only BED formatted target file are supported. '%s' does not seem to be a BED file",
-                        targetFile.getAbsolutePath()));
-            }
-        }
-    }
-
-    /**
      * Reads the read-counts from the input file using an exon collection (if provided) to resolve target names if this
      * are missing.
      *
@@ -358,8 +328,8 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
      * @throws UserException.BadInput              if there is some format issue with the input file {@code readCountsFile},
      *                                             or it does not contain target names and {@code exonCollection} is {@code null}.
      */
-    private <E extends BEDFeature> ReadCountCollection readInputReadCounts(final File readCountsFile,
-                                                                           final TargetCollection<E> targetCollection) {
+    private <E extends Feature> ReadCountCollection readInputReadCounts(final File readCountsFile,
+                                                                        final TargetCollection<E> targetCollection) {
         try {
             return ReadCountCollectionUtils.parse(readCountsFile, targetCollection, false);
         } catch (final IOException ex) {
@@ -410,17 +380,17 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
 
 
     /**
-     * Utility class use to map matrices rows between two different target lists.
+     * Utility class use to map matrices' rows between two different target lists.
      * <p>
      *     The "case" target list is provided by a {@link ReadCountCollection}, whereas the "pon" target list
      *     is provided by a {@link PoN}.
      * </p>
      * <p>
-     *     This class contains method to re-organized a matrix rows that is based on one list to match the order
-     *     impose by the other list.
+     *     This class contains methods to reorganize matrix rows based on one list to match the order
+     *     imposed by the other list.
      * </p>
      * <p>
-     *     It also provided methods to create a PoN re-organized count matrix directly from a {@link ReadCountCollection}.
+     *     It also provides methods to create a PoN re-organized count matrix directly from a {@link ReadCountCollection}.
      *     object and the reverse operation, that is to create a new {@link ReadCountCollection} from a count matrix
      *     whose rows have been reorganized to satisfy the {@link PoN} target order.
      * </p>
@@ -498,5 +468,4 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
                     fromPoNToCaseCounts(counts));
         }
     }
-
 }

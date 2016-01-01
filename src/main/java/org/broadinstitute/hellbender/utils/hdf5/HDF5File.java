@@ -151,6 +151,7 @@ public final class HDF5File implements AutoCloseable {
             return result;
         });
     }
+
     /**
      * Reads a double value from a particular position in the underlying HDF5 file.
      *
@@ -231,6 +232,31 @@ public final class HDF5File implements AutoCloseable {
             final double[][] result = new double[rows][columns];
             for (int i = 0; i < result.length; i++) {
                 System.arraycopy(values, i * columns, result[i], 0, columns);
+            }
+            return result;
+        });
+    }
+
+    /**
+     * Reads an integer array from a particular position in the underlying HDF5 file.
+     *
+     * @param fullPath the path.
+     * @return never {@code null}, non-existing data or the wrong type in the HDF5
+     * file will result in a {@link GATKException} instead.
+     * @throws IllegalArgumentException if {@code fullPath} is {@code null}.
+     * @throws GATKException if {@code fullPath} does not exist, contains the wrong data type (non-integer) or
+     *    is multidimensional.
+     */
+    public int[] readIntegerArray(final String fullPath) {
+        return readDataset(fullPath, (dataSetId, typeId, dimensions) -> {
+            if (dimensions.length != 1) {
+                throw new GATKException(
+                        String.format("expected 1-D array for data-set '%s' in '%s' but it is %d-D", fullPath, file, dimensions.length));
+            }
+            final int[] result = new int[(int) dimensions[0]];
+            final int code = H5.H5Dread_int(dataSetId, typeId, HDF5Constants.H5S_ALL, HDF5Constants.H5S_ALL, HDF5Constants.H5P_DEFAULT, result);
+            if (code < 0) {
+                throw new GATKException(String.format("getting doubles from data-set '%s' in file '%s' resulted in code: %d", fullPath, file, code));
             }
             return result;
         });
@@ -709,6 +735,22 @@ public final class HDF5File implements AutoCloseable {
         }
         final long[] dimensions = new long[] { value.length, columnCount };
         return makeDataset(fullPath, basicTypeCopyIdSupplier(HDF5Constants.H5T_INTEL_F64), dimensions, value);
+    }
+
+    /**
+     * Creates or overwrites an integer array at particular position in the underlying HDF5 file.
+     *
+     * @param fullPath the path where to place the integer array in the HDF5 file.
+     * @return true iff the new data-set had to be created (none existed for that path).
+     * @throws IllegalArgumentException if {@code fullPath} is {@code null} or is not a valid data-type name.
+     * @throws GATKException if {@code fullPath} does not exist, contains the wrong data type (non-integer) or
+     *    is not a 1D array or is too small to contain the new value.
+     */
+    public boolean makeIntegerArray(final String fullPath, final int[] value) {
+        Utils.nonNull(value);
+        final long[] dimensions = new long[] { value.length };
+        //TODO: confirm this choice -- java spec says to use 32-bit ints regardless of system
+        return makeDataset(fullPath, basicTypeCopyIdSupplier(HDF5Constants.H5T_INTEL_I32), dimensions,  value);
     }
 
     /**

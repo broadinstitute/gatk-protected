@@ -5,6 +5,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.broadinstitute.hellbender.exceptions.GATKException;
+import org.broadinstitute.hellbender.tools.exome.Target;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -26,7 +27,10 @@ import java.util.stream.Stream;
 public final class HDF5LibraryUnitTest {
 
     private static File TEST_RESOURCE_DIR = new File("src/test/resources/org/broadinstitute/hellbender/utils/hdf5");
-    private static File TEST_PON_TARGETS = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-targets.txt");
+    private static File TEST_PON_TARGET_NAMES = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-targets.txt");
+    private static File TEST_PON_TARGET_CONTIGS = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-target_contigs.txt");
+    private static File TEST_PON_TARGET_STARTS = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-target_starts.txt");
+    private static File TEST_PON_TARGET_ENDS = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-target_ends.txt");
     private static File TEST_PON_SAMPLES = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-samples.txt");
     private static File TEST_PON_TARGET_FACTORS = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-target_factors.txt");
     private static File TEST_PON_NORMALIZED_PCOV = new File(TEST_RESOURCE_DIR,"test_creation_of_panel-normalized_pcov.txt");
@@ -70,9 +74,30 @@ public final class HDF5LibraryUnitTest {
         final HDF5File reader = new HDF5File(TEST_PON);
         final PoN pon = new HDF5PoN(reader);
         final List<String> targetNames = pon.getTargetNames();
-        final List<String> expected = readLines(TEST_PON_TARGETS);
+        final List<String> expected = readLines(TEST_PON_TARGET_NAMES);
         Assert.assertNotNull(targetNames);
         Assert.assertEquals(targetNames,expected);
+        reader.close();
+    }
+
+    @Test(dependsOnGroups = "supported")
+    public void testTargetReading() throws IOException {
+        final HDF5File reader = new HDF5File(TEST_PON);
+        final PoN pon = new HDF5PoN(reader);
+        final List<Target> targets = pon.getTargets();
+        final List<String> names = targets.stream().map(Target::getName).collect(Collectors.toList());
+        final List<String> contigs = targets.stream().map(Target::getContig).collect(Collectors.toList());
+        final List<Integer> starts = targets.stream().mapToInt(Target::getStart).boxed().collect(Collectors.toList());
+        final List<Integer> ends = targets.stream().mapToInt(Target::getEnd).boxed().collect(Collectors.toList());
+        final List<String> expectedNames = readLines(TEST_PON_TARGET_NAMES);
+        final List<String> expectedContigs = readLines(TEST_PON_TARGET_CONTIGS);
+        final List<Integer> expectedStarts = readIntegerLines(TEST_PON_TARGET_STARTS);
+        final List<Integer> expectedEnds = readIntegerLines(TEST_PON_TARGET_ENDS);
+
+        Assert.assertEquals(names, expectedNames);
+        Assert.assertEquals(contigs, expectedContigs);
+        Assert.assertEquals(starts, expectedStarts);
+        Assert.assertEquals(ends, expectedEnds);
         reader.close();
     }
 
@@ -245,6 +270,48 @@ public final class HDF5LibraryUnitTest {
     }
 
     @Test()
+    public void testMakeIntegerArray() throws IOException {
+        final File testFile = File.createTempFile("hdf5", ".hd5");
+        HDF5File file = new HDF5File(testFile, HDF5File.OpenMode.CREATE);
+        file.makeGroup("test-group/integer-group");
+        final int[] testValues = new int[] { 1, 2, 3 };
+        Assert.assertTrue(file.makeIntegerArray("test-group/integer-group/my-integer", testValues));
+        System.err.println(testFile);
+        file.close();
+        final long time = System.currentTimeMillis();
+        Assert.assertTrue(testFile.length() > 0);
+        Assert.assertTrue(testFile.lastModified() <= time);
+        file = new HDF5File(testFile, HDF5File.OpenMode.READ_ONLY);
+        final int[] theIntegers = file.readIntegerArray("test-group/integer-group/my-integer");
+        Assert.assertEquals(theIntegers, testValues.clone());
+        file.close();
+    }
+
+    @Test()
+    public void testReMakeIntegerArray() throws IOException {
+        final File testFile = File.createTempFile("hdf5", ".hd5");
+        HDF5File file = new HDF5File(testFile, HDF5File.OpenMode.CREATE);
+        file.makeGroup("test-group/integer-group");
+        final int[] testValues1 = new int[] { 1, 2, 3 };
+        final int[] testValues2 = new int[] { 4, 5, 6 };
+
+        Assert.assertTrue(file.makeIntegerArray("test-group/integer-group/my-integer", testValues1));
+        System.err.println(testFile);
+        file.close();
+        final long time = System.currentTimeMillis();
+        Assert.assertTrue(testFile.length() > 0);
+        Assert.assertTrue(testFile.lastModified() <= time);
+        file = new HDF5File(testFile, HDF5File.OpenMode.READ_WRITE);
+        final int[] theIntegers1 = file.readIntegerArray("test-group/integer-group/my-integer");
+        Assert.assertEquals(theIntegers1, testValues1.clone());
+        Assert.assertFalse(file.makeIntegerArray("test-group/integer-group/my-integer", testValues2));
+        final int[] theIntegers2 = file.readIntegerArray("test-group/integer-group/my-integer");
+        Assert.assertEquals(theIntegers2, testValues2.clone());
+
+        file.close();
+    }
+
+    @Test()
     public void testMakeDouble() throws IOException {
         final File testFile = File.createTempFile("hdf5", ".hd5");
         HDF5File file = new HDF5File(testFile, HDF5File.OpenMode.CREATE);
@@ -390,6 +457,17 @@ public final class HDF5LibraryUnitTest {
             result.add(line);
         }
         return result;
+    }
+
+    /**
+     * Reads the lines of a file into a double list.
+     * @param file the input file.
+     * @return never {@code null}, a list with as many elements as lines in {@code file}.
+     * @throws IOException if some IO exception occurred.
+     * @throws NumberFormatException if some of the input lines in {@code file} cannot be converted into a {@code double}.
+     */
+    private List<Integer> readIntegerLines(final File file) throws IOException {
+        return readLines(file).stream().map(Integer::valueOf).collect(Collectors.toList());
     }
 
     /**

@@ -32,8 +32,6 @@ import java.util.stream.IntStream;
  * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
  */
 public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgramTest {
-
-
     private static final File TEST_DIR = new File("src/test/resources/org/broadinstitute/hellbender/tools/exome");
 
     private static final File FULL_READ_COUNTS_INPUT = new File(TEST_DIR,"full-read-counts.txt");
@@ -46,12 +44,8 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
     private static final File FULL_READ_COUNTS_WITH_EXTRA_TARGET_INPUT_ONE_SAMPLE = new File(TEST_DIR,"full-read-counts-with-extra-target.1sample.txt");
     private static final File FULL_READ_COUNTS_MISSING_A_TARGET_INPUT = new File(TEST_DIR,"full-read-counts-missing-a-target.txt");
     private static final File FULL_READ_COUNTS_MISSING_A_TARGET_INPUT_ONE_SAMPLE = new File(TEST_DIR,"full-read-counts-missing-a-target.1sample.txt");
-    private static final File FULL_READ_COUNTS_BAD_NAME = new File(TEST_DIR,"full-read-counts-bad-target-name.txt");
-    private static final File FULL_READ_COUNTS_BAD_NAME_ONE_SAMPLE = new File(TEST_DIR,"full-read-counts-bad-target-name.1sample.txt");
 
     private static final File TEST_TARGETS = new File(TEST_DIR,"targets.bed");
-
-    private static final File TEST_TARGETS_WITH_BAD_NAME = new File(TEST_DIR,"targets-with-bad-name.bed");
 
     private static final File TEST_PON = HDF5LibraryUnitTest.TEST_PON;
 
@@ -59,40 +53,6 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
     @Override
     public String getTestedClassName() {
         return NormalizeSomaticReadCounts.class.getSimpleName();
-    }
-
-    @Test(expectedExceptions = UserException.BadInput.class)
-    public void testRunWithTargetFileWithBadName() throws IOException {
-        final File factorNormalizedOutput = createTempFile("test",".txt");
-        final File tangentNormalizationOutput = createTempFile("test",".txt");
-
-        final String[] arguments = {
-                "-" + NormalizeSomaticReadCounts.READ_COUNTS_FILE_SHORT_NAME, COORD_ONLY_READ_COUNTS_INPUT.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
-                "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TEST_TARGETS_WITH_BAD_NAME.getAbsolutePath(),
-        };
-        runCommandLine(arguments);
-    }
-
-    @Test(expectedExceptions = UserException.CouldNotReadInputFile.class)
-    public void testBadTargetFile() throws IOException {
-        final File factorNormalizedOutput = createTempFile("test",".txt");
-        final File tangentNormalizationOutput = createTempFile("test",".txt");
-        final File betaHatsOutput = createTempFile("tangent-", ".bhats");
-        final File preTangentNormalizationOutput = createTempFile("pre-tn-",".txt");
-
-        final String[] arguments = {
-                "-" + NormalizeSomaticReadCounts.READ_COUNTS_FILE_SHORT_NAME, FULL_READ_COUNTS_INPUT.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
-                "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TEST_TARGETS_WITH_BAD_NAME.getAbsolutePath() + "failure-name",
-                "-" + NormalizeSomaticReadCounts.TANGENT_BETA_HATS_SHORT_NAME, betaHatsOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.PRE_TANGENT_NORMALIZED_COUNTS_FILE_SHORT_NAME, preTangentNormalizationOutput.getAbsolutePath()
-        };
-        runCommandLine(arguments);
     }
 
     @Test(expectedExceptions = UserException.BadInput.class)
@@ -120,7 +80,6 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
         final File tangentNormalizationOutput = createTempFile("test",".txt");
         final File betaHatsOutput = createTempFile("tangent-", ".bhats");
         final File preTangentNormalizationOutput = createTempFile("pre-tn-",".txt");
-
 
         final String[] arguments = {
                 "-" + NormalizeSomaticReadCounts.READ_COUNTS_FILE_SHORT_NAME, FULL_READ_COUNTS_WITH_EXTRA_TARGET_INPUT_ONE_SAMPLE.getAbsolutePath(),
@@ -167,39 +126,6 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
                 "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
                 "-" + NormalizeSomaticReadCounts.TANGENT_BETA_HATS_SHORT_NAME, betaHatsOutput.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.PRE_TANGENT_NORMALIZED_COUNTS_FILE_SHORT_NAME, preTangentNormalizationOutput.getAbsolutePath()
-        };
-        runCommandLine(arguments);
-    }
-
-
-    @Test(expectedExceptions = UserException.BadInput.class)
-    public void testFullInputRunWithTargetFileWithBadName() throws IOException {
-        final File factorNormalizedOutput = createTempFile("test",".txt");
-        final File tangentNormalizationOutput = createTempFile("test",".txt");
-
-
-        final String[] arguments = {
-                "-" + NormalizeSomaticReadCounts.READ_COUNTS_FILE_SHORT_NAME, FULL_READ_COUNTS_BAD_NAME.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
-                "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TEST_TARGETS_WITH_BAD_NAME.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
-        };
-        runCommandLine(arguments);
-    }
-
-    @Test(expectedExceptions = UserException.BadInput.class)
-    public void testFullInputRunWithTargetFileWithBadNameOneSample() throws IOException {
-        final File factorNormalizedOutput = createTempFile("test",".txt");
-        final File tangentNormalizationOutput = createTempFile("test",".txt");
-
-
-        final String[] arguments = {
-                "-" + NormalizeSomaticReadCounts.READ_COUNTS_FILE_SHORT_NAME, FULL_READ_COUNTS_BAD_NAME_ONE_SAMPLE.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
-                "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TEST_TARGETS_WITH_BAD_NAME.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
         };
         runCommandLine(arguments);
     }
@@ -379,7 +305,6 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
                 "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
                 "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TEST_TARGETS.getAbsolutePath(),
         };
 
         runCommandLine(arguments);
@@ -397,7 +322,6 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
                 "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
                 "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TEST_TARGETS.getAbsolutePath(),
         };
 
         runCommandLine(arguments);
@@ -410,21 +334,6 @@ public class NormalizeSomaticReadCountsIntegrationTest extends CommandLineProgra
        // Assert.assertTrue(factorNormalized.hasTargetNames());
        // Assert.assertEquals(factorNormalized.getIntervals(), input.getIntervals());
         assertFactorNormalizedValues(input, factorNormalized);
-    }
-
-    @Test(expectedExceptions = UserException.BadInput.class)
-    public void testCoordOnlyCountsMissingTargetInputFileRun() throws IOException {
-        final File factorNormalizedOutput = createTempFile("test",".txt");
-        final File tangentNormalizationOutput = createTempFile("test",".txt");
-
-        final String[] arguments = {
-                "-" + NormalizeSomaticReadCounts.READ_COUNTS_FILE_SHORT_NAME, COORD_ONLY_READ_COUNTS_INPUT.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME, TEST_PON.getAbsolutePath(),
-                "-" + NormalizeSomaticReadCounts.FACTOR_NORMALIZED_COUNTS_SHORT_NAME, factorNormalizedOutput.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_SHORT_NAME, tangentNormalizationOutput.getAbsolutePath(),
-        };
-
-        runCommandLine(arguments);
     }
 
     @DataProvider(name="inputFileData")
