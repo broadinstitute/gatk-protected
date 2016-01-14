@@ -191,6 +191,10 @@ The CNV case and PoN workflows (description and examples)
 1       35138   35174   target4
 ....snip....
 ```
+Before running the workflows, we recommend padding the target file by 250 bases with the ``PadTargets`` tool.  Example:  ``java -jar gatk-protected.jar PadTargets --targets initial_target_file.bed --output initial_target_file.padded.bed --padding 250``
+This allows some off-target reads to be factored into the copy ratio estimates.  Our internal evaluations have shown that this improves results.  
+If you are using the premade Queue scripts (see below), you can specify the padding there and the workflow will generate the padded targets automatically (i.e. there is no reason to run PadTargets explicitly if you are using the premade Queue scripts).  
+
 7. PoN file (when running case samples only).  This file should be created using the Create PoN workflow (see below).
 <a name="SampleName"/>
 8. Sample name (when running case samples only).  This can be extracted from the input bam file by looking at the ``SM`` tag.  Use ``samtools view -H my_sample.bam | egrep SM``.
