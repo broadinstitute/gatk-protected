@@ -94,9 +94,9 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
 
         logger.info("Starting Spark coverage collection...");
         final long coverageCollectionStartTime = System.currentTimeMillis();
-        final JavaRDD<GATKRead> rawReads = readSource.getParallelReads(bam, referenceArguments.getReferenceFileName(), (int) this.bamPartitionSplitSize);
+        final JavaRDD<GATKRead> rawReads = readSource.getParallelReads(bam, referenceArguments.getReferenceFileName(), 128000000);
         final JavaRDD<GATKRead> reads = rawReads.filter(read -> filter.test(read));
-        final Map<SimpleInterval, Long> byKey = reads.map(read -> SparkGenomeReadCounts.createKey(read, sequenceDictionary)).countByValue();
+        final Map<SimpleInterval, Long> byKey = reads.map(read -> SparkGenomeReadCounts.createKey(read, sequenceDictionary)).treeAggregate(new HashMap<SimpleInterval, Long>(), );
         final long coverageCollectionEndTime = System.currentTimeMillis();
         logger.info(String.format("Finished the spark coverage collection. Elapse of %d seconds",
                 (coverageCollectionEndTime - coverageCollectionStartTime) / 1000));
@@ -129,6 +129,11 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
                 (createFinalMapEndTime - createFinalMapStartTime) / 1000));
 
         TargetCoverageUtils.writeTargetsWithCoverageFromSimpleInterval(outputFile, sampleName, byKeySorted, comments);
+    }
+
+    protected static HashMap<SimpleInterval, Long> combineReadCountMap(final HashMap<SimpleInterval, Long> leftNodeMap,
+                                                                       final HashMap<SimpleInterval, Long> rightNodeMap) {
+
     }
 
     protected static SAMSequenceDictionary dropContigsFromSequence(final SAMSequenceDictionary originalSequenceDictionary, final Set<String> nonAutosomalContigs) {
