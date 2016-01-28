@@ -23,26 +23,29 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * Tool to determine what targets should go further to be analyzed
- * and which ones should be excluded based on several properties, annotations
- * and coverage statistics.
+ * Tool to determine which targets to include in analysis and which to exclude
+ * based on several properties, annotations and coverage statistics.
  * <p>
  *     This tool accepts several inputs with the original list of targets
  *     to consider and annotations used to do the filtering.
  * </p>
  * <p>
- *     The main output ({@link #outputFile} argument), is a target table file with the target that make the cut.
+ *     The main output ({@link #outputFile} argument), is a target table file with the targets that make the cut.
  * </p>
  * <p>
- *     Additionally the user can specify tha additional output file (using {@link #rejectedOutputFile}) that explain
+ *     Additionally the user can specify an additional output file (using {@link #rejectedOutputFile}) that explains
  *     the reason for targets to be excluded from the output.
+ * </p>
+ * <p>
+ *     By default no filtering is done; the user can activate filters by selecting excluding thresholds through
+ *     user argument values.
  * </p>
  *
  * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        summary = "filters target and samples",
-        oneLineSummary = "filters target and samples",
+        summary = "filters targets based on coverage and annotations",
+        oneLineSummary = "filters targets on coverage and annotations",
         programGroup = CopyNumberProgramGroup.class
 )
 public class FilterTargets extends CommandLineProgram {
@@ -89,7 +92,7 @@ public class FilterTargets extends CommandLineProgram {
     public static final String REJECT_OUTPUT_FILE_SHORT_NAME = "rejected";
 
     @Argument(
-            doc = "Minimum target size; targets expanding less base-pairs are filtered out",
+            doc = "Minimum target size; targets spanning fewer base-pairs are filtered out",
             fullName = MINIMUM_TARGET_SIZE_FULL_NAME,
             shortName = MINIMUM_TARGET_SIZE_SHORT_NAME
     )
@@ -112,7 +115,7 @@ public class FilterTargets extends CommandLineProgram {
     protected double maximumGCContent = DEFAULT_MAXIMUM_GC_CONTENT;
 
     @Argument(
-            doc = "Maximum Repeat content; targets with a larger fraction of repeated content will be excluded",
+            doc = "Maximum repeat content; targets with a larger fraction of repeated content will be excluded",
             fullName = MAXIMUM_REPEAT_CONTENT_FULL_NAME,
             shortName = MAXIMUM_REPEAT_CONTENT_SHORT_NAME,
             optional = true
@@ -183,8 +186,7 @@ public class FilterTargets extends CommandLineProgram {
                 if (filters.stream().anyMatch(filter -> !filter.test(target))) {
                    filters.stream()
                            .filter(filter -> !filter.test(target))
-                           .forEach((filter) ->
-                               rejectWriter.writeReason(target, filter));
+                           .forEach((filter) -> rejectWriter.writeReason(target, filter));
                 } else {
                    outputWriter.writeRecord(target);
                 }
@@ -450,7 +452,7 @@ public class FilterTargets extends CommandLineProgram {
 
         /**
          * Holds counter for how many times we have rejected a target
-         * based on a each filter.
+         * based on each filter.
          * <p>Initialized to all zeros</p>
          */
         private final int[] filterCounters;
@@ -516,7 +518,7 @@ public class FilterTargets extends CommandLineProgram {
          * Dumps the rejection reason for a target due to a filter.
          *
          * <p>
-         *     This method assumes that the target has already fail the filter.
+         *     This method assumes that the target has already failed the filter.
          * </p>
          *
          * @param target the target.

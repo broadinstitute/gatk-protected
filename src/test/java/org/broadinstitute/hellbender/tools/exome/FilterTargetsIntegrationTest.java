@@ -33,8 +33,7 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
     }
 
     @Test(dataProvider = "targetMinimumSizeFilterData")
-    public void testTargetMinimumSizeFilter(final List<Target> targets,
-                                            final int minimumTargetSize)
+    public void testTargetMinimumSizeFilter(final List<Target> targets, final int minimumTargetSize)
         throws IOException
     {
         final File targetFile = createTargetFile(targets, Collections.emptySet());
@@ -52,6 +51,12 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
                 "-" + FilterTargets.MINIMUM_TARGET_SIZE_SHORT_NAME, String.valueOf(minimumTargetSize),
                 "-" + FilterTargets.REJECT_OUTPUT_FILE_SHORT_NAME, rejectionFile.getPath(),
         });
+
+        checkLeftInTargets(leftInTargets, outputFile);
+        checkRejectedTargets(leftOutTargets, rejectionFile, FilterTargets.TargetFilter.MinimumTargetSize);
+    }
+
+    private void checkLeftInTargets(List<Target> leftInTargets, File outputFile) {
         final TargetCollection<Target> outputTargetCollection = TargetArgumentCollection.readTargetCollection(outputFile);
         final List<Target> outputTargets = outputTargetCollection.targets();
         Assert.assertEquals(leftInTargets.size(), outputTargets.size());
@@ -60,14 +65,11 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
             Assert.assertEquals(outputTargets.get(i).getInterval(),
                     leftInTargets.get(i).getInterval());
         }
-
-        checkRejectedTargets(leftOutTargets, rejectionFile, FilterTargets.TargetFilter.MinimumTargetSize);
     }
 
     @Test(dataProvider = "targetMinimumSizeFilterData")
     public void testTargetMinimumSizeFilterWithoutRejectionFile(final List<Target> targets,
-                                            final int minimumTargetSize)
-            throws IOException
+                                            final int minimumTargetSize) throws IOException
     {
         final File targetFile = createTargetFile(targets, Collections.emptySet());
         final List<Target> leftInTargets = targets.stream()
@@ -79,20 +81,11 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
                 "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, outputFile.getPath(),
                 "-" + FilterTargets.MINIMUM_TARGET_SIZE_SHORT_NAME, String.valueOf(minimumTargetSize),
         });
-        final TargetCollection<Target> outputTargetCollection = TargetArgumentCollection.readTargetCollection(outputFile);
-        final List<Target> outputTargets = outputTargetCollection.targets();
-        Assert.assertEquals(leftInTargets.size(), outputTargets.size());
-        for (int i = 0; i < outputTargets.size(); i++) {
-            Assert.assertEquals(outputTargets.get(i), leftInTargets.get(i));
-            Assert.assertEquals(outputTargets.get(i).getInterval(),
-                    leftInTargets.get(i).getInterval());
-        }
+        checkLeftInTargets(leftInTargets, outputFile);
     }
 
     @Test(dataProvider = "targetExtremeGCFilterData")
-    public void testTargetExtremeGCFilter(final List<Target> targets,
-                                          final double extremeGC)
-            throws IOException
+    public void testTargetExtremeGCFilter(final List<Target> targets, final double extremeGC) throws IOException
     {
         final File targetFile = createTargetFile(targets, Collections.singleton(TargetAnnotation.GC_CONTENT));
         final List<Target> leftInTargets = targets.stream()
@@ -112,19 +105,13 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
                 "-" + FilterTargets.MINIMUM_GC_CONTENT_SHORT_NAME, String.valueOf(extremeGC),
                 "-" + FilterTargets.REJECT_OUTPUT_FILE_SHORT_NAME, rejectionFile.getPath(),
         });
-        final TargetCollection<Target> outputTargetCollection = TargetArgumentCollection.readTargetCollection(outputFile);
-        final List<Target> outputTargets = outputTargetCollection.targets();
-        Assert.assertEquals(outputTargets.size(), leftInTargets.size());
-        for (int i = 0; i < outputTargets.size(); i++) {
-            Assert.assertEquals(outputTargets.get(i), leftInTargets.get(i));
-            Assert.assertEquals(outputTargets.get(i).getInterval(),
-                    leftInTargets.get(i).getInterval());
-        }
 
+        checkLeftInTargets(leftInTargets, outputFile);
         checkRejectedTargets(leftOutTargets, rejectionFile, FilterTargets.TargetFilter.ExtremeGCContent);
     }
 
-    private void checkRejectedTargets(final List<Target> leftOutTargets, final File rejectionFile, final FilterTargets.TargetFilter filter) throws IOException {
+    private void checkRejectedTargets(final List<Target> leftOutTargets, final File rejectionFile,
+                                      final FilterTargets.TargetFilter filter) throws IOException {
         try (final TableReader<String[]> rejectionReader = new TableReader<String[]>(rejectionFile) {
             @Override
             protected String[] createRecord(DataLine dataLine) {
@@ -147,8 +134,7 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
     }
 
     @Test(dataProvider = "targetExtremeVarianceData")
-    public void testTargetExtremeCoverageVarianceFilterUsingAnnotationFile(final List<Target> targets,
-                                                                       final double min, final double max)
+    public void testTargetExtremeCoverageVarianceFilterUsingAnnotationFile(final List<Target> targets, final double min, final double max)
             throws IOException
     {
         final File targetFile = createTargetFile(targets, Collections.emptySet());
@@ -171,21 +157,13 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
                 "-" + FilterTargets.MINIMUM_COVERAGE_VARIANCE_SHORT_NAME, String.valueOf(min),
                 "-" + FilterTargets.REJECT_OUTPUT_FILE_SHORT_NAME, rejectionFile.getPath(),
         });
-        final TargetCollection<Target> outputTargetCollection = TargetArgumentCollection.readTargetCollection(outputFile);
-        final List<Target> outputTargets = outputTargetCollection.targets();
-        Assert.assertEquals(outputTargets.size(), leftInTargets.size());
-        for (int i = 0; i < outputTargets.size(); i++) {
-            Assert.assertEquals(outputTargets.get(i), leftInTargets.get(i));
-            Assert.assertEquals(outputTargets.get(i).getInterval(),
-                    leftInTargets.get(i).getInterval());
-        }
 
+        checkLeftInTargets(leftInTargets, outputFile);
         checkRejectedTargets(leftOutTargets, rejectionFile, FilterTargets.TargetFilter.ExtremeCoverageVariance);
     }
 
     @Test(dataProvider = "targetExtremeGCFilterData")
-    public void testTargetExtremeGCFilterUsingAnnotationFile(final List<Target> targets,
-                                          final double extremeGC)
+    public void testTargetExtremeGCFilterUsingAnnotationFile(final List<Target> targets, final double extremeGC)
             throws IOException
     {
         final File targetFile = createTargetFile(targets, Collections.emptySet());
@@ -208,21 +186,13 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
                 "-" + FilterTargets.MINIMUM_GC_CONTENT_SHORT_NAME, String.valueOf(extremeGC),
                 "-" + FilterTargets.REJECT_OUTPUT_FILE_SHORT_NAME, rejectionFile.getPath(),
         });
-        final TargetCollection<Target> outputTargetCollection = TargetArgumentCollection.readTargetCollection(outputFile);
-        final List<Target> outputTargets = outputTargetCollection.targets();
-        Assert.assertEquals(outputTargets.size(), leftInTargets.size());
-        for (int i = 0; i < outputTargets.size(); i++) {
-            Assert.assertEquals(outputTargets.get(i), leftInTargets.get(i));
-            Assert.assertEquals(outputTargets.get(i).getInterval(),
-                    leftInTargets.get(i).getInterval());
-        }
 
+        checkLeftInTargets(leftInTargets, outputFile);
         checkRejectedTargets(leftOutTargets, rejectionFile, FilterTargets.TargetFilter.ExtremeGCContent);
     }
 
     @Test(dataProvider = "targetExtremeGCFilterData", expectedExceptions = UserException.BadInput.class)
-    public void testTargetExtremeGCFilterMissingAnnotation(final List<Target> targets,
-                                                             final double extremeGC)
+    public void testTargetExtremeGCFilterMissingAnnotation(final List<Target> targets, final double extremeGC)
             throws IOException {
         if (extremeGC <= 0.0) {
             throw new UserException.BadInput("when minGC is 0.0 or less we don't throw an exception");
@@ -240,8 +210,7 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
     }
 
     @Test(dataProvider = "targetExtremeGCFilterData", expectedExceptions = UserException.BadInput.class)
-    public void testTargetExtremeRepeatFilterMissingAnnotation(final List<Target> targets,
-                                                           final double maxRepeatContent)
+    public void testTargetExtremeRepeatFilterMissingAnnotation(final List<Target> targets, final double maxRepeatContent)
             throws IOException {
         if (maxRepeatContent >= 1.0) {
             throw new UserException.BadInput("when maxRepeat is 1.0 or greater we don't throw an exception");
@@ -258,8 +227,7 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
     }
 
     @Test(dataProvider = "targetExtremeRepeatFilterData")
-    public void testTargetExtremeRepeatFilter(final List<Target> targets,
-                                          final double maxRepeatContent)
+    public void testTargetExtremeRepeatFilter(final List<Target> targets, final double maxRepeatContent)
             throws IOException
     {
         final File targetFile = createTargetFile(targets, Collections.singleton(TargetAnnotation.REPEAT_FRACTION));
@@ -277,15 +245,8 @@ public class FilterTargetsIntegrationTest extends CommandLineProgramTest {
                 "-" + FilterTargets.MAXIMUM_REPEAT_CONTENT_SHORT_NAME, String.valueOf(maxRepeatContent),
                 "-" + FilterTargets.REJECT_OUTPUT_FILE_SHORT_NAME, rejectionFile.getPath(),
         });
-        final TargetCollection<Target> outputTargetCollection = TargetArgumentCollection.readTargetCollection(outputFile);
-        final List<Target> outputTargets = outputTargetCollection.targets();
-        Assert.assertEquals(outputTargets.size(), leftInTargets.size());
-        for (int i = 0; i < outputTargets.size(); i++) {
-            Assert.assertEquals(outputTargets.get(i), leftInTargets.get(i));
-            Assert.assertEquals(outputTargets.get(i).getInterval(),
-                    leftInTargets.get(i).getInterval());
-        }
 
+        checkLeftInTargets(leftInTargets, outputFile);
         checkRejectedTargets(leftOutTargets, rejectionFile, FilterTargets.TargetFilter.ExtremeRepeatContent);
     }
 

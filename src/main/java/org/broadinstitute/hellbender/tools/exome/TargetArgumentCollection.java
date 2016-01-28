@@ -1,7 +1,5 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.exceptions.UserException;
@@ -12,7 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -147,7 +145,6 @@ public final class TargetArgumentCollection {
                                 new HashTargetAnnotationCollection(annotationsByTarget.get(originalTarget))))
                 .collect(Collectors.toList());
 
-
         return new HashedListTargetCollection<Target>(fullyAnnotatedTargets) {
 
             @Override
@@ -177,9 +174,9 @@ public final class TargetArgumentCollection {
      */
     private Map<Target, Map<TargetAnnotation, String>> composeTargetToAnnotationMap(final List<File> targetAnnotations,
                                                                                     final TargetCollection<Target> targets) {
-        final Map<Target,Map<TargetAnnotation,String>> annotationsByTarget = targets.targets().stream()
-                .map(TargetArgumentCollection::targetToTargetAnnotationMapPair)
-                .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+
+        final Map<Target, Map<TargetAnnotation, String>> annotationsByTarget =
+                targets.targets().stream().collect(Collectors.toMap(target -> target, TargetArgumentCollection::targetToTargetAnnotationMap));
 
         for (final File annotationFile : targetAnnotations) {
             try (final TargetTableReader reader = new TargetTableReader(annotationFile)) {
@@ -198,20 +195,19 @@ public final class TargetArgumentCollection {
         return annotationsByTarget;
     }
 
-
     /**
      * Composes a pair from the input target to a mutable map with is annotation values.
      * @param target the input target.
      * @return never {@code null}. Value maps are never {@code null} either, but they might be empty
      * if the input target does not have any annotations.
      */
-    private static Pair<Target, Map<TargetAnnotation, String>> targetToTargetAnnotationMapPair(final Target target) {
+    private static Map<TargetAnnotation, String> targetToTargetAnnotationMap(final Target target) {
 
-        final Map<TargetAnnotation, String> result = new HashMap<>(target.getAnnotations().size());
+        final Map<TargetAnnotation, String> result = new EnumMap<>(TargetAnnotation.class);
         for (final TargetAnnotation annotation : target.getAnnotations().annotationSet()) {
             result.put(annotation, target.getAnnotations().get(annotation));
         }
-        return new ImmutablePair<>(target, result);
+        return result;
     }
 
     /**
