@@ -8,6 +8,7 @@ import htsjdk.samtools.util.Interval;
 import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.SamLocusIterator;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
@@ -17,7 +18,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 
 /**
@@ -48,14 +49,20 @@ public final class HetPulldownCalculatorUnitTest extends BaseTest {
         }
     }
 
-    private static Map<Character, Integer> makeBaseCounts(final int aCount, final int cCount,
-                                                          final int gCount, final int tCount) {
-        final Map<Character, Integer> baseCounts = new HashMap<>();
-        baseCounts.put('A', aCount);
-        baseCounts.put('C', cCount);
-        baseCounts.put('G', gCount);
-        baseCounts.put('T', tCount);
+    private static EnumMap<Nucleotide, Integer> makeBaseCounts(final int aCount, final int cCount,
+                                                               final int gCount, final int tCount) {
+        final EnumMap<Nucleotide, Integer> baseCounts = new EnumMap<>(Nucleotide.class);
+        baseCounts.put(Nucleotide.A, aCount);
+        baseCounts.put(Nucleotide.C, cCount);
+        baseCounts.put(Nucleotide.G, gCount);
+        baseCounts.put(Nucleotide.T, tCount);
         return baseCounts;
+    }
+
+    private static void assertEqualBaseCounts(final Nucleotide.Counter actual, final EnumMap<Nucleotide, Integer> expected) {
+        for (final Nucleotide base : HetPulldownCalculator.BASES) {
+            Assert.assertEquals(actual.get(base), (long) expected.get(base));
+        }
     }
 
     @DataProvider(name = "inputGetPileupBaseCount")
@@ -69,10 +76,10 @@ public final class HetPulldownCalculatorUnitTest extends BaseTest {
 
             final SamLocusIterator locusIterator = new SamLocusIterator(bamReader, intervals);
 
-            final Map<Character, Integer> baseCounts1 = makeBaseCounts(0, 0, 0, 0);
-            final Map<Character, Integer> baseCounts2 = makeBaseCounts(0, 9, 0, 0);
-            final Map<Character, Integer> baseCounts3 = makeBaseCounts(12, 0, 0, 0);
-            final Map<Character, Integer> baseCounts4 = makeBaseCounts(0, 0, 8, 9);
+            final EnumMap<Nucleotide, Integer> baseCounts1 = makeBaseCounts(0, 0, 0, 0);
+            final EnumMap<Nucleotide, Integer> baseCounts2 = makeBaseCounts(0, 9, 0, 0);
+            final EnumMap<Nucleotide, Integer> baseCounts3 = makeBaseCounts(12, 0, 0, 0);
+            final EnumMap<Nucleotide, Integer> baseCounts4 = makeBaseCounts(0, 0, 8, 9);
 
             if (!locusIterator.hasNext()) {
                 throw new SAMException("Can't get locus to start iteration. Check that " + NORMAL_BAM_FILE.toString()
@@ -95,35 +102,36 @@ public final class HetPulldownCalculatorUnitTest extends BaseTest {
 
     @Test(dataProvider = "inputGetPileupBaseCount")
     public void testGetPileupBaseCount(final SamLocusIterator.LocusInfo locus,
-                                       final Map<Character, Integer> expected) {
-        final Map<Character, Integer> result = HetPulldownCalculator.getPileupBaseCounts(locus);
-        Assert.assertEquals(result, expected);
+                                       EnumMap<Nucleotide, Integer> expected) {
+        final Nucleotide.Counter result = HetPulldownCalculator.getPileupBaseCounts(locus);
+        assertEqualBaseCounts(result, expected);
     }
 
     @DataProvider(name = "inputIsPileupHetCompatible")
     public Object[][] inputIsPileupHetCompatible() {
-        final Map<Character, Integer> baseCountsUsualHet = makeBaseCounts(50, 50, 0, 0);
-        final Map<Character, Integer> baseCountsUsualHom = makeBaseCounts(50, 1, 0, 0);
-        final Map<Character, Integer> baseCountsEdgeHom = makeBaseCounts(21, 1, 0, 8);
-        final Map<Character, Integer> baseCountsEmpty = makeBaseCounts(0, 0, 0, 0);
+        final double normalErrorRate = 0.01;
+        final double equalOddsThreshold = 1.0;
 
-        //if pval < pvalThreshold, expected = false
+        //if likelihood ratio < likelihoodRatioThreshold, expected = false
         return new Object[][]{
-                {baseCountsUsualHet, 100, 0.5, 0.05, true}, //pval = 1.0
-                {baseCountsUsualHom, 51, 0.5, 0.05, false}, //pval = 4.6185277824406525e-14
-                {baseCountsEdgeHom, 30, 0.5, 0.05, false},  //pval = 0.04277394525706768
-                {baseCountsEdgeHom, 30, 0.5, 0.04, true},   //pval = 0.04277394525706768
-                {baseCountsEmpty, 0, 0.5, 0.05, false},     //pval = 1.0
-                {baseCountsUsualHom, 51, 0.9, 0.05, true}   //pval = 0.058793513949862403
+                {50, 50, normalErrorRate, 1e50, true}, //likelihood ratio = 1.3 x 10^70
+                {10, 10, normalErrorRate, 1e10, true}, //likelihood ratio = 1.0 x 10^14
+                {99, 1, normalErrorRate, 1e-20, false},  // likelihood ratio = 2.1 x 10^-28
+                {90, 10, normalErrorRate, equalOddsThreshold, false},  // likelihood ratio = 1.9 x 10^-10
+                {86, 14, normalErrorRate, equalOddsThreshold, false},  // likelihood ratio = 0.019
+                {85, 15, normalErrorRate, equalOddsThreshold, true},  // likelihood ratio = 1.85
+                {10, 1, normalErrorRate, equalOddsThreshold, false},   // likelihood ratio = 0.054
+                {10, 2, normalErrorRate, equalOddsThreshold, true},   // likelihood ratio = 5.40
+                {10, 2, 0.1, equalOddsThreshold, false}   // likelihood ratio = 0.14
         };
     }
 
     @Test(dataProvider = "inputIsPileupHetCompatible")
-    public void testIsPileupHetCompatible(final Map<Character, Integer> baseCounts, final int totalBaseCounts,
-                                          final double hetAlleleFraction, final double pvalThreshold,
+    public void testIsHet(final int refBaseCount, final int altBaseCount,
+                                          final double errorRate, final double likelihoodRatioThreshold,
                                           final boolean expected) {
-        final boolean result = HetPulldownCalculator.isPileupHetCompatible(baseCounts, totalBaseCounts,
-                hetAlleleFraction, pvalThreshold);
+        final boolean result = HetPulldownCalculator.isHet(refBaseCount, altBaseCount,
+                errorRate, likelihoodRatioThreshold);
         Assert.assertEquals(result, expected);
     }
 
@@ -137,7 +145,7 @@ public final class HetPulldownCalculatorUnitTest extends BaseTest {
         normalHetPulldown1.add(new SimpleInterval("2", 14689, 14689), 6, 9);
         normalHetPulldown1.add(new SimpleInterval("2", 14982, 14982), 6, 5);
 
-        //changing hetAlleleFraction from 0.5 -> 0.45 removes first het SNP
+        //changing error rate from 0.01 to 0.1 removes first het SNP
         final Pulldown normalHetPulldown2 = new Pulldown(normalHeader);
         normalHetPulldown2.add(new SimpleInterval("1", 11522, 11522), 7, 4);
         normalHetPulldown2.add(new SimpleInterval("1", 12098, 12098), 8, 6);
@@ -146,15 +154,15 @@ public final class HetPulldownCalculatorUnitTest extends BaseTest {
         normalHetPulldown2.add(new SimpleInterval("2", 14982, 14982), 6, 5);
 
         return new Object[][]{
-                {0.5, 0.05, normalHetPulldown1},
-                {0.45, 0.05, normalHetPulldown2}
+                {0.01, 1.0, normalHetPulldown1},
+                {0.1, 1.0, normalHetPulldown2}
         };
     }
 
     @Test(dataProvider = "inputGetNormalHetPulldown")
-    public void testGetNormalHetPulldown(final double hetAlleleFraction, final double pvalThreshold,
+    public void testGetNormalHetPulldown(final double errorRate, final double likelihoodRatioThreshold,
                                          final Pulldown expected) {
-        final Pulldown result = calculator.getNormal(NORMAL_BAM_FILE, hetAlleleFraction, pvalThreshold);
+        final Pulldown result = calculator.getNormal(NORMAL_BAM_FILE, errorRate, likelihoodRatioThreshold);
         Assert.assertEquals(result, expected);
     }
 

@@ -59,7 +59,6 @@ public final class GetHetCoverageIntegrationTest extends CommandLineProgramTest 
         final Pulldown tumorOutputPulldownCLP = new Pulldown(tumorOutputFile, tumorHeader);
 
         Pulldown normalHetPulldown = new Pulldown(normalHeader);
-        normalHetPulldown.add(new SimpleInterval("1", 10736, 10736), 9, 2);
         normalHetPulldown.add(new SimpleInterval("1", 11522, 11522), 7, 4);
         normalHetPulldown.add(new SimpleInterval("1", 12098, 12098), 8, 6);
         normalHetPulldown.add(new SimpleInterval("1", 14630, 14630), 9, 8);
@@ -78,7 +77,7 @@ public final class GetHetCoverageIntegrationTest extends CommandLineProgramTest 
     }
 
     @Test(expectedExceptions = CommandLineException.BadArgumentValue.class)
-    public void testBadpValue() {
+    public void testBadLikelihoodRatioThreshold() {
         final File normalOutputFile = createTempFile("normal-test",".txt");
         final File tumorOutputFile = createTempFile("tumor-test",".txt");
 
@@ -89,7 +88,41 @@ public final class GetHetCoverageIntegrationTest extends CommandLineProgramTest 
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.NORMAL_ALLELIC_COUNTS_FILE_SHORT_NAME, normalOutputFile.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.TUMOR_ALLELIC_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath(),
-                "-" + GetHetCoverage.PVALUE_THRESHOLD_SHORT_NAME, Double.toString(-10)
+                "-" + GetHetCoverage.LIKELIHOOD_RATIO_THRESHOLD_SHORT_NAME, Double.toString(-10)
+        };
+        runCommandLine(arguments);
+    }
+
+    @Test(expectedExceptions = CommandLineException.BadArgumentValue.class)
+    public void testNegativeErrorRate() {
+        final File normalOutputFile = createTempFile("normal-test",".txt");
+        final File tumorOutputFile = createTempFile("tumor-test",".txt");
+
+        final String[] arguments = {
+                "-" + ExomeStandardArgumentDefinitions.NORMAL_BAM_FILE_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.TUMOR_BAM_FILE_SHORT_NAME, TUMOR_BAM_FILE.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.NORMAL_ALLELIC_COUNTS_FILE_SHORT_NAME, normalOutputFile.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.TUMOR_ALLELIC_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath(),
+                "-" + GetHetCoverage.ERROR_RATE_SHORT_NAME, Double.toString(-1)
+        };
+        runCommandLine(arguments);
+    }
+
+    @Test(expectedExceptions = CommandLineException.BadArgumentValue.class)
+    public void testErrorRateGreaterThanOne() {
+        final File normalOutputFile = createTempFile("normal-test",".txt");
+        final File tumorOutputFile = createTempFile("tumor-test",".txt");
+
+        final String[] arguments = {
+                "-" + ExomeStandardArgumentDefinitions.NORMAL_BAM_FILE_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.TUMOR_BAM_FILE_SHORT_NAME, TUMOR_BAM_FILE.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
+                "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.NORMAL_ALLELIC_COUNTS_FILE_SHORT_NAME, normalOutputFile.getAbsolutePath(),
+                "-" + ExomeStandardArgumentDefinitions.TUMOR_ALLELIC_COUNTS_FILE_SHORT_NAME, tumorOutputFile.getAbsolutePath(),
+                "-" + GetHetCoverage.ERROR_RATE_SHORT_NAME, Double.toString(2)
         };
         runCommandLine(arguments);
     }

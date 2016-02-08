@@ -25,11 +25,14 @@ public final class GetHetCoverage extends CommandLineProgram {
     protected static final ReferenceInputArgumentCollection REF_ARGUMENTS =
             new RequiredReferenceInputArgumentCollection();
 
-    protected static final String HET_ALLELE_FRACTION_FULL_NAME = "hetAlleleFraction";
-    protected static final String HET_ALLELE_FRACTION_SHORT_NAME = "AF";
+    protected static final String ERROR_RATE_FULL_NAME = "errorRate";
+    protected static final String ERROR_RATE_SHORT_NAME = "ER";
 
-    protected static final String PVALUE_THRESHOLD_FULL_NAME = "pvalueThreshold";
-    protected static final String PVALUE_THRESHOLD_SHORT_NAME = "p";
+    protected static final String LIKELIHOOD_RATIO_THRESHOLD_FULL_NAME = "likelihoodRatioThreshold";
+    protected static final String LIKELIHOOD_RATIO_THRESHOLD_SHORT_NAME = "LR";
+
+    private static final double DEFAULT_LIKELIHOOD_RATIO_THRESHOLD = 1000;
+    private static final double DEFAULT_ERROR_RATE = 0.01;
 
     @Argument(
             doc = "BAM file for normal sample.",
@@ -72,33 +75,39 @@ public final class GetHetCoverage extends CommandLineProgram {
     protected File tumorHetOutputFile;
 
     @Argument(
-            doc = "Heterozygous allele fraction.",
-            fullName = HET_ALLELE_FRACTION_FULL_NAME,
-            shortName = HET_ALLELE_FRACTION_SHORT_NAME,
-            optional = false
+            doc = "Estimated sequencing error rate.",
+            fullName = ERROR_RATE_FULL_NAME,
+            shortName = ERROR_RATE_SHORT_NAME,
+            optional = true
     )
-    protected double hetAlleleFraction = 0.5;
+    protected double errorRate = DEFAULT_ERROR_RATE;
 
     @Argument(
-            doc = "p-value threshold for binomial test for heterozygous SNPs in normal sample.",
-            fullName = PVALUE_THRESHOLD_FULL_NAME,
-            shortName = PVALUE_THRESHOLD_SHORT_NAME,
-            optional = false
+            doc = "het:hom likelihood ratio threshold for calling heterozygous SNPs in normal sample.",
+            fullName = LIKELIHOOD_RATIO_THRESHOLD_FULL_NAME,
+            shortName = LIKELIHOOD_RATIO_THRESHOLD_SHORT_NAME,
+            optional = true
     )
-    protected double pvalThreshold = 0.05;
+    protected double likelihoodRatioThreshold = DEFAULT_LIKELIHOOD_RATIO_THRESHOLD;
 
     @Override
     protected Object doWork() {
-        if (pvalThreshold < 0 || pvalThreshold > 1) {
-            throw new UserException.BadArgumentValue(PVALUE_THRESHOLD_FULL_NAME,
-                    Double.toString(pvalThreshold),
-                    "p-value threshold should be in the [0, 1] range.");
+        if (likelihoodRatioThreshold < 0) {
+            throw new UserException.BadArgumentValue(LIKELIHOOD_RATIO_THRESHOLD_FULL_NAME,
+                    Double.toString(likelihoodRatioThreshold),
+                    "Likelihood ratio threshold may not be negative.");
+        }
+
+        if (errorRate < 0 || errorRate > 1) {
+            throw new UserException.BadArgumentValue(ERROR_RATE_FULL_NAME,
+                    Double.toString(errorRate),
+                    "Error rate threshold must be between 0 and 1.");
         }
 
         final HetPulldownCalculator hetPulldown = new HetPulldownCalculator(REF_ARGUMENTS.getReferenceFile(), snpFile);
 
         logger.info("Getting normal het pulldown...");
-        final Pulldown normalHetPulldown = hetPulldown.getNormal(normalBAMFile, hetAlleleFraction, pvalThreshold);
+        final Pulldown normalHetPulldown = hetPulldown.getNormal(normalBAMFile, errorRate, likelihoodRatioThreshold);
         normalHetPulldown.write(normalHetOutputFile);
         logger.info("Normal het pulldown written to " + normalHetOutputFile.toString());
 
