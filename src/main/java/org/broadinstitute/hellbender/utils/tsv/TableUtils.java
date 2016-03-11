@@ -82,52 +82,6 @@ public final class TableUtils {
      * error.
      * </p>
      *
-     * @param file                   the input file
-     * @param recordExtractorFactory the record extractor function factory.
-     * @param <R>                    the end record type.
-     * @return never {@code null}.
-     * @throws IOException              if any took place while instantiating the reader.
-     * @throws IllegalArgumentException if {@code file} is {@code null}.
-     */
-    public static <R> TableReader<R> reader(final File file,
-                                            final BiFunction<TableColumnCollection, Function<String, RuntimeException>, Function<DataLine, R>> recordExtractorFactory)
-            throws IOException {
-        Utils.nonNull(recordExtractorFactory,"the record extractor factory cannot be null");
-        return new TableReader<R>(file) {
-            private Function<DataLine,R> recordExtractor;
-
-            @Override
-            protected void processColumns(final TableColumnCollection columns) {
-                recordExtractor = recordExtractorFactory.apply(columns,this::formatException);
-                if (recordExtractor == null) {
-                    throw new IllegalStateException("the record extractor function cannot be null");
-                }
-            }
-
-            @Override
-            protected R createRecord(DataLine dataLine) {
-                return recordExtractor.apply(dataLine);
-            }
-        };
-    }
-
-    /**
-     * Creates a new table reader given an record extractor factory based from the columns found in the input.
-     * <p>
-     * The record extractor factory would take on to arguments where the first one is a {@link TableColumnCollection}
-     * with the input columns and the second a exception factory to be used in order to compose the exception
-     * to throw when there is a formatting error.
-     * </p>
-     * <p>
-     * This factory must return a function that maps {@link DataLine} instances into record instances
-     * (generic type {@link R}).
-     * </p>
-     * <p>
-     * The record factory must never return {@code null} and it must use the format exception factory provided
-     * to extractor factory in order to compose the exception to throw in case that there is a formatting
-     * error.
-     * </p>
-     *
      * @param reader                 the input reader.
      * @param recordExtractorFactory the record extractor function factory.
      * @param <R>                    the end record type.
