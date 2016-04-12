@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.exome;
 
 import htsjdk.samtools.util.Locatable;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.MinorAlleleFractionCache;
+import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
@@ -14,6 +15,7 @@ import org.broadinstitute.hellbender.utils.param.ParamUtils;
 public final class AllelicCount implements Locatable {
     private final SimpleInterval interval;
     private final int refReadCount, altReadCount;
+    private Nucleotide refNucleotide, altNucleotide;
 
     public AllelicCount(final SimpleInterval interval, final int refReadCount, final int altReadCount) {
         ParamUtils.isPositiveOrZero(refReadCount, "Can't construct AllelicCount with negative read counts.");
@@ -25,22 +27,31 @@ public final class AllelicCount implements Locatable {
         this.altReadCount = altReadCount;
     }
 
-    @Override
-    public String getContig() {return interval.getContig(); }
-
-    @Override
-    public int getStart() {return interval.getStart(); }
-
-    @Override
-    public int getEnd() {return interval.getEnd(); }
-
-    public SimpleInterval getInterval() {
-        return interval;
+    public AllelicCount(final SimpleInterval interval, final int refReadCount, final int altReadCount,
+                        final Nucleotide refNucleotide, final Nucleotide altNucleotide) {
+        this(interval, refReadCount, altReadCount);
+        this.refNucleotide = refNucleotide;
+        this.altNucleotide = altNucleotide;
     }
 
-    public int getRefReadCount() {  return refReadCount;        }
+    @Override
+    public String getContig() { return interval.getContig(); }
 
-    public int getAltReadCount() {  return altReadCount;        }
+    @Override
+    public int getStart() { return interval.getStart(); }
+
+    @Override
+    public int getEnd() { return interval.getEnd(); }
+
+    public SimpleInterval getInterval() { return interval; }
+
+    public int getRefReadCount() { return refReadCount; }
+
+    public int getAltReadCount() { return altReadCount; }
+
+    public Nucleotide getRefNucleotide() { return refNucleotide; }
+
+    public Nucleotide getAltNucleotide() { return altNucleotide; }
 
     /**
      * Returns the maximum likelihood estimate of the alternate-allele fraction.
@@ -108,8 +119,9 @@ public final class AllelicCount implements Locatable {
         }
 
         final AllelicCount count = (AllelicCount) o;
-        return interval.equals(count.interval) && refReadCount == count.refReadCount
-                && altReadCount == count.altReadCount;
+        return interval.equals(count.interval)
+                && refReadCount == count.refReadCount && altReadCount == count.altReadCount
+                && refNucleotide == count.refNucleotide && altNucleotide == count.altNucleotide;
     }
 
     @Override

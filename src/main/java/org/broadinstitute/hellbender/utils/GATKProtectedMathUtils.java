@@ -4,7 +4,9 @@ import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.stream.IntStream;
 
 /**
@@ -33,7 +35,18 @@ public class GATKProtectedMathUtils {
         }
         return max + Math.log(sum);
     }
-    
+
+    public static double naturalLogSumExp(final ArrayList<Double> values) {
+        double max = Collections.max(values);
+        double sum = 0.0;
+        for (int i = 0; i < values.size(); ++i) {
+            if (values.get(i) != Double.NEGATIVE_INFINITY) {
+                sum += java.lang.Math.exp(values.get(i) - max);
+            }
+        }
+        return max + Math.log(sum);
+    }
+
     public static double interquartileRange(final double ... values) {
         final Percentile percentile = new Percentile();
         percentile.setData(values);
