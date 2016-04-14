@@ -130,4 +130,9 @@ public final class RCBSSegmenter {
         writeSegmentFile(sampleName, tnFile, outputFile, log, weightsFile, 0.01, 10000, PMethod.HYBRID, 2, 25, 200, 0.05,
                 0.025, UndoSplits.NONE, 0.05, 3);
     }
+
+    public static void writePrunedSegmentFile(final String sampleName, final String tnFile, final String outputFile, final Boolean log) {
+        writeSegmentFile(sampleName, tnFile, outputFile, log, null, 0.01, 10000, PMethod.HYBRID, 2, 25, 200, 0.05,
+                0.025, UndoSplits.PRUNE, 0.05, 3);
+    }
 }
