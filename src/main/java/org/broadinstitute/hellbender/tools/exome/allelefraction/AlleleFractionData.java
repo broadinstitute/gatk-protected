@@ -1,7 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import org.broadinstitute.hellbender.tools.exome.AllelicCount;
-import org.broadinstitute.hellbender.tools.exome.SegmentedModel;
+import org.broadinstitute.hellbender.tools.exome.SegmentedGenome;
 import org.broadinstitute.hellbender.tools.exome.TargetCollection;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.mcmc.DataCollection;
@@ -25,15 +25,15 @@ public final class AlleleFractionData implements DataCollection {
     private final List<Integer> startHetsPerSegment = new ArrayList<>();
     private final List<Integer> numHetsPerSegment = new ArrayList<>();
 
-    public AlleleFractionData(final SegmentedModel segmentedModel) {
-        this(segmentedModel, AllelicPanelOfNormals.EMPTY_PON);
+    public AlleleFractionData(final SegmentedGenome segmentedGenome) {
+        this(segmentedGenome, AllelicPanelOfNormals.EMPTY_PON);
     }
 
-    public AlleleFractionData(final SegmentedModel segmentedModel, final AllelicPanelOfNormals allelicPON) {
+    public AlleleFractionData(final SegmentedGenome segmentedGenome, final AllelicPanelOfNormals allelicPON) {
         this.allelicPON = allelicPON;
         allelicCounts = new ArrayList<>();
-        final List<SimpleInterval> segmentIntervals = segmentedModel.getSegments();
-        final TargetCollection<AllelicCount> alleleCounts = segmentedModel.getGenome().getSNPs();
+        final List<SimpleInterval> segmentIntervals = segmentedGenome.getSegments();
+        final TargetCollection<AllelicCount> alleleCounts = segmentedGenome.getGenome().getSNPs();
 
         int startHet = 0;
         for (final SimpleInterval segment : segmentIntervals) {

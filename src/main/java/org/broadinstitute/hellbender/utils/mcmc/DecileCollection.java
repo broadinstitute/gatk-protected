@@ -16,6 +16,8 @@ import java.util.stream.Stream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class DecileCollection {
+    public static final DecileCollection NAN_DECILES = new DecileCollection(Collections.singletonList(Double.NaN));
+
     private final EnumMap<Decile, Double> deciles = new EnumMap<>(Decile.class);
 
     /**

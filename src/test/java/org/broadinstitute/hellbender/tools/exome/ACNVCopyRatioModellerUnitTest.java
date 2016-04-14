@@ -108,10 +108,10 @@ public final class ACNVCopyRatioModellerUnitTest extends BaseTest {
         //load data (coverages and number of targets in each segment)
         final List<TargetCoverage> targetCoverages = TargetCoverageUtils.readTargetsWithCoverage(COVERAGES_FILE);
         final Genome genome = new Genome(targetCoverages, Collections.emptyList(), SAMPLE_NAME); //Genome with no SNPs
-        final SegmentedModel segmentedModel = new SegmentedModel(SEGMENT_FILE, genome);
+        final SegmentedGenome segmentedGenome = new SegmentedGenome(SEGMENT_FILE, genome);
 
         //run MCMC
-        final ACNVCopyRatioModeller modeller = new ACNVCopyRatioModeller(segmentedModel);
+        final ACNVCopyRatioModeller modeller = new ACNVCopyRatioModeller(segmentedGenome);
         modeller.fitMCMC(NUM_SAMPLES, NUM_BURN_IN);
 
         //check statistics of global-parameter posterior samples (i.e., posterior mean and standard deviation)
@@ -140,7 +140,7 @@ public final class ACNVCopyRatioModellerUnitTest extends BaseTest {
         //segment-mean posteriors are expected to be Gaussian, so PosteriorSummary for CREDIBLE_INTERVAL_ALPHA=0.32 is
         //(posterior mean, posterior mean - posterior standard devation, posterior mean + posterior standard deviation)
         final List<PosteriorSummary> meanPosteriorSummaries =
-                modeller.getSegmentMeansPosteriorSummaries(CREDIBLE_INTERVAL_ALPHA, ctx);
+                modeller.getSegmentMeanPosteriorSummaries(CREDIBLE_INTERVAL_ALPHA, ctx);
         final double[] meanPosteriorStandardDeviations = new double[numSegments];
         for (int segment = 0; segment < numSegments; segment++) {
             final double meanPosteriorMean = meanPosteriorSummaries.get(segment).getCenter();
@@ -192,7 +192,7 @@ public final class ACNVCopyRatioModellerUnitTest extends BaseTest {
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMissingData() {
         final Genome genome = new Genome(Collections.emptyList(), Collections.emptyList(), SAMPLE_NAME);
-        final SegmentedModel segmentedModel = new SegmentedModel(SEGMENT_FILE, genome);
-        new ACNVCopyRatioModeller(segmentedModel);
+        final SegmentedGenome segmentedGenome = new SegmentedGenome(SEGMENT_FILE, genome);
+        new ACNVCopyRatioModeller(segmentedGenome);
     }
 }

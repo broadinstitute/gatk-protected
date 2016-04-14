@@ -8,7 +8,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.broadinstitute.hellbender.tools.exome.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.Genome;
-import org.broadinstitute.hellbender.tools.exome.SegmentedModel;
+import org.broadinstitute.hellbender.tools.exome.SegmentedGenome;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public final class AlleleFractionSimulatedData {
     }
 
     private final AlleleFractionState trueState;
-    private final SegmentedModel segmentedModel;
+    private final SegmentedGenome segmentedGenome;
     private final int numSegments;
 
     public AlleleFractionSimulatedData(final double averageHetsPerSegment, final int numSegments,
@@ -76,12 +76,12 @@ public final class AlleleFractionSimulatedData {
             }
         }
 
-        segmentedModel = new SegmentedModel(segments, new Genome(new ArrayList<>(), alleleCounts, "SAMPLE"));
+        segmentedGenome = new SegmentedGenome(segments, new Genome(new ArrayList<>(), alleleCounts, "SAMPLE"));
         trueState = new AlleleFractionState(biasMean, biasVariance, outlierProbability, minorFractions);
     };
 
     public AlleleFractionState getTrueState() { return trueState; }
-    public SegmentedModel getSegmentedModel() { return segmentedModel; }
+    public SegmentedGenome getSegmentedGenome() { return segmentedGenome; }
 
     public AlleleFractionStateError error(final AlleleFractionState state) {
         final double averageMinorFractionError = IntStream.range(0, numSegments)

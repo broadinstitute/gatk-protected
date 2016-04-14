@@ -2,7 +2,7 @@ package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import org.broadinstitute.hellbender.tools.exome.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.Genome;
-import org.broadinstitute.hellbender.tools.exome.SegmentedModel;
+import org.broadinstitute.hellbender.tools.exome.SegmentedGenome;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -32,9 +32,9 @@ public final class AlleleFractionDataUnitTest {
         ac.add(new AllelicCount(new SimpleInterval("chr", 11, 11), 2, 2));
 
         final Genome genome = new Genome(new ArrayList<>(), ac, "SAMPLE");
-        final SegmentedModel segmentedModel = new SegmentedModel(segments, genome);
+        final SegmentedGenome segmentedGenome = new SegmentedGenome(segments, genome);
 
-        final AlleleFractionData dc = new AlleleFractionData(segmentedModel);
+        final AlleleFractionData dc = new AlleleFractionData(segmentedGenome);
         Assert.assertEquals(dc.numSegments(), 2);
         Assert.assertEquals(dc.refCount(0), 0);
         Assert.assertEquals(dc.altCount(0), 5);

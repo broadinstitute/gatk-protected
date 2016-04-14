@@ -37,7 +37,7 @@ public final class ACNVCopyRatioModeller {
     private static final double OUTLIER_PROBABILITY_PRIOR_ALPHA = 5.;
     private static final double OUTLIER_PROBABILITY_PRIOR_BETA = 95.;
 
-    private final SegmentedModel segmentedModel;
+    private final SegmentedGenome segmentedGenome;
 
     private final double outlierUniformLogLikelihood;
     private final double varianceSliceSamplingWidth;
@@ -56,15 +56,15 @@ public final class ACNVCopyRatioModeller {
     }
 
     /**
-     * Constructs a copy-ratio model given a SegmentedModel with segments and a Genome.  Initial point estimates of
+     * Constructs a copy-ratio model given a SegmentedGenome with segments and a Genome.  Initial point estimates of
      * parameters are set to empirical estimates where available.
-     * @param segmentedModel    SegmentedModel with segments and a Genome
+     * @param segmentedGenome    SegmentedGenome with segments and a Genome
      */
-    public ACNVCopyRatioModeller(final SegmentedModel segmentedModel) {
-        this.segmentedModel = segmentedModel;
+    public ACNVCopyRatioModeller(final SegmentedGenome segmentedGenome) {
+        this.segmentedGenome = segmentedGenome;
 
-        //load segmented coverages from SegmentedModel into CopyRatioDataCollection
-        final CopyRatioDataCollection data = new CopyRatioDataCollection(segmentedModel);
+        //load segmented coverages from SegmentedGenome into CopyRatioDataCollection
+        final CopyRatioDataCollection data = new CopyRatioDataCollection(segmentedGenome);
 
         //the uniform log-likelihood for outliers is determined by the minimum and maximum coverages in the dataset;
         //the outlier-probability parameter should be interpreted accordingly
@@ -219,11 +219,11 @@ public final class ACNVCopyRatioModeller {
     }
 
     /**
-     * Returns the {@link SegmentedModel} held internally.
-     * @return the {@link SegmentedModel} held internally
+     * Returns the {@link SegmentedGenome} held internally.
+     * @return the {@link SegmentedGenome} held internally
      */
-    public SegmentedModel getSegmentedModel() {
-        return segmentedModel;
+    public SegmentedGenome getSegmentedGenome() {
+        return segmentedGenome;
     }
 
     /**
@@ -259,9 +259,9 @@ public final class ACNVCopyRatioModeller {
      * @return                      list of {@link PosteriorSummary} elements summarizing the
      *                              segment-mean posterior for each segment
      */
-    public List<PosteriorSummary> getSegmentMeansPosteriorSummaries(final double credibleIntervalAlpha,
-                                                                    final JavaSparkContext ctx) {
-        final int numSegments = segmentedModel.getSegments().size();
+    public List<PosteriorSummary> getSegmentMeanPosteriorSummaries(final double credibleIntervalAlpha,
+                                                                   final JavaSparkContext ctx) {
+        final int numSegments = segmentedGenome.getSegments().size();
         final List<PosteriorSummary> posteriorSummaries = new ArrayList<>(numSegments);
         for (int segment = 0; segment < numSegments; segment++) {
             final int j = segment;
@@ -361,20 +361,20 @@ public final class ACNVCopyRatioModeller {
         private final List<Integer> numTargetsPerSegment;
         private final List<Integer> startTargetsPerSegment = new ArrayList<>();
 
-        private CopyRatioDataCollection(final SegmentedModel segmentedModel) {
-            if (segmentedModel.getGenome().getTargets().targetCount() == 0) {
+        private CopyRatioDataCollection(final SegmentedGenome segmentedGenome) {
+            if (segmentedGenome.getGenome().getTargets().targetCount() == 0) {
                 throw new IllegalArgumentException("Cannot construct CopyRatioDataCollection with no target-coverage data.");
             }
-            //construct coverages and number of targets per segment from the segments and Genome in SegmentedModel
-            final TargetCollection<TargetCoverage> targetCoverages = segmentedModel.getGenome().getTargets();
-            //construct list of coverages (in order corresponding to that of segments in SegmentedModel;
+            //construct coverages and number of targets per segment from the segments and Genome in SegmentedGenome
+            final TargetCollection<TargetCoverage> targetCoverages = segmentedGenome.getGenome().getTargets();
+            //construct list of coverages (in order corresponding to that of segments in SegmentedGenome;
             //this may not be in genomic order, depending on how the segments are sorted in the segment file,
             //so we cannot simply take the list of coverages in the order from TargetCollection.targets()
-            final List<Double> coverages = segmentedModel.getSegments().stream()
+            final List<Double> coverages = segmentedGenome.getSegments().stream()
                     .flatMap(s -> targetCoverages.targets(s).stream())
                     .map(TargetCoverage::getCoverage)
                     .collect(Collectors.toList());
-            numTargetsPerSegment = segmentedModel.getSegments().stream()
+            numTargetsPerSegment = segmentedGenome.getSegments().stream()
                     .map(s -> targetCoverages.targets(s).size())
                     .collect(Collectors.toList());
             numSegments = numTargetsPerSegment.size();

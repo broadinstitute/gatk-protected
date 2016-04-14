@@ -1,7 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import org.apache.spark.api.java.JavaSparkContext;
-import org.broadinstitute.hellbender.tools.exome.SegmentedModel;
+import org.broadinstitute.hellbender.tools.exome.SegmentedGenome;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
 import java.util.ArrayList;
@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Given a {@link org.broadinstitute.hellbender.tools.exome.SegmentedModel} and counts of alt and ref reads over a list of het sites,
+ * Given a {@link SegmentedGenome} and counts of alt and ref reads over a list of het sites,
  * infers the minor allele fraction of each segment.  For example, a segment
  * with (alt,ref) counts (10,90), (11,93), (88,12), (90,10) probably has a minor allele fraction
  * somewhere around 0.1.  The model takes into account allelic bias due to mapping etc. by learning
@@ -43,7 +43,7 @@ import java.util.stream.IntStream;
  * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
  */
 public final class AlleleFractionModeller {
-    private final SegmentedModel segmentedModel;
+    private final SegmentedGenome segmentedGenome;
     private final ParameterizedModel<AlleleFractionState, AlleleFractionData> model;
     private final List<Double> meanBiasSamples = new ArrayList<>();
     private final List<Double> biasVarianceSamples = new ArrayList<>();
@@ -51,13 +51,13 @@ public final class AlleleFractionModeller {
     private final List<AlleleFractionState.MinorFractions> minorFractionsSamples = new ArrayList<>();
     private final int numSegments;
 
-    public AlleleFractionModeller(final SegmentedModel segmentedModel) {
-        this(segmentedModel, AllelicPanelOfNormals.EMPTY_PON);
+    public AlleleFractionModeller(final SegmentedGenome segmentedGenome) {
+        this(segmentedGenome, AllelicPanelOfNormals.EMPTY_PON);
     }
 
-    public AlleleFractionModeller(final SegmentedModel segmentedModel, final AllelicPanelOfNormals allelicPON) {
-        this.segmentedModel = segmentedModel;
-        final AlleleFractionData data = new AlleleFractionData(segmentedModel, allelicPON);
+    public AlleleFractionModeller(final SegmentedGenome segmentedGenome, final AllelicPanelOfNormals allelicPON) {
+        this.segmentedGenome = segmentedGenome;
+        final AlleleFractionData data = new AlleleFractionData(segmentedGenome, allelicPON);
         numSegments = data.numSegments();
         final AlleleFractionState initialState = new AlleleFractionInitializer(data).getInitializedState();
 
@@ -139,8 +139,8 @@ public final class AlleleFractionModeller {
      * @return                      list of {@link PosteriorSummary} elements summarizing the
      *                              minor-allele-fraction posterior for each segment
      */
-    public List<PosteriorSummary> getMinorAlleleFractionsPosteriorSummaries(final double credibleIntervalAlpha, final JavaSparkContext ctx) {
-        final int numSegments = segmentedModel.getSegments().size();
+    public List<PosteriorSummary> getMinorAlleleFractionPosteriorSummaries(final double credibleIntervalAlpha, final JavaSparkContext ctx) {
+        final int numSegments = segmentedGenome.getSegments().size();
         final List<PosteriorSummary> posteriorSummaries = new ArrayList<>(numSegments);
         for (int segment = 0; segment < numSegments; segment++) {
             final int j = segment;

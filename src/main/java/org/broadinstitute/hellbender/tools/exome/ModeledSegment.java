@@ -19,7 +19,7 @@ public class ModeledSegment extends Segment<String> {
         super(interval, targetCount, segmentMeanInLog2CR, call);
         Utils.nonNull(interval, "The input interval cannot be null");
         Utils.nonNull(call, String.format("The input call cannot be null.  Use empty string, instead (\"%s\")", NO_CALL));
-        ParamUtils.isFinite(segmentMeanInLog2CR, "Segment Mean must be finite.");
+        ParamUtils.isFiniteOrNaN(segmentMeanInLog2CR, "Segment Mean cannot be infinite.");
     }
 
     public ModeledSegment(final SimpleInterval interval, final long targetCount, final double segmentMean) {

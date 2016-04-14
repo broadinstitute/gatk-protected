@@ -161,13 +161,22 @@ public final class SegmentUtils {
         Utils.nonNull(snpSegments, "The list of SNP segments cannot be null.");
         Utils.nonNull(genome, "The genome cannot be null.");
 
-        final SortedMap<String, List<Breakpoint>> breakpointsByContig =
-                collectBreakpointsByContig(targetSegments, snpSegments);
-        List<SimpleInterval> unionedSegments = constructUntrimmedSegments(genome, breakpointsByContig);
+        List<SimpleInterval> unionedSegments = unionSegmentsNaively(targetSegments, snpSegments, genome);
         unionedSegments = SegmentUtils.mergeSpuriousStartsAndEnds(unionedSegments, targetSegments, genome.getSNPs());
         unionedSegments = SegmentMergeUtils.mergeSpuriousMiddles(unionedSegments, targetSegments, genome);
         return unionedSegments.stream().map(s -> trimInterval(s, genome.getTargets(), genome.getSNPs()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns the naive union of target and SNP segments.  All breakpoints from both sets of segments are combined
+     * to form new segments.
+     */
+    public static List<SimpleInterval> unionSegmentsNaively(final List<SimpleInterval> targetSegments,
+                                                            final List<SimpleInterval> snpSegments,
+                                                            final Genome genome) {
+        final SortedMap<String, List<Breakpoint>> breakpointsByContig = collectBreakpointsByContig(targetSegments, snpSegments);
+        return constructUntrimmedSegments(genome, breakpointsByContig);
     }
 
     /*===============================================================================================================*
@@ -469,8 +478,9 @@ public final class SegmentUtils {
     }
 
     //given breakpointsByContig map, constructs list of untrimmed segments
-    //(i.e., segments that are directly adjacent to each other; segment boundaries at each breakpoint are determined
-    //by whether that breakpoint was a start or an end for the corresponding original target/SNP segment),
+    //(i.e., with naively unioned segments that are directly adjacent to each other;
+    //segment boundaries at each breakpoint are determined by whether that breakpoint
+    //was a start or an end for the corresponding original target/SNP segment),
     //then returns only those untrimmed segments that are non-empty
     private static List<SimpleInterval> constructUntrimmedSegments(final Genome genome,
                                                                    final SortedMap<String, List<Breakpoint>> breakpointsByContig) {

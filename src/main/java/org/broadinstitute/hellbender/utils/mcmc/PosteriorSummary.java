@@ -7,6 +7,12 @@ package org.broadinstitute.hellbender.utils.mcmc;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class PosteriorSummary {
+    public static final PosteriorSummary NAN_POSTERIOR_SUMMARY = new PosteriorSummary(Double.NaN, Double.NaN, Double.NaN);
+
+    static {
+        NAN_POSTERIOR_SUMMARY.setDeciles(DecileCollection.NAN_DECILES);
+    }
+
     private final double center;
     private final double lower;
     private final double upper;

@@ -47,7 +47,7 @@ public class AlleleFractionSamplersUnitTest {
 
         final AlleleFractionSimulatedData SIMULATED_DATA = new AlleleFractionSimulatedData(averageHetsPerSegment, numSegments, averageDepth, meanBias, biasVariance, outlierProbability);
         final AlleleFractionState INITIAL_STATE = SIMULATED_DATA.getTrueState();
-        final AlleleFractionData DATA = new AlleleFractionData(SIMULATED_DATA.getSegmentedModel());
+        final AlleleFractionData DATA = new AlleleFractionData(SIMULATED_DATA.getSegmentedGenome());
 
         final AlleleFractionSamplers.MeanBiasSampler meanBiasSampler =
                 new AlleleFractionSamplers.MeanBiasSampler(INITIAL_STATE, 0.01);

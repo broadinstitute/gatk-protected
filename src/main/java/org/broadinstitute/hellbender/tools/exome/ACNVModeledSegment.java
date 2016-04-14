@@ -2,7 +2,10 @@ package org.broadinstitute.hellbender.tools.exome;
 
 import htsjdk.samtools.util.Locatable;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.mcmc.DecileCollection;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
+
+import java.util.Collections;
 
 /**
  * Represents a segment with copy-ratio--segment-mean and minor-allele-fraction posterior summaries.
@@ -10,7 +13,6 @@ import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public class ACNVModeledSegment implements Locatable {
-
     private final SimpleInterval interval;
     private final PosteriorSummary segmentMeanPosteriorSummary;
     private final PosteriorSummary minorAlleleFractionPosteriorSummary;
@@ -22,7 +24,6 @@ public class ACNVModeledSegment implements Locatable {
         this.segmentMeanPosteriorSummary = segmentMeanPosteriorSummary;
         this.minorAlleleFractionPosteriorSummary = minorAlleleFractionPosteriorSummary;
     }
-
 
     public SimpleInterval getInterval() {
         return interval;

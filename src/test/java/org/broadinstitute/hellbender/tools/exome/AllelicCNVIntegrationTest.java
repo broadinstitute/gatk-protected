@@ -69,15 +69,11 @@ public class AllelicCNVIntegrationTest extends CommandLineProgramTest {
         //only check that files are created, do not check for correctness of results
         //TODO add checks for correctness
         final File finalSNPSegmentsFile = new File(outputPrefix + "-" + AllelicCNV.SNP_MAF_SEG_FILE_TAG + ".seg");
-        final File unionedSegmentsFile = new File(outputPrefix + "-" + AllelicCNV.UNION_SEG_FILE_TAG + ".seg");
-        final File noSmallSegmentsFile = new File(outputPrefix + "-" + AllelicCNV.SMALL_MERGED_SEG_FILE_TAG + ".seg");
-        final File initialSimilarSegmentsFile = new File(outputPrefix + "-" + AllelicCNV.INITIAL_SEG_FILE_TAG + ".seg");
         final File finalSimilarSegmentsFile = new File(outputPrefix + "-" + AllelicCNV.FINAL_SEG_FILE_TAG + ".seg");
         final File finalSimilarSegmentsFileAsGATKCNV = new File(outputPrefix + "-" + AllelicCNV.FINAL_SEG_FILE_TAG + "." + AllelicCNV.GATK_SEG_FILE_TAG + ".seg");
         final File finalSimilarSegmentsFileAsCGAACS = new File(outputPrefix + "-" + AllelicCNV.FINAL_SEG_FILE_TAG + "." +  AllelicCNV.CGA_ACS_SEG_FILE_TAG + ".seg");
 
-        for (final File outputFile : new File[] {finalSNPSegmentsFile, unionedSegmentsFile, noSmallSegmentsFile,
-                initialSimilarSegmentsFile, finalSimilarSegmentsFile, finalSimilarSegmentsFileAsGATKCNV, finalSimilarSegmentsFileAsCGAACS}) {
+        for (final File outputFile : new File[] {finalSNPSegmentsFile, finalSimilarSegmentsFile, finalSimilarSegmentsFileAsGATKCNV, finalSimilarSegmentsFileAsCGAACS}) {
             // Check that all files are files with a size greater than 0.
             Assert.assertTrue(outputFile.isFile(), outputFile.getAbsolutePath() + " is not a file.");
             Assert.assertTrue(outputFile.length() > 0);
@@ -107,15 +103,8 @@ public class AllelicCNVIntegrationTest extends CommandLineProgramTest {
         final List<ModeledSegment> originalModeledSegments = SegmentUtils.readModeledSegmentsFromSegmentFile(SEGMENT_FILE);
         Assert.assertTrue(modeledSegments.size() > 0);
 
-        final int originalTotalTargetCount = originalModeledSegments.stream().mapToInt(s -> (int)s.getTargetCount()).sum();
-        final int totalTargetCount = modeledSegments.stream().mapToInt(s -> (int)s.getTargetCount()).sum();
-
-        Assert.assertEquals(totalTargetCount, originalTotalTargetCount);
-
         final List<ACSModeledSegment> acsModeledSegments = ACSModeledSegmentUtils.readACSFile(finalSimilarSegmentsFileAsCGAACS);
         Assert.assertTrue(acsModeledSegments.size() > 0);
-        final int totalACSTargetCount = acsModeledSegments.stream().mapToInt(s -> (int)s.getTargetCount()).sum();
-        Assert.assertEquals(totalACSTargetCount, originalTotalTargetCount);
 
         final List<ACNVModeledSegment> acnvModeledSegments = SegmentUtils.readACNVModeledSegmentFile(finalSimilarSegmentsFile);
         Assert.assertEquals(acnvModeledSegments.size(), acsModeledSegments.size());

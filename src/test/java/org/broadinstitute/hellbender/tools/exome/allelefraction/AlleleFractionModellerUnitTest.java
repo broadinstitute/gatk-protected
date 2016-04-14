@@ -91,7 +91,7 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final AlleleFractionSimulatedData simulatedData = new AlleleFractionSimulatedData(averageHetsPerSegment, numSegments,
                 averageDepth, meanBiasSimulated, biasVarianceSimulated, outlierProbability);
 
-        final AlleleFractionModeller model = new AlleleFractionModeller(simulatedData.getSegmentedModel(), allelicPON);
+        final AlleleFractionModeller model = new AlleleFractionModeller(simulatedData.getSegmentedGenome(), allelicPON);
         model.fitMCMC(numSamples, numBurnIn);
 
         final List<Double> meanBiasSamples = model.getmeanBiasSamples();
@@ -194,16 +194,16 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final List<TargetCoverage> emptyTargets = new ArrayList<>();    // no targets in test data
         final Genome genome = new Genome(emptyTargets, sample.getCounts(), "test");
         final List<SimpleInterval> segments = SegmentUtils.readIntervalsFromSegmentFile(SEGMENTS_FILE);
-        final SegmentedModel segmentedModel = new SegmentedModel(segments, genome);
+        final SegmentedGenome segmentedGenome = new SegmentedGenome(segments, genome);
 
         final int numSamples = 100;
         final int numBurnIn = 25;
-        final AlleleFractionModeller modeller = new AlleleFractionModeller(segmentedModel, allelicPON);
+        final AlleleFractionModeller modeller = new AlleleFractionModeller(segmentedGenome, allelicPON);
         modeller.fitMCMC(numSamples, numBurnIn);
 
         final double credibleAlpha = 0.05;
         final List<PosteriorSummary> minorAlleleFractionPosteriorSummaries =
-                modeller.getMinorAlleleFractionsPosteriorSummaries(credibleAlpha, ctx);
+                modeller.getMinorAlleleFractionPosteriorSummaries(credibleAlpha, ctx);
         final List<Double> minorFractionsResult = minorAlleleFractionPosteriorSummaries.stream().map(PosteriorSummary::getCenter).collect(Collectors.toList());
 
         final double minorFractionBalanced = 0.5;

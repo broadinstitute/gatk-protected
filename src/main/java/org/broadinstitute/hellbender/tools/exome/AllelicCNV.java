@@ -41,20 +41,13 @@ public class AllelicCNV extends SparkCommandLineProgram {
 
     //filename tags for output
     protected static final String SNP_MAF_SEG_FILE_TAG = "MAF";
-    protected static final String UNION_SEG_FILE_TAG = "union";
-    protected static final String SMALL_MERGED_SEG_FILE_TAG = "no-small";
-    protected static final String INITIAL_SEG_FILE_TAG = "sim-0";
-    protected static final String INTERMEDIATE_SEG_FILE_TAG = "sim";
-    protected static final String FINAL_SEG_FILE_TAG = "sim-final";
+    protected static final String FINAL_SEG_FILE_TAG = "final";
     protected static final String GATK_SEG_FILE_TAG = "cnv";
     protected static final String CGA_ACS_SEG_FILE_TAG = "acs";
 
     //CLI arguments
     protected static final String OUTPUT_PREFIX_LONG_NAME = "outputPrefix";
     protected static final String OUTPUT_PREFIX_SHORT_NAME = "pre";
-
-    protected static final String SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD_LONG_NAME = "smallSegmentThreshold";
-    protected static final String SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD_SHORT_NAME = "smallTh";
 
     protected static final String NUM_SAMPLES_COPY_RATIO_LONG_NAME = "numSamplesCopyRatio";
     protected static final String NUM_SAMPLES_COPY_RATIO_SHORT_NAME = "numSampCR";
@@ -68,17 +61,8 @@ public class AllelicCNV extends SparkCommandLineProgram {
     protected static final String NUM_BURN_IN_ALLELE_FRACTION_LONG_NAME = "numBurnInAlleleFraction";
     protected static final String NUM_BURN_IN_ALLELE_FRACTION_SHORT_NAME = "numBurnAF";
 
-    protected static final String INTERVAL_THRESHOLD_COPY_RATIO_LONG_NAME = "intervalThresholdCopyRatio";
-    protected static final String INTERVAL_THRESHOLD_COPY_RATIO_SHORT_NAME = "simThCR";
-
-    protected static final String INTERVAL_THRESHOLD_ALLELE_FRACTION_LONG_NAME = "intervalThresholdAlleleFraction";
-    protected static final String INTERVAL_THRESHOLD_ALLELE_FRACTION_SHORT_NAME = "simThAF";
-
     protected static final String MAX_NUM_SNP_SEGMENTATION_ITERATIONS_LONG_NAME = "maxNumIterationsSNPSeg";
     protected static final String MAX_NUM_SNP_SEGMENTATION_ITERATIONS_SHORT_NAME = "maxIterSNP";
-
-    protected static final String MAX_NUM_SIMILAR_SEGMENT_MERGING_ITERATIONS_LONG_NAME = "maxNumIterationsSimSeg";
-    protected static final String MAX_NUM_SIMILAR_SEGMENT_MERGING_ITERATIONS_SHORT_NAME = "maxIterSim";
 
     protected static final String USE_ALL_COPY_RATIO_SEGMENTS_LONG_NAME = "useAllCopyRatioSegments";
     protected static final String USE_ALL_COPY_RATIO_SEGMENTS_SHORT_NAME = "useAllCRSeg";
@@ -126,15 +110,6 @@ public class AllelicCNV extends SparkCommandLineProgram {
     protected String outputPrefix;
 
     @Argument(
-            doc = "Threshold for small-segment merging. If a segment has strictly less than this number of targets, " +
-                    "it is considered small and will be merged with an adjacent segment.",
-            fullName = SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD_LONG_NAME,
-            shortName = SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD_SHORT_NAME,
-            optional = true
-    )
-    protected int smallSegmentTargetNumberThreshold = 3;
-
-    @Argument(
             doc = "Total number of MCMC samples for copy-ratio model.",
             fullName = NUM_SAMPLES_COPY_RATIO_LONG_NAME,
             shortName = NUM_SAMPLES_COPY_RATIO_SHORT_NAME,
@@ -167,36 +142,12 @@ public class AllelicCNV extends SparkCommandLineProgram {
     protected int numBurnInAlleleFraction = 100;
 
     @Argument(
-            doc = "Number of 95% credible-interval widths to use for copy-ratio similar-segment merging.",
-            fullName = INTERVAL_THRESHOLD_COPY_RATIO_LONG_NAME,
-            shortName = INTERVAL_THRESHOLD_COPY_RATIO_SHORT_NAME,
-            optional = true
-    )
-    protected double intervalThresholdCopyRatio = 2.;
-
-    @Argument(
-            doc = "Number of 95% credible-interval widths to use for allele-fraction similar-segment merging.",
-            fullName = INTERVAL_THRESHOLD_ALLELE_FRACTION_LONG_NAME,
-            shortName = INTERVAL_THRESHOLD_ALLELE_FRACTION_SHORT_NAME,
-            optional = true
-    )
-    protected double intervalThresholdAlleleFraction = 2.;
-
-    @Argument(
             doc = "Maximum number of iterations allowed for SNP segmentation.",
             fullName = MAX_NUM_SNP_SEGMENTATION_ITERATIONS_LONG_NAME,
             shortName = MAX_NUM_SNP_SEGMENTATION_ITERATIONS_SHORT_NAME,
             optional = true
     )
     protected int maxNumSNPSegmentationIterations = 25;
-
-    @Argument(
-            doc = "Maximum number of iterations allowed for similar-segment merging.",
-            fullName = MAX_NUM_SIMILAR_SEGMENT_MERGING_ITERATIONS_LONG_NAME,
-            shortName = MAX_NUM_SIMILAR_SEGMENT_MERGING_ITERATIONS_SHORT_NAME,
-            optional = true
-    )
-    protected int maxNumSimilarSegmentMergingIterations = 25;
 
     @Argument(
             doc = "Enable use of all copy-ratio--segment breakpoints. " +
@@ -241,29 +192,12 @@ public class AllelicCNV extends SparkCommandLineProgram {
         logger.info("Performing SNP segmentation...");
         final List<SimpleInterval> snpSegments = performSNPSegmentationStep(sampleName, genome);
 
-        //combine SNP and target-coverage segments
-        logger.info("Combining SNP and target-coverage segments...");
-        final List<SimpleInterval> unionedSegments = SegmentUtils.unionSegments(targetSegments, snpSegments, genome);
-        final File unionedSegmentsFile = new File(outputPrefix + "-" + UNION_SEG_FILE_TAG + ".seg");
-        SegmentUtils.writeSegmentFileWithNumTargetsAndNumSNPs(unionedSegmentsFile, unionedSegments, genome);
-
-        //small-segment merging (note that X and Y are always small segments and dropped, since GATK CNV drops them)
-        logger.info("Merging small segments...");
-        final SegmentedModel segmentedModelWithSmallSegments = new SegmentedModel(unionedSegments, genome);
-        final SegmentedModel segmentedModel = segmentedModelWithSmallSegments.mergeSmallSegments(smallSegmentTargetNumberThreshold);
-        final File segmentedModelFile = new File(outputPrefix + "-" + SMALL_MERGED_SEG_FILE_TAG + ".seg");
-        segmentedModel.writeSegmentFileWithNumTargetsAndNumSNPs(segmentedModelFile);
+        final SegmentedGenome targetSegmentedGenome = new SegmentedGenome(targetSegments, genome);
+        final SegmentedGenome snpSegmentedGenome = new SegmentedGenome(snpSegments, genome);
 
         //initial MCMC model fitting performed by ACNVModeller constructor
-        final ACNVModeller modeller = new ACNVModeller(segmentedModel, allelicPON,
+        final ACNVModeller modeller = new ACNVModeller(targetSegmentedGenome, snpSegmentedGenome, allelicPON,
                 numSamplesCopyRatio, numBurnInCopyRatio, numSamplesAlleleFraction, numBurnInAlleleFraction, ctx);
-
-        final File initialModeledSegmentsFile = new File(outputPrefix + "-" + INITIAL_SEG_FILE_TAG + ".seg");
-        modeller.writeACNVModeledSegmentFile(initialModeledSegmentsFile);
-
-        //similar-segment merging (segment files are output for each merge iteration)
-        logger.info("Merging similar segments...");
-        performSimilarSegmentMergingStep(modeller);
 
         //write final model fit to file
         final File finalModeledSegmentsFile = new File(outputPrefix + "-" + FINAL_SEG_FILE_TAG + ".seg");
@@ -300,6 +234,9 @@ public class AllelicCNV extends SparkCommandLineProgram {
     //segment SNPs using CBS on per-SNP MLE minor allele fraction iteratively until convergence
     //(final segment file is output as a side effect)
     private List<SimpleInterval> performSNPSegmentationStep(final String sampleName, final Genome genome) {
+        if (maxNumSNPSegmentationIterations <= 0) {
+            throw new UserException.BadInput("Maximum number of SNP-segmentation iterations must be positive.");
+        }
         //initial segmentation of SNPs on per-SNP MLE minor allele fraction, assuming no allelic bias
         //(segments are written to temporary file)
         logger.info("Performing initial SNP segmentation (assuming no allelic bias)...");
@@ -345,26 +282,9 @@ public class AllelicCNV extends SparkCommandLineProgram {
 
     //use AlleleFractionInitializer to determine mean of global allelic-bias distribution given SNP segmentation file
     private double calculateAllelicBias(final Genome genome, final File snpSegmentFile) {
-        final SegmentedModel segmentedModelForSNPSegmentation = new SegmentedModel(snpSegmentFile, genome);
-        final AlleleFractionData data = new AlleleFractionData(segmentedModelForSNPSegmentation);
+        final SegmentedGenome segmentedGenomeForSNPSegmentation = new SegmentedGenome(snpSegmentFile, genome);
+        final AlleleFractionData data = new AlleleFractionData(segmentedGenomeForSNPSegmentation);
         final AlleleFractionState initialState = new AlleleFractionInitializer(data).getInitializedState();
         return initialState.meanBias();
-    }
-
-    //similar-segment merging (segment files are output for each merge iteration)
-    private void performSimilarSegmentMergingStep(final ACNVModeller modeller) {
-        logger.info("Initial number of segments before similar-segment merging: " + modeller.getACNVModeledSegments().size());
-        //perform iterations of similar-segment merging until all similar segments are merged
-        for (int numIterations = 1; numIterations <= maxNumSimilarSegmentMergingIterations; numIterations++) {
-            logger.info("Similar-segment merging iteration: " + numIterations);
-            final int prevNumSegments = modeller.getACNVModeledSegments().size();
-            modeller.performSimilarSegmentMergingIteration(intervalThresholdCopyRatio, intervalThresholdAlleleFraction);
-            if (modeller.getACNVModeledSegments().size() == prevNumSegments) {
-                break;
-            }
-            final File modeledSegmentsFile = new File(outputPrefix + "-" + INTERMEDIATE_SEG_FILE_TAG + "-" + numIterations + ".seg");
-            modeller.writeACNVModeledSegmentFile(modeledSegmentsFile);
-        }
-        logger.info("Final number of segments after similar-segment merging: " + modeller.getACNVModeledSegments().size());
     }
 }

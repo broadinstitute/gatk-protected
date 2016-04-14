@@ -58,7 +58,7 @@ public final class PerformSegmentation extends CommandLineProgram {
     protected String tangentFile;
 
     @Argument(
-            doc = "Full path to the outputted segment file",
+            doc = "Full path to the output segment file",
             shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
             fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME,
             optional = false

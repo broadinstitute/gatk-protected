@@ -30,7 +30,7 @@ public class ParamUtils {
      * @param val value to check
      * @param min minimum value for val
      * @param max maximum value for val
-     * @param message the text message that would be pass to the exception thrown when {@code o == null}.
+     * @param message the text message that would be passed to the exception thrown when {@code o == null}.
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -47,7 +47,7 @@ public class ParamUtils {
      * @param val value to check
      * @param min minimum value for val
      * @param max maximum value for val
-     * @param message the text message that would be pass to the exception thrown when val gt min or val lt max.
+     * @param message the text message that would be passed to the exception thrown when val gt min or val lt max.
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -64,7 +64,7 @@ public class ParamUtils {
      * @param val value to check
      * @param min minimum value for val (inclusive)
      * @param max maximum value for val (inclusive)
-     * @param message the text message that would be pass to the exception thrown when val gt min or val lt max.
+     * @param message the text message that would be passed to the exception thrown when val gt min or val lt max.
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -81,7 +81,7 @@ public class ParamUtils {
      * @param val value to check
      * @param min minimum value for val (inclusive)
      * @param max maximum value for val (inclusive)
-     * @param message the text message that would be pass to the exception thrown when val gt min or val lt max.
+     * @param message the text message that would be passed to the exception thrown when val gt min or val lt max.
      * @return the same input int value
      * @throws IllegalArgumentException
      */
@@ -96,7 +96,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is positive or zero and returns the same value or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -110,7 +110,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is positive or zero and returns the same value or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -124,7 +124,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is positive or zero and returns the same value or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -138,7 +138,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is positive or zero and returns the same value or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -152,7 +152,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is greater than zero and returns the same value or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -167,7 +167,7 @@ public class ParamUtils {
      * Checks that the input {@code int} value is greater than zero and returns the same value or
      * throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value.
      * @throws IllegalArgumentException if the input value is 0 or less.
      */
@@ -181,7 +181,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is greater than zero and returns the same value or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -195,7 +195,7 @@ public class ParamUtils {
     /**
      * Checks that the  input is not infinity nor NaN or throws an {@link IllegalArgumentException}
      * @param val value to check
-     * @param message the text message that would be pass to the exception thrown
+     * @param message the text message that would be passed to the exception thrown
      * @return the same value
      * @throws IllegalArgumentException
      */
@@ -203,6 +203,20 @@ public class ParamUtils {
         try {
             MathUtils.checkFinite(val);
         } catch (final NotFiniteNumberException ne) {
+            throw new IllegalArgumentException(message);
+        }
+        return val;
+    }
+
+    /**
+     * Checks that the  input is not infinity or throws an {@link IllegalArgumentException}
+     * @param val value to check
+     * @param message the text message that would be passed to the exception thrown
+     * @return the same value
+     * @throws IllegalArgumentException
+     */
+    public static double isFiniteOrNaN(final double val, final String message) {
+        if (Double.isInfinite(val)) {
             throw new IllegalArgumentException(message);
         }
         return val;
