@@ -331,6 +331,6 @@ public class AllelicCNV extends SparkCommandLineProgram {
         final List<SimpleInterval> crEventsWithUnfixedStarts =
                 targetSegmentsWithCalls.stream().filter(s -> s.getCall().equals(CnvCaller.AMPLIFICATION_CALL)).map(ModeledSegment::getSimpleInterval).collect(Collectors.toList());
         final List<SimpleInterval> crEvents = SegmentUtils.fixTargetSegmentStarts(crEventsWithUnfixedStarts, genome.getTargets());
-        return SegmentUtils.unionSegmentsNaively(snpSegments, crEvents, genome);
+        return SegmentUtils.unionSegmentsNaively(crEvents, snpSegments, genome);
     }
 }
