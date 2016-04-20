@@ -309,7 +309,7 @@ public class AllelicCNV extends SparkCommandLineProgram {
     }
 
     private ModeledSegment callSNPSegment(final ModeledSegment snpSegmentWithMean) {
-        if (snpSegmentWithMean.getSegmentMean() <= SNP_EVENT_MAF_THRESHOLD) {
+        if (snpSegmentWithMean.getSegmentMeanInCRSpace() <= SNP_EVENT_MAF_THRESHOLD) {
             return new ModeledSegment(snpSegmentWithMean.getSimpleInterval(), ReCapSegCaller.AMPLIFICATION_CALL,
                     snpSegmentWithMean.getTargetCount(), ParamUtils.log2(snpSegmentWithMean.getSegmentMean()));
         }
@@ -329,7 +329,7 @@ public class AllelicCNV extends SparkCommandLineProgram {
                                                                  final Genome genome,
                                                                  final List<ModeledSegment> targetSegmentsWithCalls) {
         final List<SimpleInterval> crEventsWithUnfixedStarts =
-                targetSegmentsWithCalls.stream().filter(s -> s.getCall().equals(CnvCaller.AMPLIFICATION_CALL)).map(ModeledSegment::getSimpleInterval).collect(Collectors.toList());
+                targetSegmentsWithCalls.stream().filter(s -> !s.getCall().equals(CnvCaller.NEUTRAL_CALL)).map(ModeledSegment::getSimpleInterval).collect(Collectors.toList());
         final List<SimpleInterval> crEvents = SegmentUtils.fixTargetSegmentStarts(crEventsWithUnfixedStarts, genome.getTargets());
         return SegmentUtils.unionSegmentsNaively(crEvents, snpSegments, genome);
     }
