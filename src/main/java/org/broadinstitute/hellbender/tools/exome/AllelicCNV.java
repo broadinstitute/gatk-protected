@@ -12,7 +12,6 @@ import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionIn
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionState;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
-import org.broadinstitute.hellbender.utils.param.ParamUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,6 +39,8 @@ public class AllelicCNV extends SparkCommandLineProgram {
 
     private static final double INITIAL_ALLELIC_BIAS_GUESS = 1.;
     private static final double SNP_EVENT_MAF_THRESHOLD = 0.475;
+    private static final int SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD = 3;
+    private static final int SMALL_SEGMENT_SNP_NUMBER_THRESHOLD = 3;
 
     //filename tags for output
     protected static final String SNP_MAF_SEG_FILE_TAG = "MAF";
@@ -206,8 +207,13 @@ public class AllelicCNV extends SparkCommandLineProgram {
         final List<SimpleInterval> snpSegmentsWithCREvents = unionSNPSegmentsWithCREvents(snpSegments, genome, targetSegmentsWithCalls);
         logger.info("Number of SNP segments after unioning target-coverage events: " + snpSegmentsWithCREvents.size());
 
-        final SegmentedGenome targetSegmentedGenome = new SegmentedGenome(targetSegmentsWithAFEvents, genome);
-        final SegmentedGenome snpSegmentedGenome = new SegmentedGenome(snpSegmentsWithCREvents, genome);
+        final List<SimpleInterval> targetSegmentsForFitting =
+                SegmentMergeUtils.mergeSmallSegmentsNew(targetSegmentsWithAFEvents, genome, SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD, SMALL_SEGMENT_SNP_NUMBER_THRESHOLD);
+        final List<SimpleInterval> snpSegmentsForFitting =
+                SegmentMergeUtils.mergeSmallSegmentsNew(snpSegmentsWithCREvents, genome, SMALL_SEGMENT_TARGET_NUMBER_THRESHOLD, SMALL_SEGMENT_SNP_NUMBER_THRESHOLD);
+
+        final SegmentedGenome targetSegmentedGenome = new SegmentedGenome(targetSegmentsForFitting, genome);
+        final SegmentedGenome snpSegmentedGenome = new SegmentedGenome(snpSegmentsForFitting, genome);
 
         //initial MCMC model fitting performed by ACNVModeller constructor
         final ACNVModeller modeller = new ACNVModeller(targetSegmentedGenome, snpSegmentedGenome, allelicPON,

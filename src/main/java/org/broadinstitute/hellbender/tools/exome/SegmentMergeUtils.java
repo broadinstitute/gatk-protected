@@ -190,6 +190,41 @@ public final class SegmentMergeUtils {
         return dropSmallSegments(mergedSegments, genome.getTargets(), targetNumberThreshold);
     }
 
+    public static List<SimpleInterval> mergeSmallSegmentsNew(final List<SimpleInterval> segments,
+                                                             final Genome genome,
+                                                             final int targetNumberThreshold,
+                                                             final int snpNumberThreshold) {
+        Utils.nonNull(segments, "The list of unioned segments cannot be null.");
+        Utils.nonNull(genome, "The genome cannot be null.");
+
+        final List<SimpleInterval> mergedSegments = new ArrayList<>(segments);
+        int index = 0;
+        while (index < mergedSegments.size()) {
+            final SimpleInterval segment = mergedSegments.get(index);
+            final int numTargets = genome.getTargets().targetCount(segment);
+            final int numSNPs = genome.getSNPs().targetCount(segment);
+            //if current segment is small, merge it with an adjacent segment
+            if (numTargets < targetNumberThreshold && numSNPs < snpNumberThreshold) {
+                final MergeDirection direction =
+                        SmallSegments.calculateMergeDirection(mergedSegments, genome, index);
+                if (direction == MergeDirection.LEFT) {
+                    //current = merge(left, current), remove left, stay on current during next iteration
+                    mergedSegments.set(index, mergeSegments(mergedSegments.get(index - 1), segment));
+                    mergedSegments.remove(index - 1);
+                    index -= 2;
+                } else if (direction == MergeDirection.RIGHT) {
+                    //current = merge(current, right), remove right, stay on current during next iteration
+                    mergedSegments.set(index, mergeSegments(segment, mergedSegments.get(index + 1)));
+                    mergedSegments.remove(index + 1);
+                    index--;
+                }
+            }
+            index++; //if no merge performed, go to next segment during next iteration
+        }
+        //contigs containing only a single small segment do not get merged; drop these segments
+        return dropSmallSegments(mergedSegments, genome.getTargets(), targetNumberThreshold);
+    }
+
     /**
      * Returns a new, modifiable list of segments with similar segments (i.e., adjacent segments with both
      * segment-mean and minor-allele-fractions posteriors similar; posteriors are similar if the difference between
