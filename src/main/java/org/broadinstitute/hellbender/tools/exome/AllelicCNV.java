@@ -310,11 +310,11 @@ public class AllelicCNV extends SparkCommandLineProgram {
 
     private ModeledSegment callSNPSegment(final ModeledSegment snpSegmentWithMean) {
         if (snpSegmentWithMean.getSegmentMeanInCRSpace() <= SNP_EVENT_MAF_THRESHOLD) {
-            return new ModeledSegment(snpSegmentWithMean.getSimpleInterval(), ReCapSegCaller.AMPLIFICATION_CALL,
-                    snpSegmentWithMean.getTargetCount(), ParamUtils.log2(snpSegmentWithMean.getSegmentMean()));
+            return new ModeledSegment(snpSegmentWithMean.getSimpleInterval(), CnvCaller.AMPLIFICATION_CALL,
+                    snpSegmentWithMean.getTargetCount(), snpSegmentWithMean.getSegmentMean());
         }
-        return new ModeledSegment(snpSegmentWithMean.getSimpleInterval(), ReCapSegCaller.NEUTRAL_CALL,
-                snpSegmentWithMean.getTargetCount(), ParamUtils.log2(snpSegmentWithMean.getSegmentMean()));
+        return new ModeledSegment(snpSegmentWithMean.getSimpleInterval(), CnvCaller.NEUTRAL_CALL,
+                snpSegmentWithMean.getTargetCount(), snpSegmentWithMean.getSegmentMean());
     }
 
     private List<SimpleInterval> unionTargetSegmentsWithAFEvents(final List<SimpleInterval> targetSegments,
@@ -322,15 +322,16 @@ public class AllelicCNV extends SparkCommandLineProgram {
                                                                  final List<ModeledSegment> snpSegmentsWithCalls) {
         final List<SimpleInterval> afEvents =
                 snpSegmentsWithCalls.stream().filter(s -> s.getCall().equals(CnvCaller.AMPLIFICATION_CALL)).map(ModeledSegment::getSimpleInterval).collect(Collectors.toList());
-        return SegmentUtils.unionSegmentsNaively(targetSegments, afEvents, genome);
+        return SegmentUtils.unionSegmentsNaively(targetSegments, afEvents, genome).stream().filter(s -> genome.getTargets().targetCount(s) > 0).collect(Collectors.toList());
     }
 
     private List<SimpleInterval> unionSNPSegmentsWithCREvents(final List<SimpleInterval> snpSegments,
                                                                  final Genome genome,
                                                                  final List<ModeledSegment> targetSegmentsWithCalls) {
         final List<SimpleInterval> crEventsWithUnfixedStarts =
-                targetSegmentsWithCalls.stream().filter(s -> !s.getCall().equals(CnvCaller.NEUTRAL_CALL)).map(ModeledSegment::getSimpleInterval).collect(Collectors.toList());
+                targetSegmentsWithCalls.stream().filter(s -> s.getCall().equals(CnvCaller.AMPLIFICATION_CALL) || s.getCall().equals(CnvCaller.DELETION_CALL))
+                        .map(ModeledSegment::getSimpleInterval).collect(Collectors.toList());
         final List<SimpleInterval> crEvents = SegmentUtils.fixTargetSegmentStarts(crEventsWithUnfixedStarts, genome.getTargets());
-        return SegmentUtils.unionSegmentsNaively(crEvents, snpSegments, genome);
+        return SegmentUtils.unionSegmentsNaively(crEvents, snpSegments, genome).stream().filter(s -> genome.getSNPs().targetCount(s) > 0).collect(Collectors.toList());
     }
 }
