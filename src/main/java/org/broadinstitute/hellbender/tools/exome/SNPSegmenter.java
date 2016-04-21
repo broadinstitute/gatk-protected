@@ -50,7 +50,7 @@ public final class SNPSegmenter {
             TargetCoverageUtils.writeTargetsWithCoverage(targetsFromSNPCountsFile, sampleName, targetsFromSNPCounts);
 
             //segment SNPs based on observed log_2 minor allele fraction (log_2 is applied in CBS.R)
-            RCBSSegmenter.writePrunedSegmentFile(sampleName, targetsFromSNPCountsFile.getAbsolutePath(),
+            RCBSSegmenter.writeSegmentFile(sampleName, targetsFromSNPCountsFile.getAbsolutePath(),
                     outputFile.getAbsolutePath(), false);
         } catch (final IOException e) {
             throw new UserException.CouldNotCreateOutputFile("Could not create temporary output file during " +
