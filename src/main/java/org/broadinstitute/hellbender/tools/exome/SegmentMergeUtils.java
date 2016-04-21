@@ -221,8 +221,7 @@ public final class SegmentMergeUtils {
             }
             index++; //if no merge performed, go to next segment during next iteration
         }
-        //contigs containing only a single small segment do not get merged; drop these segments
-        return dropSmallSegments(mergedSegments, genome.getTargets(), targetNumberThreshold);
+        return mergedSegments;
     }
 
     /**
