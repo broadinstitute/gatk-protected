@@ -6,32 +6,62 @@ import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
+import org.broadinstitute.hellbender.utils.tsv.DataLine;
+import scala.Int;
+
+import java.util.function.Function;
 
 /**
  * Reference and alternate allele counts at a SNP site specified by an interval.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
+ * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 public final class AllelicCount implements Locatable {
+
+    /* these are mandatory */
     private final SimpleInterval interval;
     private final int refReadCount, altReadCount;
-    private Nucleotide refNucleotide, altNucleotide;
 
-    public AllelicCount(final SimpleInterval interval, final int refReadCount, final int altReadCount) {
-        ParamUtils.isPositiveOrZero(refReadCount, "Can't construct AllelicCount with negative read counts.");
-        ParamUtils.isPositiveOrZero(altReadCount, "Can't construct AllelicCount with negative read counts.");
+    /* these are extra metadata and can be null */
+    private final Nucleotide refNucleotide, altNucleotide;
+    private final Integer readDepth;
+    private final Double hetLogOdds;
+
+    /**
+     * construct the allelic count object
+     * @param interval the genomic interval (it is assumed to have the same begin and end points)
+     * @param refReadCount ref nucleotide count in the pileup
+     * @param altReadCount alt nucleotide count in the pileup
+     * @param refNucleotide ref nucleotide
+     * @param altNucleotide alt nucleotide
+     * @param hetLogOdds the log odds of the pileup corresponding to a heterozygous site
+     */
+    public AllelicCount(final SimpleInterval interval, final int refReadCount, final int altReadCount,
+                        final Nucleotide refNucleotide, final Nucleotide altNucleotide,
+                        final Integer readDepth, final Double hetLogOdds) {
+
+        this.refReadCount = ParamUtils.isPositiveOrZero(refReadCount, "Can't construct AllelicCount with negative read counts.");
+        this.altReadCount = ParamUtils.isPositiveOrZero(altReadCount, "Can't construct AllelicCount with negative read counts.");
         ParamUtils.isPositive(altReadCount + refReadCount, "Can't construct AllelicCount with zero total counts.");
 
         this.interval = Utils.nonNull(interval, "Can't construct AllelicCount with null interval.");
-        this.refReadCount = refReadCount;
-        this.altReadCount = altReadCount;
+
+        /* these can be null */
+        this.refNucleotide = refNucleotide;
+        this.altNucleotide = altNucleotide;
+        this.readDepth = readDepth;
+        this.hetLogOdds = hetLogOdds;
+    }
+
+    public AllelicCount(final SimpleInterval interval, final int refReadCount, final int altReadCount) {
+        this(interval, refReadCount, altReadCount, null, null, null, null);
     }
 
     public AllelicCount(final SimpleInterval interval, final int refReadCount, final int altReadCount,
-                        final Nucleotide refNucleotide, final Nucleotide altNucleotide) {
-        this(interval, refReadCount, altReadCount);
-        this.refNucleotide = refNucleotide;
-        this.altNucleotide = altNucleotide;
+                        final Nucleotide refNucleotide, final Nucleotide altNucleotide,
+                        final Integer readDepth) {
+        this(interval, refReadCount, altReadCount, refNucleotide, altNucleotide, readDepth, null);
     }
 
     @Override
@@ -49,9 +79,61 @@ public final class AllelicCount implements Locatable {
 
     public int getAltReadCount() { return altReadCount; }
 
-    public Nucleotide getRefNucleotide() { return refNucleotide; }
+    public Nucleotide getRefNucleotide() {
+        return Utils.nonNull(refNucleotide, "The Ref nucleotide information is not available.");
+    }
 
-    public Nucleotide getAltNucleotide() { return altNucleotide; }
+    public Nucleotide getAltNucleotide() {
+        return Utils.nonNull(altNucleotide, "The Alt nucleotide information is not available.");
+    }
+
+    public Integer getReadDepth() {
+        return Utils.nonNull(readDepth, "The read depth information is not available.");
+    }
+
+    public Double getHetLogOdds() {
+        return Utils.nonNull(hetLogOdds, "The log odds of heterozygosity is not available.");
+    }
+
+    public static final Function<DataLine, AllelicCount> basicParser = dataLine -> {
+        final int position = dataLine.getInt(AllelicCountTableColumns.POSITION.toString());
+        final SimpleInterval interval = new SimpleInterval(
+                dataLine.get(AllelicCountTableColumns.CONTIG.toString()), position, position);
+        final int refReadCount = dataLine.getInt(AllelicCountTableColumns.REF_COUNT.toString());
+        final int altReadCount = dataLine.getInt(AllelicCountTableColumns.ALT_COUNT.toString());
+        return new AllelicCount(interval, refReadCount, altReadCount);
+    };
+
+    public static final Function<DataLine, AllelicCount> intermediateParser = dataLine -> {
+        final int position = dataLine.getInt(AllelicCountTableColumns.POSITION.toString());
+        final SimpleInterval interval = new SimpleInterval(
+                dataLine.get(AllelicCountTableColumns.CONTIG.toString()), position, position);
+        final int refReadCount = dataLine.getInt(AllelicCountTableColumns.REF_COUNT.toString());
+        final int altReadCount = dataLine.getInt(AllelicCountTableColumns.ALT_COUNT.toString());
+        final Nucleotide refNucleotide = Nucleotide.valueOf(
+                dataLine.get(AllelicCountTableColumns.REF_NUCLEOTIDE.toString()).getBytes()[0]);
+        final Nucleotide altNucleotide = Nucleotide.valueOf(
+                dataLine.get(AllelicCountTableColumns.ALT_NUCLEOTIDE.toString()).getBytes()[0]);
+        final int readDepth = dataLine.getInt(AllelicCountTableColumns.READ_DEPTH.toString());
+        return new AllelicCount(interval, refReadCount, altReadCount, refNucleotide, altNucleotide,
+                readDepth);
+    };
+
+    public static final Function<DataLine, AllelicCount> fullParser = dataLine -> {
+        final int position = dataLine.getInt(AllelicCountTableColumns.POSITION.toString());
+        final SimpleInterval interval = new SimpleInterval(
+                dataLine.get(AllelicCountTableColumns.CONTIG.toString()), position, position);
+        final int refReadCount = dataLine.getInt(AllelicCountTableColumns.REF_COUNT.toString());
+        final int altReadCount = dataLine.getInt(AllelicCountTableColumns.ALT_COUNT.toString());
+        final Nucleotide refNucleotide = Nucleotide.valueOf(
+                dataLine.get(AllelicCountTableColumns.REF_NUCLEOTIDE.toString()).getBytes()[0]);
+        final Nucleotide altNucleotide = Nucleotide.valueOf(
+                dataLine.get(AllelicCountTableColumns.ALT_NUCLEOTIDE.toString()).getBytes()[0]);
+        final int readDepth = dataLine.getInt(AllelicCountTableColumns.READ_DEPTH.toString());
+        final double hetLogOdds = dataLine.getDouble(AllelicCountTableColumns.HET_LOG_ODDS.toString());
+        return new AllelicCount(interval, refReadCount, altReadCount, refNucleotide, altNucleotide,
+                readDepth, hetLogOdds);
+    };
 
     /**
      * Returns the maximum likelihood estimate of the alternate-allele fraction.
@@ -109,6 +191,10 @@ public final class AllelicCount implements Locatable {
         return toMinorAlleleFractionTargetCoverage(name, 1.);
     }
 
+    /**
+     * We do not check (1) read depth and (2) het log odds for equality. We check refNucleotide and altNucleotide
+     * for equality only if both pileups have the information.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -121,7 +207,8 @@ public final class AllelicCount implements Locatable {
         final AllelicCount count = (AllelicCount) o;
         return interval.equals(count.interval)
                 && refReadCount == count.refReadCount && altReadCount == count.altReadCount
-                && refNucleotide == count.refNucleotide && altNucleotide == count.altNucleotide;
+                && (!((refNucleotide != null) && (count.refNucleotide != null)) || (refNucleotide == count.refNucleotide))
+                && (!((altNucleotide != null) && (count.altNucleotide != null)) || (altNucleotide == count.altNucleotide));
     }
 
     @Override

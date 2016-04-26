@@ -25,7 +25,7 @@ public class GATKProtectedMathUtils {
      * </p>
      * @return any double value.
      */
-    public static double naturalLogSumExp(final double ... values) {
+    public static double logSumExp(final double ... values) {
         double max = MathUtils.arrayMax(Utils.nonNull(values));
         double sum = 0.0;
         for (int i = 0; i < values.length; ++i) {
@@ -36,12 +36,12 @@ public class GATKProtectedMathUtils {
         return max + Math.log(sum);
     }
 
-    public static double naturalLogSumExp(final ArrayList<Double> values) {
+    public static double logSumExp(final Collection<Double> values) {
         double max = Collections.max(values);
         double sum = 0.0;
-        for (int i = 0; i < values.size(); ++i) {
-            if (values.get(i) != Double.NEGATIVE_INFINITY) {
-                sum += java.lang.Math.exp(values.get(i) - max);
+        for (final double val : values) {
+            if (val != Double.NEGATIVE_INFINITY) {
+                sum += java.lang.Math.exp(val - max);
             }
         }
         return max + Math.log(sum);

@@ -8,32 +8,41 @@ import org.broadinstitute.hellbender.cmdline.*;
 import org.broadinstitute.hellbender.cmdline.argumentcollections.ReferenceInputArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.argumentcollections.RequiredReferenceInputArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
+import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.read.ReadConstants;
 
 import java.io.File;
 
 /**
- * Calls heterozygous sites and output the ref and alt base counts at the called sites.
- * A list of SNP sites must be provided.
+ * Calls heterozygous sites and outputs information about the called sites.
  *
  * The tool has three modes. The mode is automatically selected based on the provided arguments:
  *
- *   NORMAL_ONLY: this mode is chosen if just the normal BAM file is provided. The BALANCED prior
- *                is used for estimating the likelihood of het sites.
+ * <dl>
+ *     <dt>NORMAL_ONLY</dt><dd>This mode is chosen if just the normal BAM file is provided. The BALANCED prior
+ *     is used for estimating the likelihood of het sites.</dd>
  *
- *   TUMOR_ONLY: this mode is chosen if just the tumor BAM file is provided. The HETEROGENEOUS prior
- *               is used for estimating the likelihood of het sites.
+ *      <dt>TUMOR_ONLY</dt><dd>This mode is chosen if just the tumor BAM file is provided. The HETEROGENEOUS prior
+ *      is used for estimating the likelihood of het sites.</dd>
  *
- *   NORMAL_TUMOR: this mode is chosen if both normal and tumor BAM files are provided. The BALANCED prior is used
- *                 to estimate the likelihood of het sites on the normal reads. The base counts on the same het sites
- *                 are collected and reported from the tumor reads.
- *
+ *      <dt>MATCHED_NORMAL_TUMOR</dt><dd>This mode is chosen if both normal and tumor BAM files are provided.
+ *      The BALANCED prior is used to estimate the likelihood of Het sites on the normal reads. The base counts on
+ *      the same het sites are collected and reported from the tumor reads.</dd>
+ * </dl>
+ **
  * @author Mehrtash Babadi &lt;mehrtash@brgoadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        summary = "Calls heterozygous sites and output the ref and alt base counts at the called sites.",
-        oneLineSummary = "Calls heterozygous sites and output the ref and alt base counts at the called sites.",
+        summary = "Calls heterozygous sites and output the reference and alternate base counts at the called sites. A list" +
+                " of SNP sites must be provided. If only the normal BAM file is provided, the job will be run in the NORMAL_ONLY" +
+                " mode. The output will be detailed (genomic position of het sites, alt and ref counts and nucleotides," +
+                " read depth, and log odds of heterzygosity). If only the tumor BAM file is provided, the job will be run in" +
+                " the TUMOR_ONLY mode. The output will be detailed. If both the normal and tumor BAM files are provided, the" +
+                " Het sites are inferred from the normal reads and the counts on the same sites will be collected from the" +
+                " tumor reads. The output for the normal reads will be detailed. The outout for the tumor reads will not" +
+                " include the log odds of heterozygosity since the inference is made from the normal reads.",
+        oneLineSummary = "Calls heterozygous sites and outputs information about the called sites.",
         programGroup = CopyNumberProgramGroup.class
 )
 public final class GetBayesianHetCoverage extends CommandLineProgram {
@@ -194,7 +203,68 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
     protected double errorProbabilityAdjustmentFactor = 1.0;
 
     private enum HetCoverageJobType {
-        NORMAL_ONLY, TUMOR_ONLY, NORMAL_TUMOR, NONE
+        NORMAL_ONLY, TUMOR_ONLY, MATCHED_NORMAL_TUMOR, NONE
+    }
+
+    private void runNormalOnly() {
+
+        final BayesianHetPulldownCalculator normalHetPulldownCalculator;
+        final Pulldown normalHetPulldown;
+
+        normalHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
+                IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+
+        logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
+        normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
+
+        logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
+        normalHetPulldown.writeFullCollection(normalHetOutputFile);
+    }
+
+    private void runTumorOnly() {
+
+        final BayesianHetPulldownCalculator tumorHetPulldownCalculator;
+        final Pulldown tumorHetPulldown;
+
+        tumorHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
+                IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+        tumorHetPulldownCalculator.useHeterogeneousHetPrior(minimumAbnormalFraction, maximumAbnormalFraction, maximumCopyNumber,
+                quadratureOrder);
+
+        logger.info("Calculating the Het pulldown from the tumor BAM file using the HETEROGENEOUS prior...");
+        tumorHetPulldown = tumorHetPulldownCalculator.getHetPulldown(tumorBamFile, hetCallingStringency);
+
+        logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
+        tumorHetPulldown.writeFullCollection(tumorHetOutputFile);
+    }
+
+    private void runMatchedNormalTumor() {
+
+        final BayesianHetPulldownCalculator normalHetPulldownCalculator, tumorHetPulldownCalculator;
+        final Pulldown normalHetPulldown, tumorHetPulldown;
+
+        normalHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
+                IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+
+        logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
+        normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
+
+        logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
+        normalHetPulldown.writeFullCollection(normalHetOutputFile);
+
+        tumorHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
+                normalHetPulldown.getIntervals(), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+
+        logger.info("Calculating the Het pulldown from the tumor BAM file on Hets detected in the normal BAM file...");
+        tumorHetPulldown = tumorHetPulldownCalculator.getTumorHetPulldownFromNormalPulldown(tumorBamFile,
+                normalHetPulldown);
+
+        logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
+        tumorHetPulldown.writeIntermediateCollection(tumorHetOutputFile);
     }
 
     @Override
@@ -214,8 +284,8 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
         /* determine the job type */
         HetCoverageJobType jobType = HetCoverageJobType.NONE;
         if (normalBamFile != null && tumorBamFile != null) {
-            jobType = HetCoverageJobType.NORMAL_TUMOR;
-            logger.info("NORMAL_TUMOR mode selected.");
+            jobType = HetCoverageJobType.MATCHED_NORMAL_TUMOR;
+            logger.info("MATCHED_NORMAL_TUMOR mode selected.");
         }
         if (normalBamFile != null && tumorBamFile == null) {
             jobType = HetCoverageJobType.NORMAL_ONLY;
@@ -226,73 +296,28 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
             logger.info("TUMOR_ONLY mode selected.");
         }
 
-        BayesianHetPulldownCalculator normalHetPulldownCalculator, tumorHetPulldownCalculator;
-        Pulldown normalHetPulldown, tumorHetPulldown;
-
         /* run the job */
         switch (jobType) {
 
             case NORMAL_ONLY:
-
-                normalHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
-                        IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                        VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
-
-                logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
-                normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
-
-                logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
-                normalHetPulldown.write(normalHetOutputFile);
-
+                runNormalOnly();
                 break;
 
             case TUMOR_ONLY:
-
-                tumorHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
-                        IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                        VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
-                tumorHetPulldownCalculator.useHeterogeneousHetPrior(minimumAbnormalFraction, maximumAbnormalFraction, maximumCopyNumber,
-                        quadratureOrder);
-
-                logger.info("Calculating the Het pulldown from the tumor BAM file using the HETEROGENEOUS prior...");
-                tumorHetPulldown = tumorHetPulldownCalculator.getHetPulldown(tumorBamFile, hetCallingStringency);
-
-                logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
-                tumorHetPulldown.write(tumorHetOutputFile);
-
+                runTumorOnly();
                 break;
 
-            case NORMAL_TUMOR:
-
-                normalHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
-                        IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                        VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
-
-                logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
-                normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
-
-                logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
-                normalHetPulldown.write(normalHetOutputFile);
-
-                tumorHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
-                        normalHetPulldown.getIntervals(), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                        VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
-
-                logger.info("Calculating the Het pulldown from the tumor BAM file on Hets detected in the normal BAM file...");
-                tumorHetPulldown = tumorHetPulldownCalculator.getTumorHetPulldownFromNormalPulldown(tumorBamFile,
-                        normalHetPulldown);
-
-                logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
-                tumorHetPulldown.write(tumorHetOutputFile);
-
+            case MATCHED_NORMAL_TUMOR:
+                runMatchedNormalTumor();
                 break;
 
             case NONE:
-                break;
+                throw new GATKException.ShouldNeverReachHereException("The job type is not properly determined from" +
+                        " the arguments. This should not happen.");
 
             default:
-                break;
-
+                throw new GATKException.ShouldNeverReachHereException("The job type is not properly determined from" +
+                        " the arguments. This should not happen.");
         }
 
         return "SUCCESS";

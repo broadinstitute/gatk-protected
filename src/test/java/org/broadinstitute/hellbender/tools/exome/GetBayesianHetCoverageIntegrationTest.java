@@ -7,6 +7,7 @@ import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -163,7 +164,8 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
         runCommandLine(args_1);
 
         normalHetPulldownExpected = new Pulldown(normalHeader);
-        normalHetPulldownExpected.add(new SimpleInterval("1", 14630, 14630), 9, 8);
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                Nucleotide.T, Nucleotide.G, 17, 39.99));
 
         normalHetPulldownResult = new Pulldown(normalOutputFile, normalHeader);
 
@@ -181,11 +183,16 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
         runCommandLine(args_2);
 
         normalHetPulldownExpected = new Pulldown(normalHeader);
-        normalHetPulldownExpected.add(new SimpleInterval("1", 11522, 11522), 7, 4);
-        normalHetPulldownExpected.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-        normalHetPulldownExpected.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-        normalHetPulldownExpected.add(new SimpleInterval("2", 14689, 14689), 6, 9);
-        normalHetPulldownExpected.add(new SimpleInterval("2", 14982, 14982), 6, 5);
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 11522, 11522), 7, 4,
+                Nucleotide.G, Nucleotide.A, 11, 18.60));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                Nucleotide.G, Nucleotide.T, 14, 29.29));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                Nucleotide.T, Nucleotide.G, 17, 39.99));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                Nucleotide.T, Nucleotide.G, 15, 28.60));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14982, 14982), 6, 5,
+                Nucleotide.G, Nucleotide.C, 11, 24.99));
         normalHetPulldownResult = new Pulldown(normalOutputFile, normalHeader);
 
         Assert.assertEquals(normalHetPulldownExpected, normalHetPulldownResult);
@@ -210,9 +217,12 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
         runCommandLine(args_1);
 
         tumorHetPulldownExpected = new Pulldown(tumorHeader);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-        tumorHetPulldownExpected.add(new SimpleInterval("2", 14689, 14689), 6, 9);
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                Nucleotide.G, Nucleotide.T, 14, 24.85));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                Nucleotide.T, Nucleotide.G, 17, 34.03));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                Nucleotide.T, Nucleotide.G, 15, 24.23));
 
         tumorHetPulldownResult = new Pulldown(tumorOutputFile, tumorHeader);
 
@@ -230,11 +240,16 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
         runCommandLine(args_2);
 
         tumorHetPulldownExpected = new Pulldown(tumorHeader);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 11522, 11522), 7, 4);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-        tumorHetPulldownExpected.add(new SimpleInterval("2", 14689, 14689), 6, 9);
-        tumorHetPulldownExpected.add(new SimpleInterval("2", 14982, 14982), 6, 5);
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 11522, 11522), 7, 4,
+                Nucleotide.G, Nucleotide.A, 11, 15.72));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                Nucleotide.G, Nucleotide.T, 14, 24.85));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                Nucleotide.T, Nucleotide.G, 17, 34.03));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                Nucleotide.T, Nucleotide.G, 15, 24.23));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14982, 14982), 6, 5,
+                Nucleotide.G, Nucleotide.C, 11, 21.23));
 
         tumorHetPulldownResult = new Pulldown(tumorOutputFile, tumorHeader);
 
@@ -242,7 +257,7 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
     }
 
     @Test
-    public void testNormalTumorJob() {
+    public void testMatchedNormalTumorJob() {
 
         final File normalOutputFile = createTempFile("normal-test", ".tsv");
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
@@ -265,16 +280,24 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
         tumorHetPulldownResult = new Pulldown(tumorOutputFile, tumorHeader);
 
         normalHetPulldownExpected = new Pulldown(normalHeader);
-        normalHetPulldownExpected.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-        normalHetPulldownExpected.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-        normalHetPulldownExpected.add(new SimpleInterval("2", 14689, 14689), 6, 9);
-        normalHetPulldownExpected.add(new SimpleInterval("2", 14982, 14982), 6, 5);
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                Nucleotide.G, Nucleotide.T, 14, 29.29));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                Nucleotide.T, Nucleotide.G, 17, 39.98));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                Nucleotide.T, Nucleotide.G, 15, 28.60));
+        normalHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14982, 14982), 6, 5,
+                Nucleotide.G, Nucleotide.C, 11, 24.99));
 
         tumorHetPulldownExpected = new Pulldown(tumorHeader);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-        tumorHetPulldownExpected.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-        tumorHetPulldownExpected.add(new SimpleInterval("2", 14689, 14689), 6, 9);
-        tumorHetPulldownExpected.add(new SimpleInterval("2", 14982, 14982), 6, 5);
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                Nucleotide.G, Nucleotide.T, 14));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                Nucleotide.T, Nucleotide.G, 17));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                Nucleotide.T, Nucleotide.G, 15));
+        tumorHetPulldownExpected.add(new AllelicCount(new SimpleInterval("2", 14982, 14982), 6, 5,
+                Nucleotide.G, Nucleotide.C, 11));
 
         Assert.assertEquals(normalHetPulldownExpected, normalHetPulldownResult);
         Assert.assertEquals(tumorHetPulldownExpected, tumorHetPulldownResult);

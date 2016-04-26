@@ -30,11 +30,17 @@ import java.util.stream.IntStream;
  *
  * TODO
  *
- * - The quadrature order can be adaptively chosen based on the pileup size and the accuracy
- *   required for likelihood estimation. In theory, a Gaussian quadrature of order N yields
- *   the exact result for a pileup of size N.
+ * <ul>
  *
- * - Include the possibility to correct for reference bias for the HetPriorType.BALANCED prior
+ *     <li> The quadrature order can be adaptively chosen based on the pileup size and the accuracy
+ *   required for likelihood estimation. In theory, a Gaussian quadrature of order N yields
+ *   the exact result for a pileup of size 2N.
+ *     </li>
+ *
+ *     <li> Include the possibility to correct for reference bias for the HetPriorType.BALANCED prior
+ *     </li>
+ *
+ * </ul>
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -45,10 +51,10 @@ public final class BayesianHetPulldownCalculator {
     private final Logger logger = LogManager.getLogger(BayesianHetPulldownCalculator.class);
 
     /**
-     * a simple class to handle base read and mapping error probabilitites
+     * A simple class to handle base read and mapping error probabilitites
      */
     @VisibleForTesting
-    public static final class BaseQuality {
+    static public final class BaseQuality {
 
         final double readErrorProbability, mappingErrorProbability;
 
@@ -63,17 +69,21 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * prior model for Het site calling
-     *
-     *  - BALANCED: minor allele fraction is assumed to be 1/2. this should be the default choice for paired
-     *    normal-tumor samples
-     *
-     *  - HETEROGENEOUS: minor allele fraction can deviate from 1/2 due to CNV events, ploidy, subclonality,
-     *    contamination, etc. this should be the default choice for tumor-only samples
-     *
-     */
+     * Prior models for Het site calling
+     **/
     private enum HetPriorType {
-        BALANCED, HETEROGENEOUS
+
+        /**
+         * Minor allele fraction is assumed to be 1/2. This should be the choice for (1) normal-only, and (2) matched
+         * normal-tumor jobs.
+         */
+        BALANCED,
+
+        /**
+         * Minor allele fraction can deviate from 1/2 due to CNV events, ploidy, subclonality, contamination, etc. This
+         * should be the default choice for tumor-only jobs.
+         */
+        HETEROGENEOUS
     }
 
     private HetPriorType hetPriorType;
@@ -90,7 +100,6 @@ public final class BayesianHetPulldownCalculator {
 
     /* experimental */
     private final double errorProbabilityAdjustmentFactor;
-
 
     /* these are for building a prior for allele fraction */
     private double minAbnormalFraction;
@@ -123,7 +132,7 @@ public final class BayesianHetPulldownCalculator {
     private static final double DEFAULT_PRIOR_REF_HOM = 0.5; /* a homozygous site being the ref allele */
     private static final double DEFAULT_PRIOR_HET = 0.5; /* a site being heterozygous */
 
-    /* a third of the minimum sequencing error (for safeguarding log likelihood calculations) */
+    /* a third of the minimum sequencing/mapping error (for safeguarding log likelihood calculations) */
     private static final double DEFAULT_MIN_BASE_ERROR_THIRD = 1e-6;
 
     /* approximate number of status updates printed to log */
@@ -152,16 +161,16 @@ public final class BayesianHetPulldownCalculator {
         ParamUtils.isPositiveOrZero(minMappingQuality, "Minimum mapping quality must be nonnegative.");
         ParamUtils.isPositiveOrZero(minBaseQuality, "Minimum base quality must be nonnegative.");
 
-        this.refFile = refFile;
-        this.snpIntervals = snpIntervals;
+        this.refFile = Utils.nonNull(refFile);
+        this.snpIntervals = Utils.nonNull(snpIntervals);
         this.minMappingQuality = ParamUtils.isPositive(minMappingQuality, "Minimum mapping quality must be a positive integer");
         this.minBaseQuality = ParamUtils.isPositive(minBaseQuality, "Minimum base quality must be a positive integer");
         this.readDepthThreshold = ParamUtils.isPositive(readDepthThreshold, "Read depth threshold must be a positive integer");
-        this.validationStringency = validationStringency;
+        this.validationStringency = Utils.nonNull(validationStringency);
         this.errorProbabilityAdjustmentFactor = ParamUtils.isPositive(errorProbabilityAdjustmentFactor,
                 "Error adjustment factor must be positive.");
 
-        /* the default Het prior */
+        /* the default Het allele fraction prior (BALANCED) */
         useBalancedHetPrior();
     }
 
@@ -170,11 +179,10 @@ public final class BayesianHetPulldownCalculator {
      */
     public void useBalancedHetPrior() {
         hetPriorType = HetPriorType.BALANCED;
-        logger.info("Using the BALANCED Het prior.");
     }
 
     /**
-     * use the HETEROGENEOUS prior for Het sites.
+     * Use the HETEROGENEOUS prior for Het sites.
      * @param minAbnormalFraction estimated minimum fraction of non-germline cells in the sample
      * @param maxAbnormalFraction estimated maximum fraction of non-germline cells in the sample
      * @param maxCopyNumber estimated maximum copy number in non-germline events (note: we use a flat probability
@@ -205,7 +213,6 @@ public final class BayesianHetPulldownCalculator {
         initializeIntegrationQuadrature(ParamUtils.isPositive(quadratureOrder - MIN_QUADRATURE_ORDER,
                 "Quadrature order must be greater than " + MIN_QUADRATURE_ORDER) + MIN_QUADRATURE_ORDER);
         initializeHetAlleleFractionPrior();
-        logger.info("Using the HETEROGENEOUS Het prior.");
     }
 
     /******************************
@@ -219,8 +226,8 @@ public final class BayesianHetPulldownCalculator {
     private void initializeIntegrationQuadrature(final int numIntegPoints) {
 
         /* get Gauss-Legendre quadrature factory of order @numIntegPoints */
-        GaussIntegratorFactory integratorFactory = new GaussIntegratorFactory();
-        GaussIntegrator gaussIntegrator = integratorFactory.legendre(numIntegPoints,
+        final GaussIntegratorFactory integratorFactory = new GaussIntegratorFactory();
+        final GaussIntegrator gaussIntegrator = integratorFactory.legendre(numIntegPoints,
                 minHetAlleleFraction, 1.0 - minHetAlleleFraction);
 
         /* abscissas */
@@ -240,46 +247,57 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * (advanced) calculate a simple prior (and log prior) for the allele fraction based on
-     * (1) minimum purity of the sample, and (2) maximum copy number. See CNV-methods.pdf for details.
+     * (advanced) Calculate a simple prior probability distribution for the allele fraction based on
+     * (1) purity of the sample, and (2) maximum copy number for abnormal cells.
+     * (See CNV-methods.pdf for details.)
+     *
+     * @param alleleFraction allele fraction to calculate the prior probability distribution on
+     * @return allele fraction prior probability distribution
+     */
+    private double calculateAlleleFractionPriorDistribution(final double alleleFraction) {
+
+        final double minorAlleleFraction = (alleleFraction < 0.5) ? alleleFraction : 1 - alleleFraction;
+
+        if (minorAlleleFraction < minHetAlleleFraction) {
+            return 0;
+        } else if (minorAlleleFraction < breakpointHetAlleleFraction) {
+            final double denom = 2 * FastMath.pow((1 - minorAlleleFraction) * minorAlleleFraction * maxCopyNumber, 2) *
+                    maxAbnormalFraction * (maxAbnormalFraction - minAbnormalFraction);
+            final double num = (-1 + (-1 + minorAlleleFraction * maxCopyNumber) * maxAbnormalFraction) *
+                    (-1 + maxAbnormalFraction + minorAlleleFraction * (2 + (-2 + maxCopyNumber) * maxAbnormalFraction)) +
+                    2 * (1 + minorAlleleFraction * (-2 + minorAlleleFraction * maxCopyNumber)) * maxAbnormalFraction *
+                            FastMath.log(FastMath.abs(((1 + minorAlleleFraction * (-2 + maxCopyNumber)) * maxAbnormalFraction)) /
+                                    (1 - 2 * minorAlleleFraction));
+            return num / denom;
+        } else { /* breakpointHetAlleleFraction < minorAlleleFraction < 1/2 */
+            final double denom = 2 * FastMath.pow((1 - minorAlleleFraction) * minorAlleleFraction * maxCopyNumber, 2) *
+                    maxAbnormalFraction * minAbnormalFraction * (maxAbnormalFraction - minAbnormalFraction);
+            final double num = (maxAbnormalFraction - minAbnormalFraction) * (-1 + 2 * minorAlleleFraction +
+                    (1 + minorAlleleFraction * (-2 + maxCopyNumber)) * (-1 + minorAlleleFraction * maxCopyNumber) *
+                            maxAbnormalFraction * minAbnormalFraction) + 2 * (1 + minorAlleleFraction * (-2 + minorAlleleFraction *
+                    maxCopyNumber)) * maxAbnormalFraction * minAbnormalFraction * FastMath.log(maxAbnormalFraction / minAbnormalFraction);
+            return num / denom;
+        }
+    }
+    /**
+     * Calculate the allele fraction distribution function and its log on the abscissas on the integration
+     * quadrature
      */
     private void initializeHetAlleleFractionPrior() {
 
         alleleFractionPriors.clear();
         alleleFractionPriors.addAll(gaussIntegrationAbscissas.stream()
-                .mapToDouble(alleleFraction -> {
-                    double minorAlleleFraction = (alleleFraction < 0.5) ? alleleFraction : 1 - alleleFraction;
-                    if (minorAlleleFraction < minHetAlleleFraction) {
-                        return 0;
-                    } else if (minorAlleleFraction < breakpointHetAlleleFraction) {
-                        double denom = 2 * FastMath.pow((1 - minorAlleleFraction) * minorAlleleFraction * maxCopyNumber, 2) *
-                                maxAbnormalFraction * (maxAbnormalFraction - minAbnormalFraction);
-                        double num = (-1 + (-1 + minorAlleleFraction * maxCopyNumber) * maxAbnormalFraction) *
-                                (-1 + maxAbnormalFraction + minorAlleleFraction * (2 + (-2 + maxCopyNumber) * maxAbnormalFraction)) +
-                                2 * (1 + minorAlleleFraction * (-2 + minorAlleleFraction * maxCopyNumber)) * maxAbnormalFraction *
-                                        FastMath.log(FastMath.abs(((1 + minorAlleleFraction * (-2 + maxCopyNumber)) * maxAbnormalFraction)) /
-                                                (1 - 2 * minorAlleleFraction));
-                        return num / denom;
-                    } else { /* breakpointHetAlleleFraction < minorAlleleFraction < 1/2 */
-                        double denom = 2 * FastMath.pow((1 - minorAlleleFraction) * minorAlleleFraction * maxCopyNumber, 2) *
-                                maxAbnormalFraction * minAbnormalFraction * (maxAbnormalFraction - minAbnormalFraction);
-                        double num = (maxAbnormalFraction - minAbnormalFraction) * (-1 + 2 * minorAlleleFraction +
-                                (1 + minorAlleleFraction * (-2 + maxCopyNumber)) * (-1 + minorAlleleFraction * maxCopyNumber) *
-                                maxAbnormalFraction * minAbnormalFraction) + 2 * (1 + minorAlleleFraction * (-2 + minorAlleleFraction *
-                                maxCopyNumber)) * maxAbnormalFraction * minAbnormalFraction * FastMath.log(maxAbnormalFraction / minAbnormalFraction);
-                        return num / denom;
-                    }
-                })
+                .mapToDouble(this::calculateAlleleFractionPriorDistribution)
                 .boxed().collect(Collectors.toList()));
 
         /* calculate the log prior */
         alleleFractionLogPriors.clear();
         alleleFractionLogPriors.addAll(alleleFractionPriors.stream()
-                .mapToDouble(FastMath::log).boxed().collect(Collectors.toList()));
+                .map(FastMath::log).collect(Collectors.toList()));
     }
 
     /**
-     * calculate the log probability, safeguarded with a minimum probability DEFAULT_MIN_BASE_ERROR_THIRD
+     * Calculate the log probability, safeguarded with a minimum probability DEFAULT_MIN_BASE_ERROR_THIRD
      * @param prob probability
      * @return safeguarded-log of probability
      */
@@ -288,7 +306,7 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * calculate the log likelihood of a SNP site being homozygous for a given read pileup
+     * Calculate the log likelihood of a SNP site being homozygous for a given read pileup
      * (see CNV-method.pdf for details)
      * @param baseQualities map of bases to list of their calling error probabilities at the SNP site
      * @param alleleRef the ref allele base
@@ -297,7 +315,7 @@ public final class BayesianHetPulldownCalculator {
      * @return the log likelihood
      */
     @VisibleForTesting
-    public double getHomLogLikelihood(final Map<Nucleotide, ArrayList<BaseQuality>> baseQualities,
+    public double getHomLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
                                       final Nucleotide alleleRef, final Nucleotide alleleAlt,
                                       final double homRefPrior) {
 
@@ -306,8 +324,8 @@ public final class BayesianHetPulldownCalculator {
         double homAltLogLikelihood = FastMath.log(1.0 - Utils.nonNull(homRefPrior));
 
         /* ... and add the log likelihood of the reads */
-        for (Nucleotide base : baseQualities.keySet()) {
-            for (BaseQuality currentBaseQuality : baseQualities.get(base)) {
+        for (final Nucleotide base : baseQualities.keySet()) {
+            for (final BaseQuality currentBaseQuality : baseQualities.get(base)) {
                 homRefLogLikelihood += getSafeguardedLogProbability(currentBaseQuality.getReadErrorProbability() / 3 +
                         currentBaseQuality.getMappingErrorProbability() / 4 +
                         ((base == alleleRef) ? (1 - 4 * currentBaseQuality.getReadErrorProbability() / 3
@@ -320,13 +338,14 @@ public final class BayesianHetPulldownCalculator {
         }
 
         /* return the sum of |hom,ref) and |hom,alt) likelihoods */
-        return GATKProtectedMathUtils.naturalLogSumExp(homRefLogLikelihood, homAltLogLikelihood);
+        return GATKProtectedMathUtils.logSumExp(homRefLogLikelihood, homAltLogLikelihood);
     }
 
     /**
      * [internal helper function]
-     * calculate the log likelihood of hetrozygosity from just alt and ref pileup for a given @alleleFraction
+     * Calculate the log likelihood of hetrozygosity from just alt and ref pileup for a given @alleleFraction
      * (see CNV-method.pdf for details)
+     *
      * @param alleleFraction ref-to-alt allele fraction
      * @param alphaList [internal to getHetLogLikelihood]
      * @param betaList [internal to getHetLogLikelihood]
@@ -335,34 +354,61 @@ public final class BayesianHetPulldownCalculator {
     private double getRefAltHetLogLikelihoodFixedAlleleFraction(final double alleleFraction,
                                                                 final ArrayList<Double> alphaList,
                                                                 final ArrayList<Double> betaList) {
-        double logLikelihood = 0;
-        for (int i=0; i<alphaList.size(); i++) {
-            logLikelihood += getSafeguardedLogProbability(alphaList.get(i) + alleleFraction * betaList.get(i));
-        }
-
-        return logLikelihood;
+        return IntStream.range(0, alphaList.size())
+                .mapToDouble(i -> alphaList.get(i) + alleleFraction * betaList.get(i))
+                .map(this::getSafeguardedLogProbability)
+                .sum();
     }
 
     /**
-     * calculate the log likelihood of a SNP site being heterozygous for a given read pileup
+     * [internal helper function]
+     * Marginalize allele fraction by integrating the precomputed allele fraction prior weighted with the
+     * likelihoods of the alt/ret portion of reads in the pileup
      * (see CNV-method.pdf for details)
+     *
+     * @param alphaList [internal to getHetLogLikelihood]
+     * @param betaList [internal to getHetLogLikelihood]
+     * @return log likelihood
+     */
+    private double getRefAltHetLogLikelihoodWithHeterogeneousPrior(final ArrayList<Double> alphaList,
+                                                                   final ArrayList<Double> betaList) {
+        final ArrayList<Double> refAltLogLikelihoodList = new ArrayList<>(gaussIntegrationAbscissas.size());
+        refAltLogLikelihoodList.addAll(
+                gaussIntegrationAbscissas.stream()
+                        .map(f -> getRefAltHetLogLikelihoodFixedAlleleFraction(f, alphaList, betaList))
+                        .collect(Collectors.toList()));
+
+        final ArrayList<Double> logLikelihoodIntegrandWithPriorAndWeights = new ArrayList<>(gaussIntegrationAbscissas.size());
+        logLikelihoodIntegrandWithPriorAndWeights.addAll(
+                IntStream.range(0, gaussIntegrationAbscissas.size())
+                        .mapToDouble(i -> refAltLogLikelihoodList.get(i) + gaussIntegrationLogWeights.get(i) +
+                                alleleFractionLogPriors.get(i))
+                        .boxed().collect(Collectors.toList()));
+
+        return GATKProtectedMathUtils.logSumExp(logLikelihoodIntegrandWithPriorAndWeights);
+    }
+
+    /**
+     * Calculate the log likelihood of a SNP site being heterozygous for a given read pileup
+     * (see CNV-method.pdf for details)
+     *
      * @param baseQualities map of bases to list of their calling error probabilities at the SNP site
      * @param alleleRef the ref allele base
      * @param alleleAlt the alt allele base
      * @return the log likelihood
      */
     @VisibleForTesting
-    public double getHetLogLikelihood(final Map<Nucleotide, ArrayList<BaseQuality>> baseQualities,
+    public double getHetLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
                                        final Nucleotide alleleRef, final Nucleotide alleleAlt) {
 
         double errorLogLikelihood = 0.0;
         double refAltLogLikelihood;
-        ArrayList<Double> alphaList = new ArrayList<>();
-        ArrayList<Double> betaList = new ArrayList<>();
+        final ArrayList<Double> alphaList = new ArrayList<>();
+        final ArrayList<Double> betaList = new ArrayList<>();
 
-        for (Nucleotide base : baseQualities.keySet()) {
+        for (final Nucleotide base : baseQualities.keySet()) {
             if (base == alleleRef) {
-                for (BaseQuality currentBaseQuality : baseQualities.get(base)) {
+                for (final BaseQuality currentBaseQuality : baseQualities.get(base)) {
                     alphaList.add(currentBaseQuality.getReadErrorProbability() / 3 +
                         currentBaseQuality.getMappingErrorProbability() / 4);
                     betaList.add(1 - 4 * currentBaseQuality.getReadErrorProbability() / 3 -
@@ -378,7 +424,7 @@ public final class BayesianHetPulldownCalculator {
                 }
             }
             else {
-                for (BaseQuality currentBaseQuality : baseQualities.get(base)) {
+                for (final BaseQuality currentBaseQuality : baseQualities.get(base)) {
                     errorLogLikelihood += getSafeguardedLogProbability(currentBaseQuality.getReadErrorProbability() / 3 +
                         currentBaseQuality.getMappingErrorProbability() / 4);
                 }
@@ -393,25 +439,12 @@ public final class BayesianHetPulldownCalculator {
                 break;
 
             case HETEROGENEOUS:
-                /* marginalize allele fraction by integrating {@link getRefAltHetLogLikelihoodFixedAlleleFraction} over
-                   the precomputed allele fraction prior */
-                ArrayList<Double> refAltLogLikelihoodList = new ArrayList<>(gaussIntegrationAbscissas.size());
-                refAltLogLikelihoodList.addAll(
-                        gaussIntegrationAbscissas.stream()
-                                .mapToDouble(Double::doubleValue)
-                                .map(f -> getRefAltHetLogLikelihoodFixedAlleleFraction(f, alphaList, betaList))
-                                .boxed().collect(Collectors.toList()));
-                ArrayList<Double> logLikelihoodIntegrandWithPriorAndWeights = new ArrayList<>(gaussIntegrationAbscissas.size());
-                logLikelihoodIntegrandWithPriorAndWeights.addAll(
-                        IntStream.range(0, gaussIntegrationAbscissas.size())
-                                .mapToDouble(i -> refAltLogLikelihoodList.get(i) + gaussIntegrationLogWeights.get(i) +
-                                        alleleFractionLogPriors.get(i))
-                                .boxed().collect(Collectors.toList()));
-                refAltLogLikelihood = GATKProtectedMathUtils.naturalLogSumExp(logLikelihoodIntegrandWithPriorAndWeights);
+                refAltLogLikelihood = getRefAltHetLogLikelihoodWithHeterogeneousPrior(alphaList, betaList);
                 break;
 
-            default: /* we shouldn't be here anyway */
-                refAltLogLikelihood = 0.0;
+            default: /* we shouldn't be here  */
+                throw new GATKException.ShouldNeverReachHereException("The prior type is neither BALANCED nor" +
+                        "HETEROGENEOUS. Stopping.");
 
         }
 
@@ -419,7 +452,7 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * wrapper methods
+     * Wrapper methods
      */
 
     /**
@@ -427,26 +460,28 @@ public final class BayesianHetPulldownCalculator {
      * @param locus locus
      * @return map of base-pair to error probabilities
      */
-    private Map<Nucleotide, ArrayList<BaseQuality>> getPileupBaseQualities(final SamLocusIterator.LocusInfo locus) {
+    private Map<Nucleotide, List<BaseQuality>> getPileupBaseQualities(final SamLocusIterator.LocusInfo locus) {
 
-        Map<Nucleotide, ArrayList<BaseQuality>> baseQualities = new HashMap<>();
+        /* group recrods by base */
+        final Map<Byte, List<SamLocusIterator.RecordAndOffset>> recsGroupedByBase = locus.getRecordAndPositions().stream()
+                .collect(Collectors.groupingBy(SamLocusIterator.RecordAndOffset::getReadBase));
 
-        /* make sure that we have keys at least for A, C, T, and G */
-        for (Nucleotide base : BASES) {
-            baseQualities.put(base, new ArrayList<>());
-        }
+        /* map recsGroupedByBase to Map<Nucleotide, List<BaseQuality>> */
+        final Map<Nucleotide, List<BaseQuality>> baseQualities = recsGroupedByBase.keySet().stream()
+                .collect(Collectors.toMap(
+                        Nucleotide::valueOf,
+                        nucl -> recsGroupedByBase.get(nucl).stream()
+                                .map(rec -> new BaseQuality(
+                                        errorProbabilityAdjustmentFactor * QualityUtils.qualToErrorProb(rec.getBaseQuality()),
+                                        errorProbabilityAdjustmentFactor * QualityUtils.qualToErrorProb(rec.getRecord().getMappingQuality()))
+                                ).collect(Collectors.toList()))
+                );
 
-        for (final SamLocusIterator.RecordAndOffset rec : locus.getRecordAndPositions()) {
-            Nucleotide currentBase = Nucleotide.valueOf(rec.getReadBase());
-            ArrayList<BaseQuality> currentBaseQualityList = baseQualities.get(currentBase);
-            if (currentBaseQualityList == null) { /* this can occur if a non-ACTG read is found */
-                currentBaseQualityList = new ArrayList<>();
-                baseQualities.put(currentBase, currentBaseQualityList);
+        /* make sure that the main bases {A, C, T, G} are included in the map */
+        for (final Nucleotide base : BASES) {
+            if (!baseQualities.containsKey(base)) {
+                baseQualities.put(base, new ArrayList<>());
             }
-            currentBaseQualityList.add(new BaseQuality(
-                    errorProbabilityAdjustmentFactor * QualityUtils.qualToErrorProb(rec.getBaseQuality()),
-                    errorProbabilityAdjustmentFactor * QualityUtils.qualToErrorProb(rec.getRecord().getMappingQuality()))
-            );
         }
 
         return baseQualities;
@@ -466,11 +501,11 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * get base counts map from base quality map
+     * Get base counts map from base quality map
      * @param baseQualities map from bases to list of {@link BaseQuality}
      * @return base counts map
      */
-    private Map<Nucleotide, Integer> getBaseCountsFromBaseQualities(final Map<Nucleotide, ArrayList<BaseQuality>> baseQualities) {
+    private Map<Nucleotide, Integer> getBaseCountsFromBaseQualities(final Map<Nucleotide, List<BaseQuality>> baseQualities) {
         Map<Nucleotide, Integer> baseCounts = new HashMap<>();
         for (Nucleotide base : BASES) {
             if (baseQualities.containsKey(base)) {
@@ -483,29 +518,36 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * Infer the alt allele base from the pileup. We choose the base with the highest frequency
-     * that is not Ref (this coincides with the maximum likelihood estimation).
+     * Infer the alt allele base from the pileup: we pick the base with the highest frequency that is not Ref as Alt.
+     * This is the maximum likelihood estimation. <br>
      *
-     * * Remark: while this is definitely not the perfect way to do it, it has no serious pitfalls:
+     * <b>Remark</b>: While this is definitely not the perfect way to do it and it is desirable to have both Ref/Alt
+     * allele information, it has no serious pitfalls either:<BR><BR>
+     * <ul>
+     *     <li>
+     *         If the reads are balanced between between Ref and Alt, it correctly infers the Alt base.
+     *     </li>
+     *     <li>
+     *         If the input is all Ref, then Alt is chosen randomly, but it's fine since there are no Alt counts in
+     *         the pileup anyway and the likelihoods are not affected. If the input is all Alt, it still works properly.
+     *     </li>
+     *     <li>
+     *         If the input in all Ref + a few read/mapping errors, then Alt will be chosen as the most frequent
+     *         erroneous base; again, this is fine because Hom likelihood is far greater than Het likelihood in this
+     *         case anyway. Likewise, if the input is all Alt + a few errors, it still works properly.
+     *     </li>
+     * </ul>
      *
-     * - if the input is balanced between betweet ref and alt, it correctly chooses alt.
-     * - if the input is all ref, then alt is chosen randomly, but it's OK since there are no alt counts
-     *   in the pileup anyway.
-     * - if the input is all alt, we are good.
-     * - if the input in all ref + a few errors, then alt will be choosen as the most frequent erroneous
-     *   base; again, this is OK because Hom likelihood is far greater than Het likelihood in this case
-     * - if the input is all alt + a few errors, we are good.
-
      * @param baseQualities map from bases to error probabilities
      * @param refBase the ref allele base
      * @return the likely alt allele
      */
     @VisibleForTesting
-    public static Nucleotide inferAltFromPileup(final Map<Nucleotide, ArrayList<BaseQuality>> baseQualities,
+    public static Nucleotide inferAltFromPileup(final Map<Nucleotide, List<BaseQuality>> baseQualities,
                                                 final Nucleotide refBase) {
 
         /* sort the bases in the descending order by their frequency */
-        Nucleotide[] bases = {Nucleotide.A, Nucleotide.C, Nucleotide.G, Nucleotide.T};
+        Nucleotide[] bases = BASES;
         Arrays.sort(bases, (L, R) -> Integer.compare(baseQualities.get(R).size(), baseQualities.get(L).size()));
         /* pick the base with highest frequency, skip over ref */
         for (Nucleotide base : bases) {
@@ -515,21 +557,45 @@ public final class BayesianHetPulldownCalculator {
         }
 
         /* we shouldn't be here unless the baseErrorProbabilities is malformed */
-        return Nucleotide.N;
+        throw new GATKException.ShouldNeverReachHereException("The Alt base can not be inferred from the " +
+                "pileup. The size of the pileup is: " + baseQualities.size());
+    }
+
+    /**
+     * Returns a {@link SamLocusIterator} object for a given {@link SamReader} and {@link IntervalList} with filters
+     * on minimum base quality and minimum mapping quality
+     *
+     * @param samReader a SamReader object
+     * @return a SamLocusIterator object
+     */
+    private SamLocusIterator getSamLocusIteratorWithDefaultFilters(final SamReader samReader) {
+
+        final SamLocusIterator locusIterator = new SamLocusIterator(samReader, snpIntervals,
+                snpIntervals.size() < MAX_INTERVALS_FOR_INDEX);
+
+        /* set read and locus filters */
+        final List<SamRecordFilter> samFilters = Arrays.asList(new NotPrimaryAlignmentFilter(),
+                new DuplicateReadFilter());
+        locusIterator.setSamFilters(samFilters);
+        locusIterator.setEmitUncoveredLoci(false);
+        locusIterator.setIncludeNonPfReads(false);
+        locusIterator.setMappingQualityScoreCutoff(minMappingQuality);
+        locusIterator.setQualityScoreCutoff(minBaseQuality);
+
+        return locusIterator;
     }
 
     /**
      * For a normal or tumor sample, returns a data structure giving (intervals, reference counts, alternate counts),
      * where intervals give positions of likely heterozygous SNP sites.
      *
-     * The analysis for normal and tumor is identical. The IntervalList gives common SNP sites in 1-based
-     * format.
-     *
      * The @hetCallingStrigency parameters sets the threshold Het posterior for calling:
      *
      *      hetPosteriorThreshold = 1 - 10^{-hetCallingStringency}
      *      hetThresholdLogOdds = log(hetPosteriorThreshold/(1-hetPosteriorThreshold))
      *                          = log(10^{hetCallingStringency} - 1)
+     *
+     * (see CNV-methods.pdf for details)
      *
      * @param bamFile sorted BAM file for sample
      * @param hetCallingStringency strigency for calling a Het site
@@ -549,20 +615,9 @@ public final class BayesianHetPulldownCalculator {
             }
 
             final Pulldown hetPulldown = new Pulldown(bamReader.getFileHeader());
+            final SamLocusIterator locusIterator = getSamLocusIteratorWithDefaultFilters(bamReader);
 
             final int totalNumberOfSNPs = snpIntervals.size();
-            final SamLocusIterator locusIterator = new SamLocusIterator(bamReader, snpIntervals,
-                    totalNumberOfSNPs < MAX_INTERVALS_FOR_INDEX);
-
-            /* set read and locus filters */
-            final List<SamRecordFilter> samFilters = Arrays.asList(new NotPrimaryAlignmentFilter(),
-                    new DuplicateReadFilter());
-            locusIterator.setSamFilters(samFilters);
-            locusIterator.setEmitUncoveredLoci(false);
-            locusIterator.setIncludeNonPfReads(false);
-            locusIterator.setMappingQualityScoreCutoff(minMappingQuality);
-            locusIterator.setQualityScoreCutoff(minBaseQuality);
-
             logger.info("Examining " + totalNumberOfSNPs + " sites in total...");
             int locusCount = 0;
             for (final SamLocusIterator.LocusInfo locus : locusIterator) {
@@ -576,8 +631,9 @@ public final class BayesianHetPulldownCalculator {
                     continue;
                 }
 
-                final Map<Nucleotide, ArrayList<BaseQuality>> baseQualities = getPileupBaseQualities(locus);
-                final Nucleotide refBase = Nucleotide.valueOf(refWalker.get(locus.getSequenceIndex()).getBases()[locus.getPosition() - 1]);
+                final Map<Nucleotide, List<BaseQuality>> baseQualities = getPileupBaseQualities(locus);
+                final Nucleotide refBase = Nucleotide.valueOf(refWalker.get(locus.getSequenceIndex())
+                        .getBases()[locus.getPosition() - 1]);
                 final Nucleotide altBase = inferAltFromPileup(baseQualities, refBase);
 
                 /* calculate Het log odds */
@@ -588,9 +644,10 @@ public final class BayesianHetPulldownCalculator {
                         (homLogLikelihood + FastMath.log(1 - DEFAULT_PRIOR_HET));
 
                 if (hetLogOdds > hetThresholdLogOdds) {
-                    hetPulldown.add(new SimpleInterval(locus.getSequenceName(), locus.getPosition(), locus.getPosition()),
+                    hetPulldown.add(new AllelicCount(
+                            new SimpleInterval(locus.getSequenceName(), locus.getPosition(), locus.getPosition()),
                             baseQualities.get(refBase).size(), baseQualities.get(altBase).size(),
-                            refBase, altBase);
+                            refBase, altBase, totalReadCount, hetLogOdds));
                 }
             }
 
@@ -612,23 +669,12 @@ public final class BayesianHetPulldownCalculator {
             }
 
             final Pulldown tumorHetPulldown = new Pulldown(bamReader.getFileHeader());
-
-            final int totalNumberOfSNPs = snpIntervals.size();
-            final SamLocusIterator locusIterator = new SamLocusIterator(bamReader, snpIntervals,
-                    totalNumberOfSNPs < MAX_INTERVALS_FOR_INDEX);
-
-            /* set read and locus filters */
-            final List<SamRecordFilter> samFilters = Arrays.asList(new NotPrimaryAlignmentFilter(),
-                    new DuplicateReadFilter());
-            locusIterator.setSamFilters(samFilters);
-            locusIterator.setEmitUncoveredLoci(false);
-            locusIterator.setIncludeNonPfReads(false);
-            locusIterator.setMappingQualityScoreCutoff(minMappingQuality);
-            locusIterator.setQualityScoreCutoff(minBaseQuality);
+            final SamLocusIterator locusIterator = getSamLocusIteratorWithDefaultFilters(bamReader);
 
             /* get a map of SimpleIntervals in the pulldown to their index */
-            Map<SimpleInterval, Integer> normalPulldownIndexMap = normalHetPulldown.getSimpleIntervalToIndexMap();
+            final Map<SimpleInterval, Integer> normalPulldownIndexMap = normalHetPulldown.getSimpleIntervalToIndexMap();
 
+            final int totalNumberOfSNPs = snpIntervals.size();
             logger.info("Examining " + totalNumberOfSNPs + " sites in total...");
             int locusCount = 0;
             for (final SamLocusIterator.LocusInfo locus : locusIterator) {
@@ -654,9 +700,14 @@ public final class BayesianHetPulldownCalculator {
 
                 /* just count the alt and ref nucleotide and add to the tumor pulldown */
                 final Nucleotide.Counter baseCounts = getPileupBaseCounts(locus);
-                tumorHetPulldown.add(new SimpleInterval(locus.getSequenceName(), locus.getPosition(), locus.getPosition()),
+                tumorHetPulldown.add(new AllelicCount(
+                        new SimpleInterval(locus.getSequenceName(), locus.getPosition(), locus.getPosition()),
                         (int) baseCounts.get(normalHetPulldown.getCounts().get(indexInNormalPulldown).getRefNucleotide()),
-                        (int) baseCounts.get(normalHetPulldown.getCounts().get(indexInNormalPulldown).getAltNucleotide()));
+                        (int) baseCounts.get(normalHetPulldown.getCounts().get(indexInNormalPulldown).getAltNucleotide()),
+                        normalHetPulldown.getCounts().get(indexInNormalPulldown).getRefNucleotide(),
+                        normalHetPulldown.getCounts().get(indexInNormalPulldown).getAltNucleotide(),
+                        totalReadCount)
+                );
             }
 
             logger.info(locusCount + " covered sites out of " + totalNumberOfSNPs + " total sites were examined.");

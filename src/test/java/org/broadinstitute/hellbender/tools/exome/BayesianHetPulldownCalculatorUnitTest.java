@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-import com.sun.tools.javac.util.List;
 import htsjdk.samtools.*;
 import htsjdk.samtools.util.IntervalList;
 import org.broadinstitute.hellbender.exceptions.UserException;
@@ -53,7 +52,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     private static BayesianHetPulldownCalculator calculator;
 
     private static int numPileupEntries;
-    private static ArrayList<Map<Nucleotide, ArrayList<BayesianHetPulldownCalculator.BaseQuality>>>
+    private static ArrayList<Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>>>
             fakePileupBaseQualities = new ArrayList<>();
     private static ArrayList<Double> fakePileupHetLogLikelihoodArray = new ArrayList<>();
     private static ArrayList<Double> fakePileupHomLogLikelihoodArray = new ArrayList<>();
@@ -101,7 +100,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
             String[] tokenizedLine = stringStripper.of(s).split(",");
             ArrayList<Double> errorList = new ArrayList<>();
             if (tokenizedLine.length >= 1 && !tokenizedLine[0].equals("")) {
-                errorList.addAll(List.from(tokenizedLine).stream()
+                errorList.addAll(Arrays.asList(tokenizedLine).stream()
                         .map(Double::parseDouble)
                         .collect(Collectors.toList()));
             }
@@ -111,7 +110,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
         Scanner reader = new Scanner(new FileInputStream(FAKE_PILEUP_FILE));
         while (reader.hasNextLine()) {
 
-            Map<Nucleotide, ArrayList<BayesianHetPulldownCalculator.BaseQuality>> baseQualities = new HashMap<>();
+            Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>> baseQualities = new HashMap<>();
 
             for (Nucleotide base : new Nucleotide[]{Nucleotide.A, Nucleotide.C, Nucleotide.T, Nucleotide.G}) {
 
@@ -124,7 +123,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
                         .mapToDouble(i -> 60.0).boxed().collect(Collectors.toList()));
 
                 /* contruct the BaseQuality list */
-                ArrayList<BayesianHetPulldownCalculator.BaseQuality> baseQualityList = new ArrayList<>();
+                List<BayesianHetPulldownCalculator.BaseQuality> baseQualityList = new ArrayList<>();
                 baseQualityList.addAll(IntStream.range(0, readErrorList.size()).mapToObj(i -> new BayesianHetPulldownCalculator.BaseQuality(
                         readErrorList.get(i), mappingErrorList.get(i))).collect(Collectors.toList()));
 
@@ -180,7 +179,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     }
 
     @Test(dataProvider = "inputTestGetHomLogLikelihood")
-    public void testGetHomLogLikelihood(final Map<Nucleotide, ArrayList<BayesianHetPulldownCalculator.BaseQuality>> baseQualities,
+    public void testGetHomLogLikelihood(final Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>> baseQualities,
                                         final Nucleotide alleleRef, final Nucleotide alleleAlt,
                                         final double homRefPrior, final double expectedHomLogLikelihood) {
         for (int i=0; i<numPileupEntries; i++) {
@@ -209,7 +208,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     }
 
     @Test(dataProvider = "inputTestGetHetLogLikelihood")
-    public void testGetHetLogLikelihood(final Map<Nucleotide, ArrayList<BayesianHetPulldownCalculator.BaseQuality>> baseQualities,
+    public void testGetHetLogLikelihood(final Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>> baseQualities,
                                         final Nucleotide alleleRef, final Nucleotide alleleAlt,
                                         final double expectedHetLogLikelihood) {
         for (int i=0; i<numPileupEntries; i++) {
@@ -221,14 +220,14 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     @Test
     public void testInferAlleleAltFromPileup() {
 
-        Map<Nucleotide, ArrayList<BayesianHetPulldownCalculator.BaseQuality>> baseQualities = new HashMap<>();
+        Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>> baseQualities = new HashMap<>();
         BayesianHetPulldownCalculator.BaseQuality genericBaseQuality = new BayesianHetPulldownCalculator.BaseQuality(60.0, 60.0);
 
-        ArrayList<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_0 = new ArrayList<>();
-        ArrayList<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_1 = new ArrayList<>();
-        ArrayList<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_2 = new ArrayList<>();
-        ArrayList<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_3 = new ArrayList<>();
-        ArrayList<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_4 = new ArrayList<>();
+        List<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_0 = new ArrayList<>();
+        List<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_1 = new ArrayList<>();
+        List<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_2 = new ArrayList<>();
+        List<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_3 = new ArrayList<>();
+        List<BayesianHetPulldownCalculator.BaseQuality> genericBaseQualityList_4 = new ArrayList<>();
 
         /* only the base counts matter; so we can use a generic BaseQuality for all lists */
 
@@ -284,50 +283,64 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
             /* test 1: normal, loose threshold */
             testPulldown = calculator.getHetPulldown(NORMAL_BAM_FILE, 2);
             tempFile = File.createTempFile("testPulldownNormalLoose", ".txt");
-            testPulldown.write(tempFile);
+            testPulldown.writeFullCollection(tempFile);
 
             expectedPulldown = new Pulldown(normalHeader);
-            expectedPulldown.add(new SimpleInterval("1", 11522, 11522), 7, 4);
-            expectedPulldown.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-            expectedPulldown.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-            expectedPulldown.add(new SimpleInterval("2", 14689, 14689), 6, 9);
-            expectedPulldown.add(new SimpleInterval("2", 14982, 14982), 6, 5);
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 11522, 11522), 7, 4,
+                    Nucleotide.G, Nucleotide.A, 11, 18.38));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                    Nucleotide.G, Nucleotide.T, 14, 28.84));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                    Nucleotide.T, Nucleotide.G, 17, 39.39));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                    Nucleotide.T, Nucleotide.G, 15, 28.23));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("2", 14982, 14982), 6, 5,
+                    Nucleotide.G, Nucleotide.C, 11, 24.54));
 
             Assert.assertEquals(new Pulldown(tempFile, normalHeader), expectedPulldown);
 
             /* test 2: normal, tight threshold */
             testPulldown = calculator.getHetPulldown(NORMAL_BAM_FILE, 12);
             tempFile = File.createTempFile("testPulldownNormalTight", ".txt");
-            testPulldown.write(tempFile);
+            testPulldown.writeFullCollection(tempFile);
 
             expectedPulldown = new Pulldown(normalHeader);
-            expectedPulldown.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-            expectedPulldown.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-            expectedPulldown.add(new SimpleInterval("2", 14689, 14689), 6, 9);
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                    Nucleotide.G, Nucleotide.T, 14, 28.84));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                    Nucleotide.T, Nucleotide.G, 17, 39.39));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                    Nucleotide.T, Nucleotide.G, 15, 28.23));
 
             Assert.assertEquals(new Pulldown(tempFile, normalHeader), expectedPulldown);
 
             /* test 3: tumor, loose threshold */
             testPulldown = calculator.getHetPulldown(TUMOR_BAM_FILE, 2);
             tempFile = File.createTempFile("testPulldownTumorLoose", ".txt");
-            testPulldown.write(tempFile);
+            testPulldown.writeFullCollection(tempFile);
 
             expectedPulldown = new Pulldown(tumorHeader);
-            expectedPulldown.add(new SimpleInterval("1", 11522, 11522), 7, 4);
-            expectedPulldown.add(new SimpleInterval("1", 12098, 12098), 8, 6);
-            expectedPulldown.add(new SimpleInterval("1", 14630, 14630), 9, 8);
-            expectedPulldown.add(new SimpleInterval("2", 14689, 14689), 6, 9);
-            expectedPulldown.add(new SimpleInterval("2", 14982, 14982), 6, 5);
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 11522, 11522), 7, 4,
+                    Nucleotide.G, Nucleotide.A, 11, 15.63));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
+                    Nucleotide.G, Nucleotide.T, 14, 24.72));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                    Nucleotide.T, Nucleotide.G, 17, 33.89));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("2", 14689, 14689), 6, 9,
+                    Nucleotide.T, Nucleotide.G, 15, 24.11));
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("2", 14982, 14982), 6, 5,
+                    Nucleotide.G, Nucleotide.C, 11, 21.10));
 
             Assert.assertEquals(new Pulldown(tempFile, normalHeader), expectedPulldown);
 
             /* test 4: tumor, tight threshold */
             testPulldown = calculator.getHetPulldown(TUMOR_BAM_FILE, 12);
             tempFile = File.createTempFile("testPulldownTumorTight", ".txt");
-            testPulldown.write(tempFile);
+            testPulldown.writeFullCollection(tempFile);
 
             expectedPulldown = new Pulldown(tumorHeader);
-            expectedPulldown.add(new SimpleInterval("1", 14630, 14630), 9, 8);
+            expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
+                    Nucleotide.T, Nucleotide.G, 17, 33.89));
 
             Assert.assertEquals(new Pulldown(tempFile, normalHeader), expectedPulldown);
 
