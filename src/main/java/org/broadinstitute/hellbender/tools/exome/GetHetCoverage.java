@@ -136,7 +136,7 @@ public final class GetHetCoverage extends CommandLineProgram {
 
         logger.info("Getting normal het pulldown...");
         final Pulldown normalHetPulldown = hetPulldown.getNormal(normalBAMFile, pvalThreshold, minimumRawReads);
-        normalHetPulldown.writeBasicCollection(normalHetOutputFile);
+        normalHetPulldown.write(normalHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.BASIC);
         logger.info("Normal het pulldown written to " + normalHetOutputFile.toString());
 
         if (doTumorPulldown) {
@@ -144,7 +144,7 @@ public final class GetHetCoverage extends CommandLineProgram {
 
             logger.info("Getting tumor het pulldown...");
             final Pulldown tumorHetPulldown = hetPulldown.getTumor(tumorBAMFile, normalHetIntervals, minimumRawReads);
-            tumorHetPulldown.writeBasicCollection(tumorHetOutputFile);
+            tumorHetPulldown.write(tumorHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.BASIC);
             logger.info("Tumor het pulldown written to " + tumorHetOutputFile.toString());
         }
 

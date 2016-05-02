@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.utils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
+import org.apache.commons.math3.util.FastMath;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,7 +17,7 @@ import java.util.stream.IntStream;
 public class GATKProtectedMathUtils {
 
     /**
-     * Computes ln(Sum_i(e^a_i)) trying to avoid underflow issues by using the log-sum-exp trick.
+     * Computes $\log(\sum_i e^{a_i})$ trying to avoid underflow issues by using the log-sum-exp trick.
      *
      * <p>
      * This trick consists on shift all the log values by the maximum so that exponent values are
@@ -45,6 +46,16 @@ public class GATKProtectedMathUtils {
             }
         }
         return max + Math.log(sum);
+    }
+
+    /**
+     * Returns log(max(abs(x), minLogArg))
+     * @param x argument of log (any double value)
+     * @param minLogArg minimum argument to pass to log (must be positive but not checked)
+     * @return any double value.
+     */
+    public static double safeLog(final double x, final double minLogArg) {
+        return FastMath.log(FastMath.max(minLogArg, FastMath.abs(x)));
     }
 
     public static double interquartileRange(final double ... values) {

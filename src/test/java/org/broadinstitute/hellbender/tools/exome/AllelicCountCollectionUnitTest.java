@@ -41,7 +41,7 @@ public class AllelicCountCollectionUnitTest extends BaseTest {
     public void testReadAndWriteBasicCollection() throws Exception {
         final File tempFile = createTempFile("allelic-count-collection-test", "tsv");
         final AllelicCountCollection snps = new AllelicCountCollection(BASIC_SNPS_FILE);
-        snps.writeBasicCollection(tempFile);
+        snps.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.BASIC);
 
         final AllelicCountCollection snpsWritten = new AllelicCountCollection(tempFile);
 
@@ -58,7 +58,7 @@ public class AllelicCountCollectionUnitTest extends BaseTest {
     public void testReadAndWriteItermediateCollection() throws Exception {
         final File tempFile = createTempFile("allelic-count-collection-test", "tsv");
         final AllelicCountCollection snps = new AllelicCountCollection(INTERMEDIATE_SNPS_FILE);
-        snps.writeIntermediateCollection(tempFile);
+        snps.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.INTERMEDIATE);
 
         final AllelicCountCollection snpsWritten = new AllelicCountCollection(tempFile);
 
@@ -79,7 +79,7 @@ public class AllelicCountCollectionUnitTest extends BaseTest {
     public void testReadAndWriteFullCollection() throws Exception {
         final File tempFile = createTempFile("allelic-count-collection-test", "tsv");
         final AllelicCountCollection snps = new AllelicCountCollection(FULL_SNPS_FILE);
-        snps.writeFullCollection(tempFile);
+        snps.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
 
         final AllelicCountCollection snpsWritten = new AllelicCountCollection(tempFile);
 

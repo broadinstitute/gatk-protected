@@ -40,23 +40,7 @@ public class AllelicCountCollection {
         Utils.nonNull(inputFile);
         Utils.regularReadableUserFile(inputFile);
 
-        try (final TableReader<AllelicCount> reader = TableUtils.reader(inputFile,
-                (columns, formatExceptionFactory) -> {
-                    /* in the order of decrasing verbosity */
-                    if (columns.containsAll(AllelicCountTableColumns.FULL_COLUMN_NAME_ARRAY)) {
-                        return AllelicCount.fullParser;
-                    }
-                    if (columns.containsAll(AllelicCountTableColumns.INTERMEDIATE_COLUMN_NAME_ARRAY)) {
-                        return AllelicCount.intermediateParser;
-                    }
-                    if (columns.containsAll(AllelicCountTableColumns.BASIC_COLUMN_NAME_ARRAY)) {
-                        return AllelicCount.basicParser;
-                    }
-                    /* if we are here, the table is malformed */
-                    throw formatExceptionFactory.apply("The AllelicCountCollection input file does not have the" +
-                            " mandatory colums. Required: " + StringUtils.join(
-                            AllelicCountTableColumns.BASIC_COLUMN_NAME_ARRAY, ", "));
-                })) {
+        try (final AllelicCountReader reader = new AllelicCountReader(inputFile)) {
             counts = reader.stream().collect(Collectors.toList());
         } catch (final IOException | UncheckedIOException e) {
             throw new UserException.CouldNotReadInputFile(inputFile, e);
@@ -84,81 +68,12 @@ public class AllelicCountCollection {
     }
 
     /**
-     * Writes out basic pulldown data (sequence, position, reference count, alternate count) to specified file.
-     * @param outputFile    file to write to (if it exists, it will be overwritten)
+     * Writes out pulldown data to specified file at different verbosity levels.
+     * @param verbosity  verbosity level
+     * @param outputFile  file to write to (if it exists, it will be overwritten)
      */
-    public void writeBasicCollection(final File outputFile) {
-        try (final TableWriter<AllelicCount> writer = TableUtils.writer(outputFile,
-                new TableColumnCollection(AllelicCountTableColumns.BASIC_COLUMN_NAME_ARRAY),
-                (count, dataLine) -> {
-                    final SimpleInterval interval = count.getInterval();
-                    final int refReadCount = count.getRefReadCount();
-                    final int altReadCount = count.getAltReadCount();
-                    dataLine.append(interval.getContig())
-                            .append(interval.getEnd())
-                            .append(refReadCount)
-                            .append(altReadCount);
-                })) {
-            writer.writeAllRecords(counts);
-        } catch (final IOException e) {
-            throw new UserException.CouldNotCreateOutputFile(outputFile, e);
-        }
-    }
-
-    /**
-     * Writes out intermediate pulldown data (sequence, position, reference count, alternate count, reference nucleotide,
-     * alternate nucleotide) to specified file.
-     * @param outputFile    file to write to (if it exists, it will be overwritten)
-     */
-    public void writeIntermediateCollection(final File outputFile) {
-        try (final TableWriter<AllelicCount> writer = TableUtils.writer(outputFile,
-                new TableColumnCollection(AllelicCountTableColumns.INTERMEDIATE_COLUMN_NAME_ARRAY),
-                (count, dataLine) -> {
-                    final SimpleInterval interval = count.getInterval();
-                    final int refReadCount = count.getRefReadCount();
-                    final int altReadCount = count.getAltReadCount();
-                    final Nucleotide refNucleotide = count.getRefNucleotide();
-                    final Nucleotide altNucleotide = count.getAltNucleotide();
-                    final int readDepth = count.getReadDepth();
-                    dataLine.append(interval.getContig())
-                            .append(interval.getEnd())
-                            .append(refReadCount)
-                            .append(altReadCount)
-                            .append(refNucleotide.name())
-                            .append(altNucleotide.name())
-                            .append(readDepth);
-                })) {
-            writer.writeAllRecords(counts);
-        } catch (final IOException e) {
-            throw new UserException.CouldNotCreateOutputFile(outputFile, e);
-        }
-    }
-
-    /**
-     * Writes out full pulldown data (sequence, position, reference count, alternate count, reference nucleotide,
-     * alternate nucleotide, het log odds) to specified file.
-     * @param outputFile    file to write to (if it exists, it will be overwritten)
-     */
-    public void writeFullCollection(final File outputFile) {
-        try (final TableWriter<AllelicCount> writer = TableUtils.writer(outputFile,
-                new TableColumnCollection(AllelicCountTableColumns.FULL_COLUMN_NAME_ARRAY),
-                (count, dataLine) -> {
-                    final SimpleInterval interval = count.getInterval();
-                    final int refReadCount = count.getRefReadCount();
-                    final int altReadCount = count.getAltReadCount();
-                    final Nucleotide refNucleotide = count.getRefNucleotide();
-                    final Nucleotide altNucleotide = count.getAltNucleotide();
-                    final int readDepth = count.getReadDepth();
-                    final double hetLogOdds = count.getHetLogOdds();
-                    dataLine.append(interval.getContig())
-                            .append(interval.getEnd())
-                            .append(refReadCount)
-                            .append(altReadCount)
-                            .append(refNucleotide.name())
-                            .append(altNucleotide.name())
-                            .append(readDepth)
-                            .append(hetLogOdds);
-                })) {
+    public void write(final File outputFile, final AllelicCountTableColumns.AllelicCountTableVerbosity verbosity) {
+        try (final AllelicCountWriter writer = new AllelicCountWriter(outputFile, verbosity)) {
             writer.writeAllRecords(counts);
         } catch (final IOException e) {
             throw new UserException.CouldNotCreateOutputFile(outputFile, e);

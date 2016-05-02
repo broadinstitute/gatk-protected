@@ -95,46 +95,6 @@ public final class AllelicCount implements Locatable {
         return Utils.nonNull(hetLogOdds, "The log odds of heterozygosity is not available.");
     }
 
-    public static final Function<DataLine, AllelicCount> basicParser = dataLine -> {
-        final int position = dataLine.getInt(AllelicCountTableColumns.POSITION.toString());
-        final SimpleInterval interval = new SimpleInterval(
-                dataLine.get(AllelicCountTableColumns.CONTIG.toString()), position, position);
-        final int refReadCount = dataLine.getInt(AllelicCountTableColumns.REF_COUNT.toString());
-        final int altReadCount = dataLine.getInt(AllelicCountTableColumns.ALT_COUNT.toString());
-        return new AllelicCount(interval, refReadCount, altReadCount);
-    };
-
-    public static final Function<DataLine, AllelicCount> intermediateParser = dataLine -> {
-        final int position = dataLine.getInt(AllelicCountTableColumns.POSITION.toString());
-        final SimpleInterval interval = new SimpleInterval(
-                dataLine.get(AllelicCountTableColumns.CONTIG.toString()), position, position);
-        final int refReadCount = dataLine.getInt(AllelicCountTableColumns.REF_COUNT.toString());
-        final int altReadCount = dataLine.getInt(AllelicCountTableColumns.ALT_COUNT.toString());
-        final Nucleotide refNucleotide = Nucleotide.valueOf(
-                dataLine.get(AllelicCountTableColumns.REF_NUCLEOTIDE.toString()).getBytes()[0]);
-        final Nucleotide altNucleotide = Nucleotide.valueOf(
-                dataLine.get(AllelicCountTableColumns.ALT_NUCLEOTIDE.toString()).getBytes()[0]);
-        final int readDepth = dataLine.getInt(AllelicCountTableColumns.READ_DEPTH.toString());
-        return new AllelicCount(interval, refReadCount, altReadCount, refNucleotide, altNucleotide,
-                readDepth);
-    };
-
-    public static final Function<DataLine, AllelicCount> fullParser = dataLine -> {
-        final int position = dataLine.getInt(AllelicCountTableColumns.POSITION.toString());
-        final SimpleInterval interval = new SimpleInterval(
-                dataLine.get(AllelicCountTableColumns.CONTIG.toString()), position, position);
-        final int refReadCount = dataLine.getInt(AllelicCountTableColumns.REF_COUNT.toString());
-        final int altReadCount = dataLine.getInt(AllelicCountTableColumns.ALT_COUNT.toString());
-        final Nucleotide refNucleotide = Nucleotide.valueOf(
-                dataLine.get(AllelicCountTableColumns.REF_NUCLEOTIDE.toString()).getBytes()[0]);
-        final Nucleotide altNucleotide = Nucleotide.valueOf(
-                dataLine.get(AllelicCountTableColumns.ALT_NUCLEOTIDE.toString()).getBytes()[0]);
-        final int readDepth = dataLine.getInt(AllelicCountTableColumns.READ_DEPTH.toString());
-        final double hetLogOdds = dataLine.getDouble(AllelicCountTableColumns.HET_LOG_ODDS.toString());
-        return new AllelicCount(interval, refReadCount, altReadCount, refNucleotide, altNucleotide,
-                readDepth, hetLogOdds);
-    };
-
     /**
      * Returns the maximum likelihood estimate of the alternate-allele fraction.
      * @return      alternate-allele fraction

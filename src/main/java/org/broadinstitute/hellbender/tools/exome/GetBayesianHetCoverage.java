@@ -213,13 +213,14 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
 
         normalHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
                 IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor,
+                new BalancedHeterozygousPileupPriorModel());
 
         logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
         normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
 
         logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
-        normalHetPulldown.writeFullCollection(normalHetOutputFile);
+        normalHetPulldown.write(normalHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
     }
 
     private void runTumorOnly() {
@@ -229,15 +230,15 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
 
         tumorHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
                 IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
-        tumorHetPulldownCalculator.useHeterogeneousHetPrior(minimumAbnormalFraction, maximumAbnormalFraction, maximumCopyNumber,
-                quadratureOrder);
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor,
+                new HeterogeneousHeterozygousPileupPriorModel(minimumAbnormalFraction, maximumAbnormalFraction,
+                        maximumCopyNumber, quadratureOrder));
 
         logger.info("Calculating the Het pulldown from the tumor BAM file using the HETEROGENEOUS prior...");
         tumorHetPulldown = tumorHetPulldownCalculator.getHetPulldown(tumorBamFile, hetCallingStringency);
 
         logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
-        tumorHetPulldown.writeFullCollection(tumorHetOutputFile);
+        tumorHetPulldown.write(tumorHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
     }
 
     private void runMatchedNormalTumor() {
@@ -247,24 +248,26 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
 
         normalHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
                 IntervalList.fromFile(snpFile), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor,
+                new BalancedHeterozygousPileupPriorModel());
 
         logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
         normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
 
         logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
-        normalHetPulldown.writeFullCollection(normalHetOutputFile);
+        normalHetPulldown.write(normalHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
 
         tumorHetPulldownCalculator = new BayesianHetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
                 normalHetPulldown.getIntervals(), minimumMappingQuality, minimumBaseQuality, readDepthThreshold,
-                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor);
+                VALIDATION_STRINGENCY, errorProbabilityAdjustmentFactor,
+                new BalancedHeterozygousPileupPriorModel());
 
         logger.info("Calculating the Het pulldown from the tumor BAM file on Hets detected in the normal BAM file...");
         tumorHetPulldown = tumorHetPulldownCalculator.getTumorHetPulldownFromNormalPulldown(tumorBamFile,
                 normalHetPulldown);
 
         logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
-        tumorHetPulldown.writeIntermediateCollection(tumorHetOutputFile);
+        tumorHetPulldown.write(tumorHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.INTERMEDIATE);
     }
 
     @Override
@@ -282,42 +285,18 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
         }
 
         /* determine the job type */
-        HetCoverageJobType jobType = HetCoverageJobType.NONE;
         if (normalBamFile != null && tumorBamFile != null) {
-            jobType = HetCoverageJobType.MATCHED_NORMAL_TUMOR;
             logger.info("MATCHED_NORMAL_TUMOR mode selected.");
-        }
-        if (normalBamFile != null && tumorBamFile == null) {
-            jobType = HetCoverageJobType.NORMAL_ONLY;
+            runMatchedNormalTumor();
+        } else if (normalBamFile != null && tumorBamFile == null) {
             logger.info("NORMAL_ONLY mode selected.");
-        }
-        if (normalBamFile == null && tumorBamFile != null) {
-            jobType = HetCoverageJobType.TUMOR_ONLY;
+            runNormalOnly();
+        } else if (normalBamFile == null && tumorBamFile != null) {
             logger.info("TUMOR_ONLY mode selected.");
-        }
-
-        /* run the job */
-        switch (jobType) {
-
-            case NORMAL_ONLY:
-                runNormalOnly();
-                break;
-
-            case TUMOR_ONLY:
-                runTumorOnly();
-                break;
-
-            case MATCHED_NORMAL_TUMOR:
-                runMatchedNormalTumor();
-                break;
-
-            case NONE:
-                throw new GATKException.ShouldNeverReachHereException("The job type is not properly determined from" +
-                        " the arguments. This should not happen.");
-
-            default:
-                throw new GATKException.ShouldNeverReachHereException("The job type is not properly determined from" +
-                        " the arguments. This should not happen.");
+            runTumorOnly();
+        } else {
+            throw new GATKException.ShouldNeverReachHereException("The job type is not properly determined from" +
+                    " the arguments. This should not happen.");
         }
 
         return "SUCCESS";

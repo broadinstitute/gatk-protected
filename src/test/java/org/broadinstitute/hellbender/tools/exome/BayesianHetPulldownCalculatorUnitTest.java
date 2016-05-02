@@ -6,6 +6,7 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
+import org.omg.CORBA.SystemException;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -40,7 +41,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     private static final int READ_DEPTH_THRESHOLD = 10;
     private static final int MINIMUM_MAPPING_QUALITY = 30;
     private static final int MINIMUM_BASE_QUALITY = 20;
-    private static final int QUADRATURE_ORDER = 500;
+    private static final int QUADRATURE_ORDER = 300;
     private static final double MIN_ABNORMAL_FRACTION = 0.5;
     private static final double MAX_ABNORMAL_FRACTION = 0.8;
     private static final int MAX_COPY_NUMBER = 4;
@@ -52,7 +53,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     private static BayesianHetPulldownCalculator calculator;
 
     private static int numPileupEntries;
-    private static ArrayList<Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>>>
+    private static List<Map<Nucleotide, List<BayesianHetPulldownCalculator.BaseQuality>>>
             fakePileupBaseQualities = new ArrayList<>();
     private static ArrayList<Double> fakePileupHetLogLikelihoodArray = new ArrayList<>();
     private static ArrayList<Double> fakePileupHomLogLikelihoodArray = new ArrayList<>();
@@ -78,11 +79,9 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
     public void initHetPulldownCalculator() {
         calculator = new BayesianHetPulldownCalculator(REF_FILE, IntervalList.fromFile(SNP_FILE),
                 MINIMUM_MAPPING_QUALITY, MINIMUM_BASE_QUALITY, READ_DEPTH_THRESHOLD,
-                ValidationStringency.STRICT, ERROR_PROBABILITY_ADJUSTMENT_FACTOR);
-
-        /* switch to the HETEROGENEOUS prior */
-        calculator.useHeterogeneousHetPrior(MIN_ABNORMAL_FRACTION, MAX_ABNORMAL_FRACTION,
-                MAX_COPY_NUMBER, QUADRATURE_ORDER);
+                ValidationStringency.STRICT, ERROR_PROBABILITY_ADJUSTMENT_FACTOR,
+                new HeterogeneousHeterozygousPileupPriorModel(MIN_ABNORMAL_FRACTION, MAX_ABNORMAL_FRACTION,
+                        MAX_COPY_NUMBER, QUADRATURE_ORDER));
     }
 
     /**
@@ -117,10 +116,10 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
                 /* load base read error list */
                 ArrayList<Double> readErrorList = parseToDoubleArray.of(reader.nextLine());
 
-                /* set the mapping error to 60.0 */
+                /* set the mapping error probability to 1e-6 */
                 ArrayList<Double> mappingErrorList = new ArrayList<>();
                 mappingErrorList.addAll(IntStream.range(0, readErrorList.size())
-                        .mapToDouble(i -> 60.0).boxed().collect(Collectors.toList()));
+                        .mapToDouble(i -> 1e-6).boxed().collect(Collectors.toList()));
 
                 /* contruct the BaseQuality list */
                 List<BayesianHetPulldownCalculator.BaseQuality> baseQualityList = new ArrayList<>();
@@ -136,25 +135,6 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
         }
 
         numPileupEntries = fakePileupBaseQualities.size();
-
-    }
-
-    @Test
-    public void testQuadrature() {
-        double sumWeights = calculator.gaussIntegrationWeights.stream().mapToDouble(Double::doubleValue).sum();
-        double minHetAlleleFraction = (1 - MAX_ABNORMAL_FRACTION) / (MAX_COPY_NUMBER * MAX_ABNORMAL_FRACTION +
-                2 * (1 - MAX_ABNORMAL_FRACTION));
-        Assert.assertEquals(sumWeights, 1 - 2 * minHetAlleleFraction, 1e-8);
-        Assert.assertEquals(calculator.gaussIntegrationAbscissas.size(), QUADRATURE_ORDER);
-    }
-
-    @Test
-    public void testAlelleRatioPrior() {
-        /* the prior should integrate to 1 */
-        Assert.assertEquals(IntStream.range(0, calculator.gaussIntegrationAbscissas.size())
-                .mapToDouble(i -> calculator.gaussIntegrationWeights.get(i) * calculator.alleleFractionPriors.get(i))
-                .sum(), 1.0, 1e-3);
-        calculator.alleleFractionPriors.stream().forEach(x -> Assert.assertTrue(x > 0));
     }
 
     @DataProvider(name = "inputTestGetHomLogLikelihood")
@@ -283,7 +263,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
             /* test 1: normal, loose threshold */
             testPulldown = calculator.getHetPulldown(NORMAL_BAM_FILE, 2);
             tempFile = File.createTempFile("testPulldownNormalLoose", ".txt");
-            testPulldown.writeFullCollection(tempFile);
+            testPulldown.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
 
             expectedPulldown = new Pulldown(normalHeader);
             expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 11522, 11522), 7, 4,
@@ -302,7 +282,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
             /* test 2: normal, tight threshold */
             testPulldown = calculator.getHetPulldown(NORMAL_BAM_FILE, 12);
             tempFile = File.createTempFile("testPulldownNormalTight", ".txt");
-            testPulldown.writeFullCollection(tempFile);
+            testPulldown.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
 
             expectedPulldown = new Pulldown(normalHeader);
             expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 12098, 12098), 8, 6,
@@ -317,7 +297,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
             /* test 3: tumor, loose threshold */
             testPulldown = calculator.getHetPulldown(TUMOR_BAM_FILE, 2);
             tempFile = File.createTempFile("testPulldownTumorLoose", ".txt");
-            testPulldown.writeFullCollection(tempFile);
+            testPulldown.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
 
             expectedPulldown = new Pulldown(tumorHeader);
             expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 11522, 11522), 7, 4,
@@ -336,7 +316,7 @@ public final class BayesianHetPulldownCalculatorUnitTest extends BaseTest {
             /* test 4: tumor, tight threshold */
             testPulldown = calculator.getHetPulldown(TUMOR_BAM_FILE, 12);
             tempFile = File.createTempFile("testPulldownTumorTight", ".txt");
-            testPulldown.writeFullCollection(tempFile);
+            testPulldown.write(tempFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
 
             expectedPulldown = new Pulldown(tumorHeader);
             expectedPulldown.add(new AllelicCount(new SimpleInterval("1", 14630, 14630), 9, 8,
