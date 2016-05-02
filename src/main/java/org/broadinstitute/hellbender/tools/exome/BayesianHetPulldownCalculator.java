@@ -27,20 +27,6 @@ import java.util.stream.Collectors;
  * A Bayesian heterozygous SNP pulldown calculator. Base qualities are taken into account
  * to increase precision (see CNV-methods.pdf for details).
  *
- * TODO
- *
- * <ul>
- *
- *     <li> The quadrature order can be adaptively chosen based on the pileup size and the accuracy
- *   required for likelihood estimation. In theory, a Gaussian quadrature of order N yields
- *   the exact result for a pileup of size 2N.
- *     </li>
- *
- *     <li> Include the possibility to correct for reference bias for the HeterozygousPileupPriorModelType.BALANCED prior
- *     </li>
- *
- * </ul>
- *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -69,7 +55,7 @@ public final class BayesianHetPulldownCalculator {
 
     private HeterozygousPileupPriorModel hetPrior;
 
-    private static final Nucleotide[] BASES =  {Nucleotide.A, Nucleotide.C, Nucleotide.T, Nucleotide.G};
+    private static final Nucleotide[] BASES = {Nucleotide.A, Nucleotide.C, Nucleotide.T, Nucleotide.G};
 
     private final File refFile;
     private final IntervalList snpIntervals;

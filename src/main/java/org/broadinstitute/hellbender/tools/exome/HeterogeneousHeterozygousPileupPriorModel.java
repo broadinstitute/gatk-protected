@@ -19,6 +19,14 @@ import java.util.stream.IntStream;
  * This prior is suitable for detecting heterozygous sites from reads that come from tumor or contaminated
  * normal samples.
  *
+ * TODO
+ *
+ * <ul>
+ *      <li> The quadrature order can be adaptively chosen based on the pileup size and the accuracy
+ *      required for likelihood estimation. In theory, a Gaussian quadrature of order N yields
+ *      the exact result for a pileup of size 2N. </li>
+ * </ul>
+ *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileupPriorModel {
