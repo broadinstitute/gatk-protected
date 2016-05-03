@@ -1,7 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
+import org.apache.commons.math3.util.FastMath;
 
 import java.util.List;
 
@@ -28,27 +28,26 @@ public abstract class HeterozygousPileupPriorModel {
      *
      * @param alleleFraction the ref to alt allele fraction
      * @param coeffs list of (alpha, beta) tuples
-     * @param minErrorProbability the theoretical minimum error probability for each nucleotide in the pileup
-     * @return any double value.
+     * @return any double value
      */
     protected double getHetLogLikelihoodFixedAlleleFraction(final double alleleFraction,
-                                                            final List<ImmutablePair<Double, Double>> coeffs,
-                                                            final double minErrorProbability) {
+                                                            final List<ImmutablePair<Double, Double>> coeffs) {
         return coeffs.stream()
                 .mapToDouble(dat -> dat.getLeft() + alleleFraction * dat.getRight())
-                .map(x -> GATKProtectedMathUtils.safeLog(x, minErrorProbability / 3))
+                .map(FastMath::log)
                 .sum();
     }
 
     /**
-     * To be implemented by concrete models that extend this class. Concrete models weight
-     * the fixed allele fraction likelihoods, as given by {@code getHetLogLikelihoodFixedAlleleFraction}, with
-     * the implemented allele fraction prior.
+     * To be implemented by concrete models that extend this class.
+     *
+     * Note: concrete prior models weight the fixed allele fraction likelihoods, as given by
+     * {@link HeterozygousPileupPriorModel#getHetLogLikelihoodFixedAlleleFraction(double, List)},
+     * with the to-be-implemented allele fraction prior. For example, see
+     * {@link HeterogeneousHeterozygousPileupPriorModel}.
      *
      * @param coeffs list of (alpha, beta) tuples
-     * @param minErrorProbability the theoretical minimum error probability for each nucleotide in the pileup
-     * @return
+     * @return any double value
      */
-    public abstract double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs,
-                                               final double minErrorProbability);
+    public abstract double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs);
 }

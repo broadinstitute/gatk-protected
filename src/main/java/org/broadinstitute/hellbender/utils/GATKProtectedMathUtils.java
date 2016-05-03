@@ -47,17 +47,7 @@ public class GATKProtectedMathUtils {
         }
         return max + Math.log(sum);
     }
-
-    /**
-     * Returns log(max(abs(x), minLogArg))
-     * @param x argument of log (any double value)
-     * @param minLogArg minimum argument to pass to log (must be positive but not checked)
-     * @return any double value.
-     */
-    public static double safeLog(final double x, final double minLogArg) {
-        return FastMath.log(FastMath.max(minLogArg, FastMath.abs(x)));
-    }
-
+    
     public static double interquartileRange(final double ... values) {
         final Percentile percentile = new Percentile();
         percentile.setData(values);

@@ -20,15 +20,16 @@ import java.io.File;
  * The tool has three modes. The mode is automatically selected based on the provided arguments:
  *
  * <dl>
- *     <dt>NORMAL_ONLY</dt><dd>This mode is chosen if just the normal BAM file is provided. The BALANCED prior
- *     is used for estimating the likelihood of het sites.</dd>
+ *     <dt>NORMAL_ONLY</dt><dd>This mode is chosen if just the normal BAM file is provided. The balanced prior
+ *     is used for estimating the likelihood of het sites (see {@link BalancedHeterozygousPileupPriorModel}).</dd>
  *
- *      <dt>TUMOR_ONLY</dt><dd>This mode is chosen if just the tumor BAM file is provided. The HETEROGENEOUS prior
- *      is used for estimating the likelihood of het sites.</dd>
+ *      <dt>TUMOR_ONLY</dt><dd>This mode is chosen if just the tumor BAM file is provided. The heterogeneous prior
+ *      is used for estimating the likelihood of het sites (see {@link HeterogeneousHeterozygousPileupPriorModel}).</dd>
  *
  *      <dt>MATCHED_NORMAL_TUMOR</dt><dd>This mode is chosen if both normal and tumor BAM files are provided.
- *      The BALANCED prior is used to estimate the likelihood of Het sites on the normal reads. The base counts on
- *      the same het sites are collected and reported from the tumor reads.</dd>
+ *      The balanced prior (see {@link BalancedHeterozygousPileupPriorModel}) is used to estimate the likelihood of
+ *      Het sites on the normal reads. The base counts on the same het sites are collected and reported from the
+ *      tumor reads.</dd>
  * </dl>
  **
  * @author Mehrtash Babadi &lt;mehrtash@brgoadinstitute.org&gt;
@@ -202,12 +203,10 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
     )
     protected double errorProbabilityAdjustmentFactor = 1.0;
 
-    private enum HetCoverageJobType {
-        NORMAL_ONLY, TUMOR_ONLY, MATCHED_NORMAL_TUMOR, NONE
-    }
-
+    /**
+     * The normal-only workflow
+     */
     private void runNormalOnly() {
-
         final BayesianHetPulldownCalculator normalHetPulldownCalculator;
         final Pulldown normalHetPulldown;
 
@@ -223,8 +222,10 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
         normalHetPulldown.write(normalHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
     }
 
+    /**
+     * The tumor-only workflow
+     */
     private void runTumorOnly() {
-
         final BayesianHetPulldownCalculator tumorHetPulldownCalculator;
         final Pulldown tumorHetPulldown;
 
@@ -241,8 +242,10 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
         tumorHetPulldown.write(tumorHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
     }
 
+    /**
+     * The matched norrmal-tumor workflow
+     */
     private void runMatchedNormalTumor() {
-
         final BayesianHetPulldownCalculator normalHetPulldownCalculator, tumorHetPulldownCalculator;
         final Pulldown normalHetPulldown, tumorHetPulldown;
 
@@ -272,31 +275,34 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
 
     @Override
     protected Object doWork() {
-
         /* check for illegal arguments */
         if (normalBamFile == null && tumorBamFile == null) {
-            throw new UserException.CommandLineException("At least one of normal and tumor BAM files must be provided. Stopping.");
+            throw new UserException.BadArgumentValue(String.format("You must provide at least one normal (argument %s)" +
+                            " or tumor (argument %s) alignment file.",
+                    ExomeStandardArgumentDefinitions.NORMAL_BAM_FILE_LONG_NAME,
+                    ExomeStandardArgumentDefinitions.TUMOR_BAM_FILE_LONG_NAME));
         }
         if (normalBamFile != null && normalHetOutputFile == null) {
-            throw new UserException.CommandLineException("If the normal BAM file is provided, the normal Het output file must also be provided. Stopping.");
+            throw new UserException.CommandLineException(String.format("If the normal BAM file is provided, the normal" +
+                    " Het pulldown output file (argument %s) must also be provided.",
+                    ExomeStandardArgumentDefinitions.NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME));
         }
         if (tumorBamFile != null && tumorHetOutputFile == null) {
-            throw new UserException.CommandLineException("If the tumor BAM file is provided, the tumor Het output file must also be provided. Stopping.");
+            throw new UserException.CommandLineException(String.format("If the tumor BAM file is provided, the tumor" +
+                    " Het pulldown output file (argument %s) must also be provided.",
+                    ExomeStandardArgumentDefinitions.TUMOR_ALLELIC_COUNTS_FILE_LONG_NAME));
         }
 
         /* determine the job type */
-        if (normalBamFile != null && tumorBamFile != null) {
+        if (normalBamFile != null && tumorBamFile != null) { /* both normal and tumor BAM files are provided */
             logger.info("MATCHED_NORMAL_TUMOR mode selected.");
             runMatchedNormalTumor();
-        } else if (normalBamFile != null && tumorBamFile == null) {
+        } else if (normalBamFile != null) { /* only the normal BAM file is provided */
             logger.info("NORMAL_ONLY mode selected.");
             runNormalOnly();
-        } else if (normalBamFile == null && tumorBamFile != null) {
+        } else { /* only the tumor BAM file is provided */
             logger.info("TUMOR_ONLY mode selected.");
             runTumorOnly();
-        } else {
-            throw new GATKException.ShouldNeverReachHereException("The job type is not properly determined from" +
-                    " the arguments. This should not happen.");
         }
 
         return "SUCCESS";

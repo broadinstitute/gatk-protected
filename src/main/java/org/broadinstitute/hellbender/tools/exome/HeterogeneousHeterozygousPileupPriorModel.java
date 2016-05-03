@@ -29,28 +29,28 @@ import java.util.stream.IntStream;
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileupPriorModel {
+public final class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileupPriorModel {
 
     /* these are for building a prior for allele fraction */
-    private double minAbnormalFraction;
-    private double maxAbnormalFraction;
-    private double maxCopyNumber;
-    private double minHetAlleleFraction;
-    private double breakpointHetAlleleFraction;
+    private final double minAbnormalFraction;
+    private final double maxAbnormalFraction;
+    private final double maxCopyNumber;
+    private final double minHetAlleleFraction;
+    private final double breakpointHetAlleleFraction;
 
     /* integration quadrature */
     @VisibleForTesting
-    final ArrayList<Double> gaussIntegrationWeights = new ArrayList<>();
+    final List<Double> gaussIntegrationWeights = new ArrayList<>();
     @VisibleForTesting
-    final ArrayList<Double> gaussIntegrationLogWeights = new ArrayList<>();
+    final List<Double> gaussIntegrationLogWeights = new ArrayList<>();
     @VisibleForTesting
-    final ArrayList<Double> gaussIntegrationAbscissas = new ArrayList<>();
+    final List<Double> gaussIntegrationAbscissas = new ArrayList<>();
 
     /* allele fraction prior for Het sites */
     @VisibleForTesting
-    final ArrayList<Double> alleleFractionPriors = new ArrayList<>();
+    final List<Double> alleleFractionPriors = new ArrayList<>();
     @VisibleForTesting
-    final ArrayList<Double> alleleFractionLogPriors = new ArrayList<>();
+    final List<Double> alleleFractionLogPriors = new ArrayList<>();
 
     /* minimum order of the integration quadrature */
     private static final int MIN_QUADRATURE_ORDER = 50;
@@ -67,14 +67,13 @@ public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileu
      */
     public HeterogeneousHeterozygousPileupPriorModel(final double minAbnormalFraction, final double maxAbnormalFraction,
                                                      final int maxCopyNumber, final int quadratureOrder) {
-                /* parameters for building the allele ratio prior at Het sites */
         this.minAbnormalFraction = ParamUtils.inRange(minAbnormalFraction, 0.0, 1.0, "Minimum fraction of abnormal" +
                 " cells must be between 0 and 1.");
         this.maxAbnormalFraction = ParamUtils.inRange(maxAbnormalFraction, this.minAbnormalFraction, 1.0, "Maximum fraction of abnormal" +
                 " cells must be greater than the provided minimum and less than 1.");
         this.maxCopyNumber = ParamUtils.isPositive(maxCopyNumber, "Maximum copy number must be positive");
 
-        /* auxiliary member functions */
+        /* auxiliary derived members */
         this.minHetAlleleFraction = (1 - this.maxAbnormalFraction) / (this.maxCopyNumber * this.maxAbnormalFraction +
                 2 * (1 - this.maxAbnormalFraction));
         this.breakpointHetAlleleFraction = (1 - this.minAbnormalFraction) / (this.maxCopyNumber * this.minAbnormalFraction +
@@ -87,11 +86,12 @@ public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileu
     }
 
     /**
-     * Initilizes the quadrature for calculating allele ratio integrals in getHetLogLikelihood
+     * Initilizes the quadrature for calculating allele ratio integrals in
+     * {@link HeterogeneousHeterozygousPileupPriorModel#getHetLogLikelihood(List)}
+     *
      * @param numIntegPoints  number of points in the quadrature
      */
     private void initializeIntegrationQuadrature(final int numIntegPoints) {
-
         /* get Gauss-Legendre quadrature factory of order @numIntegPoints */
         final GaussIntegratorFactory integratorFactory = new GaussIntegratorFactory();
         final GaussIntegrator gaussIntegrator = integratorFactory.legendre(numIntegPoints,
@@ -122,9 +122,7 @@ public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileu
      * @return allele fraction prior probability distribution
      */
     private double calculateAlleleFractionPriorDistribution(final double alleleFraction) {
-
         final double minorAlleleFraction = (alleleFraction < 0.5) ? alleleFraction : 1 - alleleFraction;
-
         if (minorAlleleFraction < minHetAlleleFraction) {
             return 0;
         } else if (minorAlleleFraction < breakpointHetAlleleFraction) {
@@ -151,7 +149,6 @@ public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileu
      * quadrature
      */
     private void initializeHetAlleleFractionPrior() {
-
         alleleFractionPriors.clear();
         alleleFractionPriors.addAll(gaussIntegrationAbscissas.stream()
                 .mapToDouble(this::calculateAlleleFractionPriorDistribution)
@@ -171,13 +168,12 @@ public class HeterogeneousHeterozygousPileupPriorModel extends HeterozygousPileu
      * @param coeffs list of (alpha_k, beta_k) tuples
      * @return log likelihood
      */
-    public double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs,
-                                      final double minErrorProbability) {
-
+    @Override
+    public double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs) {
         final ArrayList<Double> refAltLogLikelihoodList = new ArrayList<>(gaussIntegrationAbscissas.size());
         refAltLogLikelihoodList.addAll(
                 gaussIntegrationAbscissas.stream()
-                        .map(f -> getHetLogLikelihoodFixedAlleleFraction(f, coeffs, minErrorProbability))
+                        .map(f -> getHetLogLikelihoodFixedAlleleFraction(f, coeffs))
                         .collect(Collectors.toList()));
 
         final ArrayList<Double> logLikelihoodIntegrandWithPriorAndWeights = new ArrayList<>(gaussIntegrationAbscissas.size());

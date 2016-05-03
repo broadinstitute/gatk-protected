@@ -36,7 +36,7 @@ public enum AllelicCountTableColumns {
     public static final List<String> FULL_COLUMN_NAME_ARRAY = createUnmodifiableList(
             CONTIG, POSITION, REF_COUNT, ALT_COUNT, REF_NUCLEOTIDE, ALT_NUCLEOTIDE, READ_DEPTH, HET_LOG_ODDS);
 
-    public static List<String> getColumns(final AllelicCountTableVerbosity verbosity) {
+    public static List<String> getColumns(final AllelicCountTableVerbosity verbosity) throws UserException.BadInput {
         switch (verbosity) {
             case BASIC:
                 return BASIC_COLUMN_NAME_ARRAY;
@@ -49,7 +49,7 @@ public enum AllelicCountTableColumns {
         }
     }
 
-    private static List<String> createUnmodifiableList(AllelicCountTableColumns ... columns) {
+    private static List<String> createUnmodifiableList(final AllelicCountTableColumns ... columns) {
         return Collections.unmodifiableList(Arrays.asList(columns).stream()
                 .map(AllelicCountTableColumns::name).collect(Collectors.toList()));
     }

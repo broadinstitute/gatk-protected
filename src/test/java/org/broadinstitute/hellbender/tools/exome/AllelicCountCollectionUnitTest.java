@@ -95,5 +95,4 @@ public class AllelicCountCollectionUnitTest extends BaseTest {
 
         Assert.assertEquals(snpsWritten, snpsExpected);
     }
-
 }

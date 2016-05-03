@@ -12,17 +12,15 @@ import java.util.List;
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public class BalancedHeterozygousPileupPriorModel extends HeterozygousPileupPriorModel {
+public final class BalancedHeterozygousPileupPriorModel extends HeterozygousPileupPriorModel {
 
     /**
-     * Calculates the log likelihood of heterzygosity assuming allele fraction = 1/2
+     * Calculates the log likelihood of heterozygosity assuming allele fraction = 1/2
      * @param coeffs list of (alpha, beta) tuples
-     * @param minErrorProbability the theoretical minimum error probability for each nucleotide in the pileup
-     * @return
+     * @return any double value
      */
-    public double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs,
-                                      final double minErrorProbability) {
-        return getHetLogLikelihoodFixedAlleleFraction(0.5, coeffs, minErrorProbability);
+    @Override
+    public double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs) {
+        return getHetLogLikelihoodFixedAlleleFraction(0.5, coeffs);
     }
-
 }

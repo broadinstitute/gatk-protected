@@ -43,10 +43,9 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = UserException.class)
     public void testBadJobArgs_1() {
-
         final File normalOutputFile = createTempFile("normal-test", ".tsv");
 
-        /* bad job */
+        /* bad job: no normal BAM file */
         final String[] argumentsNoBam = {
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
@@ -57,10 +56,7 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = UserException.class)
     public void testBadJobArgs_2() {
-
-        final File normalOutputFile = createTempFile("normal-test", ".tsv");
-
-        /* bad job */
+        /* bad job: no normal het pulldown output file */
         final String[] argumentsNormalNoHetOutput = {
                 "-" + ExomeStandardArgumentDefinitions.NORMAL_BAM_FILE_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
@@ -71,8 +67,7 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = UserException.class)
     public void testBadJobArgs_3() {
-
-        /* bad job */
+        /* bad job: no tumor het pulldown output file */
         final String[] argumentsTumorNoHetOutput = {
                 "-" + ExomeStandardArgumentDefinitions.TUMOR_BAM_FILE_SHORT_NAME, NORMAL_BAM_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
@@ -83,10 +78,9 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testBadPriorParameters_1() {
-
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
 
-        /* bad choice of prior parameters */
+        /* bad choice of prior parameters: max abnormal fraction > 1 */
         final String[] argumentsBadPrior = {
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
@@ -99,10 +93,9 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testBadPriorParameters_2() {
-
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
 
-        /* bad choice of prior parameters */
+        /* bad choice of prior parameters: min abnormal fraction < 0 */
         final String[] argumentsBadPrior = {
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
@@ -115,10 +108,9 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testBadPriorParameters_3() {
-
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
 
-        /* bad choice of prior parameters */
+        /* bad choice of prior parameters: max abnormal fraction < min abnormal fraction */
         final String[] argumentsBadPrior = {
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
@@ -132,10 +124,9 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testBadPriorParameters_4() {
-
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
 
-        /* bad choice of prior parameters */
+        /* bad choice of prior parameters: maximum copy number < 0 */
         final String[] argumentsBadPrior = {
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.SNP_FILE_SHORT_NAME, SNP_FILE.getAbsolutePath(),
@@ -148,7 +139,6 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test
     public void testNormalJob() {
-
         final File normalOutputFile = createTempFile("normal-test", ".tsv");
         Pulldown normalHetPulldownExpected, normalHetPulldownResult;
 
@@ -196,12 +186,10 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
         normalHetPulldownResult = new Pulldown(normalOutputFile, normalHeader);
 
         Assert.assertEquals(normalHetPulldownExpected, normalHetPulldownResult);
-
     }
 
     @Test
     public void testTumorJob() {
-
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
         Pulldown tumorHetPulldownExpected, tumorHetPulldownResult;
 
@@ -258,7 +246,6 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
     @Test
     public void testMatchedNormalTumorJob() {
-
         final File normalOutputFile = createTempFile("normal-test", ".tsv");
         final File tumorOutputFile = createTempFile("tumor-test", ".tsv");
         Pulldown tumorHetPulldownExpected, tumorHetPulldownResult;
@@ -301,6 +288,5 @@ public final class GetBayesianHetCoverageIntegrationTest extends CommandLineProg
 
         Assert.assertEquals(normalHetPulldownExpected, normalHetPulldownResult);
         Assert.assertEquals(tumorHetPulldownExpected, tumorHetPulldownResult);
-
     }
 }

@@ -39,21 +39,19 @@ public final class BayesianHetPulldownCalculator {
      * A simple class to handle base read and mapping error probabilitites
      */
     @VisibleForTesting
-    public static final class BaseQuality {
+    static final class BaseQuality {
+        private final double readErrorProbability, mappingErrorProbability;
 
-        final double readErrorProbability, mappingErrorProbability;
-
-        public BaseQuality(final double readErrorProbability, final double mappingErrorProbability) {
+        BaseQuality(final double readErrorProbability, final double mappingErrorProbability) {
             this.readErrorProbability = readErrorProbability;
             this.mappingErrorProbability = mappingErrorProbability;
         }
 
-        public double getReadErrorProbability() { return readErrorProbability; }
-        public double getMappingErrorProbability() { return mappingErrorProbability; }
-
+        double getReadErrorProbability() { return readErrorProbability; }
+        double getMappingErrorProbability() { return mappingErrorProbability; }
     }
 
-    private HeterozygousPileupPriorModel hetPrior;
+    private final HeterozygousPileupPriorModel hetPrior;
 
     private static final Nucleotide[] BASES = {Nucleotide.A, Nucleotide.C, Nucleotide.T, Nucleotide.G};
 
@@ -74,9 +72,6 @@ public final class BayesianHetPulldownCalculator {
     /* default priors */
     private static final double DEFAULT_PRIOR_REF_HOM = 0.5; /* a homozygous site being the ref allele */
     private static final double DEFAULT_PRIOR_HET = 0.5; /* a site being heterozygous */
-
-    /* a third of the minimum sequencing/mapping error (for safeguarding log likelihood calculations) */
-    private static final double MIN_ERROR_PROBABILITY = 3e-6;
 
     /* approximate number of status updates printed to log */
     private static final int NUMBER_OF_SITES_PER_LOGGED_STATUS_UPDATE = 10000;
@@ -99,7 +94,6 @@ public final class BayesianHetPulldownCalculator {
                                          final int readDepthThreshold, final ValidationStringency validationStringency,
                                          final double errorProbabilityAdjustmentFactor,
                                          final HeterozygousPileupPriorModel hetPrior) {
-
         ParamUtils.isPositiveOrZero(minMappingQuality, "Minimum mapping quality must be nonnegative.");
         ParamUtils.isPositiveOrZero(minBaseQuality, "Minimum base quality must be nonnegative.");
 
@@ -122,15 +116,14 @@ public final class BayesianHetPulldownCalculator {
      */
     private double getSingletonLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
                                              final Nucleotide expectedNucleotide) {
-
         return baseQualities.get(expectedNucleotide).stream()
-                .mapToDouble(bq -> GATKProtectedMathUtils.safeLog(1 - bq.getReadErrorProbability() -
-                        3 * bq.getMappingErrorProbability() / 4, MIN_ERROR_PROBABILITY / 3)).sum() +
+                .mapToDouble(bq -> FastMath.log(1 - bq.getReadErrorProbability() -
+                        3 * bq.getMappingErrorProbability() / 4)).sum() +
                 baseQualities.keySet().stream()
                         .filter(nucl -> nucl != expectedNucleotide)
                         .map(baseQualities::get).mapToDouble(bqlist -> bqlist.stream()
-                        .mapToDouble(bq -> GATKProtectedMathUtils.safeLog(bq.getReadErrorProbability() / 3 +
-                                bq.getMappingErrorProbability() / 4, MIN_ERROR_PROBABILITY / 3)).sum()).sum();
+                        .mapToDouble(bq -> FastMath.log(bq.getReadErrorProbability() / 3 +
+                                bq.getMappingErrorProbability() / 4)).sum()).sum();
     }
 
     /**
@@ -143,10 +136,9 @@ public final class BayesianHetPulldownCalculator {
      * @return the log likelihood
      */
     @VisibleForTesting
-    public double getHomLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
-                                      final Nucleotide refNucleotide, final Nucleotide altNucleotide,
-                                      final double homRefPrior) {
-
+    double getHomLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
+                               final Nucleotide refNucleotide, final Nucleotide altNucleotide,
+                               final double homRefPrior) {
         /* return the sum of |hom,ref) and |hom,alt) likelihoods */
         return GATKProtectedMathUtils.logSumExp(
                 FastMath.log(homRefPrior) + getSingletonLogLikelihood(baseQualities, refNucleotide),
@@ -163,15 +155,14 @@ public final class BayesianHetPulldownCalculator {
      * @return the log likelihood
      */
     @VisibleForTesting
-    public double getHetLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
-                                      final Nucleotide refNucleotide, final Nucleotide altNucleotide) {
-
+    double getHetLogLikelihood(final Map<Nucleotide, List<BaseQuality>> baseQualities,
+                               final Nucleotide refNucleotide, final Nucleotide altNucleotide) {
         /* non-Ref-Alt entries */
         final double errorLogLikelihood = Sets.difference(baseQualities.keySet(),
                 new HashSet<>(Arrays.asList(refNucleotide, altNucleotide))).stream()
                 .map(baseQualities::get).mapToDouble(bqlist -> bqlist.stream()
-                        .mapToDouble(bq -> GATKProtectedMathUtils.safeLog(bq.getReadErrorProbability() / 3 +
-                                bq.getMappingErrorProbability() / 4, MIN_ERROR_PROBABILITY / 3))
+                        .mapToDouble(bq -> FastMath.log(bq.getReadErrorProbability() / 3 +
+                                bq.getMappingErrorProbability() / 4))
                         .sum())
                 .sum();
 
@@ -187,7 +178,7 @@ public final class BayesianHetPulldownCalculator {
                         1 - bq.getReadErrorProbability() - 3 * bq.getMappingErrorProbability() / 4,
                         -1 + 4 * bq.getReadErrorProbability() / 3 + bq.getMappingErrorProbability())));
 
-        return hetPrior.getHetLogLikelihood(coeffs, MIN_ERROR_PROBABILITY) + errorLogLikelihood;
+        return hetPrior.getHetLogLikelihood(coeffs) + errorLogLikelihood;
     }
 
     /**
@@ -196,7 +187,6 @@ public final class BayesianHetPulldownCalculator {
      * @return map of base-pair to error probabilities
      */
     private Map<Nucleotide, List<BaseQuality>> getPileupBaseQualities(final SamLocusIterator.LocusInfo locus) {
-
         final Map<Nucleotide, List<BaseQuality>> baseQualities = locus.getRecordAndPositions().stream()
                 .map(rp -> new ImmutablePair<>(
                         Nucleotide.valueOf(rp.getReadBase()),
@@ -258,9 +248,8 @@ public final class BayesianHetPulldownCalculator {
      * @return the likely alt allele
      */
     @VisibleForTesting
-    public static Nucleotide inferAltFromPileup(final Map<Nucleotide, List<BaseQuality>> baseQualities,
+    static Nucleotide inferAltFromPileup(final Map<Nucleotide, List<BaseQuality>> baseQualities,
                                                 final Nucleotide refBase) {
-
         /* sort the bases in the descending order by their frequency */
         final Nucleotide[] bases = BASES.clone();
         Arrays.sort(bases, (L, R) -> Integer.compare(baseQualities.get(R).size(), baseQualities.get(L).size()));
@@ -284,7 +273,6 @@ public final class BayesianHetPulldownCalculator {
      * @return a SamLocusIterator object
      */
     private SamLocusIterator getSamLocusIteratorWithDefaultFilters(final SamReader samReader) {
-
         final SamLocusIterator locusIterator = new SamLocusIterator(samReader, snpIntervals,
                 snpIntervals.size() < MAX_INTERVALS_FOR_INDEX);
 
@@ -301,10 +289,11 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
-     * For a normal or tumor sample, returns a data structure giving (intervals, reference counts, alternate counts),
-     * where intervals give positions of likely heterozygous SNP sites.
+     * For a given normal or tumor BAM file, walks through the list of common SNPs,
+     * {@link BayesianHetPulldownCalculator#snpIntervals}), detects heterozygous sites, and returns
+     * a {@link Pulldown} containing detailed information on the called heterozygous SNP sites.
      *
-     * The @hetCallingStrigency parameters sets the threshold Het posterior for calling:
+     * The {@code hetCallingStrigency} parameters sets the threshold posterior for calling a Het SNP site:
      *
      *      hetPosteriorThreshold = 1 - 10^{-hetCallingStringency}
      *      hetThresholdLogOdds = log(hetPosteriorThreshold/(1-hetPosteriorThreshold))
@@ -317,8 +306,7 @@ public final class BayesianHetPulldownCalculator {
      * @return Pulldown of heterozygous SNP sites in 1-based format
      */
     @VisibleForTesting
-    public Pulldown getHetPulldown(final File bamFile, final double hetCallingStringency) {
-
+    Pulldown getHetPulldown(final File bamFile, final double hetCallingStringency) {
         /* log odds from stringency */
         final double hetThresholdLogOdds = FastMath.log(FastMath.pow(10, hetCallingStringency) - 1);
 
@@ -375,8 +363,20 @@ public final class BayesianHetPulldownCalculator {
         }
     }
 
-    public Pulldown getTumorHetPulldownFromNormalPulldown(final File tumorBamFile, final Pulldown normalHetPulldown) {
-
+    /**
+     * Calculates the Het pulldown from a tumor file, given the tumor BAM file and the pulldown from a matched
+     * normal BAM file.
+     *
+     * Note: this method does not perform any statistical inference. The Het SNP sites are directly carried over
+     * from the matched normal pulldown. Here, we only collect statistics (ref count, alt count, read depth) and
+     * save to a pulldown. The verbosity level of the pulldown is INTERMEDIATE (see {@link AllelicCountTableColumns}).
+     *
+     * @param tumorBamFile the tumor BAM file
+     * @param normalHetPulldown the matched normal Het pulldown
+     * @return tumor Het pulldown
+     */
+    @VisibleForTesting
+    Pulldown getTumorHetPulldownFromNormalPulldown(final File tumorBamFile, final Pulldown normalHetPulldown) {
         try (final SamReader bamReader = SamReaderFactory.makeDefault().validationStringency(validationStringency)
                 .referenceSequence(refFile).open(tumorBamFile)) {
             if (bamReader.getFileHeader().getSortOrder() != SAMFileHeader.SortOrder.coordinate) {
@@ -433,5 +433,4 @@ public final class BayesianHetPulldownCalculator {
             throw new UserException(e.getMessage());
         }
     }
-
 }
