@@ -156,7 +156,7 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
             doc = "Heterozygosous SNP calling stringency.",
             fullName = HET_CALLING_STRINGENCY_FULL_NAME,
             shortName = HET_CALLING_STRINGENCY_SHORT_NAME,
-            optional = false
+            optional = true
     )
     protected double hetCallingStringency = 5;
 

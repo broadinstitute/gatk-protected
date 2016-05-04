@@ -19,7 +19,7 @@ public class AllelicCountWriter extends TableWriter<AllelicCount> {
     private final AllelicCountTableVerbosity verbosity;
 
     public AllelicCountWriter(final File file, final AllelicCountTableVerbosity verbosity)
-            throws IOException, UserException.BadInput {
+            throws IOException {
         super(file, new TableColumnCollection(AllelicCountTableColumns.getColumns(verbosity)));
         this.verbosity = verbosity;
     }

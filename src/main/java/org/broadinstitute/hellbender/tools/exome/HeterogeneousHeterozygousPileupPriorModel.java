@@ -1,7 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.math3.analysis.integration.gauss.GaussIntegrator;
 import org.apache.commons.math3.analysis.integration.gauss.GaussIntegratorFactory;
 import org.apache.commons.math3.util.FastMath;
@@ -9,6 +9,7 @@ import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -169,7 +170,7 @@ public final class HeterogeneousHeterozygousPileupPriorModel extends Heterozygou
      * @return log likelihood
      */
     @Override
-    public double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs) {
+    public double getHetLogLikelihood(final Collection<? extends Pair<Double, Double>> coeffs) {
         final ArrayList<Double> refAltLogLikelihoodList = new ArrayList<>(gaussIntegrationAbscissas.size());
         refAltLogLikelihoodList.addAll(
                 gaussIntegrationAbscissas.stream()

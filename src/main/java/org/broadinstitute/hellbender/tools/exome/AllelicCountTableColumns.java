@@ -36,7 +36,14 @@ public enum AllelicCountTableColumns {
     public static final List<String> FULL_COLUMN_NAME_ARRAY = createUnmodifiableList(
             CONTIG, POSITION, REF_COUNT, ALT_COUNT, REF_NUCLEOTIDE, ALT_NUCLEOTIDE, READ_DEPTH, HET_LOG_ODDS);
 
-    public static List<String> getColumns(final AllelicCountTableVerbosity verbosity) throws UserException.BadInput {
+    /**
+     * Get {@link AllelicCount} table columns at a given {@link AllelicCountTableVerbosity} level
+     *
+     * @param verbosity verbosity level
+     * @return list of column names
+     * @throws UserException.BadInput
+     */
+    public static List<String> getColumns(final AllelicCountTableVerbosity verbosity) {
         switch (verbosity) {
             case BASIC:
                 return BASIC_COLUMN_NAME_ARRAY;

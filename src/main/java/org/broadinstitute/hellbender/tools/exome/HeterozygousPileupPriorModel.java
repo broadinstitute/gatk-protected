@@ -1,9 +1,9 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.math3.util.FastMath;
 
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Model prior for heterozygous pileups
@@ -31,7 +31,7 @@ public abstract class HeterozygousPileupPriorModel {
      * @return any double value
      */
     protected double getHetLogLikelihoodFixedAlleleFraction(final double alleleFraction,
-                                                            final List<ImmutablePair<Double, Double>> coeffs) {
+                                                            final Collection<? extends Pair<Double, Double>> coeffs) {
         return coeffs.stream()
                 .mapToDouble(dat -> dat.getLeft() + alleleFraction * dat.getRight())
                 .map(FastMath::log)
@@ -42,12 +42,12 @@ public abstract class HeterozygousPileupPriorModel {
      * To be implemented by concrete models that extend this class.
      *
      * Note: concrete prior models weight the fixed allele fraction likelihoods, as given by
-     * {@link HeterozygousPileupPriorModel#getHetLogLikelihoodFixedAlleleFraction(double, List)},
+     * {@link HeterozygousPileupPriorModel#getHetLogLikelihoodFixedAlleleFraction(double, Collection)},
      * with the to-be-implemented allele fraction prior. For example, see
      * {@link HeterogeneousHeterozygousPileupPriorModel}.
      *
      * @param coeffs list of (alpha, beta) tuples
      * @return any double value
      */
-    public abstract double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs);
+    public abstract double getHetLogLikelihood(final Collection<? extends Pair<Double, Double>> coeffs);
 }

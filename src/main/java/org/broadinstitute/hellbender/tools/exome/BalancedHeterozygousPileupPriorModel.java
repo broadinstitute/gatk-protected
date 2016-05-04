@@ -1,8 +1,8 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Balanced model prior for heterozygous pileups, i.e. allele fraction = 1/2.
@@ -20,7 +20,7 @@ public final class BalancedHeterozygousPileupPriorModel extends HeterozygousPile
      * @return any double value
      */
     @Override
-    public double getHetLogLikelihood(final List<ImmutablePair<Double, Double>> coeffs) {
+    public double getHetLogLikelihood(final Collection<? extends Pair<Double, Double>> coeffs) {
         return getHetLogLikelihoodFixedAlleleFraction(0.5, coeffs);
     }
 }
