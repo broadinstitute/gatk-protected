@@ -18,6 +18,10 @@ public class GcCorrector {
             interval = targetList.get(i).getInterval();
 
         }
+
+//        TODO: Calculate Curve-fitting function
+
+//        TODO: gcNormalizedReadCounts=ReadCounts/(cff(ReadCounts.gc))
         return readCountCollection;
     }
 }
