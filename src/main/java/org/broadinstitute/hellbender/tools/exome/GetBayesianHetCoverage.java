@@ -202,6 +202,15 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
     )
     protected double errorProbabilityAdjustmentFactor = 1.0;
 
+    @Argument(
+            doc = "Include sex chromosomes naively (hets may be called outside of pseudoautosomal regions). " +
+                    "Chromosome names are assumed to contain \"X\" and \"Y\".",
+            shortName = ExomeStandardArgumentDefinitions.INCLUDE_SEX_CHROMOSOMES_SHORT_NAME,
+            fullName = ExomeStandardArgumentDefinitions.INCLUDE_SEX_CHROMOSOMES_LONG_NAME,
+            optional = true
+    )
+    protected Boolean includeSexChromosomes = false;
+
     /**
      * The normal-only workflow
      */
@@ -216,6 +225,10 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
 
         logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
         normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
+
+        if (!includeSexChromosomes) {
+            normalHetPulldown.dropSexChromosomes();
+        }
 
         logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
         normalHetPulldown.write(normalHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
@@ -237,12 +250,16 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
         logger.info("Calculating the Het pulldown from the tumor BAM file using the HETEROGENEOUS prior...");
         tumorHetPulldown = tumorHetPulldownCalculator.getHetPulldown(tumorBamFile, hetCallingStringency);
 
+        if (!includeSexChromosomes) {
+            tumorHetPulldown.dropSexChromosomes();
+        }
+
         logger.info("Writing Het pulldown from tumor reads to " + tumorHetOutputFile.toString());
         tumorHetPulldown.write(tumorHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);
     }
 
     /**
-     * The matched norrmal-tumor workflow
+     * The matched normal-tumor workflow
      */
     private void runMatchedNormalTumor() {
         final BayesianHetPulldownCalculator normalHetPulldownCalculator, tumorHetPulldownCalculator;
@@ -255,6 +272,10 @@ public final class GetBayesianHetCoverage extends CommandLineProgram {
 
         logger.info("Calculating the Het pulldown from the normal BAM file using the BALANCED prior...");
         normalHetPulldown = normalHetPulldownCalculator.getHetPulldown(normalBamFile, hetCallingStringency);
+
+        if (!includeSexChromosomes) {
+            normalHetPulldown.dropSexChromosomes(); //sex chromosomes will not be pulled down for tumor either if not present in normal
+        }
 
         logger.info("Writing Het pulldown from normal reads to " + normalHetOutputFile.toString());
         normalHetPulldown.write(normalHetOutputFile, AllelicCountTableColumns.AllelicCountTableVerbosity.FULL);

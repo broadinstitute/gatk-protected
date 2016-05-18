@@ -50,6 +50,10 @@ public class AllelicCountCollectionUnitTest extends BaseTest {
         snpsExpected.add(new AllelicCount(new SimpleInterval("1", 909238, 909238), 13, 11));
         snpsExpected.add(new AllelicCount(new SimpleInterval("1", 934940, 934940), 14, 0));
         snpsExpected.add(new AllelicCount(new SimpleInterval("1", 949608, 949608), 20, 14));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("X", 949608, 949608), 20, 14));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("Y", 949608, 949608), 20, 14));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("chrX", 949608, 949608), 20, 14));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("chrY", 949608, 949608), 20, 14));
 
         Assert.assertEquals(snpsWritten, snpsExpected);
     }
@@ -94,5 +98,19 @@ public class AllelicCountCollectionUnitTest extends BaseTest {
                 Nucleotide.G, Nucleotide.T, 34, 54.3));
 
         Assert.assertEquals(snpsWritten, snpsExpected);
+    }
+
+    @Test
+    public void testDropSexChromosomes() throws Exception {
+        final AllelicCountCollection snps = new AllelicCountCollection(BASIC_SNPS_FILE);
+        snps.dropSexChromosomes();
+
+        final AllelicCountCollection snpsExpected = new AllelicCountCollection();
+        snpsExpected.add(new AllelicCount(new SimpleInterval("1", 881918, 881918), 14, 21));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("1", 909238, 909238), 13, 11));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("1", 934940, 934940), 14, 0));
+        snpsExpected.add(new AllelicCount(new SimpleInterval("1", 949608, 949608), 20, 14));
+
+        Assert.assertEquals(snps, snpsExpected);
     }
 }

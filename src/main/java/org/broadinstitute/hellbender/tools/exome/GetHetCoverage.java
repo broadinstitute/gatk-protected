@@ -11,6 +11,8 @@ import org.broadinstitute.hellbender.tools.exome.AllelicCountTableColumns.Alleli
 import org.broadinstitute.hellbender.utils.read.ReadConstants;
 
 import java.io.File;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Outputs reference/alternate read counts at heterozygous SNP sites present in a normal sample
@@ -120,6 +122,15 @@ public final class GetHetCoverage extends CommandLineProgram {
     )
     protected int minimumRawReads = 15;
 
+    @Argument(
+            doc = "Include sex chromosomes naively (hets may be called outside of pseudoautosomal regions). " +
+                    "Chromosome names are assumed to contain \"X\" and \"Y\".",
+            shortName = ExomeStandardArgumentDefinitions.INCLUDE_SEX_CHROMOSOMES_SHORT_NAME,
+            fullName = ExomeStandardArgumentDefinitions.INCLUDE_SEX_CHROMOSOMES_LONG_NAME,
+            optional = true
+    )
+    protected Boolean includeSexChromosomes = false;
+
     @Override
     protected Object doWork() {
         //if tumor arguments are missing, throw exception (and do not even get normal pulldown)
@@ -137,6 +148,11 @@ public final class GetHetCoverage extends CommandLineProgram {
 
         logger.info("Getting normal het pulldown...");
         final Pulldown normalHetPulldown = hetPulldown.getNormal(normalBAMFile, pvalThreshold, minimumRawReads);
+
+        if (!includeSexChromosomes) {
+            normalHetPulldown.dropSexChromosomes(); //sex chromosomes will not be pulled down for tumor either if not present in normal
+        }
+
         normalHetPulldown.write(normalHetOutputFile, AllelicCountTableVerbosity.BASIC);
         logger.info("Normal het pulldown written to " + normalHetOutputFile.toString());
 

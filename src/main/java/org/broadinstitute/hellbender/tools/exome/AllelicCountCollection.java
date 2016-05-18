@@ -7,10 +7,7 @@ import org.broadinstitute.hellbender.utils.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -24,7 +21,7 @@ public class AllelicCountCollection {
     private final List<AllelicCount> counts;
 
     public AllelicCountCollection() {
-        counts = new ArrayList<>();
+        this.counts = new ArrayList<>();
     }
 
     /**
@@ -52,6 +49,13 @@ public class AllelicCountCollection {
     /** Returns an unmodifiable view of the list of AllelicCounts.   */
     public List<AllelicCount> getCounts() {
         return Collections.unmodifiableList(counts);
+    }
+
+    /**
+     * Removes counts located on sex chromosomes (with contig names that are assumed to contain either "X" or "Y").
+     */
+    public void dropSexChromosomes() {
+        counts.removeAll(counts.stream().filter(c -> c.getContig().contains("X") || c.getContig().contains("Y")).collect(Collectors.toList()));
     }
 
     /**

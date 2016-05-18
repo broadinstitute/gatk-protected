@@ -6,6 +6,7 @@ import htsjdk.samtools.util.IntervalList;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -17,7 +18,7 @@ public final class Pulldown extends AllelicCountCollection {
     private final SAMFileHeader header;
 
     public Pulldown(final SAMFileHeader header) {
-        this.header = Utils.nonNull(header, "SAMFileHeader must be supplied.");;
+        this.header = Utils.nonNull(header, "SAMFileHeader must be supplied.");
     }
 
     /**
