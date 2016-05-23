@@ -1,21 +1,13 @@
 package org.broadinstitute.hellbender.tools.exome;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
-import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
-import org.broadinstitute.hellbender.utils.tsv.*;
-import org.fusesource.leveldbjni.All;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -29,7 +21,7 @@ public class AllelicCountCollection {
     private final List<AllelicCount> counts;
 
     public AllelicCountCollection() {
-        counts = new ArrayList<>();
+        this.counts = new ArrayList<>();
     }
 
     /**
@@ -57,6 +49,13 @@ public class AllelicCountCollection {
     /** Returns an unmodifiable view of the list of AllelicCounts.   */
     public List<AllelicCount> getCounts() {
         return Collections.unmodifiableList(counts);
+    }
+
+    /**
+     * Removes counts located on sex chromosomes (with contig names that are assumed to contain either "X" or "Y").
+     */
+    public void dropSexChromosomes() {
+        counts.removeAll(counts.stream().filter(c -> c.getContig().contains("X") || c.getContig().contains("Y")).collect(Collectors.toList()));
     }
 
     /**
