@@ -227,8 +227,8 @@ The summand is ambiguous for $n=m=1$ since $f$ evalues to $1/2$ independent of $
 The discrete summation over the copy numbers $(n,m)$ result in a discontinuous prior. It is conveninent to approximate the discrete summations with integrals over $n$ and $m$. This approximation preserves the main features of the prior while converges to the discrete result for large $N_c$. The double integral over $(n,m)$ must be performed with diligence since the Heaviside functions restrict the integration region depending on the value of $f$. We leave out the details and just quote the final result:
 \begin{equation}\label{eq:AFpriorcont}
 P(f|\mathsf{Het}) = \left\{\begin{array}{ll}
-	P_<(f) & \qquad f_\mathrm{th} \leq f \leq f^*,\\
-	P_>(f) & \qquad f^* < f \leq \frac{1}{2},
+  P_<(f) & \qquad f_\mathrm{th} \leq f \leq f^*,\\
+  P_>(f) & \qquad f^* < f \leq \frac{1}{2},
 \end{array}
 \right.
 \end{equation}
@@ -371,10 +371,10 @@ Integrating out the latent variables removes the strongest correlations from the
 \begin{algorithmic}[1]
 \State Initialize all parameters to a maximum likelihood initial guess (see below).
 \Repeat
-	\State Sample each $f_s$ with adaptive Metropolis
-	\State Sample $\pi$ with adaptive Metropolis
-	\State Sample $\mu$ with adaptive Metropolis
-	\State Sample $\beta$ with adaptive Metropolis
+  \State Sample each $f_s$ with adaptive Metropolis
+  \State Sample $\pi$ with adaptive Metropolis
+  \State Sample $\mu$ with adaptive Metropolis
+  \State Sample $\beta$ with adaptive Metropolis
 \Until{convergence}
 \end{algorithmic}
 \caption{MCMC algorithm for ACNV allelic model}
@@ -527,12 +527,12 @@ We therefore have a self-contained iteration scheme in terms of expectations onl
 \State Initialize $E[\ln \pi_j] = \ln (1/K)$ for all $j$.
 \State Initialize $\phi$ in some reasonable way, i.e. $\phi_1 > \phi_2 > \phi_0 > \phi_3$.
 \Repeat
-	\State Update $E [z_{sk} v_{sm} w_{sn}]$ via Equation \ref{E_z_v_w}.
-	\State Update $E \left[ z_{sk} \right]$, $E[v_{sj}]$, $E[w_{sj}]$ via Equation \ref{marginals}. 
-	\State Update $E [ \ln \pi_k ] $ via Equation \ref{E_pi}
-	\State Update $\phi$ via Equation \ref{M_phi}
-	\State Update $E [ \alpha ] $ via Equation \ref{E_alpha}
-	\State Update $\rho$ via Equation \ref{M_rho}
+  \State Update $E [z_{sk} v_{sm} w_{sn}]$ via Equation \ref{E_z_v_w}.
+  \State Update $E \left[ z_{sk} \right]$, $E[v_{sj}]$, $E[w_{sj}]$ via Equation \ref{marginals}. 
+  \State Update $E [ \ln \pi_k ] $ via Equation \ref{E_pi}
+  \State Update $\phi$ via Equation \ref{M_phi}
+  \State Update $E [ \alpha ] $ via Equation \ref{E_alpha}
+  \State Update $\rho$ via Equation \ref{M_rho}
 \Until{convergence}
 \end{algorithmic}
 \caption{calling allele counts of ACNV segments}
@@ -594,8 +594,8 @@ We neglect transitions between different types of CNVs at consecutive bases, whi
 %
 \begin{align}
 \log \left(T^d \right)_{ij} =& \log \sum_k U^T_ik \Lambda^d_{kk} U_{kj} \\
-				    =& \log \sum_k \Lambda^d_{kk} U_{kj} U_{ki} \\ 
-				    =& \log \sum_k \exp \left( d \log \Lambda_{kk} + \log U_{kj} + \log U_{ki}  \right)
+            =& \log \sum_k \Lambda^d_{kk} U_{kj} U_{ki} \\ 
+            =& \log \sum_k \exp \left( d \log \Lambda_{kk} + \log U_{kj} + \log U_{ki}  \right)
 \end{align}
 %
 In this form we can work entirely in log space and exploit the log-sum-exp trick for stability.
