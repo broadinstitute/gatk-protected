@@ -227,8 +227,8 @@ The summand is ambiguous for $n=m=1$ since $f$ evalues to $1/2$ independent of $
 The discrete summation over the copy numbers $(n,m)$ result in a discontinuous prior. It is conveninent to approximate the discrete summations with integrals over $n$ and $m$. This approximation preserves the main features of the prior while converges to the discrete result for large $N_c$. The double integral over $(n,m)$ must be performed with diligence since the Heaviside functions restrict the integration region depending on the value of $f$. We leave out the details and just quote the final result:
 \begin{equation}\label{eq:AFpriorcont}
 P(f|\mathsf{Het}) = \left\{\begin{array}{ll}
-  P_<(f) & \qquad f_\mathrm{th} \leq f \leq f^*,\\
-  P_>(f) & \qquad f^* < f \leq \frac{1}{2},
+	P_<(f) & \qquad f_\mathrm{th} \leq f \leq f^*,\\
+	P_>(f) & \qquad f^* < f \leq \frac{1}{2},
 \end{array}
 \right.
 \end{equation}
@@ -371,10 +371,10 @@ Integrating out the latent variables removes the strongest correlations from the
 \begin{algorithmic}[1]
 \State Initialize all parameters to a maximum likelihood initial guess (see below).
 \Repeat
-  \State Sample each $f_s$ with adaptive Metropolis
-  \State Sample $\pi$ with adaptive Metropolis
-  \State Sample $\mu$ with adaptive Metropolis
-  \State Sample $\beta$ with adaptive Metropolis
+	\State Sample each $f_s$ with adaptive Metropolis
+	\State Sample $\pi$ with adaptive Metropolis
+	\State Sample $\mu$ with adaptive Metropolis
+	\State Sample $\beta$ with adaptive Metropolis
 \Until{convergence}
 \end{algorithmic}
 \caption{MCMC algorithm for ACNV allelic model}
@@ -527,12 +527,12 @@ We therefore have a self-contained iteration scheme in terms of expectations onl
 \State Initialize $E[\ln \pi_j] = \ln (1/K)$ for all $j$.
 \State Initialize $\phi$ in some reasonable way, i.e. $\phi_1 > \phi_2 > \phi_0 > \phi_3$.
 \Repeat
-  \State Update $E [z_{sk} v_{sm} w_{sn}]$ via Equation \ref{E_z_v_w}.
-  \State Update $E \left[ z_{sk} \right]$, $E[v_{sj}]$, $E[w_{sj}]$ via Equation \ref{marginals}. 
-  \State Update $E [ \ln \pi_k ] $ via Equation \ref{E_pi}
-  \State Update $\phi$ via Equation \ref{M_phi}
-  \State Update $E [ \alpha ] $ via Equation \ref{E_alpha}
-  \State Update $\rho$ via Equation \ref{M_rho}
+	\State Update $E [z_{sk} v_{sm} w_{sn}]$ via Equation \ref{E_z_v_w}.
+	\State Update $E \left[ z_{sk} \right]$, $E[v_{sj}]$, $E[w_{sj}]$ via Equation \ref{marginals}. 
+	\State Update $E [ \ln \pi_k ] $ via Equation \ref{E_pi}
+	\State Update $\phi$ via Equation \ref{M_phi}
+	\State Update $E [ \alpha ] $ via Equation \ref{E_alpha}
+	\State Update $\rho$ via Equation \ref{M_rho}
 \Until{convergence}
 \end{algorithmic}
 \caption{calling allele counts of ACNV segments}
@@ -594,8 +594,8 @@ We neglect transitions between different types of CNVs at consecutive bases, whi
 %
 \begin{align}
 \log \left(T^d \right)_{ij} =& \log \sum_k U^T_ik \Lambda^d_{kk} U_{kj} \\
-            =& \log \sum_k \Lambda^d_{kk} U_{kj} U_{ki} \\ 
-            =& \log \sum_k \exp \left( d \log \Lambda_{kk} + \log U_{kj} + \log U_{ki}  \right)
+				    =& \log \sum_k \Lambda^d_{kk} U_{kj} U_{ki} \\ 
+				    =& \log \sum_k \exp \left( d \log \Lambda_{kk} + \log U_{kj} + \log U_{ki}  \right)
 \end{align}
 %
 In this form we can work entirely in log space and exploit the log-sum-exp trick for stability.
@@ -666,8 +666,8 @@ Suppose we have vectors of read counts over a set of $T$ targets for $S$ samples
 n_{st} \sim {\rm Poisson}(d_s \PP_{st} c_{st} e^{b_{st}})
 \label{coverage_model}
 \end{equation}
-%
-We can achieve many of the goals listed above by performing probabilistic PCA not on $\vn$ directly but rather on $\vb$.  This is one reason why we choose a Poisson parameter proportional to $e^b$ and not simply $b$ -- probabilistic PCA involves a normal distribution on $\vb_s$, whereas the Poisson parameter must be positive.  Furthermore, since PCA is a linear model with additive effects of different latent features, using $e^b$ represents multiplicative effects, which is more plausible.  Our model is
+
+We can achieve many of the goals listed above by performing probabilistic PCA not on directly $\vn$, but rather on $\vb$. One one hand, the Poisson parameters must be positive and therefore, $\exp(\vb)$ is a well-defined parametrization of the multiplicative bias. On the other hand, a Gaussian model for $\vb$ implies a log-normal distribution for $\exp(\vb)$ which is indeed the expected distribution when the multiplicative bias arises from several independent sources according to the central limit theorem\footnote{Let $B = \prod_{j=1}^{N_B} B_j$ be the total multiplicative bias where $B_j \in (0, \infty)$ are independent components of the bias. For $N_B \gg 1$, $\ln(B) \sim \mathcal{N}$ and therefore, $B$ has a log-normal distribution.}. We model $\vb$ as: 
 %
 \begin{align}
 \vz &\sim \norm(\vzero, \vI), \nonumber\\
@@ -676,22 +676,31 @@ We can achieve many of the goals listed above by performing probabilistic PCA no
 %
 where $\vz \in \mathbb{R}^D$ is a low-dimensional latent vector of laboratory conditions, $\vW \in \mathbb{R}^{T \times D}$ is a linear map from latent space to target space, $\vm \in \mathbb{R}^T$ is the vector of mean biases, and $\vPsi \in \mathbb{R}^{T \times T}$ is a diagonal matrix of residual variance not explained by the latent features. We approximate the Poisson as a Gaussian (an excellent approximation for $n_{st} \gtrsim 1000$) and expand the argument of the Gaussian exponential about the mode of $b_{st}$ to quadratic order to obtain:
 %
-\begin{equation}
-{\rm Poisson}(n_{st} | d_s c_{st} e^{b_{st}}) \approx \norm(b_{st} | m_{st}, \Sigma_{st}),
+\begin{equation}\label{eq:gaussian_approx_coverage}
+{\rm Poisson}(n_{st} | d_s c_{st} e^{b_{st}}) \simeq \Sigma_{st} \, \norm(b_{st} | m_{st}, \Sigma_{st}),
 \end{equation}
 where:
 \begin{align}
 m_{st} &= \ln(n_{st}/(\PP_{st} c_{st} d_s)), \nonumber\\
 \Sigma_{st} &= 1/n_{st}.
 \end{align}
-Note that $\Sigma_{st}$ can be thought of as the width of the distribution of $b_{st}$ about its maximum likelihood estimate such that in the limit $n_{st}, d_s \rightarrow \infty$, ${\rm Poisson}(n_{st} | d_s c_{st} e^{b_{st}}) \rightarrow \delta(b_{st} - b^*_{st})$ where $b^*_{st} = \lim_{n,d \rightarrow \infty} m_{st}$ is the true bias. The above approximation, while being excellent for well-covered targets, inevitably breaks down for targets that are uncovered {\em ex ante} in some samples, such as $Y$ chromosome targets in female samples. To this end, we define a ``sample-target mask matrix'' $\MM_{st}$ such that $\MM_{st} = 0$ if $\PP_{st} = 0$, and $\MM_{st} = 1$ if $\PP_{st} \neq 0$, and for each sample-target pair $(s,t)$, we only consider targets where the $\MM_{st} \neq 0$ in the joint likelihood function. The latter is thus written as:
+
+\begin{figure}
+\center
+\includegraphics[scale=0.7]{figs/{gauss_poisson_0.1}.pdf}
+\includegraphics[scale=0.7]{figs/{gauss_poisson_10}.pdf}
+\caption{Gaussian approximation to the Poisson likelihood (see Eq.~\ref{eq:gaussian_approx_coverage}). The left and right panels show $\mathrm{Poisson}(n|\alpha\,e^b)$ and $n^{-1}\mathcal{N}(b|\ln(n/\alpha), n^{-1})$, respectively for $\alpha=0.1$ (top) and $\alpha=10.0$ (bottom). The black lines show $b = \ln(n/\alpha)$ the maximum likelihood bias estimate. The Gaussian approximation breaks down at $n=0$ (no coverage). It also slightly overestimates the variance at small $n$. Otherwise, it is an excellent approximation.}
+\label{fig:gaussian_approx_coverage}
+\end{figure}
+
+Note that $\Sigma_{st}$ can be thought of as the width of the distribution of $b_{st}$ about its maximum likelihood estimate such that in the limit $n_{st}, d_s \rightarrow \infty$, ${\rm Poisson}(n_{st} | d_s c_{st} e^{b_{st}}) \rightarrow \delta(b_{st} - b^*_{st})$ where $b^*_{st} = \lim_{n,d \rightarrow \infty} m_{st}$ is the true bias. The above approximation, while being excellent for well-covered targets (see Fig.~\ref{fig:gaussian_approx_coverage}), inevitably breaks down for targets that are uncovered {\em ex ante} in some samples, such as $Y$ chromosome targets in female samples. To this end, we define a ``sample-target mask matrix'' $\MM_{st}$ such that $\MM_{st} = 0$ if $\PP_{st} = 0$, and $\MM_{st} = 1$ if $\PP_{st} \neq 0$, and for each sample-target pair $(s,t)$, we only consider targets where the $\MM_{st} \neq 0$ in the joint likelihood function. The latter is thus written as:
 \begin{equation}
-P(\vn, \vb, \vz | \vc, \vW, \vm, \vPsi) = \prod_s \norm(\vz_s | \vzero, \vI) \prod_{t | \MM_{st} \neq 0} \norm(b_{st} | (\vW \vz_s)_t + m_t, \Psi_t) \, \norm(b_{st} | m_{st}, \Sigma_{st})
+P(\vn, \vb, \vz | \vc, \vW, \vm, \vPsi) \propto \prod_s \norm(\vz_s | \vzero, \vI) \prod_{t | \MM_{st} \neq 0} \norm(b_{st} | (\vW \vz_s)_t + m_t, \Psi_t) \, \norm(b_{st} | m_{st}, \Sigma_{st})
 \end{equation}
 We can integrate out $\vb$ via the identity $\int_{-\infty}^{+\infty} \norm(x | \mu_1, \sigma_1^2) \, \norm(x | \mu_2, \sigma_2^2) \, \mathrm{d}x = \norm(\mu_1 | \mu_2, \sigma_1^2 + \sigma_2^2)$ to obtain:
 %
 \begin{equation}
-P(\vn, \vz | \vc, \vW, \vm, \vPsi) = \prod_s \norm(\vz_s | \vzero, \vI) \prod_{t | \MM_{st} \neq 0} \norm(m_{st} | (\vW \vz_s)_t + m_t, \Psi_t + \Sigma_{st})
+P(\vn, \vz | \vc, \vW, \vm, \vPsi) \propto \prod_s \norm(\vz_s | \vzero, \vI) \prod_{t | \MM_{st} \neq 0} \norm(m_{st} | (\vW \vz_s)_t + m_t, \Psi_t + \Sigma_{st})
 \label{coverage_likelihood}
 \end{equation}
 Save for the presence of a sample-dependent bias uncertainy $\Sigma_{st}$, our learning objective is essentially the factor analysis problem. The MLE for parameters $(\vPsi, \vW, \vm)$ can be obtained via the EM algorithm. The presence of $\Sigma_{st}$, in particular its dependence on $s$, introduces undesirable complexities which we wish to avoid. To gain more insight about the role of $\Sigma_{st}$, let us mrginalizing $\vz_s$ from Eq.~\eqref{coverage_likelihood}. The final result can be put in a simple form using Woodbury identity and properties of projection matrices:
@@ -733,7 +742,7 @@ The stationarity condition with respect to $\Psi_t$ gives:
 \end{equation}
 where:
 \begin{equation}
-B_{st} = \left( \vW E[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW E[\vz_s] \right)_t + (m_t - m_{st})^2
+B_{st} = \left( \vW \EE[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW \EE[\vz_s] \right)_t + (m_t - m_{st})^2
 \end{equation}
 The above nonlinear equation must be solved for each target, which is a computationally demanding task for a large number of targets. If this is to be avoided, we offer two approximation schemes:\\
 
@@ -750,7 +759,7 @@ It is tempting to replace $\bar{\Sigma}_t$ with its $M$-averaged value. However,
 \bar{\Sigma}_t = \frac{2 \llangle \mathbf{B} \vSigma \rrangle_t - \llangle \vSigma \rrangle_t \llangle \mathbf{B}\rrangle_t}{\llangle \mathbf{B}\rrangle_t}.
 \end{equation}
 Plugging this result back in Eq.~\eqref{eq:psi_approx}, we find:
-\begin{equation}
+\begin{equation}\label{eq:psi_approx_2}
 \Psi^\mathrm{approx}_t = \llangle \mathbf{B} \rrangle_t + \llangle \vSigma \rrangle_t - 2 \, \frac{\llangle \mathbf{B} \vSigma \rrangle_t}{\llangle \mathbf{B}\rrangle_t}.
 \end{equation}
 This solution is accurate to linear order in deviations of $\Sigma_{st}$ about $\bar{\Sigma}_t$.\\
@@ -770,6 +779,9 @@ The Newton's approximate solution is therefore:
 \end{equation}
 One may start iterations using the result of Scheme 1 as the initial guess and continue until convergence.\\
 
+\noindent{Remark:} In practice, when sample-to-sample variables of $\Sigma$ was large (e.g. read depths varying from 50 to 1000 randomly), we noticed that the best approach was to use Brent root finding for each target. On average, 10 function calls yields to solution within a $10^{-6}$ tolerance. The Newton's method required approximately 20 evaluations of $\alpha_t$ and $\beta_t$ to convergance within the same tolerance. Also, we found that the most robust scheme was to start from $\Psi_t = 0$ rather than using Eq.~\eqref{eq:psi_approx_2}.\\
+
+
 In the M step equation for $\vW$, we incorporate an automatic relevance determination (ARD) prior:
 %
 \begin{align}
@@ -778,10 +790,10 @@ P(\vW) =& \prod_\mu \left( \frac{\alpha_\mu}{2 \pi} \right)^{T/2} \exp \left( -\
 %
 If $\alpha_\mu \rightarrow \infty$, latent feature $\mu$ is effectively turned off. Thus we can initially choose a liberal estimate of $D$ and the model will automatically become more parsimonious. The M step log likelihood times the ARD prior depend on the $t$-th row $\vW_{t \cdot}$ of $\vW$ as:
 %
-\begin{equation}
+\begin{equation*}
  -\frac{1}{2}   \left( -\sum_\mu \ln \alpha_\mu  + \vW_{t \cdot} \left(\vA +  \vQ_t  \right) \vW_{t \cdot}^T - 2 \vW_{t \cdot} \vv_t  \right),
  \label{ARD_likelihood}
-\end{equation}
+\end{equation*}
 %
 where $\vA \equiv {\rm diag}(\alpha_1, \alpha_2 \ldots \alpha_D)$ and we have defined:
 %
@@ -814,23 +826,23 @@ where the average $\ave{W_{t\mu}^2}$ is taken with respect to the density $q(\vW
 \end{equation}\\
 %
 
-\textcolor{red}{(The summary must be updated) -- } Let us now summarize these steps.  First, in exact mode we have
+\noindent Let us now summarize these steps:
 \begin{itemize}
-\item E step: $\vG_s = \left( \vI + \vW^T \vPsi_s^{-1} \vW \right)^{-1}, \,
-E \left[ \vz_s \right] = \vG_s \vW^T \vPsi_s^{-1} (\vm_s - \vm), \,
-E \left[ \vz_s \vz_s^T \right] = \vG_s + E[\vz_s] E[\vz_s]^T$
+\item E step: $\vG_s = \left( \vI + \vW^T \vM_s \vPsi_s^{-1} \vW \right)^{-1}, \,
+\EE \left[ \vz_s \right] = \vG_s \vW^T \vPsi_s^{-1} (\vm_s - \vm), \,
+\EE \left[ \vz_s \vz_s^T \right] = \vG_s + \EE[\vz_s] \EE[\vz_s]^T$.
 
-$\vG_s$ and all the $E[\vz_s]$ are each $O(D^2 T S)$.  $E[\vz_s \vz_s^T]$ is $O(D^2 S)$.  The E step overall is $O(D^2 T S)$.
+$\vG_s$ and all the $\EE[\vz_s]$ are each $O(D^2 T S)$. $\EE[\vz_s \vz_s^T]$ is $O(D^2 S)$.  The E step overall is $O(D^2 T S)$.
 
-\item $\vm = \left( \sum_s \vPsi_{s}^{-1} \right)^{-1} \sum_s \left[ \vPsi_{s}^{-1}  (\vm_{s}  - \vW  E[\vz_{s}] ) \right]$ is $O(D T S)$.
+\item $\vm = \left( \sum_s \vM_s \vPsi_{s}^{-1} \right)^{-1} \sum_s \left[ \vM_s \vPsi_{s}^{-1}  (\vm_{s}  - \vW  E[\vz_{s}] ) \right]$ is $O(D T S)$.
 
-\item  $ \beta_{st} =\left( \vW E[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW E[\vz_s] \right)_t + (m_t - m_{st})^2$ is $O(D^2 T S)$
+\item  $ B_{st} =\left( \vW \EE[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW \EE[\vz_s] \right)_t + (m_t - m_{st})^2$ is $O(D^2 T S)$
 
-\item Solving $\sum_s \left[ \frac{1}{\Psi_t + \Sigma_{st}} - \frac{\beta_{st}}{(\Psi_t + \Sigma_{st})^2} \right] = 0$ for each $t$ is $O(T S)$ with a prefactor equal to the number of evaluations required to find a root.  As long as this number is less than $D^2$ this step is subleading.
+\item Solving Eq.~\eqref{eq:psi_stationarity} for each $t$ is $O(T S)$ with a prefactor equal to the number of evaluations required to find a root (approximately $10 \sim 20$). As long as this number is less than $D^2$ this step is subleading.
 
-\item $\vQ_t = \sum_s \Psi_{st}^{-1} E[\vz_s \vz_s^T]$ is $O(D^2 T S)$.
+\item $\vQ_t = \sum_s M_{st} \Psi_{st}^{-1} \EE[\vz_s \vz_s^T]$ is $O(D^2 T S)$.
 
-\item $\vv_t = \sum_s \Psi_{st}^{-1} (m_{st} - m_t)E[\vz_s ]$ is $O(D T S)$.
+\item $\vv_t = \sum_s M_{st} \Psi_{st}^{-1} (m_{st} - m_t)E[\vz_s ]$ is $O(D T S)$.
 
 \item $ \vW_{t \cdot} = (\vA + \vQ_t)^{-1} \vv_t$ is $O(D^3 T)$.
 
@@ -840,38 +852,13 @@ $\vG_s$ and all the $E[\vz_s]$ are each $O(D^2 T S)$.  $E[\vz_s \vz_s^T]$ is $O(
 
 \end{itemize}
 
-In approximate mode
-\begin{itemize}
-\item E step: $\vG = \left( \vI + \vW^T \bar{\vPsi}^{-1} \vW \right)^{-1}, \,
-E \left[ \vz_s \right] = \vG \vW^T \bar{\vPsi}^{-1} (\vm_s - \vm), \,
-E \left[ \vz_s \vz_s^T \right] = \vG + E[\vz_s] E[\vz_s]^T$
-
-$\vG$ is $O(D^2 T)$.  $E[\vz_s \vz_s^T]$ is $O(D^2 S)$.  $\vG_s \vW^T \vPsi_s^{-1}$, which is common to all $E[\vz_s]$, is $O(D^2 T)$ after which $E[\vz_s]$ is $O(D T S)$.  $E[\vz_s \vz_s^T]$ is $O(D^2 S)$.  The E step overall is $O(D T S)$.
-
-\item $\vm = \frac{1}{S} \sum_s \vm_s$ is a one-time cost of $O(T S)$.
-
-\item $\sum_s \beta_{st} =\left( \vW \left( \sum_s E[\vz_s \vz_s^T] \right) \vW^T \right)_{tt} +2 \left( \vW \left( \sum_s (m_t - m_{st}) E[\vz_s] \right) \right)_t + \sum_s (m_t - m_{st})^2$ is $O(D^2 T)$.
-
-\item Given $\sum_s \beta_{st}$, $\Psi_{tt} = \frac{1}{S} \sum_s \beta_{st} - \bar{\Sigma}_{tt}$ is $O(T)$.
-
-\item $\vQ_t =  \bar{\Psi}_{t}^{-1} \sum_s E[\vz_s \vz_s^T]$ is $O(D^2 (S + T))$.
-
-\item $\vv_t = \sum_s \bar{\Psi}_{t}^{-1} (m_t - m_{st})E[\vz_s ]$ is $O(D T S)$.
-
-\item $ \vW_{t \cdot} = (\vA + \vQ)^{-1} \vv_t$ is $O(D^2 T)$.
-
-\item $\ave{W_{t\mu}^2} = W_{t\mu}^2 + (\vA + \vQ)^{-1}_{\mu\mu}$ is $O(D T)$.
-
-\item $\alpha_\mu = T / \sum_t \ave{W_{t\mu}^2}$ is $O(D T)$.
-\end{itemize}
-
-In exact mode the leading cost is a few terms of $O(D^2 T S)$ flops, each with small prefactors, per iteration.  In approximate mode it is $O(D T S)$ flops.  Assuming a total prefactor of $10$ and $T = 2 \times 10^5$, $D = 10$, $S = 500$ a full EM iteration costs $10^{11}$ flops in exact mode and $10^{10}$ in approximate mode.  On a single 1 GHz core ($10^9$ flops per second) this comes out to roughly 100 or 10 seconds.  Even in exact mode we will probably get most of the way toward convergence with approximate iterations, followed by several exact iterations.  Very conservatively, 100 approximate iterations and 10 exact ones should suffice, which comes out to less than half an hour.
+The leading cost is a few terms of $O(D^2 T S)$ flops, each with small prefactors, per iteration. Assuming a total prefactor of $10$ and $T = 2 \times 10^5$, $D = 10$, $S = 500$ a full EM iteration costs $10^{11}$ flops in exact mode. On a single 1 GHz core ($10^9$ flops per second) this comes out to roughly 100 or 10 seconds.\\
 
 We can apply the parameters learned from the panel of normals to single-sample calling, which requires the likelihood as a function of the copy numbers $\vc$.  Applying the same E step as above, the likelihood is
 \begin{equation}
-P({\rm data} | \vc) \propto \prod_t \exp \left[ -\frac{1}{2} \left(  (\vm_t - \vm_{st})^2 +2 (\vm_t - \vm_{st}) \vW_{t} E[\vz_{s}] \right)\Psi_{st}^{-1} \right],
+P(\vn | \vc, \vW, \vm, \vPsi) \propto \prod_t \exp \left[ -\frac{1}{2} \, M_{st} \Psi_{st}^{-1} \big( \ln \left( n_{st} / (d_s \PP_{st}) \right) - \ln(c_{st}) - m_t - \left(\vW \EE[\vz_{s}]\right)_t \big)^2 \right],
 \end{equation}
-which depends on $\vc$ via $m_{st} = \ln \left( n_{st} / (c_{st} d_s) \right)$.  Note that this is factorized into independent likelihood terms for each target and is thus suitable for the emission model of an HMM.  This likelihood is not Gaussian in $\vc$, but it does not need to be for the Viterbi and forward-backward algorithms.
+We have only kept the factors that depends on $\vc$ in the above likelihood. Note that this is factorized into independent likelihood terms for each target and is thus suitable for the emission model of an HMM.  This likelihood is not Gaussian in $\vc$, but it does not need to be for the Viterbi and forward-backward algorithms. Also, note that when $c_{st} = 0$ is the most likely solution, this must be incorporated in the mask matrix $M_{st}$ in order to avoid ambiguous expressions due to the breakdown of the Laplace approximation used to replace the Poisson with a Gaussian.\\
 
 We can easily integrate sample-specific GC bias into this model.  Let $f_s({\rm GC})$ be the GC bias of GC content ${\rm GC}$ for sample $s$.  Then this enters into the model as an additional multiplier to the Poisson parameter.  That is, we replace $d_s c_{st} \rightarrow d_s c_{st} f_s({\rm GC}_t)$, which affects the model learning and inference only via the definition of $m_{st}$.  We can iteratively re-estimate the GC bias function $f_s$ by regressing the bias not explained by the latent factors.  That is, for each target the Poisson parameter is, ignoring GC effects,
 \begin{equation}
