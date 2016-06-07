@@ -323,9 +323,8 @@ public final class CalculateGenotypePosteriors extends VariantWalker {
     }
 
     @Override
-    public Object onTraversalSuccess() {
+    public void closeTool(){
         vcfWriter.close();
-        return null;
     }
 }
 
