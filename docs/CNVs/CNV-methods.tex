@@ -842,9 +842,15 @@ The Newton's approximate solution is therefore:
 \Psi_{t,1} = \Psi_{t,0} - \frac{\alpha_t(\vPsi_0)}{\beta_t(\vPsi_0)}.
 \end{equation}
 One may start iterations using the result of Scheme 1 as the initial guess and continue until convergence.\\
+<<<<<<< HEAD
 
 \noindent{\bf Remark:} In practice, when sample-to-sample variables of $\Sigma$ was large (e.g. read depths varying from 50 to 1000 randomly), we noticed that the best approach was to use Brent root finding for each target. On average, 10 function calls yields to solution within a $10^{-6}$ tolerance. The Newton's method required approximately 20 evaluations of $\alpha_t$ and $\beta_t$ to convergance within the same tolerance. Also, we found that the most robust scheme was to start from $\Psi_t = 0$ rather than using Eq.~\eqref{eq:psi_approx_2}.\\
 
+=======
+
+\noindent{\bf Remark:} In practice, when sample-to-sample variables of $\Sigma$ was large (e.g. read depths varying from 50 to 1000 randomly), we noticed that the best approach was to use Brent root finding for each target. On average, 10 function calls yields to solution within a $10^{-6}$ tolerance. The Newton's method required approximately 20 evaluations of $\alpha_t$ and $\beta_t$ to convergance within the same tolerance. Also, we found that the most robust scheme was to start from $\Psi_t = 0$ rather than using Eq.~\eqref{eq:psi_approx_2}.\\
+
+>>>>>>> 9f428cb349263144aadbb0825901eb6b01b41e82
 
 In the M step equation for $\vW$, we may incorporate an automatic relevance determination (ARD) prior:
 %
