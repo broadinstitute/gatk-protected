@@ -36,6 +36,7 @@ create_acnv_plots_file = function(sample_name, snp_counts_file, coverage_file, s
     #convert the sample name field to "VALUE" for uniformity
     headers = names(coverage)
     headers[!headers %in% c("contig", "start", "stop", "name")] = "VALUE"
+    names(coverage) = headers
     coverage$VALUE = 2^coverage$VALUE #ACNV is in log space
     segments[, "Chromosome"] = convert_XY_to_23_24(segments[, "Chromosome"])
     num_segs = length(which(segments[,"Chromosome"] <= num_chromosomes))
