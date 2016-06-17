@@ -30,13 +30,14 @@ create_acnv_plots_file = function(sample_name, snp_counts_file, coverage_file, s
 	#set up coverage, snps, and segments data frames
 	snp_counts = read.table(snp_counts_file, sep="\t", stringsAsFactors=FALSE, header=TRUE, check.names=FALSE)
 	segments = read.table(segments_file, sep="\t", stringsAsFactors=FALSE, header=TRUE, check.names=FALSE)
-    snp_counts[,"CONTIG"] = convert_XY_to_23_24(snp_counts[,"CONTIG"])
+    snp_counts[, "CONTIG"] = convert_XY_to_23_24(snp_counts[, "CONTIG"])
     coverage = read.table(coverage_file, sep="\t", stringsAsFactors=FALSE, header=TRUE, check.names=FALSE)
 
     #convert the sample name field to "VALUE" for uniformity
-    names(coverage)=c(head(names(coverage), 4), "VALUE")
-    coverage$VALUE=2^coverage$VALUE #ACNV is in log space
-    segments[,"Chromosome"] = convert_XY_to_23_24(segments[,"Chromosome"])
+    headers = names(coverage)
+    headers[!headers %in% c("contig", "start", "stop", "name")] = "VALUE"
+    coverage$VALUE = 2^coverage$VALUE #ACNV is in log space
+    segments[, "Chromosome"] = convert_XY_to_23_24(segments[, "Chromosome"])
 
     #make the plots
     plot_file_name = file.path(output_dir, paste(sample_name, "_ACNV.png", sep=""))
