@@ -38,7 +38,7 @@ import java.util.List;
  */
 @CommandLineProgramProperties(
         summary = "Calculates the mean and variance of the coverage per target and sample",
-        oneLineSummary = "Calculates some statistics of the coverage per target and sample",
+        oneLineSummary = "Calculate statistics of the coverage per target and sample",
         programGroup = CopyNumberProgramGroup.class
 )
 public final class CalculateCoverageStats extends CommandLineProgram {

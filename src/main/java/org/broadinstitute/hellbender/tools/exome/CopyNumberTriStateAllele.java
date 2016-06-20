@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.utils.hmm.CopyNumberTriState;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Class whose instance represent copy-number-tri-state alleles.
@@ -39,9 +40,8 @@ public final class CopyNumberTriStateAllele extends Allele {
     /**
      * All allele list typed as a {@code List<Allele>} as required by some elements in the VCF framework.
      */
-    @SuppressWarnings("unchecked")
     public static final List<Allele> PLAIN_ALL_ALLELES =
-            (List<Allele>) (List) ALL_ALLELES;
+            Collections.unmodifiableList(ALL_ALLELES.stream().map(a -> (Allele) a).collect(Collectors.toList()));
 
     /**
      * List of all alleles as they should be included in VCF output files.

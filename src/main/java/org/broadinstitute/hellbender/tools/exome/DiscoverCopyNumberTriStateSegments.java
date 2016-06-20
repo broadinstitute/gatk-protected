@@ -32,8 +32,8 @@ import java.util.stream.DoubleStream;
  */
 @CommandLineProgramProperties(
         programGroup = CopyNumberProgramGroup.class,
-        summary = "Finds possible locations for rare copy number variation events in germline samples using a HMM",
-        oneLineSummary = "Discovers possible location of copy number variation"
+        summary = "Find possible locations for rare copy number variation events in germline samples using a HMM",
+        oneLineSummary = "Discover possible locations of copy number variation"
 )
 public final class DiscoverCopyNumberTriStateSegments extends CopyNumberTriStateSegmentCaller {
 
