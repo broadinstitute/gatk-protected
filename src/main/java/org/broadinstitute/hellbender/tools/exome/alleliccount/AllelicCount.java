@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.tools.exome;
+package org.broadinstitute.hellbender.tools.exome.alleliccount;
 
 import htsjdk.samtools.util.Locatable;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.MinorAlleleFractionCache;
@@ -13,14 +13,16 @@ import org.broadinstitute.hellbender.utils.param.ParamUtils;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class AllelicCount implements Locatable {
+public class AllelicCount implements Locatable {
 
     /* these are mandatory */
     private final SimpleInterval interval;
-    private final int refReadCount, altReadCount;
+    private final int refReadCount;
+    private final int altReadCount;
 
     /* these are extra metadata and can be null */
-    private final Nucleotide refNucleotide, altNucleotide;
+    private final Nucleotide refNucleotide;
+    private final Nucleotide altNucleotide;
     private final Integer readDepth;
     private final Double hetLogOdds;
 
@@ -58,6 +60,44 @@ public final class AllelicCount implements Locatable {
                         final Nucleotide refNucleotide, final Nucleotide altNucleotide,
                         final Integer readDepth) {
         this(interval, refReadCount, altReadCount, refNucleotide, altNucleotide, readDepth, null);
+    }
+
+    public AllelicCount(final AllelicCount count) {
+        this.interval = count.getInterval();
+        this.refReadCount = count.getRefReadCount();
+        this.altReadCount = count.getAltReadCount();
+
+        //if fields in original AllelicCount are null, getters throw IllegalArgumentExceptions; catch these and set fields in copy to null
+        Nucleotide tempNucleotide;
+        try {
+            tempNucleotide = count.getRefNucleotide();
+        } catch (final IllegalArgumentException e) {
+            tempNucleotide = null;
+        }
+        this.refNucleotide = tempNucleotide;
+
+        try {
+            tempNucleotide = count.getAltNucleotide();
+        } catch (final IllegalArgumentException e) {
+            tempNucleotide = null;
+        }
+        this.altNucleotide = tempNucleotide;
+
+        Integer tempInteger;
+        try {
+            tempInteger = count.getReadDepth();
+        } catch (final IllegalArgumentException e) {
+            tempInteger = null;
+        }
+        this.readDepth = tempInteger;
+
+        Double tempDouble;
+        try {
+            tempDouble = count.getHetLogOdds();
+        } catch (final IllegalArgumentException e) {
+            tempDouble = null;
+        }
+        this.hetLogOdds = tempDouble;
     }
 
     @Override

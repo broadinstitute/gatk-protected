@@ -1,8 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.titanconversion;
 
-import org.broadinstitute.hellbender.tools.exome.AllelicCount;
+import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
-import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
 import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 
 import java.io.File;
@@ -15,7 +14,7 @@ public class TitanAllelicCountWriter extends TableWriter<AllelicCount> {
     }
 
     @Override
-    protected void composeLine(AllelicCount record, DataLine dataLine) {
+    protected void composeLine(final AllelicCount record, final DataLine dataLine) {
 
         // Chr	Position	Ref	RefCount	Nref	NrefCount	NormQuality
         dataLine.append(record.getInterval().getContig())
