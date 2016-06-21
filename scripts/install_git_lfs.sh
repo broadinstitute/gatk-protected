@@ -15,11 +15,20 @@ git remote set-url origin "https://github.com/broadinstitute/gatk.git"
 echo "git lfs install"
 GIT_TRACE=1 $GIT_LFS install
 
+echo "logs"
+GIT_TRACE=1 $GIT_LFS logs last
+
 echo "fetch"
 GIT_TRACE=1 $GIT_LFS fetch
 
+echo "logs"
+GIT_TRACE=1 $GIT_LFS logs last
+
 echo "checkout"
 GIT_TRACE=1 $GIT_LFS checkout
+
+echo "logs"
+GIT_TRACE=1 $GIT_LFS logs last
 
 echo "ls-files"
 GIT_TRACE=1 $GIT_LFS ls-files

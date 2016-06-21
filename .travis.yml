@@ -24,6 +24,7 @@ before_install:
 #  shared libs are in /hdf5/HDFView/lib/linux/
 #  jars are in /hdf5/HDFView/lib/
 # symlinks are made to the JAVA_LIBRARY_PATH
+- git rev-parse HEAD
 - sudo mkdir -p ${HDF5_DIR}
 - echo HDF5 being downloaded and installed in ${HDF5_DIR}
 - sudo wget "https://www.hdfgroup.org/ftp/HDF5/releases/HDF-JAVA/hdf-java-2.9/hdfview/hdfview_install_linux64.bin" -O ${HDF5_DIR}/hdfview_install_linux64.bin
