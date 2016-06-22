@@ -61,18 +61,18 @@ public final class AlleleFractionLikelihoods {
      * {@link AllelicPanelOfNormals}.  See docs/CNVs/CNV-methods.pdf for details.
      */
     public static double hetLogLikelihood(final AlleleFractionState state, final int segment, final AllelicCount count, final AlleleFractionIndicator indicator,
-                                          final AllelicPanelOfNormals allelicPON) {
+                                          final AllelicPanelOfNormals allelicPoN) {
         final SimpleInterval site = count.getInterval();
         final double alpha;
         final double beta;
-        if (allelicPON.equals(AllelicPanelOfNormals.EMPTY_PON)) {
+        if (allelicPoN.equals(AllelicPanelOfNormals.EMPTY_PON)) {
             // if PON is not available, use alpha and beta learned from sample
             beta = state.meanBias() / state.biasVariance();
             alpha = state.meanBias() * beta;
         } else {
             // if PON is available, return alpha and beta at site if site is in PON, otherwise return MLE alpha and beta if site is not in PON
-            alpha = allelicPON.getAlpha(site);
-            beta = allelicPON.getBeta(site);
+            alpha = allelicPoN.getAlpha(site);
+            beta = allelicPoN.getBeta(site);
         }
         final double pi = state.outlierProbability();
         final double minorFraction = state.segmentMinorFraction(segment);
@@ -175,14 +175,14 @@ public final class AlleleFractionLikelihoods {
      * @param state allele fraction state
      * @param segment index of segment containing this het site
      * @param count AllelicCount of alt and ref reads
-     * @param allelicPON allelic panel of normals constructed from total alt and ref counts observed across all normals at each site
+     * @param allelicPoN allelic panel of normals constructed from total alt and ref counts observed across all normals at each site
      * @return the log of the likelihood at this het site, marginalized over indicator states.
      */
-    public static double collapsedHetLogLikelihood(final AlleleFractionState state, final int segment, final AllelicCount count, final AllelicPanelOfNormals allelicPON) {
+    public static double collapsedHetLogLikelihood(final AlleleFractionState state, final int segment, final AllelicCount count, final AllelicPanelOfNormals allelicPoN) {
         return GATKProtectedMathUtils.logSumExp(
-                hetLogLikelihood(state, segment, count, AlleleFractionIndicator.ALT_MINOR, allelicPON),
-                hetLogLikelihood(state, segment, count, AlleleFractionIndicator.REF_MINOR, allelicPON),
-                hetLogLikelihood(state, segment, count, AlleleFractionIndicator.OUTLIER, allelicPON));
+                hetLogLikelihood(state, segment, count, AlleleFractionIndicator.ALT_MINOR, allelicPoN),
+                hetLogLikelihood(state, segment, count, AlleleFractionIndicator.REF_MINOR, allelicPoN),
+                hetLogLikelihood(state, segment, count, AlleleFractionIndicator.OUTLIER, allelicPoN));
     }
 
     /**
@@ -191,11 +191,11 @@ public final class AlleleFractionLikelihoods {
      * @param state allele fraction state
      * @param segment index of segment containijng this het site
      * @param counts AllelicCount of alt and ref reads in this segment
-     * @param allelicPON allelic panel of normals constructed from total alt and ref counts observed across all normals at each site
+     * @param allelicPoN allelic panel of normals constructed from total alt and ref counts observed across all normals at each site
      * @return the sum of log-likelihoods over all het sites in a segment
      */
-    public static double segmentLogLikelihood(final AlleleFractionState state, final int segment, final Collection<AllelicCount> counts, final AllelicPanelOfNormals allelicPON) {
-        return counts.stream().mapToDouble(c -> collapsedHetLogLikelihood(state, segment, c, allelicPON)).sum();
+    public static double segmentLogLikelihood(final AlleleFractionState state, final int segment, final Collection<AllelicCount> counts, final AllelicPanelOfNormals allelicPoN) {
+        return counts.stream().mapToDouble(c -> collapsedHetLogLikelihood(state, segment, c, allelicPoN)).sum();
     }
 
     /**

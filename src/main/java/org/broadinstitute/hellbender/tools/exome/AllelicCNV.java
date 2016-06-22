@@ -117,7 +117,7 @@ public class AllelicCNV extends SparkCommandLineProgram {
             shortName = ExomeStandardArgumentDefinitions.ALLELIC_PON_FILE_SHORT_NAME,
             optional = true
     )
-    protected File allelicPONFile;
+    protected File allelicPoNFile;
 
     @Argument(
             doc = "Prefix for output files. Will also be used as the sample name in downstream plots." +
@@ -240,8 +240,8 @@ public class AllelicCNV extends SparkCommandLineProgram {
         final Genome genome = new Genome(tangentNormalizedCoverageFile, snpCountsFile, sampleName);
 
         //load allelic-bias panel of normals if provided
-        final AllelicPanelOfNormals allelicPON =
-                allelicPONFile != null ? new AllelicPanelOfNormals(allelicPONFile) : AllelicPanelOfNormals.EMPTY_PON;
+        final AllelicPanelOfNormals allelicPoN =
+                allelicPoNFile != null ? new AllelicPanelOfNormals(allelicPoNFile) : AllelicPanelOfNormals.EMPTY_PON;
 
         //load target-coverage segments from input file
         final List<ModeledSegment> targetSegmentsWithCalls =
@@ -275,7 +275,7 @@ public class AllelicCNV extends SparkCommandLineProgram {
         logSegmentFileWrittenMessage(segmentedGenomeFile);
 
         //initial MCMC model fitting performed by ACNVModeller constructor
-        final ACNVModeller modeller = new ACNVModeller(segmentedGenome, allelicPON,
+        final ACNVModeller modeller = new ACNVModeller(segmentedGenome, allelicPoN,
                 numSamplesCopyRatio, numBurnInCopyRatio, numSamplesAlleleFraction, numBurnInAlleleFraction, ctx);
 
         //write initial segments and parameters to file

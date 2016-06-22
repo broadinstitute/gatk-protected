@@ -69,7 +69,7 @@ public final class CreateAllelicPanelOfNormals extends SparkToggleCommandLinePro
         final List<File> pulldownFiles = parseInputFiles(inputFiles);
 
         logger.info("Starting allelic panel of normals creation...");
-        final AllelicPanelOfNormals allelicPON = new AllelicPanelOfNormalsCreator(ctx, pulldownFiles).create();
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormalsCreator(ctx, pulldownFiles).create();
 
         logger.info("Appending allelic panel of normals to HDF5 file...");
         final PoN coveragePoN = loadCoveragePoN(ponFile, logger);

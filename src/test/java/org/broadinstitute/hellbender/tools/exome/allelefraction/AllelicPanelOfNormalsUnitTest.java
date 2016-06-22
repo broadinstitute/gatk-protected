@@ -32,23 +32,23 @@ public class AllelicPanelOfNormalsUnitTest extends BaseTest {
     @Test
     public void testPoNHyperparameterInitialization() {
         LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
-        final AllelicPanelOfNormals allelicPON = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
 
         final SimpleInterval firstSite = new SimpleInterval("1", 1, 1);  //all sites in PON are from chr1
         final SimpleInterval siteNotInPON = new SimpleInterval("2", 1, 1);  //all sites in PON are from chr1
 
         // test initialization of hyperparameters for first site in PON (a = 1218, r = 1317)
-        final double alphaAtFirstSite = allelicPON.getAlpha(firstSite);
-        final double betaAtFirstSite = allelicPON.getBeta(firstSite);
+        final double alphaAtFirstSite = allelicPoN.getAlpha(firstSite);
+        final double betaAtFirstSite = allelicPoN.getBeta(firstSite);
 
         Assert.assertEquals(alphaAtFirstSite, ALPHA_EXPECTED_AT_FIRST_SITE, DELTA);
         Assert.assertEquals(betaAtFirstSite, BETA_EXPECTED_AT_FIRST_SITE, DELTA);
 
         // test initialization of MLE hyperparameters (which are default values for sites not in PON)
-        final double alphaNotInPON = allelicPON.getAlpha(siteNotInPON);
-        final double betaNotInPON = allelicPON.getBeta(siteNotInPON);
-        final double meanBias = allelicPON.getMLEMeanBias();
-        final double biasVariance = allelicPON.getMLEBiasVariance();
+        final double alphaNotInPON = allelicPoN.getAlpha(siteNotInPON);
+        final double betaNotInPON = allelicPoN.getBeta(siteNotInPON);
+        final double meanBias = allelicPoN.getMLEMeanBias();
+        final double biasVariance = allelicPoN.getMLEBiasVariance();
 
         Assert.assertEquals(alphaNotInPON, MLE_ALPHA_EXPECTED, DELTA);
         Assert.assertEquals(betaNotInPON, MLE_BETA_EXPECTED, DELTA);

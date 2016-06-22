@@ -26,11 +26,11 @@ final class AlleleFractionSamplers {
         }
 
         public Double sample(final RandomGenerator rng, final AlleleFractionState state, final AlleleFractionData data) {
-            final AllelicPanelOfNormals allelicPON = data.getPON();
-            if (allelicPON.equals(AllelicPanelOfNormals.EMPTY_PON)) {
+            final AllelicPanelOfNormals allelicPoN = data.getPON();
+            if (allelicPoN.equals(AllelicPanelOfNormals.EMPTY_PON)) {
                 return sampler.sample(rng, x -> AlleleFractionLikelihoods.logLikelihood(state.shallowCopyWithProposedMeanBias(x), data));
             }
-            return allelicPON.getMLEMeanBias(); // if PON is available, always return MLE mean bias as "sample"
+            return allelicPoN.getMLEMeanBias(); // if PON is available, always return MLE mean bias as "sample"
         }
     }
 
@@ -43,11 +43,11 @@ final class AlleleFractionSamplers {
         }
 
         public Double sample(final RandomGenerator rng, final AlleleFractionState state, final AlleleFractionData data) {
-            final AllelicPanelOfNormals allelicPON = data.getPON();
-            if (allelicPON.equals(AllelicPanelOfNormals.EMPTY_PON)) {
+            final AllelicPanelOfNormals allelicPoN = data.getPON();
+            if (allelicPoN.equals(AllelicPanelOfNormals.EMPTY_PON)) {
                 return sampler.sample(rng, x -> AlleleFractionLikelihoods.logLikelihood(state.shallowCopyWithProposedBiasVariance(x), data));
             }
-            return allelicPON.getMLEBiasVariance(); // if PON is available, always return MLE bias variance as "sample"
+            return allelicPoN.getMLEBiasVariance(); // if PON is available, always return MLE bias variance as "sample"
         }
     }
 

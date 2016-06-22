@@ -69,13 +69,13 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final double biasVarianceSimulated = 0.04;
         final double meanBiasOfPON = 1.083;         // PON generated with alpha = 65
         final double biasVarianceOfPON = 0.0181;    // PON generated with beta = 60
-        final AllelicPanelOfNormals allelicPON = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
-        testMCMC(meanBiasSimulated, biasVarianceSimulated, meanBiasOfPON, biasVarianceOfPON, allelicPON);
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
+        testMCMC(meanBiasSimulated, biasVarianceSimulated, meanBiasOfPON, biasVarianceOfPON, allelicPoN);
     }
 
     private void testMCMC(final double meanBiasSimulated, final double biasVarianceSimulated,
                           final double meanBiasExpected, final double biasVarianceExpected,
-                          final AllelicPanelOfNormals allelicPON) {
+                          final AllelicPanelOfNormals allelicPoN) {
         LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
         final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
 
@@ -97,7 +97,7 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final AlleleFractionSimulatedData simulatedData = new AlleleFractionSimulatedData(averageHetsPerSegment, numSegments,
                 averageDepth, meanBiasSimulated, biasVarianceSimulated, outlierProbability);
 
-        final AlleleFractionModeller modeller = new AlleleFractionModeller(simulatedData.getSegmentedGenome(), allelicPON);
+        final AlleleFractionModeller modeller = new AlleleFractionModeller(simulatedData.getSegmentedGenome(), allelicPoN);
         modeller.fitMCMC(numSamples, numBurnIn);
 
         final List<Double> meanBiasSamples = modeller.getmeanBiasSamples();
@@ -167,18 +167,18 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final AllelicCountCollection sampleWithBadSNPs = new AllelicCountCollection(SAMPLE_WITH_BAD_SNPS_FILE);
         final AllelicCountCollection sampleWithEvent = new AllelicCountCollection(SAMPLE_WITH_EVENT_FILE);
 
-        final AllelicPanelOfNormals allelicPONNormal = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
-        final AllelicPanelOfNormals allelicPONWithBadSNPs = new AllelicPanelOfNormals(ALLELIC_PON_WITH_BAD_SNPS_FILE);
+        final AllelicPanelOfNormals allelicPoNNormal = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
+        final AllelicPanelOfNormals allelicPoNWithBadSNPs = new AllelicPanelOfNormals(ALLELIC_PON_WITH_BAD_SNPS_FILE);
 
         final double minorFractionExpectedInMiddleSegmentNormal = 0.5;
         final double minorFractionExpectedInMiddleSegmentWithBadSNPsAndNormalPON = 0.4;
         final double minorFractionExpectedInMiddleSegmentWithEvent = 0.33;
 
         return new Object[][]{
-                {sampleNormal, allelicPONNormal, minorFractionExpectedInMiddleSegmentNormal},
-                {sampleWithBadSNPs, allelicPONNormal, minorFractionExpectedInMiddleSegmentWithBadSNPsAndNormalPON},
-                {sampleWithEvent, allelicPONNormal, minorFractionExpectedInMiddleSegmentWithEvent},
-                {sampleWithBadSNPs, allelicPONWithBadSNPs, minorFractionExpectedInMiddleSegmentNormal}
+                {sampleNormal, allelicPoNNormal, minorFractionExpectedInMiddleSegmentNormal},
+                {sampleWithBadSNPs, allelicPoNNormal, minorFractionExpectedInMiddleSegmentWithBadSNPsAndNormalPON},
+                {sampleWithEvent, allelicPoNNormal, minorFractionExpectedInMiddleSegmentWithEvent},
+                {sampleWithBadSNPs, allelicPoNWithBadSNPs, minorFractionExpectedInMiddleSegmentNormal}
         };
     }
 
@@ -214,7 +214,7 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
      */
     @Test(dataProvider = "biasCorrection")
     public void testBiasCorrection(final AllelicCountCollection sample,
-                                   final AllelicPanelOfNormals allelicPON,
+                                   final AllelicPanelOfNormals allelicPoN,
                                    final double minorFractionExpectedInMiddleSegment) {
         LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
         final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
@@ -227,7 +227,7 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
 
         final int numSamples = 100;
         final int numBurnIn = 25;
-        final AlleleFractionModeller modeller = new AlleleFractionModeller(segmentedGenome, allelicPON);
+        final AlleleFractionModeller modeller = new AlleleFractionModeller(segmentedGenome, allelicPoN);
         modeller.fitMCMC(numSamples, numBurnIn);
 
         final List<PosteriorSummary> minorAlleleFractionPosteriorSummaries =

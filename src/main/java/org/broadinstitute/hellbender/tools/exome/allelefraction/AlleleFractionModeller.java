@@ -49,9 +49,9 @@ public final class AlleleFractionModeller {
     private final List<AlleleFractionState.MinorFractions> minorFractionsSamples = new ArrayList<>();
     private final int numSegments;
 
-    public AlleleFractionModeller(final SegmentedGenome segmentedGenome, final AllelicPanelOfNormals allelicPON) {
+    public AlleleFractionModeller(final SegmentedGenome segmentedGenome, final AllelicPanelOfNormals allelicPoN) {
         this.segmentedGenome = segmentedGenome;
-        final AlleleFractionData data = new AlleleFractionData(segmentedGenome, allelicPON);
+        final AlleleFractionData data = new AlleleFractionData(segmentedGenome, allelicPoN);
         numSegments = data.getNumSegments();
         final AlleleFractionState initialState = new AlleleFractionInitializer(data).getInitializedState();
 
