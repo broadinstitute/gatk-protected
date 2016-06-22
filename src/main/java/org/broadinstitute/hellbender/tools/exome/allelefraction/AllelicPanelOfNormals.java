@@ -54,13 +54,7 @@ public final class AllelicPanelOfNormals {
      * @param inputFile    contains total alt and ref counts observed across all normals at each site
      */
     public AllelicPanelOfNormals(final File inputFile) {
-        this(new AllelicCountCollection(validateFile(inputFile)));
-    }
-
-    private static File validateFile(final File inputFile) {
-        Utils.nonNull(inputFile);
-        Utils.regularReadableUserFile(inputFile);
-        return inputFile;
+        this(new AllelicCountCollection(Utils.regularReadableUserFile(inputFile)));
     }
 
     /**
