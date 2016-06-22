@@ -9,6 +9,7 @@ import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AllelicPanelOfNormals;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.AllelicPanelOfNormalsCreator;
 import org.broadinstitute.hellbender.utils.SparkToggleCommandLineProgram;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.hdf5.HDF5File;
@@ -39,6 +40,10 @@ public final class CreateAllelicPanelOfNormals extends SparkToggleCommandLinePro
 
     private static final long serialVersionUID = 42123132L;
 
+    private static final String SITE_FREQUENCY_SHORT_NAME = "f";
+    private static final String SITE_FREQUENCY_LONG_NAME = "siteFrequency";
+
+
     @Argument(
             doc = "Input files for all samples in the panel of normals.  " +
                     "Each file should contain either a pulldown or a list of pulldown files; the latter should have a \".list\" extension.  " +
@@ -57,6 +62,14 @@ public final class CreateAllelicPanelOfNormals extends SparkToggleCommandLinePro
     )
     protected File ponFile;
 
+    @Argument(
+            doc = "Site frequency threshold.  Sites that appear in a fraction of the samples that is less than this threshold are not included in the panel.",
+            shortName = SITE_FREQUENCY_SHORT_NAME,
+            fullName = SITE_FREQUENCY_LONG_NAME,
+            optional = true
+    )
+    protected double siteFrequency = 0.2;
+
     @Override
     protected void runPipeline(final JavaSparkContext ctx) {
         validateArguments();
@@ -69,7 +82,7 @@ public final class CreateAllelicPanelOfNormals extends SparkToggleCommandLinePro
         final List<File> pulldownFiles = parseInputFiles(inputFiles);
 
         logger.info("Starting allelic panel of normals creation...");
-        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormalsCreator(ctx, pulldownFiles).create();
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormalsCreator(ctx, pulldownFiles).create(siteFrequency);
 
         logger.info("Appending allelic panel of normals to HDF5 file...");
         final PoN coveragePoN = loadCoveragePoN(ponFile, logger);
@@ -81,6 +94,7 @@ public final class CreateAllelicPanelOfNormals extends SparkToggleCommandLinePro
     private void validateArguments() {
         Utils.regularReadableUserFile(ponFile);
         inputFiles.stream().forEach(Utils::regularReadableUserFile);
+        Utils.validateArg(0. <= siteFrequency && siteFrequency <= 1., "Site frequency must be in [0, 1].");
     }
 
     /**
