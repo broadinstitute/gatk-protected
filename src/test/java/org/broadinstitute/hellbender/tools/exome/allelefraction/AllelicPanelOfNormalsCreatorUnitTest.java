@@ -4,14 +4,14 @@ import htsjdk.samtools.util.Log;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormalsCreator;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.nio.file.FileSystems;
-import java.nio.file.PathMatcher;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,7 +21,7 @@ import java.util.List;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class AllelicPanelOfNormalsCreatorUnitTest extends BaseTest {
-    private static final String TEST_DIR = "/home/slee/working/ipython/alleliccapseg/allelic-pon/wgs-pon-liberal-MQ60-BEAGLEmaf10/pulldown";
+    private static final String TEST_DIR = "/home/slee/working/ipython/alleliccapseg/allelic-pon/wgs-pon-chip/pulldown";
     private static final FileFilter tsvFileFilter = new WildcardFileFilter("*tsv");
     private static final List<File> PULLDOWN_FILES = Arrays.asList(new File(TEST_DIR).listFiles(tsvFileFilter));
 

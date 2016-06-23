@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.tools.exome.allelefraction;
+package org.broadinstitute.hellbender.tools.exome.allelefraction.pon;
 
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 import org.apache.commons.math3.optim.univariate.SearchInterval;
@@ -8,11 +8,15 @@ import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionInitializer;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionLikelihoods;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -90,6 +94,19 @@ public final class AllelicPanelOfNormals {
     public double getMLEMeanBias() {
         throwExceptionIfPoNIsEmpty();
         return mleMeanBias;
+    }
+
+    /**
+     * Writes out the {@link AllelicPanelOfNormals} to the specified file.
+     * @param outputFile    file to write to (if it exists, it will be overwritten)
+     */
+    public void write(final File outputFile) {
+        final List<Map.Entry> sortedSiteToHyperparameterPairMap = makeSortedMap(siteToHyperparameterPairMap);
+        try (final AllelicPanelOfNormalsWriter writer = new AllelicPanelOfNormalsWriter(outputFile)) {
+            writer.writeAllRecords(sortedSiteToHyperparameterPairMap);
+        } catch (final IOException e) {
+            throw new UserException.CouldNotCreateOutputFile(outputFile, e);
+        }
     }
 
     /**

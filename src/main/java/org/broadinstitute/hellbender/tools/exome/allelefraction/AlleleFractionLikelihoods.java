@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.tools.exome.allelefraction;
 import org.apache.commons.math3.special.Gamma;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 

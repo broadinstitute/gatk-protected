@@ -5,7 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionModeller;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.AllelicPanelOfNormals;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.tools.exome.copyratio.CopyRatioModeller;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;

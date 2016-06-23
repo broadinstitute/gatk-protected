@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import htsjdk.samtools.util.Log;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.test.BaseTest;

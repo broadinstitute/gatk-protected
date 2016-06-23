@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.tools.exome.allelefraction;
+package org.broadinstitute.hellbender.tools.exome.allelefraction.pon;
 
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.logging.log4j.LogManager;
@@ -6,7 +6,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.tools.exome.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.AllelicCountCollection;
-import org.broadinstitute.hellbender.tools.exome.AllelicCountTableColumn;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;

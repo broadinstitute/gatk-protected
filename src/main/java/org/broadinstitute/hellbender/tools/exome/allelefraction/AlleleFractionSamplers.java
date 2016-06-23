@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import org.apache.commons.math3.random.RandomGenerator;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.mcmc.AdaptiveMetropolisSampler;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
 
