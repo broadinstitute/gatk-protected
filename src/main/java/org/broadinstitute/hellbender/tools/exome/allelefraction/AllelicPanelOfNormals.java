@@ -176,7 +176,7 @@ public final class AllelicPanelOfNormals {
             final SimpleInterval site = count.getInterval();
             final HyperparameterValues hyperparameterValues = new HyperparameterValues(count.getAltReadCount(), count.getRefReadCount());
             if (siteToHyperparameterPairMap.containsKey(site)) {
-                throw new UserException.BadInput("Input file for allelic panel of normals contains duplicate sites.");
+                throw new UserException.BadInput("Input AllelicCountCollection for allelic panel of normals contains duplicate sites.");
             } else {
                 siteToHyperparameterPairMap.put(site, hyperparameterValues);
             }

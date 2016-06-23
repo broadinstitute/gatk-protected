@@ -6,14 +6,13 @@ import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.tools.exome.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.AllelicCountCollection;
+import org.broadinstitute.hellbender.tools.exome.AllelicCountTableColumn;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
+import org.broadinstitute.hellbender.utils.param.ParamUtils;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Creates the panel of normals used for allele-bias correction.  See docs/CNVs/CNV-methods.pdf.
@@ -29,8 +28,8 @@ public final class AllelicPanelOfNormalsCreator {
     public AllelicPanelOfNormalsCreator(final JavaSparkContext ctx, final List<File> pulldownFiles) {
         Utils.nonNull(ctx, "JavaSparkContext cannot be null when creating allelic panel of normals.");
         Utils.nonNull(pulldownFiles, "List of pulldown files cannot be null.");
+        ParamUtils.isPositive(pulldownFiles.size(), "List of pulldown files should contain at least one file.");
         pulldownFiles.stream().forEach(Utils::regularReadableUserFile);
-
         this.ctx = ctx;
         this.pulldownFiles = new ArrayList<>(pulldownFiles);
     }
