@@ -4,8 +4,6 @@ import htsjdk.samtools.util.Log;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormalsCreator;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.annotations.Test;
@@ -28,9 +26,9 @@ public final class AllelicPanelOfNormalsCreatorUnitTest extends BaseTest {
     @Test
     public void testCreate() {
         LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
-        final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
-        final AllelicPanelOfNormalsCreator allelicPoNCreator = new AllelicPanelOfNormalsCreator(ctx, PULLDOWN_FILES);
-        final double siteFrequency = 0.2;
+        final AllelicPanelOfNormalsCreator allelicPoNCreator = new AllelicPanelOfNormalsCreator(PULLDOWN_FILES);
+        final double siteFrequency = 0.5;
         final AllelicPanelOfNormals allelicPoN = allelicPoNCreator.create(siteFrequency);
+        allelicPoN.write(new File(TEST_DIR, "test.pon"));
     }
 }

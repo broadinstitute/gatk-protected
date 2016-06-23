@@ -3,7 +3,6 @@ package org.broadinstitute.hellbender.tools.exome.allelefraction;
 import org.apache.commons.math3.special.Gamma;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
@@ -128,7 +127,7 @@ public final class AlleleFractionLikelihoods {
      * @param a     alt counts
      * @param r     ref counts
      */
-    protected static double biasPosteriorMode(final double alpha, final double beta, final double f, final int a, final int r) {
+    public static double biasPosteriorMode(final double alpha, final double beta, final double f, final int a, final int r) {
         final double w = (1 - f) * (a - alpha + 1) + beta * f;
         return (sqrt(w * w + 4 * beta * f * (1 - f) * (r + alpha - 1)) - w) / (2 * beta * (1 - f));
     }
@@ -144,7 +143,7 @@ public final class AlleleFractionLikelihoods {
      * @param n         total counts
      * @param lambda0   mode of allelic-bias posterior
      */
-    protected static double biasPosteriorCurvature(final double alpha, final double f, final int r, final int n, final double lambda0) {
+    public static double biasPosteriorCurvature(final double alpha, final double f, final int r, final int n, final double lambda0) {
         final double y = (1 - f)/(f + (1 - f) * lambda0);
         return n * y * y - (r + alpha - 1) / (lambda0 * lambda0);
     }
@@ -155,7 +154,7 @@ public final class AlleleFractionLikelihoods {
      * @param lambda0   mode of allelic-bias posterior
      * @param kappa     curvature of allelic-bias posterior
      */
-    protected static double biasPosteriorEffectiveAlpha(final double lambda0, final double kappa) {
+    public static double biasPosteriorEffectiveAlpha(final double lambda0, final double kappa) {
         return 1 - kappa * lambda0 * lambda0;
     }
 
@@ -165,7 +164,7 @@ public final class AlleleFractionLikelihoods {
      * @param lambda0   mode of allelic-bias posterior
      * @param kappa     curvature of allelic-bias posterior
      */
-    protected static double biasPosteriorEffectiveBeta(final double lambda0, final double kappa) {
+    public static double biasPosteriorEffectiveBeta(final double lambda0, final double kappa) {
         return -kappa * lambda0;
     }
 
@@ -224,7 +223,7 @@ public final class AlleleFractionLikelihoods {
      * @param biasVariance  variance of the allelic-bias prior
      * @param counts        counts at all sites in the {@link AllelicPanelOfNormals}
      */
-    protected static double logLikelihoodForAllelicPanelOfNormals(final double meanBias, final double biasVariance, final AllelicCountCollection counts) {
+    public static double logLikelihoodForAllelicPanelOfNormals(final double meanBias, final double biasVariance, final AllelicCountCollection counts) {
         final double alpha = alpha(meanBias, biasVariance);
         final double beta = beta(meanBias, biasVariance);
         final double balancedMinorAlleleFraction = 0.5;

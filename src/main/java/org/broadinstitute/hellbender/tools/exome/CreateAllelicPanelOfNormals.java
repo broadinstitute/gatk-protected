@@ -8,8 +8,8 @@ import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
 import org.broadinstitute.hellbender.exceptions.UserException;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormalsCreator;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.AllelicPanelOfNormals;
+import org.broadinstitute.hellbender.tools.exome.allelefraction.AllelicPanelOfNormalsCreator;
 import org.broadinstitute.hellbender.utils.SparkToggleCommandLineProgram;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.hdf5.HDF5File;
@@ -82,7 +82,7 @@ public final class CreateAllelicPanelOfNormals extends SparkToggleCommandLinePro
         final List<File> pulldownFiles = parseInputFiles(inputFiles);
 
         logger.info("Starting allelic panel of normals creation...");
-        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormalsCreator(ctx, pulldownFiles).create(siteFrequency);
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormalsCreator(pulldownFiles).create(siteFrequency);
 
         logger.info("Appending allelic panel of normals to HDF5 file...");
         final PoN coveragePoN = loadCoveragePoN(ponFile, logger);

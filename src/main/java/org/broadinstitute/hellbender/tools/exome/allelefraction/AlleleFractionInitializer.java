@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.math3.exception.MaxCountExceededException;
 import org.apache.commons.math3.optim.MaxEval;
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
@@ -11,6 +10,7 @@ import org.apache.commons.math3.special.Beta;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
+import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
 
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -38,7 +38,6 @@ import java.util.stream.IntStream;
  * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
  */
 public final class AlleleFractionInitializer {
-    @VisibleForTesting
     protected static final double INITIAL_OUTLIER_PROBABILITY = 0.01;
     protected static final double INITIAL_MEAN_BIAS = 1.0;
     protected static final double INITIAL_BIAS_VARIANCE = 0.1;   // this is an overestimate, but starting small makes it slow for
@@ -166,4 +165,56 @@ public final class AlleleFractionInitializer {
                 .mapToDouble(segment -> estimateMinorFraction(segment, data))
                 .boxed().collect(Collectors.toList()));
     }
+
+    /**
+     * Find MLE hyperparameter values from counts in panel of normals.
+     */
+    static AllelicPanelOfNormals.HyperparameterValues calculateMLEHyperparameterValues(final AllelicCountCollection counts) {
+        double meanBias = AlleleFractionInitializer.INITIAL_MEAN_BIAS;
+        double biasVariance = AlleleFractionInitializer.INITIAL_BIAS_VARIANCE;
+        double previousIterationLogLikelihood;
+        double nextIterationLogLikelihood = Double.NEGATIVE_INFINITY;
+        logger.info(String.format("Initializing MLE hyperparameter values for allelic panel of normals.  Iterating until log likelihood converges to within %.3f.",
+                AlleleFractionInitializer.LOG_LIKELIHOOD_CONVERGENCE_THRESHOLD));
+        int iteration = 1;
+        do {
+            previousIterationLogLikelihood = nextIterationLogLikelihood;
+            meanBias = estimateMeanBias(meanBias, biasVariance, counts);
+            biasVariance = estimateBiasVariance(meanBias, biasVariance, counts);
+            nextIterationLogLikelihood = AlleleFractionLikelihoods.logLikelihoodForAllelicPanelOfNormals(meanBias, biasVariance, counts);
+            logger.info(String.format("Iteration %d, model log likelihood = %.3f.", iteration, nextIterationLogLikelihood));
+            iteration++;
+        } while (iteration < AlleleFractionInitializer.MAX_ITERATIONS &&
+                nextIterationLogLikelihood - previousIterationLogLikelihood > AlleleFractionInitializer.LOG_LIKELIHOOD_CONVERGENCE_THRESHOLD);
+
+        final double alpha = alpha(meanBias, biasVariance);
+        final double beta = beta(meanBias, biasVariance);
+        logger.info("MLE hyperparameter values for allelic panel of normals found:");
+        logger.info("alpha = " + alpha);
+        logger.info("beta = " + beta);
+        return new AllelicPanelOfNormals.HyperparameterValues(alpha, beta);
+    }
+
+    private static double estimateMeanBias(final double meanBias, final double biasVariance, final AllelicCountCollection counts) {
+        final UnivariateObjectiveFunction objective = new UnivariateObjectiveFunction(proposedMeanBias ->
+                AlleleFractionLikelihoods.logLikelihoodForAllelicPanelOfNormals(proposedMeanBias, biasVariance, counts));
+        final SearchInterval searchInterval = new SearchInterval(0.0, AlleleFractionInitializer.MAX_REASONABLE_MEAN_BIAS, meanBias);
+        return AlleleFractionInitializer.OPTIMIZER.optimize(objective, GoalType.MAXIMIZE, searchInterval, AlleleFractionInitializer.BRENT_MAX_EVAL).getPoint();
+    }
+
+    private static double estimateBiasVariance(final double meanBias, final double biasVariance, final AllelicCountCollection counts) {
+        final UnivariateObjectiveFunction objective = new UnivariateObjectiveFunction(proposedBiasVariance ->
+                AlleleFractionLikelihoods.logLikelihoodForAllelicPanelOfNormals(meanBias, proposedBiasVariance, counts));
+        final SearchInterval searchInterval = new SearchInterval(0.0, AlleleFractionInitializer.MAX_REASONABLE_BIAS_VARIANCE, biasVariance);
+        return AlleleFractionInitializer.OPTIMIZER.optimize(objective, GoalType.MAXIMIZE, searchInterval, AlleleFractionInitializer.BRENT_MAX_EVAL).getPoint();
+    }
+
+    private static double alpha(final double meanBias, final double biasVariance) {
+        return meanBias * meanBias / biasVariance;
+    }
+
+    private static double beta(final double meanBias, final double biasVariance) {
+        return meanBias / biasVariance;
+    }
+
 }

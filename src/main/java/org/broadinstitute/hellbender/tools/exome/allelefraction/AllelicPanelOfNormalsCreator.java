@@ -1,11 +1,10 @@
-package org.broadinstitute.hellbender.tools.exome.allelefraction.pon;
+package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.broadinstitute.hellbender.tools.exome.AllelicCount;
-import org.broadinstitute.hellbender.tools.exome.AllelicCountCollection;
+import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
+import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
@@ -21,15 +20,12 @@ import java.util.*;
 public final class AllelicPanelOfNormalsCreator {
     private static final Logger logger = LogManager.getLogger(AllelicPanelOfNormalsCreator.class);
 
-    private final JavaSparkContext ctx;
     private final List<File> pulldownFiles;
 
-    public AllelicPanelOfNormalsCreator(final JavaSparkContext ctx, final List<File> pulldownFiles) {
-        Utils.nonNull(ctx, "JavaSparkContext cannot be null when creating allelic panel of normals.");
+    public AllelicPanelOfNormalsCreator(final List<File> pulldownFiles) {
         Utils.nonNull(pulldownFiles, "List of pulldown files cannot be null.");
         ParamUtils.isPositive(pulldownFiles.size(), "List of pulldown files should contain at least one file.");
         pulldownFiles.stream().forEach(Utils::regularReadableUserFile);
-        this.ctx = ctx;
         this.pulldownFiles = new ArrayList<>(pulldownFiles);
     }
 

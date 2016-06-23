@@ -1,23 +1,18 @@
-package org.broadinstitute.hellbender.tools.exome.allelefraction.pon;
+package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
-import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
-import org.apache.commons.math3.optim.univariate.SearchInterval;
-import org.apache.commons.math3.optim.univariate.UnivariateObjectiveFunction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionInitializer;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionLikelihoods;
+import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Represents the panel of normals used for allele-bias correction.  See docs/CNVs/CNV-methods.pdf.
@@ -46,7 +41,7 @@ public final class AllelicPanelOfNormals {
      * @param counts    total alt and ref counts observed across all normals at each site
      */
     public AllelicPanelOfNormals(final AllelicCountCollection counts) {
-        mleHyperparameterValues = calculateMLEHyperparameterValues(counts);
+        mleHyperparameterValues = AlleleFractionInitializer.calculateMLEHyperparameterValues(counts);   //use AlleleFractionInitializer to fit MLE global hyperparameter values
         mleMeanBias = meanBias(mleHyperparameterValues.alpha, mleHyperparameterValues.beta);
         mleBiasVariance = biasVariance(mleHyperparameterValues.alpha, mleHyperparameterValues.beta);
         initializeSiteToHyperparameterPairMap(counts);
@@ -101,9 +96,9 @@ public final class AllelicPanelOfNormals {
      * @param outputFile    file to write to (if it exists, it will be overwritten)
      */
     public void write(final File outputFile) {
-        final List<Map.Entry> sortedSiteToHyperparameterPairMap = makeSortedMap(siteToHyperparameterPairMap);
+        final List<Map.Entry<SimpleInterval, HyperparameterValues>> sortedMapEntries = collectSortedMapEntries(siteToHyperparameterPairMap);
         try (final AllelicPanelOfNormalsWriter writer = new AllelicPanelOfNormalsWriter(outputFile)) {
-            writer.writeAllRecords(sortedSiteToHyperparameterPairMap);
+            writer.writeAllRecords(sortedMapEntries);
         } catch (final IOException e) {
             throw new UserException.CouldNotCreateOutputFile(outputFile, e);
         }
@@ -118,80 +113,47 @@ public final class AllelicPanelOfNormals {
         return mleBiasVariance;
     }
 
-    private class HyperparameterValues {
+    static class HyperparameterValues {
         private final double alpha;
         private final double beta;
 
-        private HyperparameterValues(final double alpha, final double beta) {
+        HyperparameterValues(final double alpha, final double beta) {
             this.alpha = alpha;
             this.beta = beta;
         }
 
         /**
          * Initializes the hyperparameter values at a site given the observed counts in all normals.
+         * @param alpha global hyperparameter MLE value for alpha
+         * @param beta  global hyperparameter MLE value for beta
          * @param a     total alt counts observed across all normals at site
          * @param r     total ref counts observed across all normals at site
          */
-        private HyperparameterValues(final int a, final int r) {
+        private HyperparameterValues(final double alpha, final double beta, final int a, final int r) {
             final double f = 0.5;
             final int n = a + r;
-            final double alpha = mleHyperparameterValues.alpha;
-            final double beta = mleHyperparameterValues.beta;
             final double lambda0 = AlleleFractionLikelihoods.biasPosteriorMode(alpha, beta, f, a, r);
             final double kappa = AlleleFractionLikelihoods.biasPosteriorCurvature(alpha, f, r, n, lambda0);
             this.alpha = AlleleFractionLikelihoods.biasPosteriorEffectiveAlpha(lambda0, kappa);
             this.beta = AlleleFractionLikelihoods.biasPosteriorEffectiveBeta(lambda0, kappa);
         }
-    }
 
-    /**
-     * Find MLE hyperparameter values from counts in panel of normals.  See analogous code in {@link AlleleFractionInitializer}.
-     */
-    private HyperparameterValues calculateMLEHyperparameterValues(final AllelicCountCollection counts) {
-        double meanBias = AlleleFractionInitializer.INITIAL_MEAN_BIAS;
-        double biasVariance = AlleleFractionInitializer.INITIAL_BIAS_VARIANCE;
-        double previousIterationLogLikelihood;
-        double nextIterationLogLikelihood = Double.NEGATIVE_INFINITY;
-        logger.info(String.format("Initializing MLE hyperparameter values for allelic panel of normals.  Iterating until log likelihood converges to within %.3f.",
-                AlleleFractionInitializer.LOG_LIKELIHOOD_CONVERGENCE_THRESHOLD));
-        int iteration = 1;
-        do {
-            previousIterationLogLikelihood = nextIterationLogLikelihood;
-            meanBias = estimateMeanBias(meanBias, biasVariance, counts);
-            biasVariance = estimateBiasVariance(meanBias, biasVariance, counts);
-            nextIterationLogLikelihood = AlleleFractionLikelihoods.logLikelihoodForAllelicPanelOfNormals(meanBias, biasVariance, counts);
-            logger.info(String.format("Iteration %d, model log likelihood = %.3f.", iteration, nextIterationLogLikelihood));
-            iteration++;
-        } while (iteration < AlleleFractionInitializer.MAX_ITERATIONS &&
-                nextIterationLogLikelihood - previousIterationLogLikelihood > AlleleFractionInitializer.LOG_LIKELIHOOD_CONVERGENCE_THRESHOLD);
+        double getAlpha() {
+            return alpha;
+        }
 
-        final double alpha = alpha(meanBias, biasVariance);
-        final double beta = beta(meanBias, biasVariance);
-        logger.info("MLE hyperparameter values for allelic panel of normals found:");
-        logger.info("alpha = " + alpha);
-        logger.info("beta = " + beta);
-        return new HyperparameterValues(alpha, beta);
-    }
-
-    private static double estimateMeanBias(final double meanBias, final double biasVariance, final AllelicCountCollection counts) {
-        final UnivariateObjectiveFunction objective = new UnivariateObjectiveFunction(proposedMeanBias ->
-                AlleleFractionLikelihoods.logLikelihoodForAllelicPanelOfNormals(proposedMeanBias, biasVariance, counts));
-        final SearchInterval searchInterval = new SearchInterval(0.0, AlleleFractionInitializer.MAX_REASONABLE_MEAN_BIAS, meanBias);
-        return AlleleFractionInitializer.OPTIMIZER.optimize(objective, GoalType.MAXIMIZE, searchInterval, AlleleFractionInitializer.BRENT_MAX_EVAL).getPoint();
-    }
-
-    private static double estimateBiasVariance(final double meanBias, final double biasVariance, final AllelicCountCollection counts) {
-        final UnivariateObjectiveFunction objective = new UnivariateObjectiveFunction(proposedBiasVariance ->
-                AlleleFractionLikelihoods.logLikelihoodForAllelicPanelOfNormals(meanBias, proposedBiasVariance, counts));
-        final SearchInterval searchInterval = new SearchInterval(0.0, AlleleFractionInitializer.MAX_REASONABLE_BIAS_VARIANCE, biasVariance);
-        return AlleleFractionInitializer.OPTIMIZER.optimize(objective, GoalType.MAXIMIZE, searchInterval, AlleleFractionInitializer.BRENT_MAX_EVAL).getPoint();
+        double getBeta() {
+            return beta;
+        }
     }
 
     private void initializeSiteToHyperparameterPairMap(final AllelicCountCollection counts) {
         logger.info("Initializing allelic panel of normals...");
         for (final AllelicCount count : counts.getCounts()) {
             final SimpleInterval site = count.getInterval();
-            final HyperparameterValues hyperparameterValues = new HyperparameterValues(count.getAltReadCount(), count.getRefReadCount());
+            final HyperparameterValues hyperparameterValues = new HyperparameterValues(
+                    mleHyperparameterValues.alpha, mleHyperparameterValues.beta,
+                    count.getAltReadCount(), count.getRefReadCount());
             if (siteToHyperparameterPairMap.containsKey(site)) {
                 throw new UserException.BadInput("Input AllelicCountCollection for allelic panel of normals contains duplicate sites.");
             } else {
@@ -207,19 +169,18 @@ public final class AllelicPanelOfNormals {
         }
     }
 
-    private double alpha(final double meanBias, final double biasVariance) {
-        return meanBias * meanBias / biasVariance;
-    }
-
-    private static double beta(final double meanBias, final double biasVariance) {
-        return meanBias / biasVariance;
-    }
-
     private static double meanBias(final double alpha, final double beta) {
         return alpha / beta;
     }
 
     private static double biasVariance(final double alpha, final double beta) {
         return alpha / (beta * beta);
+    }
+
+    //returns a list of the sites in siteToHyperarameterPairMap that are sorted by SimpleInterval (contigs are sorted by lexicographical order)
+    private static List<Map.Entry<SimpleInterval, HyperparameterValues>> collectSortedMapEntries(final Map<SimpleInterval, HyperparameterValues> siteToHyperparameterPairMap) {
+        final List<SimpleInterval> sortedMapKeys = new ArrayList<>(siteToHyperparameterPairMap.keySet());
+        Collections.sort(sortedMapKeys, IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR);
+        return sortedMapKeys.stream().map(si -> new AbstractMap.SimpleEntry<>(si, siteToHyperparameterPairMap.get(si))).collect(Collectors.toList());
     }
 }

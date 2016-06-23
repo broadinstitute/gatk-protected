@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.tools.exome.SegmentedGenome;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.pon.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
 import java.util.*;
