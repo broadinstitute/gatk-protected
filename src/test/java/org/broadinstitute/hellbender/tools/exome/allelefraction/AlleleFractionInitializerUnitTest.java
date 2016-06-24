@@ -35,4 +35,8 @@ public final class AlleleFractionInitializerUnitTest {
         Assert.assertEquals(error.biasVarianceError, 0, biasVarianceTolerance);
         Assert.assertEquals(error.outlierProbabilityError, 0, outlierProbabilityTolerance);
     }
+
+    @Test
+    public void testMAFPoNNormalize() {
+    }
 }
