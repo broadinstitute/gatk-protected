@@ -54,19 +54,9 @@ public final class AllelicPanelOfNormals {
 
         try (final AllelicPanelOfNormalsReader reader = new AllelicPanelOfNormalsReader(inputFile)) {
             //parse comment lines for global hyperparameter values
-            final List<String> commentLines = FileUtils.readLines(inputFile).stream().filter(l -> l.contains(TableUtils.COMMENT_PREFIX)).collect(Collectors.toList());
-            final List<String> mleGlobalAlphaCommentLines = commentLines.stream().filter(l -> l.contains(MLE_GLOBAL_ALPHA_COMMENT_STRING)).collect(Collectors.toList());
-            final List<String> mleGlobalBetaCommentLines = commentLines.stream().filter(l -> l.contains(MLE_GLOBAL_BETA_COMMENT_STRING)).collect(Collectors.toList());
-            if (mleGlobalAlphaCommentLines.size() != 1 || mleGlobalBetaCommentLines.size() != 1) {
-                throw new UserException.BadInput("MLE global hyperparameter values for allelic panel of normals were not specified correctly in comment lines of file " + inputFile.getAbsolutePath() + ".");
-            }
-            final double mleGlobalAlpha = Double.valueOf(mleGlobalAlphaCommentLines.get(0).replace(MLE_GLOBAL_ALPHA_COMMENT_STRING, ""));
-            final double mleGlobalBeta = Double.valueOf(mleGlobalBetaCommentLines.get(0).replace(MLE_GLOBAL_BETA_COMMENT_STRING, ""));
-            ParamUtils.isPositive(mleGlobalAlpha, "MLE global hyperparameter alpha must be positive.");
-            ParamUtils.isPositive(mleGlobalBeta, "MLE global hyperparameter alpha must be positive.");
-            mleHyperparameterValues = new HyperparameterValues(mleGlobalAlpha, mleGlobalBeta);
-            mleMeanBias = meanBias(mleGlobalAlpha, mleGlobalBeta);
-            mleBiasVariance = biasVariance(mleGlobalAlpha, mleGlobalBeta);
+            mleHyperparameterValues = parseGlobalHyperparameterValues(inputFile);
+            mleMeanBias = meanBias(mleHyperparameterValues.alpha, mleHyperparameterValues.beta);
+            mleBiasVariance = biasVariance(mleHyperparameterValues.alpha, mleHyperparameterValues.beta);
             //parse data lines for local hyperparameter values
             reader.stream().forEach(s -> siteToHyperparameterPairMap.put(s.getKey(), s.getValue()));
         } catch (final IOException | UncheckedIOException e) {
@@ -176,6 +166,26 @@ public final class AllelicPanelOfNormals {
 
         double getBeta() {
             return beta;
+        }
+    }
+
+    private HyperparameterValues parseGlobalHyperparameterValues(final File inputFile) {
+        try {
+            final List<String> commentLines = FileUtils.readLines(inputFile).stream().filter(l -> l.contains(TableUtils.COMMENT_PREFIX)).collect(Collectors.toList());
+            final List<String> mleGlobalAlphaCommentLines = commentLines.stream().filter(l -> l.contains(MLE_GLOBAL_ALPHA_COMMENT_STRING)).collect(Collectors.toList());
+            final List<String> mleGlobalBetaCommentLines = commentLines.stream().filter(l -> l.contains(MLE_GLOBAL_BETA_COMMENT_STRING)).collect(Collectors.toList());
+            if (mleGlobalAlphaCommentLines.size() != 1 || mleGlobalBetaCommentLines.size() != 1) {
+                throw new UserException.BadInput("MLE global hyperparameter values for allelic panel of normals were not specified correctly in comment lines of file " + inputFile.getAbsolutePath() + ".");
+            }
+            final double mleGlobalAlpha = Double.valueOf(mleGlobalAlphaCommentLines.get(0).replace(TableUtils.COMMENT_PREFIX + MLE_GLOBAL_ALPHA_COMMENT_STRING, ""));
+            final double mleGlobalBeta = Double.valueOf(mleGlobalBetaCommentLines.get(0).replace(TableUtils.COMMENT_PREFIX + MLE_GLOBAL_BETA_COMMENT_STRING, ""));
+            ParamUtils.isPositive(mleGlobalAlpha, "MLE global hyperparameter alpha must be positive.");
+            ParamUtils.isPositive(mleGlobalBeta, "MLE global hyperparameter alpha must be positive.");
+            return new HyperparameterValues(mleGlobalAlpha, mleGlobalBeta);
+        } catch (final IOException | UncheckedIOException e) {
+            throw new UserException.CouldNotReadInputFile(inputFile, e);
+        } catch (final NumberFormatException e) {
+            throw new UserException.BadInput("MLE global hyperparameter values for allelic panel of normals were not specified correctly in comment lines of file " + inputFile.getAbsolutePath() + ".");
         }
     }
 
