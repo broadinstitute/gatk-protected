@@ -33,4 +33,9 @@ public final class AllelicPanelOfNormalsCreatorUnitTest extends BaseTest {
         final AllelicPanelOfNormals allelicPoN = allelicPoNCreator.create(siteFrequency);
         allelicPoN.write(new File(TEST_DIR, "test.pon"));
     }
+
+    @Test
+    public void testMAFPoNNormalize() {
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(new File(TEST_DIR, "test.pon"));
+    }
 }
