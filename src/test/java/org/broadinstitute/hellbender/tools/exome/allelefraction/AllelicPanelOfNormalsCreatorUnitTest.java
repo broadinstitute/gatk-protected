@@ -19,10 +19,11 @@ import java.util.List;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class AllelicPanelOfNormalsCreatorUnitTest extends BaseTest {
-//    private static final String TEST_DIR = "/home/slee/working/ipython/alleliccapseg/allelic-pon/wgs-pon-liberal-MQ60-BEAGLEmaf10/pulldown";
-    private static final String TEST_DIR = "/home/slee/working/ipython/alleliccapseg/allelic-pon/thca-pon-liberal-MQ60-BEAGLEmaf10/pulldown";
+    private static final String TEST_DIR = "/home/slee/working/ipython/alleliccapseg/allelic-pon/wgs-pon-liberal-MQ60-BEAGLEmaf10/pulldown";
+//    private static final String TEST_DIR = "/home/slee/working/ipython/alleliccapseg/allelic-pon/thca-pon-liberal-MQ60-BEAGLEmaf10/pulldown";
     private static final FileFilter tsvFileFilter = new WildcardFileFilter("*tsv");
-    private static final List<File> PULLDOWN_FILES = Arrays.asList(new File(TEST_DIR).listFiles(tsvFileFilter));
+    private static final List<File> PULLDOWN_FILES = Arrays.asList(new File(TEST_DIR).listFiles(tsvFileFilter)).subList(0, 100);
+//    private static final List<File> PULLDOWN_FILES = Arrays.asList(new File(TEST_DIR).listFiles(tsvFileFilter));
 
     @Test
     public void testCreate() {

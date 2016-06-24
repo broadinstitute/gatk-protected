@@ -29,6 +29,9 @@ public final class AllelicPanelOfNormals {
     private final double mleMeanBias;
     private final double mleBiasVariance;
 
+    private static final String MLE_GLOBAL_ALPHA_COMMENT_NAME = "MLE_GLOBAL_ALPHA";
+    private static final String MLE_GLOBAL_BETA_COMMENT_NAME = "MLE_GLOBAL_BETA";
+
     private AllelicPanelOfNormals() {
         mleHyperparameterValues = new HyperparameterValues(Double.NaN, Double.NaN);
         mleMeanBias = Double.NaN;
@@ -98,6 +101,8 @@ public final class AllelicPanelOfNormals {
     public void write(final File outputFile) {
         final List<Map.Entry<SimpleInterval, HyperparameterValues>> sortedMapEntries = collectSortedMapEntries(siteToHyperparameterPairMap);
         try (final AllelicPanelOfNormalsWriter writer = new AllelicPanelOfNormalsWriter(outputFile)) {
+            writer.writeComment(MLE_GLOBAL_ALPHA_COMMENT_NAME + "=" + AllelicPanelOfNormalsWriter.formatDouble(mleHyperparameterValues.alpha));
+            writer.writeComment(MLE_GLOBAL_BETA_COMMENT_NAME + "=" + AllelicPanelOfNormalsWriter.formatDouble(mleHyperparameterValues.beta));
             writer.writeAllRecords(sortedMapEntries);
         } catch (final IOException e) {
             throw new UserException.CouldNotCreateOutputFile(outputFile, e);
