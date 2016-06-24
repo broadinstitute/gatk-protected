@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
 import htsjdk.samtools.util.Log;
+import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
@@ -18,8 +19,8 @@ public class AllelicPanelOfNormalsUnitTest extends BaseTest {
 
     private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/hellbender/tools/exome/";
 
-    // test data is a PON generated from 50 normals simulated from the allele-fraction model with alpha = 65 and beta = 60
-    private static final File ALLELIC_PON_NORMAL_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-normal.tsv");
+    // test data is a PON with counts generated from 50 normals simulated from the allele-fraction model with alpha = 65 and beta = 60
+    private static final File ALLELIC_PON_NORMAL_COUNTS_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-counts-normal.tsv");
 
     private static final double MLE_ALPHA_EXPECTED = 65;
     private static final double MLE_BETA_EXPECTED = 60;
@@ -32,7 +33,7 @@ public class AllelicPanelOfNormalsUnitTest extends BaseTest {
     @Test
     public void testPoNHyperparameterInitialization() {
         LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
-        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(new AllelicCountCollection(ALLELIC_PON_NORMAL_COUNTS_FILE));
 
         final SimpleInterval firstSite = new SimpleInterval("1", 1, 1);  //all sites in PON are from chr1
         final SimpleInterval siteNotInPON = new SimpleInterval("2", 1, 1);  //all sites in PON are from chr1

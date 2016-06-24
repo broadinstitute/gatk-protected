@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.exome.allelefraction;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
@@ -8,9 +9,12 @@ import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollec
 import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
+import org.broadinstitute.hellbender.utils.param.ParamUtils;
+import org.broadinstitute.hellbender.utils.tsv.TableUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,18 +28,50 @@ public final class AllelicPanelOfNormals {
 
     public static final AllelicPanelOfNormals EMPTY_PON = new AllelicPanelOfNormals();
 
+    //local (per site) hyperparameter values
     private final Map<SimpleInterval, HyperparameterValues> siteToHyperparameterPairMap = new HashMap<>();
+
+    //global hyperparameter values
     private final HyperparameterValues mleHyperparameterValues;
     private final double mleMeanBias;
     private final double mleBiasVariance;
 
-    private static final String MLE_GLOBAL_ALPHA_COMMENT_NAME = "MLE_GLOBAL_ALPHA";
-    private static final String MLE_GLOBAL_BETA_COMMENT_NAME = "MLE_GLOBAL_BETA";
+    private static final String MLE_GLOBAL_ALPHA_COMMENT_STRING = "MLE_GLOBAL_ALPHA=";
+    private static final String MLE_GLOBAL_BETA_COMMENT_STRING = "MLE_GLOBAL_BETA=";
 
     private AllelicPanelOfNormals() {
         mleHyperparameterValues = new HyperparameterValues(Double.NaN, Double.NaN);
         mleMeanBias = Double.NaN;
         mleBiasVariance = Double.NaN;
+    }
+
+    /**
+     * Constructs an allelic panel of normals from a tab-separated file.
+     * @param inputFile    contains lines specifying hyperparameters at each site, as well as global hyperparameters in comment lines
+     */
+    public AllelicPanelOfNormals(final File inputFile) {
+        Utils.regularReadableUserFile(inputFile);
+
+        try (final AllelicPanelOfNormalsReader reader = new AllelicPanelOfNormalsReader(inputFile)) {
+            //parse comment lines for global hyperparameter values
+            final List<String> commentLines = FileUtils.readLines(inputFile).stream().filter(l -> l.contains(TableUtils.COMMENT_PREFIX)).collect(Collectors.toList());
+            final List<String> mleGlobalAlphaCommentLines = commentLines.stream().filter(l -> l.contains(MLE_GLOBAL_ALPHA_COMMENT_STRING)).collect(Collectors.toList());
+            final List<String> mleGlobalBetaCommentLines = commentLines.stream().filter(l -> l.contains(MLE_GLOBAL_BETA_COMMENT_STRING)).collect(Collectors.toList());
+            if (mleGlobalAlphaCommentLines.size() != 1 || mleGlobalBetaCommentLines.size() != 1) {
+                throw new UserException.BadInput("MLE global hyperparameter values for allelic panel of normals were not specified correctly in comment lines of file " + inputFile.getAbsolutePath() + ".");
+            }
+            final double mleGlobalAlpha = Double.valueOf(mleGlobalAlphaCommentLines.get(0).replace(MLE_GLOBAL_ALPHA_COMMENT_STRING, ""));
+            final double mleGlobalBeta = Double.valueOf(mleGlobalBetaCommentLines.get(0).replace(MLE_GLOBAL_BETA_COMMENT_STRING, ""));
+            ParamUtils.isPositive(mleGlobalAlpha, "MLE global hyperparameter alpha must be positive.");
+            ParamUtils.isPositive(mleGlobalBeta, "MLE global hyperparameter alpha must be positive.");
+            mleHyperparameterValues = new HyperparameterValues(mleGlobalAlpha, mleGlobalBeta);
+            mleMeanBias = meanBias(mleGlobalAlpha, mleGlobalBeta);
+            mleBiasVariance = biasVariance(mleGlobalAlpha, mleGlobalBeta);
+            //parse data lines for local hyperparameter values
+            reader.stream().forEach(s -> siteToHyperparameterPairMap.put(s.getKey(), s.getValue()));
+        } catch (final IOException | UncheckedIOException e) {
+            throw new UserException.CouldNotReadInputFile(inputFile, e);
+        }
     }
 
     /**
@@ -48,15 +84,6 @@ public final class AllelicPanelOfNormals {
         mleMeanBias = meanBias(mleHyperparameterValues.alpha, mleHyperparameterValues.beta);
         mleBiasVariance = biasVariance(mleHyperparameterValues.alpha, mleHyperparameterValues.beta);
         initializeSiteToHyperparameterPairMap(counts);
-    }
-
-    /**
-     * Constructs an allelic panel of normals from a file that contains
-     * total alt and ref counts observed across all normals at each site.
-     * @param inputFile    contains total alt and ref counts observed across all normals at each site
-     */
-    public AllelicPanelOfNormals(final File inputFile) {
-        this(new AllelicCountCollection(Utils.regularReadableUserFile(inputFile)));
     }
 
     /**
@@ -101,8 +128,8 @@ public final class AllelicPanelOfNormals {
     public void write(final File outputFile) {
         final List<Map.Entry<SimpleInterval, HyperparameterValues>> sortedMapEntries = collectSortedMapEntries(siteToHyperparameterPairMap);
         try (final AllelicPanelOfNormalsWriter writer = new AllelicPanelOfNormalsWriter(outputFile)) {
-            writer.writeComment(MLE_GLOBAL_ALPHA_COMMENT_NAME + "=" + AllelicPanelOfNormalsWriter.formatDouble(mleHyperparameterValues.alpha));
-            writer.writeComment(MLE_GLOBAL_BETA_COMMENT_NAME + "=" + AllelicPanelOfNormalsWriter.formatDouble(mleHyperparameterValues.beta));
+            writer.writeComment(MLE_GLOBAL_ALPHA_COMMENT_STRING + AllelicPanelOfNormalsWriter.formatDouble(mleHyperparameterValues.alpha));
+            writer.writeComment(MLE_GLOBAL_BETA_COMMENT_STRING + AllelicPanelOfNormalsWriter.formatDouble(mleHyperparameterValues.beta));
             writer.writeAllRecords(sortedMapEntries);
         } catch (final IOException e) {
             throw new UserException.CouldNotCreateOutputFile(outputFile, e);

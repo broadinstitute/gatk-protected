@@ -30,10 +30,10 @@ import java.util.stream.Collectors;
 public final class AlleleFractionModellerUnitTest extends BaseTest {
     private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/hellbender/tools/exome/";
 
-    // test data is a "normal" PON generated from 50 normals simulated from the allele-fraction model with alpha = 65 and beta = 60
+    // test data is a "normal" PON with counts generated from 50 normals simulated from the allele-fraction model with alpha = 65 and beta = 60
     // and a PON with "bad SNPs" described below
-    private static final File ALLELIC_PON_NORMAL_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-normal.tsv");
-    private static final File ALLELIC_PON_WITH_BAD_SNPS_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-bad.tsv");
+    private static final File ALLELIC_PON_NORMAL_COUNTS_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-counts-normal.tsv");
+    private static final File ALLELIC_PON_WITH_BAD_SNPS_COUNTS_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-counts-bad.tsv");
 
     private static final File SAMPLE_NORMAL_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-sample-normal.tsv");
     private static final File SAMPLE_WITH_BAD_SNPS_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-sample-bad.tsv");
@@ -69,7 +69,7 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final double biasVarianceSimulated = 0.04;
         final double meanBiasOfPON = 1.083;         // PON generated with alpha = 65
         final double biasVarianceOfPON = 0.0181;    // PON generated with beta = 60
-        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
+        final AllelicPanelOfNormals allelicPoN = new AllelicPanelOfNormals(new AllelicCountCollection(ALLELIC_PON_NORMAL_COUNTS_FILE));
         testMCMC(meanBiasSimulated, biasVarianceSimulated, meanBiasOfPON, biasVarianceOfPON, allelicPoN);
     }
 
@@ -167,8 +167,8 @@ public final class AlleleFractionModellerUnitTest extends BaseTest {
         final AllelicCountCollection sampleWithBadSNPs = new AllelicCountCollection(SAMPLE_WITH_BAD_SNPS_FILE);
         final AllelicCountCollection sampleWithEvent = new AllelicCountCollection(SAMPLE_WITH_EVENT_FILE);
 
-        final AllelicPanelOfNormals allelicPoNNormal = new AllelicPanelOfNormals(ALLELIC_PON_NORMAL_FILE);
-        final AllelicPanelOfNormals allelicPoNWithBadSNPs = new AllelicPanelOfNormals(ALLELIC_PON_WITH_BAD_SNPS_FILE);
+        final AllelicPanelOfNormals allelicPoNNormal = new AllelicPanelOfNormals(new AllelicCountCollection(ALLELIC_PON_NORMAL_COUNTS_FILE));
+        final AllelicPanelOfNormals allelicPoNWithBadSNPs = new AllelicPanelOfNormals(new AllelicCountCollection(ALLELIC_PON_WITH_BAD_SNPS_COUNTS_FILE));
 
         final double minorFractionExpectedInMiddleSegmentNormal = 0.5;
         final double minorFractionExpectedInMiddleSegmentWithBadSNPsAndNormalPON = 0.4;
