@@ -41,7 +41,7 @@ public final class CopyNumberTriStateAllele extends Allele {
      * All allele list typed as a {@code List<Allele>} as required by some elements in the VCF framework.
      */
     public static final List<Allele> PLAIN_ALL_ALLELES =
-            Collections.unmodifiableList(ALL_ALLELES.stream().map(a -> (Allele) a).collect(Collectors.toList()));
+            ALL_ALLELES.stream().map(a -> (Allele) a).collect(Collectors.toList());
 
     /**
      * List of all alleles as they should be included in VCF output files.
