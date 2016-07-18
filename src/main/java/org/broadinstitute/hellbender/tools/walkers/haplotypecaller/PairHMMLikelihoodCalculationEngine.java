@@ -26,31 +26,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/*
+/**
  * Classic likelihood computation: full pair-hmm all haplotypes vs all reads.
  */
 public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodCalculationEngine {
 
-    private static final Logger logger = LogManager.getLogger(PairHMMLikelihoodCalculationEngine.class);
-
-    private static final int MAX_STR_UNIT_LENGTH = 8;
-    private static final int MAX_REPEAT_LENGTH   = 20;
-    private static final int MIN_ADJUSTED_QSCORE = 10;
-
-    @VisibleForTesting
-    static final double INITIAL_QSCORE = 40.0;
-
-    private final byte constantGCP;
-
-    private final double log10globalReadMismappingRate;
-
+    // -----------------------------------------------------------------------------------------------
+    // Helper structs fields block
+    // -----------------------------------------------------------------------------------------------
     private final PairHMM pairHMM;
-
-    @VisibleForTesting
-    static boolean writeLikelihoodsToFile = false;
-
-    public static final String LIKELIHOODS_FILENAME = "likelihoods.txt";
-    private final PrintStream likelihoodsStream;
 
     public enum PCRErrorModel {
         /** no specialized PCR error model will be applied; if base insertion/deletion qualities are present they will be used */
@@ -73,8 +57,22 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
     }
 
     private final PCRErrorModel pcrErrorModel;
-    
+    // -----------------------------------------------------------------------------------------------
+    // Settable fields block
+    // -----------------------------------------------------------------------------------------------
+    private final byte constantGCP;
     private final byte baseQualityScoreThreshold;
+    private final double log10globalReadMismappingRate;
+    private final PrintStream likelihoodsStream;
+
+    // -----------------------------------------------------------------------------------------------
+    // Secret sauce block
+    // -----------------------------------------------------------------------------------------------
+    private static final Logger logger = LogManager.getLogger(PairHMMLikelihoodCalculationEngine.class);
+
+    private static final int MAX_STR_UNIT_LENGTH = 8;
+    private static final int MAX_REPEAT_LENGTH   = 20;
+    private static final int MIN_ADJUSTED_QSCORE = 10;
 
     /**
      * The expected rate of random sequencing errors for a read originating from its true haplotype.
@@ -82,45 +80,33 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
      * For example, if this is 0.01, then we'd expect 1 error per 100 bp.
      */
     private static final double EXPECTED_ERROR_RATE_PER_BASE = 0.02;
-    
-    /**
-     * Create a new PairHMMLikelihoodCalculationEngine using provided parameters and hmm to do its calculations
-     *
-     * @param constantGCP the gap continuation penalty to use with the PairHMM
-     * @param hmmType the type of the HMM to use
-     * @param log10globalReadMismappingRate the global mismapping probability, in log10(prob) units.  A value of
-     *                                      -3 means that the chance that a read doesn't actually belong at this
-     *                                      location in the genome is 1 in 1000.  The effect of this parameter is
-     *                                      to cap the maximum likelihood difference between the reference haplotype
-     *                                      and the best alternative haplotype by -3 log units.  So if the best
-     *                                      haplotype is at -10 and this parameter has a value of -3 then even if the
-     *                                      reference haplotype gets a score of -100 from the pairhmm it will be
-     *                                      assigned a likelihood of -13.
-     * @param pcrErrorModel model to correct for PCR indel artifacts
-     */
-    public PairHMMLikelihoodCalculationEngine(final byte constantGCP,
-                                              final PairHMM.Implementation hmmType,
-                                              final double log10globalReadMismappingRate,
-                                              final PCRErrorModel pcrErrorModel) {
-        this( constantGCP, hmmType, log10globalReadMismappingRate, pcrErrorModel, PairHMM.BASE_QUALITY_SCORE_THRESHOLD );
-    }
+
+    @VisibleForTesting
+    static final double INITIAL_QSCORE = 40.0;
+
+    @VisibleForTesting
+    static boolean writeLikelihoodsToFile = false;
+    public static final String LIKELIHOODS_FILENAME = "likelihoods.txt";
+
+    // -----------------------------------------------------------------------------------------------
+    // Initializations and cleanup
+    // -----------------------------------------------------------------------------------------------
 
     /**
      * Create a new PairHMMLikelihoodCalculationEngine using provided parameters and hmm to do its calculations
      *
-     * @param constantGCP the gap continuation penalty to use with the PairHMM
-     * @param hmmType the type of the HMM to use
+     * @param constantGCP                   the gap continuation penalty to use with the PairHMM
+     * @param hmmType                       the type of the HMM to use
      * @param log10globalReadMismappingRate the global mismapping probability, in log10(prob) units.  A value of
      *                                      -3 means that the chance that a read doesn't actually belong at this
      *                                      location in the genome is 1 in 1000.  The effect of this parameter is
      *                                      to cap the maximum likelihood difference between the reference haplotype
      *                                      and the best alternative haplotype by -3 log units.  So if the best
      *                                      haplotype is at -10 and this parameter has a value of -3 then even if the
-     *                                      reference haplotype gets a score of -100 from the pairhmm it will be
+     *                                      reference haplotype gets a score of -100 from the PairHMM it will be
      *                                      assigned a likelihood of -13.
-     * @param pcrErrorModel model to correct for PCR indel artifacts
-     * @param baseQualityScoreThreshold Base qualities below this threshold will be reduced to the minimum usable base
-     *                                  quality.
+     * @param pcrErrorModel                 model to correct for PCR indel artifacts
+     * @param baseQualityScoreThreshold     Base qualities below this threshold will be reduced to the minimum usable base quality.
      */
     public PairHMMLikelihoodCalculationEngine(final byte constantGCP,
                                               final PairHMM.Implementation hmmType,
@@ -150,12 +136,15 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         this.baseQualityScoreThreshold = baseQualityScoreThreshold;
     }
 
-    private PrintStream makeLikelihoodStream() {
-        try {
-            return writeLikelihoodsToFile ? new PrintStream(new FileOutputStream(new File(LIKELIHOODS_FILENAME))) : null;
-        } catch ( final FileNotFoundException e ) {
-            throw new GATKException("can't open a file to write likelihoods to", e);
-        }
+    /**
+     * @see {@link #PairHMMLikelihoodCalculationEngine(byte, PairHMM.Implementation, double, PCRErrorModel, byte)}
+     * The {@code baseQualityScoreThreshold} is set as {@code PairHMM.BASE_QUALITY_SCORE_THRESHOLD}.
+     */
+    public PairHMMLikelihoodCalculationEngine(final byte constantGCP,
+                                              final PairHMM.Implementation hmmType,
+                                              final double log10globalReadMismappingRate,
+                                              final PCRErrorModel pcrErrorModel) {
+        this( constantGCP, hmmType, log10globalReadMismappingRate, pcrErrorModel, PairHMM.BASE_QUALITY_SCORE_THRESHOLD );
     }
 
     @Override
@@ -166,10 +155,25 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         pairHMM.close();
     }
 
+    // -----------------------------------------------------------------------------------------------
+    // CORE
+    // -----------------------------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     * @param assemblyResultSet     {@inheritDoc}
+     * @param samples               {@inheritDoc}
+     * @param perSampleReadList     {@inheritDoc}
+     *
+     * @throws                      {@inheritDoc}
+     * @return                      {@inheritDoc}
+     */
     @Override
-    public ReadLikelihoods<Haplotype> computeReadLikelihoods( final AssemblyResultSet assemblyResultSet, final SampleList samples, final Map<String, List<GATKRead>> perSampleReadList ) {
+    public ReadLikelihoods<Haplotype> computeReadLikelihoods(final AssemblyResultSet assemblyResultSet,
+                                                             final SampleList samples,
+                                                             final Map<String, List<GATKRead>> perSampleReadList) {
         Utils.nonNull(assemblyResultSet, "assemblyResultSet is null");
-        Utils.nonNull(samples, "samples is null");
+        Utils.nonNull(samples,           "samples is null");
         Utils.nonNull(perSampleReadList, "perSampleReadList is null");
 
         final List<Haplotype> haplotypeList = assemblyResultSet.getHaplotypeList();
@@ -187,63 +191,6 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         result.normalizeLikelihoods(false, log10globalReadMismappingRate);
         result.filterPoorlyModeledReads(EXPECTED_ERROR_RATE_PER_BASE);
         return result;
-    }
-
-    /**
-     * Creates a new GATKRead with the source read's header, read group and mate
-     * information, but with the following fields set to user-supplied values:
-     *  - Read Bases
-     *  - Base Qualities
-     *  - Base Insertion Qualities
-     *  - Base Deletion Qualities
-     *
-     *  Cigar string is empty (not-null)
-     *
-     * Use this method if you want to create a new GATKRead based on
-     * another GATKRead, but with modified bases and qualities
-     *
-     * @param read a read to copy the header from
-     * @param readBases an array containing the new bases you wish use in place of the originals
-     * @param baseQualities an array containing the new base qualities you wish use in place of the originals
-     * @param baseInsertionQualities an array containing the new base insertion qaulities
-     * @param baseDeletionQualities an array containing the new base deletion qualities
-     * @return a read with modified bases and qualities, safe for the GATK
-     */
-    private static GATKRead createQualityModifiedRead(final GATKRead read,
-                                                      final byte[] readBases,
-                                                      final byte[] baseQualities,
-                                                      final byte[] baseInsertionQualities,
-                                                      final byte[] baseDeletionQualities) {
-        if ( baseQualities.length != readBases.length || baseInsertionQualities.length != readBases.length || baseDeletionQualities.length != readBases.length ) {
-            throw new IllegalArgumentException("Read bases and read quality arrays aren't the same size: Bases:" + readBases.length
-                    + " vs Base Q's:" + baseQualities.length
-                    + " vs Insert Q's:" + baseInsertionQualities.length
-                    + " vs Delete Q's:" + baseDeletionQualities.length);
-        }
-
-        final GATKRead processedRead = ReadUtils.emptyRead(read);
-        processedRead.setBases(readBases);
-        processedRead.setBaseQualities(baseQualities);
-        ReadUtils.setInsertionBaseQualities(processedRead, baseInsertionQualities);
-        ReadUtils.setDeletionBaseQualities(processedRead, baseDeletionQualities);
-        return processedRead;
-    }
-
-    /**
-     * Initialize our pairHMM with parameters appropriate to the haplotypes and reads we're going to evaluate
-     *
-     * After calling this routine the PairHMM will be configured to best evaluate all reads in the samples
-     * against the set of haplotypes
-     *
-     * @param haplotypes a non-null list of haplotypes
-     * @param perSampleReadList a mapping from sample -> reads
-     */
-    private void initializePairHMM(final List<Haplotype> haplotypes, final Map<String, List<GATKRead>> perSampleReadList) {
-        final int readMaxLength = perSampleReadList.entrySet().stream().flatMap(e -> e.getValue().stream()).mapToInt(read -> read.getLength()).max().orElse(0);
-        final int haplotypeMaxLength = haplotypes.stream().mapToInt(h -> h.getBases().length).max().orElse(0);
-
-        // initialize arrays to hold the probabilities of being in the match, insertion and deletion cases
-        pairHMM.initialize(haplotypes, perSampleReadList, readMaxLength, haplotypeMaxLength);
     }
 
     private void computeReadLikelihoods(final LikelihoodMatrix<Haplotype> likelihoods) {
@@ -287,7 +234,57 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         return result;
     }
 
-    private static void capMinimumReadQualities(final GATKRead read, final byte[] readQuals, final byte[] readInsQuals, final byte[] readDelQuals, final byte baseQualityScoreThreshold) {
+    /**
+     * Creates a new GATKRead with the source read's header, read group and mate
+     * information, but with the following fields set to user-supplied values:
+     *  - Read Bases
+     *  - Base Qualities
+     *  - Base Insertion Qualities
+     *  - Base Deletion Qualities
+     *
+     *  Cigar string is empty (not-null)
+     *
+     * Use this method if you want to create a new GATKRead based on
+     * another GATKRead, but with modified bases and qualities
+     *
+     * @param read a read to copy the header from
+     * @param readBases an array containing the new bases you wish use in place of the originals
+     * @param baseQualities an array containing the new base qualities you wish use in place of the originals
+     * @param baseInsertionQualities an array containing the new base insertion qaulities
+     * @param baseDeletionQualities an array containing the new base deletion qualities
+     * @return a read with modified bases and qualities, safe for the GATK
+     */
+    private static GATKRead createQualityModifiedRead(final GATKRead read,
+                                                      final byte[] readBases,
+                                                      final byte[] baseQualities,
+                                                      final byte[] baseInsertionQualities,
+                                                      final byte[] baseDeletionQualities) {
+        if ( baseQualities.length != readBases.length || baseInsertionQualities.length != readBases.length || baseDeletionQualities.length != readBases.length ) {
+            throw new IllegalArgumentException("Read bases and read quality arrays aren't the same size: Bases:" + readBases.length
+                    + " vs Base Q's:" + baseQualities.length
+                    + " vs Insert Q's:" + baseInsertionQualities.length
+                    + " vs Delete Q's:" + baseDeletionQualities.length);
+        }
+
+        final GATKRead processedRead = ReadUtils.emptyRead(read);
+        processedRead.setBases(readBases);
+        processedRead.setBaseQualities(baseQualities);
+        ReadUtils.setInsertionBaseQualities(processedRead, baseInsertionQualities);
+        ReadUtils.setDeletionBaseQualities(processedRead, baseDeletionQualities);
+        return processedRead;
+    }
+
+    private static Map<GATKRead, byte[]> buildGapContinuationPenalties(final List<GATKRead> reads,
+                                                                       final byte gapPenalty) {
+        return reads.stream().collect(Collectors.toMap(read -> read,
+                read -> Utils.dupBytes(gapPenalty, read.getLength())));
+    }
+
+    private static void capMinimumReadQualities(final GATKRead read,
+                                                final byte[] readQuals,
+                                                final byte[] readInsQuals,
+                                                final byte[] readDelQuals,
+                                                final byte baseQualityScoreThreshold) {
         for( int i = 0; i < readQuals.length; i++ ) {
             readQuals[i] = (byte) Math.min(0xff & readQuals[i], read.getMappingQuality()); // cap base quality by mapping quality, as in UG
             readQuals[i] =    setToFixedValueIfTooLow( readQuals[i],    baseQualityScoreThreshold,             QualityUtils.MIN_USABLE_Q_SCORE );
@@ -296,13 +293,38 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         }
     }
 
-    private static byte setToFixedValueIfTooLow(final byte currentVal, final byte minQual, final byte fixedQual){
+    private static byte setToFixedValueIfTooLow(final byte currentVal,
+                                                final byte minQual,
+                                                final byte fixedQual){
         return currentVal < minQual ? fixedQual : currentVal;
     }
 
-    private static Map<GATKRead, byte[]> buildGapContinuationPenalties(final List<GATKRead> reads, final byte gapPenalty) {
-        return reads.stream().collect(Collectors.toMap(read -> read,
-                                                       read -> Utils.dupBytes(gapPenalty, read.getLength())));
+    // -----------------------------------------------------------------------------------------------
+    // Utilities and debug
+    // -----------------------------------------------------------------------------------------------
+    /**
+     * Initialize our pairHMM with parameters appropriate to the haplotypes and reads we're going to evaluate.
+     *
+     * After calling this routine the {@link PairHMM} will be configured to best evaluate all reads in the samples
+     * against the set of haplotypes.
+     *
+     * @param haplotypes        a non-null list of haplotypes
+     * @param perSampleReadList a mapping from sample -> reads
+     */
+    private void initializePairHMM(final List<Haplotype> haplotypes, final Map<String, List<GATKRead>> perSampleReadList) {
+        final int readMaxLength = perSampleReadList.entrySet().stream().flatMap(e -> e.getValue().stream()).mapToInt(read -> read.getLength()).max().orElse(0);
+        final int haplotypeMaxLength = haplotypes.stream().mapToInt(h -> h.getBases().length).max().orElse(0);
+
+        // initialize arrays to hold the probabilities of being in the match, insertion and deletion cases
+        pairHMM.initialize(haplotypes, perSampleReadList, readMaxLength, haplotypeMaxLength);
+    }
+
+    private PrintStream makeLikelihoodStream() {
+        try {
+            return writeLikelihoodsToFile ? new PrintStream(new FileOutputStream(new File(LIKELIHOODS_FILENAME))) : null;
+        } catch ( final FileNotFoundException e ) {
+            throw new GATKException("can't open a file to write likelihoods to", e);
+        }
     }
 
     private void writeDebugLikelihoods(final LikelihoodMatrix<Haplotype> likelihoods) {

@@ -30,47 +30,9 @@ import java.util.*;
  */
 public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<AssemblyBasedCallerArgumentCollection> {
 
-    protected static final int ALLELE_EXTENSION = 2;
-    private static final String phase01 = "0|1";
-    private static final String phase10 = "1|0";
-
-    protected final boolean doPhysicalPhasing;
-
-    private final IndependentSampleGenotypesModel genotypingModel;
-
-    private final PloidyModel ploidyModel;
-
-    /**
-     * {@inheritDoc}
-     * @param configuration {@inheritDoc}
-     * @param samples {@inheritDoc}
-     * @param doPhysicalPhasing whether to try physical phasing.
-     */
-    public HaplotypeCallerGenotypingEngine(final AssemblyBasedCallerArgumentCollection configuration, final SampleList samples, final AFCalculatorProvider afCalculatorProvider, final boolean doPhysicalPhasing) {
-        super(configuration, samples, afCalculatorProvider);
-        this.doPhysicalPhasing= doPhysicalPhasing;
-        ploidyModel = new HomogeneousPloidyModel(samples,configuration.genotypeArgs.samplePloidy);
-        genotypingModel = new IndependentSampleGenotypesModel();
-    }
-
-
-    @Override
-    protected String callSourceString() {
-        return "HC_call";
-    }
-
-    @Override
-    protected boolean forceKeepAllele(final Allele allele) {
-        return allele == GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE ||
-                configuration.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES ||
-                configuration.emitReferenceConfidence != ReferenceConfidenceMode.NONE;
-    }
-
-    @Override
-    protected boolean forceSiteEmission() {
-        return configuration.outputMode == OutputMode.EMIT_ALL_SITES || configuration.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES;
-    }
-
+    // -----------------------------------------------------------------------------------------------
+    // Helper structs fields block
+    // -----------------------------------------------------------------------------------------------
     /**
      * Carries the result of a call to #assignGenotypeLikelihoods
      */
@@ -108,6 +70,97 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
             return calledHaplotypes;
         }
     }
+
+    private static final class Event {
+        public VariantContext vc;
+
+        public Event( final VariantContext vc ) {
+            this.vc = vc;
+        }
+
+        @Override
+        public boolean equals( final Object obj ) {
+            return obj instanceof Event && ((((Event) obj).vc == null && vc == null) || (((Event) obj).vc != null && vc != null && ((Event) obj).vc.hasSameAllelesAs(vc))) ;
+        }
+
+        @Override
+        public int hashCode() {
+            return (vc == null ? -1 : vc.getAlleles().hashCode());
+        }
+    }
+
+    private final IndependentSampleGenotypesModel genotypingModel;
+
+    private final PloidyModel ploidyModel;
+    // -----------------------------------------------------------------------------------------------
+    // Settable fields block
+    // -----------------------------------------------------------------------------------------------
+    protected final boolean doPhysicalPhasing;
+    // -----------------------------------------------------------------------------------------------
+    // Secret sauce fields block
+    // -----------------------------------------------------------------------------------------------
+    protected static final int ALLELE_EXTENSION = 2;
+    private static final String phase01 = "0|1";
+    private static final String phase10 = "1|0";
+
+    // -----------------------------------------------------------------------------------------------
+    // Initializations, cleanup and accessors
+    // -----------------------------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     * @param configuration {@inheritDoc}
+     * @param samples {@inheritDoc}
+     * @param doPhysicalPhasing whether to try physical phasing.
+     */
+    public HaplotypeCallerGenotypingEngine(final AssemblyBasedCallerArgumentCollection configuration,
+                                           final SampleList samples,
+                                           final AFCalculatorProvider afCalculatorProvider,
+                                           final boolean doPhysicalPhasing) {
+        super(configuration, samples, afCalculatorProvider);
+        this.doPhysicalPhasing= doPhysicalPhasing;
+        ploidyModel = new HomogeneousPloidyModel(samples,configuration.genotypeArgs.samplePloidy);
+        genotypingModel = new IndependentSampleGenotypesModel();
+    }
+
+    @Override
+    protected String callSourceString() {
+        return "HC_call";
+    }
+
+    @Override
+    protected boolean forceKeepAllele(final Allele allele) {
+        return allele == GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE ||
+                configuration.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES ||
+                configuration.emitReferenceConfidence != ReferenceConfidenceMode.NONE;
+    }
+
+    @Override
+    protected boolean forceSiteEmission() {
+        return configuration.outputMode == OutputMode.EMIT_ALL_SITES || configuration.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES;
+    }
+
+    /**
+     * Returns the ploidy-model used by this genotyping engine.
+     *
+     * @return never {@code null}.
+     */
+    public PloidyModel getPloidyModel() {
+        return ploidyModel;
+    }
+
+    /**
+     * Returns the genotyping-model used by this genotyping engine.
+     *
+     * @return never {@code null}.
+     */
+    public IndependentSampleGenotypesModel getGenotypingModel() {
+        return genotypingModel;
+    }
+
+    // -----------------------------------------------------------------------------------------------
+    // CORE
+    // -----------------------------------------------------------------------------------------------
 
     /**
      * Main entry point of class - given a particular set of haplotypes, samples and reference context, compute
@@ -192,8 +245,8 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
                     continue;
                 }
 
-                final GenotypeLikelihoodsCalculationModel calculationModel = mergedVC.isSNP()
-                        ? GenotypeLikelihoodsCalculationModel.SNP : GenotypeLikelihoodsCalculationModel.INDEL;
+                final GenotypeLikelihoodsCalculationModel calculationModel = mergedVC.isSNP() ? GenotypeLikelihoodsCalculationModel.SNP
+                                                                                              : GenotypeLikelihoodsCalculationModel.INDEL;
 
                 if (emitReferenceConfidence) {
                     mergedVC = addNonRefSymbolicAllele(mergedVC);
@@ -225,7 +278,7 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
                 if( call != null ) {
 
                     readAlleleLikelihoods = prepareReadAlleleLikelihoodsForAnnotation(readLikelihoods, perSampleFilteredReadList,
-                                                 emitReferenceConfidence, alleleMapper, readAlleleLikelihoods, call);
+                            emitReferenceConfidence, alleleMapper, readAlleleLikelihoods, call);
 
                     final SimpleInterval locus = new SimpleInterval(mergedVC.getContig(), mergedVC.getStart(), mergedVC.getEnd());
                     final SimpleInterval refLocInterval= new SimpleInterval(refLoc);
@@ -255,6 +308,9 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return new CalledHaplotypes(phasedCalls, calledHaplotypes);
     }
 
+    // -----------------------------------------------------------------------------------------------
+    // Not sure why they are protected
+    // -----------------------------------------------------------------------------------------------
     /**
      * Tries to phase the individual alleles based on pairwise comparisons to the other alleles based on all called haplotypes
      *
@@ -450,61 +506,14 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return phasedCalls;
     }
 
-    /**
-     * Is this variant bi-allelic?  This implementation is very much specific to this class so shouldn't be pulled out into a generalized place.
-     *
-     * @param vc the variant context
-     * @return true if this variant context is bi-allelic, ignoring the NON-REF symbolic allele, false otherwise
-     */
-    private static boolean isBiallelic(final VariantContext vc) {
-        return vc.isBiallelic() || (vc.getNAlleles() == 3 && vc.getAlternateAlleles().contains(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE));
-    }
-
-    /**
-     * Create a unique identifier given the variant context
-     *
-     * @param vc   the variant context
-     * @return non-null String
-     */
-    private static String createUniqueID(final VariantContext vc) {
-        return String.format("%d_%s_%s", vc.getStart(), vc.getReference().getDisplayString(), vc.getAlternateAllele(0).getDisplayString());
-    }
-
-    /**
-     * Add physical phase information to the provided variant context
-     *
-     * @param vc   the variant context
-     * @param ID   the ID to use
-     * @param phaseGT the phase GT string to use
-     * @return phased non-null variant context
-     */
-    private static VariantContext phaseVC(final VariantContext vc, final String ID, final String phaseGT) {
-        final List<Genotype> phasedGenotypes = new ArrayList<>();
-        for ( final Genotype g : vc.getGenotypes() ) {
-            phasedGenotypes.add(new GenotypeBuilder(g).attribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY, ID).attribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY, phaseGT).make());
-        }
-        return new VariantContextBuilder(vc).genotypes(phasedGenotypes).make();
-    }
-
-    private VariantContext addNonRefSymbolicAllele(final VariantContext mergedVC) {
-        final VariantContextBuilder vcb = new VariantContextBuilder(mergedVC);
-        final List<Allele> originalList = mergedVC.getAlleles();
-        final List<Allele> alleleList = new ArrayList<>(originalList.size() + 1);
-        alleleList.addAll(mergedVC.getAlleles());
-        alleleList.add(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE);
-        vcb.alleles(alleleList);
-        return vcb.make();
-    }
-
     // Builds the read-likelihoods collection to use for annotation considering user arguments and the collection
     // used for genotyping.
-    protected ReadLikelihoods<Allele> prepareReadAlleleLikelihoodsForAnnotation(
-            final ReadLikelihoods<Haplotype> readHaplotypeLikelihoods,
-            final Map<String, List<GATKRead>> perSampleFilteredReadList,
-            final boolean emitReferenceConfidence,
-            final Map<Allele, List<Haplotype>> alleleMapper,
-            final ReadLikelihoods<Allele> readAlleleLikelihoodsForGenotyping,
-            final VariantContext call) {
+    protected ReadLikelihoods<Allele> prepareReadAlleleLikelihoodsForAnnotation(final ReadLikelihoods<Haplotype> readHaplotypeLikelihoods,
+                                                                                final Map<String, List<GATKRead>> perSampleFilteredReadList,
+                                                                                final boolean emitReferenceConfidence,
+                                                                                final Map<Allele, List<Haplotype>> alleleMapper,
+                                                                                final ReadLikelihoods<Allele> readAlleleLikelihoodsForGenotyping,
+                                                                                final VariantContext call) {
 
         final ReadLikelihoods<Allele> readAlleleLikelihoodsForAnnotations;
         final SimpleInterval loc = new SimpleInterval(call);
@@ -531,31 +540,6 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
 
         return readAlleleLikelihoodsForAnnotations;
     }
-
-
-    private Map<String, List<GATKRead>> overlappingFilteredReads(final Map<String, List<GATKRead>> perSampleFilteredReadList, final SimpleInterval loc) {
-        final Map<String,List<GATKRead>> overlappingFilteredReads = new HashMap<>(perSampleFilteredReadList.size());
-
-        for (final Map.Entry<String,List<GATKRead>> sampleEntry : perSampleFilteredReadList.entrySet()) {
-            final List<GATKRead> originalList = sampleEntry.getValue();
-            final String sample = sampleEntry.getKey();
-            if (originalList == null || originalList.size() == 0) {
-                continue;
-            }
-            final List<GATKRead> newList = new ArrayList<>(originalList.size());
-            for (final GATKRead read : originalList) {
-                if (ReadLikelihoods.unclippedReadOverlapsRegion(read, loc)) {
-                    newList.add(read);
-                }
-            }
-            if (newList.size() == 0) {
-                continue;
-            }
-            overlappingFilteredReads.put(sample,newList);
-        }
-        return overlappingFilteredReads;
-    }
-
     /**
      * Go through the haplotypes we assembled, and decompose them into their constituent variant contexts
      *
@@ -662,29 +646,13 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return result;
     }
 
-    /**
-     * Removes symbolic events from list of haplotypes
-     * @param haplotypes       Input/output list of haplotypes, before/after removal
-     */
-    // TODO - split into input haplotypes and output haplotypes as not to share I/O arguments
-    protected static void cleanUpSymbolicUnassembledEvents( final List<Haplotype> haplotypes ) {
-        Utils.nonNull(haplotypes);
-        final List<Haplotype> haplotypesToRemove = new ArrayList<>();
-        for( final Haplotype h : haplotypes ) {
-            for( final VariantContext vc : h.getEventMap().getVariantContexts() ) {
-                if( vc.isSymbolic() ) {
-                    for( final Haplotype h2 : haplotypes ) {
-                        for( final VariantContext vc2 : h2.getEventMap().getVariantContexts() ) {
-                            if( vc.getStart() == vc2.getStart() && (vc2.isIndel() || vc2.isMNP()) ) { // unfortunately symbolic alleles can't currently be combined with non-point events
-                                haplotypesToRemove.add(h);
-                                break;
-                            }
-                        }
-                    }
-                }
+    protected static boolean containsVCWithMatchingAlleles(final List<VariantContext> list, final VariantContext vcToTest ) {
+        for( final VariantContext vc : list ) {
+            if( vc.hasSameAllelesAs(vcToTest) ) {
+                return true;
             }
         }
-        haplotypes.removeAll(haplotypesToRemove);
+        return false;
     }
 
     protected static Map<Allele, List<Haplotype>> createAlleleMapper(final Map<VariantContext, Allele> mergeMap, final Map<Event, List<Haplotype>> eventMap ) {
@@ -730,48 +698,101 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return new EventMap(haplotype, ref, refLoc, sourceNameToAdd);
     }
 
-    protected static boolean containsVCWithMatchingAlleles(final List<VariantContext> list, final VariantContext vcToTest ) {
-        for( final VariantContext vc : list ) {
-            if( vc.hasSameAllelesAs(vcToTest) ) {
-                return true;
+    /**
+     * Removes symbolic events from list of haplotypes
+     * TODO - split into input haplotypes and output haplotypes as not to share I/O arguments
+     * @param haplotypes       Input/output list of haplotypes, before/after removal
+     */
+    protected static void cleanUpSymbolicUnassembledEvents( final List<Haplotype> haplotypes ) {
+        Utils.nonNull(haplotypes);
+        final List<Haplotype> haplotypesToRemove = new ArrayList<>();
+        for( final Haplotype h : haplotypes ) {
+            for( final VariantContext vc : h.getEventMap().getVariantContexts() ) {
+                if( vc.isSymbolic() ) {
+                    for( final Haplotype h2 : haplotypes ) {
+                        for( final VariantContext vc2 : h2.getEventMap().getVariantContexts() ) {
+                            if( vc.getStart() == vc2.getStart() && (vc2.isIndel() || vc2.isMNP()) ) { // unfortunately symbolic alleles can't currently be combined with non-point events
+                                haplotypesToRemove.add(h);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
-        return false;
+        haplotypes.removeAll(haplotypesToRemove);
     }
 
-    private static final class Event {
-        public VariantContext vc;
+    // -----------------------------------------------------------------------------------------------
+    // Utilities and debug
+    // -----------------------------------------------------------------------------------------------
 
-        public Event( final VariantContext vc ) {
-            this.vc = vc;
-        }
-
-        @Override
-        public boolean equals( final Object obj ) {
-            return obj instanceof Event && ((((Event) obj).vc == null && vc == null) || (((Event) obj).vc != null && vc != null && ((Event) obj).vc.hasSameAllelesAs(vc))) ;
-        }
-
-        @Override
-        public int hashCode() {
-            return (vc == null ? -1 : vc.getAlleles().hashCode());
-        }
+    /**
+     * Is this variant bi-allelic?  This implementation is very much specific to this class so shouldn't be pulled out into a generalized place.
+     *
+     * @param vc the variant context
+     * @return true if this variant context is bi-allelic, ignoring the NON-REF symbolic allele, false otherwise
+     */
+    private static boolean isBiallelic(final VariantContext vc) {
+        return vc.isBiallelic() || (vc.getNAlleles() == 3 && vc.getAlternateAlleles().contains(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE));
     }
 
     /**
-     * Returns the ploidy-model used by this genotyping engine.
+     * Create a unique identifier given the variant context
      *
-     * @return never {@code null}.
+     * @param vc   the variant context
+     * @return non-null String
      */
-    public PloidyModel getPloidyModel() {
-        return ploidyModel;
+    private static String createUniqueID(final VariantContext vc) {
+        return String.format("%d_%s_%s", vc.getStart(), vc.getReference().getDisplayString(), vc.getAlternateAllele(0).getDisplayString());
     }
 
     /**
-     * Returns the genotyping-model used by this genotyping engine.
+     * Add physical phase information to the provided variant context
      *
-     * @return never {@code null}.
+     * @param vc   the variant context
+     * @param ID   the ID to use
+     * @param phaseGT the phase GT string to use
+     * @return phased non-null variant context
      */
-    public IndependentSampleGenotypesModel getGenotypingModel() {
-        return genotypingModel;
+    private static VariantContext phaseVC(final VariantContext vc, final String ID, final String phaseGT) {
+        final List<Genotype> phasedGenotypes = new ArrayList<>();
+        for ( final Genotype g : vc.getGenotypes() ) {
+            phasedGenotypes.add(new GenotypeBuilder(g).attribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY, ID).attribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY, phaseGT).make());
+        }
+        return new VariantContextBuilder(vc).genotypes(phasedGenotypes).make();
+    }
+
+    private VariantContext addNonRefSymbolicAllele(final VariantContext mergedVC) {
+        final VariantContextBuilder vcb = new VariantContextBuilder(mergedVC);
+        final List<Allele> originalList = mergedVC.getAlleles();
+        final List<Allele> alleleList = new ArrayList<>(originalList.size() + 1);
+        alleleList.addAll(mergedVC.getAlleles());
+        alleleList.add(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE);
+        vcb.alleles(alleleList);
+        return vcb.make();
+    }
+
+    private Map<String, List<GATKRead>> overlappingFilteredReads(final Map<String, List<GATKRead>> perSampleFilteredReadList, final SimpleInterval loc) {
+        final Map<String,List<GATKRead>> overlappingFilteredReads = new HashMap<>(perSampleFilteredReadList.size());
+
+        for (final Map.Entry<String,List<GATKRead>> sampleEntry : perSampleFilteredReadList.entrySet()) {
+            final List<GATKRead> originalList = sampleEntry.getValue();
+            final String sample = sampleEntry.getKey();
+            if (originalList == null || originalList.size() == 0) {
+                continue;
+            }
+            final List<GATKRead> newList = new ArrayList<>(originalList.size());
+            for (final GATKRead read : originalList) {
+                if (ReadLikelihoods.unclippedReadOverlapsRegion(read, loc)) {
+                    newList.add(read);
+                }
+            }
+            if (newList.size() == 0) {
+                continue;
+            }
+            overlappingFilteredReads.put(sample,newList);
+        }
+        return overlappingFilteredReads;
     }
 }

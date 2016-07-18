@@ -298,10 +298,10 @@ public final class ReferenceConfidenceModel {
      * @return a RefVsAnyResult genotype call.
      */
     public RefVsAnyResult calcGenotypeLikelihoodsOfRefVsAny(final int ploidy,
-                                                        final ReadPileup pileup,
-                                                        final byte refBase,
-                                                        final byte minBaseQual,
-                                                        final MathUtils.RunningAverage hqSoftClips) {
+                                                            final ReadPileup pileup,
+                                                            final byte refBase,
+                                                            final byte minBaseQual,
+                                                            final MathUtils.RunningAverage hqSoftClips) {
 
         final int likelihoodCount = ploidy + 1;
         final double log10Ploidy = MathUtils.log10(ploidy);
@@ -323,7 +323,13 @@ public final class ReferenceConfidenceModel {
         return result;
     }
 
-    private void applyPileupElementRefVsNonRefLikelihoodAndCount(final byte refBase, final int likelihoodCount, final double log10Ploidy, final RefVsAnyResult result, final PileupElement element, final byte qual, final MathUtils.RunningAverage hqSoftClips) {
+    private void applyPileupElementRefVsNonRefLikelihoodAndCount(final byte refBase,
+                                                                 final int likelihoodCount,
+                                                                 final double log10Ploidy,
+                                                                 final RefVsAnyResult result,
+                                                                 final PileupElement element,
+                                                                 final byte qual,
+                                                                 final MathUtils.RunningAverage hqSoftClips) {
         final boolean isAlt = element.getBase() != refBase || element.isDeletion() || element.isBeforeDeletionStart()
                 || element.isAfterDeletionEnd() || element.isBeforeInsertion() || element.isAfterInsertion() || element.isNextToSoftClip();
         final double referenceLikelihood;
@@ -356,11 +362,11 @@ public final class ReferenceConfidenceModel {
      * Get a list of pileups that span the entire active region span, in order, one for each position
      */
     private List<ReadPileup> getPileupsOverReference(final Haplotype refHaplotype,
-                                                           final Collection<Haplotype> calledHaplotypes,
-                                                           final SimpleInterval paddedReferenceLoc,
-                                                           final AssemblyRegion activeRegion,
-                                                           final SimpleInterval activeRegionSpan,
-                                                           final ReadLikelihoods<Haplotype> readLikelihoods) {
+                                                     final Collection<Haplotype> calledHaplotypes,
+                                                     final SimpleInterval paddedReferenceLoc,
+                                                     final AssemblyRegion activeRegion,
+                                                     final SimpleInterval activeRegionSpan,
+                                                     final ReadLikelihoods<Haplotype> readLikelihoods) {
         if ( !calledHaplotypes.contains(refHaplotype)) throw new IllegalArgumentException("calledHaplotypes must contain the refHaplotype");
         if ( readLikelihoods.numberOfSamples() != 1 ) throw new IllegalArgumentException("readLikelihoods must contain exactly one sample but it contained " + readLikelihoods.numberOfSamples());
 
@@ -451,10 +457,10 @@ public final class ReferenceConfidenceModel {
      */
     @VisibleForTesting
     boolean isReadInformativeAboutIndelsOfSize(final GATKRead read,
-                                             final int readStart,
-                                             final byte[] refBases,
-                                             final int refStart,
-                                             final int maxIndelSize) {
+                                               final int readStart,
+                                               final byte[] refBases,
+                                               final int refStart,
+                                               final int maxIndelSize) {
         // fast exit when n bases left < maxIndelSize
         if( read.getLength() - readStart < maxIndelSize || refBases.length - refStart < maxIndelSize ) {
             return false;

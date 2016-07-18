@@ -30,14 +30,14 @@ public interface ReadLikelihoodCalculationEngine {
      * Calculates the likelihood of reads across many samples evaluated against haplotypes resulting from the
      * active region assembly process.
      *
-     * @param assemblyResultSet the input assembly results.
-     * @param samples the list of targeted samples.
-     * @param perSampleReadList the input read sets stratified per sample.
+     * @param assemblyResultSet     the input assembly results.
+     * @param samples               the list of targeted samples.
+     * @param perSampleReadList     the input read sets stratified per sample.
      *
      * @throws IllegalArgumentException if any parameter is {@code null}.
      *
-     * @return never {@code null}, and with at least one entry for input sample (keys in {@code perSampleReadList}.
-     *    The value maps can be potentially empty though.
+     * @return  never {@code null}, and with at least one entry for input sample (keys in {@code perSampleReadList}.
+     *          The value maps can be potentially empty though.
      */
     public ReadLikelihoods<Haplotype> computeReadLikelihoods(AssemblyResultSet assemblyResultSet, SampleList samples,
                                                              Map<String, List<GATKRead>> perSampleReadList);

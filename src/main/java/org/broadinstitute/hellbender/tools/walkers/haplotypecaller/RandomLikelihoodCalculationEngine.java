@@ -16,8 +16,8 @@ public final class RandomLikelihoodCalculationEngine implements ReadLikelihoodCa
 
     @Override
     public ReadLikelihoods<Haplotype> computeReadLikelihoods(final AssemblyResultSet assemblyResultSet,
-                                                  final SampleList samples,
-                                                  final Map<String, List<GATKRead>> reads) {
+                                                             final SampleList samples,
+                                                             final Map<String, List<GATKRead>> reads) {
         Utils.nonNull(assemblyResultSet, "assemblyResultSet is null");
         Utils.nonNull(samples, "samples is null");
         Utils.nonNull(reads, "perSampleReadList is null");
