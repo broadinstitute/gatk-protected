@@ -175,9 +175,9 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
      * @param refLoc                                 Corresponding active region genome location
      * @param activeRegionWindow                     Active window
      * @param activeAllelesToGenotype                Alleles to genotype
-     * @param emitReferenceConfidence whether we should add a &lt;NON_REF&gt; alternative allele to the result variation contexts.
+     * @param emitReferenceConfidence                whether we should add a &lt;NON_REF&gt; alternative allele to the result variation contexts.
      *
-     * @return                                       A CalledHaplotypes object containing a list of VC's with genotyped events and called haplotypes
+     * @return                                       A {@link CalledHaplotypes} object containing a list of VC's with genotyped events and called haplotypes
      *
      */
     public CalledHaplotypes assignGenotypeLikelihoods(final List<Haplotype> haplotypes,
@@ -223,89 +223,111 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         final int ploidy = configuration.genotypeArgs.samplePloidy;
         final List<Allele> noCallAlleles = GATKVariantContextUtils.noCallAlleles(ploidy);
 
-        for( final int loc : startPosKeySet ) {
-            if( loc >= activeRegionWindow.getStart() && loc <= activeRegionWindow.getEnd() ) { // genotyping an event inside this active region
-                final List<VariantContext> eventsAtThisLoc = getVCsAtThisLocation(haplotypes, loc, activeAllelesToGenotype);
-
-                if( eventsAtThisLoc.isEmpty() ) { continue; }
-
-                // Create the event mapping object which maps the original haplotype events to the events present at just this locus
-                final Map<Event, List<Haplotype>> eventMapper = createEventMapper(loc, eventsAtThisLoc, haplotypes);
-
-                // Sanity check the priority list for mistakes
-                final List<String> priorityList = makePriorityList(eventsAtThisLoc);
-
-                // Merge the event to find a common reference representation
-
-                VariantContext mergedVC = GATKVariantContextUtils.simpleMerge(eventsAtThisLoc, priorityList,
-                        GATKVariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED,
-                        GATKVariantContextUtils.GenotypeMergeType.PRIORITIZE, false, false, null, false, false);
-
-                if( mergedVC == null ) {
-                    continue;
-                }
-
-                final GenotypeLikelihoodsCalculationModel calculationModel = mergedVC.isSNP() ? GenotypeLikelihoodsCalculationModel.SNP
-                                                                                              : GenotypeLikelihoodsCalculationModel.INDEL;
-
-                if (emitReferenceConfidence) {
-                    mergedVC = addNonRefSymbolicAllele(mergedVC);
-                }
-
-                final Map<VariantContext, Allele> mergeMap = new LinkedHashMap<>();
-                mergeMap.put(null, mergedVC.getReference()); // the reference event (null) --> the reference allele
-                for(int iii = 0; iii < eventsAtThisLoc.size(); iii++) {
-                    mergeMap.put(eventsAtThisLoc.get(iii), mergedVC.getAlternateAllele(iii)); // BUGBUG: This is assuming that the order of alleles is the same as the priority list given to simpleMerge function
-                }
-
-                final Map<Allele, List<Haplotype>> alleleMapper = createAlleleMapper(mergeMap, eventMapper);
-
-                if( configuration.DEBUG && logger != null ) {
-                    logger.info("Genotyping event at " + loc + " with alleles = " + mergedVC.getAlleles());
-                }
-
-                ReadLikelihoods<Allele> readAlleleLikelihoods = readLikelihoods.marginalize(alleleMapper, new SimpleInterval(mergedVC).expandWithinContig(ALLELE_EXTENSION, header.getSequenceDictionary()));
-                if (configuration.isSampleContaminationPresent()) {
-                    readAlleleLikelihoods.contaminationDownsampling(configuration.getSampleContamination());
-                }
-
-                if (emitReferenceConfidence) {
-                    readAlleleLikelihoods.addNonReferenceAllele(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE);
-                }
-
-                final GenotypesContext genotypes = calculateGLsForThisEvent( readAlleleLikelihoods, mergedVC, noCallAlleles );
-                final VariantContext call = calculateGenotypes(new VariantContextBuilder(mergedVC).genotypes(genotypes).make(), calculationModel, header);
-                if( call != null ) {
-
-                    readAlleleLikelihoods = prepareReadAlleleLikelihoodsForAnnotation(readLikelihoods, perSampleFilteredReadList,
-                            emitReferenceConfidence, alleleMapper, readAlleleLikelihoods, call);
-
-                    final SimpleInterval locus = new SimpleInterval(mergedVC.getContig(), mergedVC.getStart(), mergedVC.getEnd());
-                    final SimpleInterval refLocInterval= new SimpleInterval(refLoc);
-                    final ReferenceDataSource refData = new ReferenceMemorySource(new ReferenceBases(ref, refLocInterval), header.getSequenceDictionary());
-                    final ReferenceContext referenceContext = new ReferenceContext(refData, locus, refLocInterval);
-                    VariantContext annotatedCall = annotationEngine.annotateContext(call, tracker, referenceContext, readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(), a -> true);
-
-                    if( call.getAlleles().size() != mergedVC.getAlleles().size() ) {
-                        annotatedCall = GATKVariantContextUtils.reverseTrimAlleles(annotatedCall);
-                    }
-
-                    // maintain the set of all called haplotypes
-                    for ( final Allele calledAllele : call.getAlleles() ) {
-                        final List<Haplotype> haplotypeList = alleleMapper.get(calledAllele);
-                        if (haplotypeList == null) {
-                            continue;
-                        }
-                        calledHaplotypes.addAll(haplotypeList);
-                    }
-
-                    returnCalls.add( annotatedCall );
-                }
-            }
-        }
+        giantForLoopInAssignGenotypeLikelihoods(haplotypes, readLikelihoods, perSampleFilteredReadList, ref, refLoc, activeRegionWindow, tracker, activeAllelesToGenotype, emitReferenceConfidence, header, startPosKeySet, calledHaplotypes, returnCalls, noCallAlleles);
 
         final List<VariantContext> phasedCalls = doPhysicalPhasing ? phaseCalls(returnCalls, calledHaplotypes) : returnCalls;
+
         return new CalledHaplotypes(phasedCalls, calledHaplotypes);
+    }
+
+    private void giantForLoopInAssignGenotypeLikelihoods(List<Haplotype> haplotypes,
+                                                         ReadLikelihoods<Haplotype> readLikelihoods,
+                                                         Map<String, List<GATKRead>> perSampleFilteredReadList,
+                                                         byte[] ref,
+                                                         SimpleInterval refLoc,
+                                                         SimpleInterval activeRegionWindow,
+                                                         FeatureContext tracker,
+                                                         List<VariantContext> activeAllelesToGenotype,
+                                                         boolean emitReferenceConfidence,
+                                                         SAMFileHeader header,
+                                                         SortedSet<Integer> startPosKeySet,
+                                                         Set<Haplotype> calledHaplotypes,
+                                                         List<VariantContext> returnCalls,
+                                                         List<Allele> noCallAlleles) {
+        for( final int loc : startPosKeySet ) {
+
+            if( loc < activeRegionWindow.getStart() || loc > activeRegionWindow.getEnd() ) { continue; } // genotyping an event inside this active region
+
+            final List<VariantContext> eventsAtThisLoc = getVCsAtThisLocation(haplotypes, loc, activeAllelesToGenotype);
+
+            if( eventsAtThisLoc.isEmpty() ) { continue; }
+
+            // Create the event mapping object which maps the original haplotype events to the events present at just this locus
+            final Map<Event, List<Haplotype>> eventMapper = createEventMapper(loc, eventsAtThisLoc, haplotypes);
+
+            // Sanity check the priority list for mistakes
+            final List<String> priorityList = makePriorityList(eventsAtThisLoc);
+
+            // Merge the event to find a common reference representation
+            VariantContext mergedVC = GATKVariantContextUtils.simpleMerge(eventsAtThisLoc,
+                                                                          priorityList,
+                                                                          GATKVariantContextUtils.FilteredRecordMergeType.KEEP_IF_ANY_UNFILTERED,
+                                                                          GATKVariantContextUtils.GenotypeMergeType.PRIORITIZE,
+                                                                          false, false, null, false, false);
+
+            if( mergedVC == null ) { continue; }
+
+            final GenotypeLikelihoodsCalculationModel calculationModel = mergedVC.isSNP() ? GenotypeLikelihoodsCalculationModel.SNP
+                                                                                          : GenotypeLikelihoodsCalculationModel.INDEL;
+
+            if (emitReferenceConfidence) {
+                mergedVC = addNonRefSymbolicAllele(mergedVC);
+            }
+
+            final Map<VariantContext, Allele> mergeMap = new LinkedHashMap<>();
+            mergeMap.put(null, mergedVC.getReference()); // the reference event (null) --> the reference allele
+            for(int iii = 0; iii < eventsAtThisLoc.size(); iii++) {
+                mergeMap.put(eventsAtThisLoc.get(iii), mergedVC.getAlternateAllele(iii)); // BUGBUG: This is assuming that the order of alleles is the same as the priority list given to simpleMerge function
+            }
+
+            final Map<Allele, List<Haplotype>> alleleMapper = createAlleleMapper(mergeMap, eventMapper);
+
+            if( configuration.DEBUG && logger != null ) {
+                logger.info("Genotyping event at " + loc + " with alleles = " + mergedVC.getAlleles());
+            }
+
+            ReadLikelihoods<Allele> readAlleleLikelihoods = readLikelihoods.marginalize(alleleMapper, new SimpleInterval(mergedVC).expandWithinContig(ALLELE_EXTENSION, header.getSequenceDictionary()));
+            if (configuration.isSampleContaminationPresent()) {
+                readAlleleLikelihoods.contaminationDownsampling(configuration.getSampleContamination());
+            }
+
+            if (emitReferenceConfidence) {
+                readAlleleLikelihoods.addNonReferenceAllele(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE);
+            }
+
+            final GenotypesContext genotypes = calculateGLsForThisEvent( readAlleleLikelihoods, mergedVC, noCallAlleles );
+            final VariantContext call = calculateGenotypes(new VariantContextBuilder(mergedVC).genotypes(genotypes).make(), calculationModel, header);
+            if( call != null ) {
+
+                readAlleleLikelihoods = prepareReadAlleleLikelihoodsForAnnotation(readLikelihoods,
+                                                                                  perSampleFilteredReadList,
+                                                                                  emitReferenceConfidence,
+                                                                                  alleleMapper,
+                                                                                  readAlleleLikelihoods,
+                                                                                  call);
+
+                final SimpleInterval locus = new SimpleInterval(mergedVC.getContig(), mergedVC.getStart(), mergedVC.getEnd());
+                final SimpleInterval refLocInterval= new SimpleInterval(refLoc);
+                final ReferenceDataSource refData = new ReferenceMemorySource(new ReferenceBases(ref, refLocInterval), header.getSequenceDictionary());
+                final ReferenceContext referenceContext = new ReferenceContext(refData, locus, refLocInterval);
+                VariantContext annotatedCall = annotationEngine.annotateContext(call, tracker, referenceContext, readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(), a -> true);
+
+                if( call.getAlleles().size() != mergedVC.getAlleles().size() ) {
+                    annotatedCall = GATKVariantContextUtils.reverseTrimAlleles(annotatedCall);
+                }
+
+                // maintain the set of all called haplotypes
+                for ( final Allele calledAllele : call.getAlleles() ) {
+                    final List<Haplotype> haplotypeList = alleleMapper.get(calledAllele);
+                    if (haplotypeList == null) {
+                        continue;
+                    }
+                    calledHaplotypes.addAll(haplotypeList);
+                }
+
+                returnCalls.add( annotatedCall );
+            }
+        }
     }
 
     // -----------------------------------------------------------------------------------------------
@@ -364,7 +386,6 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
 
         return haplotypeMap;
     }
-
 
     /**
      * Construct the mapping from call (variant context) to phase set ID
