@@ -205,6 +205,9 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         writeDebugLikelihoods(likelihoods);
     }
 
+    // -----------------------------------------------------------------------------------------------
+    // Read massaging
+    // -----------------------------------------------------------------------------------------------
     /**
      * Pre-processing of the reads to be evaluated at the current location from the current sample.
      * We apply the PCR Error Model, and cap the minimum base, insertion, and deletion qualities of each read.
