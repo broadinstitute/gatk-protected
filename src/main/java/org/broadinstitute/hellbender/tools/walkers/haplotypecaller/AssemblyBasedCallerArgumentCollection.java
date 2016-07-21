@@ -12,21 +12,28 @@ public abstract class AssemblyBasedCallerArgumentCollection extends StandardCall
     private static final long serialVersionUID = 1L;
 
     @Advanced
-    @Argument(fullName="debug", shortName="debug", doc="Print out very verbose debug information about each triggering active region", optional = true)
+    @Argument(fullName="debug", shortName="debug",
+              doc="Print out very verbose debug information about each triggering active region",
+              optional = true)
     public boolean DEBUG;
 
     @Advanced
-    @Argument(fullName="useFilteredReadsForAnnotations", shortName="useFilteredReadsForAnnotations", doc = "Use the contamination-filtered read maps for the purposes of annotating variants", optional=true)
+    @Argument(fullName="useFilteredReadsForAnnotations", shortName="useFilteredReadsForAnnotations",
+              doc = "Use the contamination-filtered read maps for the purposes of annotating variants",
+              optional=true)
     public boolean USE_FILTERED_READ_MAP_FOR_ANNOTATIONS = false;
 
     /**
      * The reference confidence mode makes it possible to emit a per-bp or summarized confidence estimate for a site being strictly homozygous-reference.
-     * See http://www.broadinstitute.org/gatk/guide/article?id=2940 for more details of how this works.
+     * TODO: the following link is dead as of 07-21-2016.
+     * See <a ref="http://www.broadinstitute.org/gatk/guide/article?id=2940">here</a> for more details of how this works.
      * Note that if you set -ERC GVCF, you also need to set -variant_index_type LINEAR and -variant_index_parameter 128000 (with those exact values!).
      * This requirement is a temporary workaround for an issue with index compression.
      */
     @Advanced
-    @Argument(fullName="emitRefConfidence", shortName="ERC", doc="Mode for emitting reference confidence scores", optional = true)
+    @Argument(fullName="emitRefConfidence", shortName="ERC",
+              doc="Mode for emitting reference confidence scores",
+              optional = true)
     protected ReferenceConfidenceMode emitReferenceConfidence = ReferenceConfidenceMode.NONE;
 
     /**
@@ -60,7 +67,9 @@ public abstract class AssemblyBasedCallerArgumentCollection extends StandardCall
      *
      */
     @Advanced
-    @Argument(fullName="bamOutput", shortName="bamout", doc="File to which assembled haplotypes should be written", optional = true)
+    @Argument(fullName="bamOutput", shortName="bamout",
+              doc="File to which assembled haplotypes should be written",
+              optional = true)
     public String bamOutputPath = null;
 
     /**
@@ -68,7 +77,9 @@ public abstract class AssemblyBasedCallerArgumentCollection extends StandardCall
      * considered (top 128 max) or just the ones that were selected as alleles and assigned to samples.
      */
     @Advanced
-    @Argument(fullName="bamWriterType", shortName="bamWriterType", doc="Which haplotypes should be written to the BAM", optional = true)
+    @Argument(fullName="bamWriterType", shortName="bamWriterType",
+              doc="Which haplotypes should be written to the BAM",
+              optional = true)
     public HaplotypeBAMWriter.WriterType bamWriterType = HaplotypeBAMWriter.WriterType.CALLED_HAPLOTYPES;
 
     /**
@@ -78,8 +89,9 @@ public abstract class AssemblyBasedCallerArgumentCollection extends StandardCall
      * reads in regions with no variations. Setting the -forceActive and -dontTrimActiveRegions flags may also be necessary.
      */
     @Advanced
-    @Argument(fullName = "disableOptimizations", shortName="disableOptimizations", doc="Don't skip calculations in ActiveRegions with no variants",
-            optional = true)
+    @Argument(fullName = "disableOptimizations", shortName="disableOptimizations",
+              doc="Don't skip calculations in ActiveRegions with no variants",
+              optional = true)
     public boolean disableOptimizations = false;
 
 }

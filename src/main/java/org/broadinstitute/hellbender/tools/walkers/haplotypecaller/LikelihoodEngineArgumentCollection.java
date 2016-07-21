@@ -11,18 +11,23 @@ import org.broadinstitute.hellbender.utils.pairhmm.PairHMM;
 public final class LikelihoodEngineArgumentCollection {
     
     @Advanced
-    @Argument(fullName="gcpHMM", shortName="gcpHMM", doc="Flat gap continuation penalty for use in the Pair HMM", optional = true)
+    @Argument(fullName="gcpHMM", shortName="gcpHMM",
+              doc="Flat gap continuation penalty for use in the Pair HMM",
+              optional = true)
     public int gcpHMM = 10;
 
     /**
-     * The PairHMM implementation to use for genotype likelihood calculations. The various implementations balance a tradeoff of accuracy and runtime.
+     * The PairHMM implementation to use for genotype likelihood calculations.
+     * The various implementations balance a trade-off of accuracy and runtime.
      */
     @Hidden
-    @Argument(fullName = "pair_hmm_implementation", shortName = "pairHMM", doc = "The PairHMM implementation to use for genotype likelihood calculations", optional = true)
+    @Argument(fullName = "pair_hmm_implementation", shortName = "pairHMM",
+              doc = "The PairHMM implementation to use for genotype likelihood calculations",
+              optional = true)
     public PairHMM.Implementation pairHMM = PairHMM.Implementation.FASTEST_AVAILABLE;
 
     /**
-     * The phredScaledGlobalReadMismappingRate reflects the average global mismapping rate of all reads, regardless of their
+     * The {@code phredScaledGlobalReadMismappingRate} reflects the average global mismapping rate of all reads, regardless of their
      * mapping quality.  This term effects the probability that a read originated from the reference haplotype, regardless of
      * its edit distance from the reference, in that the read could have originated from the reference haplotype but
      * from another location in the genome.  Suppose a read has many mismatches from the reference, say like 5, but
@@ -34,7 +39,9 @@ public final class LikelihoodEngineArgumentCollection {
      * Set this term to any negative number to turn off the global mapping rate.
      */
     @Advanced
-    @Argument(fullName="phredScaledGlobalReadMismappingRate", shortName="globalMAPQ", doc="The global assumed mismapping rate for reads", optional = true)
+    @Argument(fullName="phredScaledGlobalReadMismappingRate", shortName="globalMAPQ",
+              doc="The global assumed mismapping rate for reads",
+              optional = true)
     public int phredScaledGlobalReadMismappingRate = 45;
 
 }
