@@ -722,7 +722,7 @@ where $f$ and $\pi$ may once again be sampled via adaptive Metropolis.
 
 \subsubsection{The model}
 
-Suppose we have vectors of read counts over a set of $T$ targets for $S$ samples, $\vn_s, \, s = 1 \ldots S$ where $n_{st}$ is the coverage of sample $s$ at target $t$. In order to include both sexes on an equal footing, we further define a ``ploidy matrix'' $\PP_{st}$ such that $\PP_{st}$ is the ploidy\footnote{For human autosomal targets, $\PP_{st} = 2$ for both sexes. In female samples, $P_{st} = 2$ for X chromosome targets and $P_{st} = 0$ for Y chromosome targets. Finally, $P_{st} = 1$ for X and Y chromosomes in male samples} of target $t$ of sample $s$. We imagine that laboratory conditions for a particular sample yielding an underlying bias vector $\vb_s$, where $e^{b_{st}}$ is the propensity of target $t$ to be captured, sequenced, and mapped in the preparation of sample $s$.  Suppose also that sample $s$ has an average depth $d_s$ and a vector of copy numbers $\vc_s$, where the latent variable $c_{st}$ is the copy number of sample $s$ at target $t$.  Our model for coverage is\footnote{In Equation \ref{coverage_model} the quantity $d_s$ is a hypothetical quantity representing average coverage in the absence of bias.  Since this is impossible to know we use average coverage instead.  This doesn't matter since any constant factor will be absorbed into $e^b$ via the parameter $\vm$.}:
+Suppose we have vectors of read counts over a set of $T$ targets for $S$ samples, $\vn_s, \, s = 1 \ldots S$ where $n_{st}$ is the coverage of sample $s$ at target $t$. In order to include both sexes on an equal footing, we further define a ``ploidy matrix'' $\PP_{st}$ such that $\PP_{st}$ is the ploidy\footnote{For human autosomal targets, $\PP_{st} = 2$ for both sexes. In female samples, $P_{st} = 2$ for X chromosome targets and $P_{st} = 0$ for Y chromosome targets. Finally, $P_{st} = 1$ for X and Y chromosomes in male samples} of target $t$ of sample $s$. We imagine that laboratory conditions for a particular sample yielding an underlying bias vector $\vb_s$, where $e^{b_{st}}$ is the propensity of target $t$ to be captured, sequenced, and mapped in the preparation of sample $s$.  Suppose also that sample $s$ has an average depth $d_s$ and a vector of copy numbers $\vc_s$, where the latent variable $c_{st}$ is the copy number of sample $s$ at target $t$.  Our model for coverage is\footnote{In Equation \ref{coverage_model} the quantity $d_s$ is a hypothetical quantity representing average coverage in the absence of bias. Since this is impossible to know we use average coverage instead.  This doesn't matter since any constant factor will be absorbed into $e^b$ via the parameter $\vm$.}:
 %
 \begin{equation}
 n_{st} \sim {\rm Poisson}(d_s \PP_{st} c_{st} e^{b_{st}})
@@ -739,7 +739,7 @@ We can achieve many of the goals listed above by performing probabilistic PCA no
 where $\vz \in \mathbb{R}^D$ is a low-dimensional latent vector of laboratory conditions, $\vW \in \mathbb{R}^{T \times D}$ is a linear map from latent space to target space, $\vm \in \mathbb{R}^T$ is the vector of mean biases, and $\vPsi \in \mathbb{R}^{T \times T}$ is a diagonal matrix of residual variance not explained by the latent features. We approximate the Poisson as a Gaussian (an excellent approximation for $n_{st} \gtrsim 1000$) and expand the argument of the Gaussian exponential about the mode of $b_{st}$ to quadratic order to obtain:
 %
 \begin{equation}\label{eq:gaussian_approx_coverage}
-{\rm Poisson}(n_{st} | d_s c_{st} e^{b_{st}}) \simeq \Sigma_{st} \, \norm(b_{st} | m_{st}, \Sigma_{st}),
+{\rm Poisson}(n_{st} | d_s \PP_{st} c_{st} e^{b_{st}}) \simeq \Sigma_{st} \, \norm(b_{st} | m_{st}, \Sigma_{st}),
 \end{equation}
 where:
 \begin{align}
@@ -773,12 +773,31 @@ P(\vn | \vc, \vW, \vm, \vPsi) \propto \exp \left( -\frac{1}{2} \sum_s (\vm - \vm
 \end{equation}
 %
 To simplify the discussion, let us assume that all samples share the same targets, i.e. $\vM_s = \mathbb{I}$.
-First, note that $\vPsi + \vW \vW^T$ is the covariance of log-coverage due to experimental conditions, both those included explicitly in $\vW$ and the residual, unexplained covariance $\vPsi$. The quantities $\vPsi + \vSigma_s + \vW \vW^T$ are essentially weighting factors that decrease the role of lower-coverage samples (i.e. those with larger $\vSigma$) in the likelihood. If variations in $\vSigma$ tend to be small compared to $\vPsi + \vW \vW^T$, then these weights will be very similar between samples and we may use the simple formula that assigns each sample the same weight. {\em It is an empirical fact that the noise before normalization is much greater than noise after normalization, which implies that $\vSigma$ is small compared to $\vPsi + \vW \vW^T$. Variations in $\vSigma$ are, of course, even smaller, especially in the typical case that all PoN samples have similar depth.} Furthermore, if the depths of PoN samples are not correlated with their positions in latent space (as is reasonable) our approximation is an unbiased estimator, because for any given position in latent space our failure to use the exact weights will on average wash out.  Finally, suppose, contrary to empirical fact, that $\vSigma$ tended to be large compared to $\vPsi + \vW \vW^T$. In this case, either the shared source of bias is small and we don't need this fancy model in the first place, or the depth of coverage is very poor, in which case accurate normalization is hopeless regardless. In summary, replacing $\Sigma_{st}$ with a typical sample-indendent value $\bar{\vSigma}$ is a very reasonable approxmiation.
+First, note that $\vPsi + \vW \vW^T$ is the covariance of log-coverage due to experimental conditions, both those included explicitly in $\vW$ and the residual, unexplained covariance $\vPsi$. The quantities $\vPsi + \vSigma_s + \vW \vW^T$ are essentially weighting factors that decrease the role of lower-coverage samples (i.e. those with larger $\vSigma$) in the likelihood. If variations in $\vSigma$ tend to be small compared to $\vPsi + \vW \vW^T$, then these weights will be very similar between samples and we may use the simple formula that assigns each sample the same weight. {\em It is an empirical fact that the noise before normalization is much greater than noise after normalization, which implies that $\vSigma$ is small compared to $\vPsi + \vW \vW^T$. Variations in $\vSigma$ are, of course, even smaller, especially in the typical case that all PoN samples have similar depth.} Furthermore, if the depths of PoN samples are not correlated with their positions in latent space (as is reasonable) our approximation is an unbiased estimator, because for any given position in latent space our failure to use the exact weights will on average wash out.  Finally, suppose, contrary to empirical fact, that $\vSigma$ tended to be large compared to $\vPsi + \vW \vW^T$. In this case, either the shared source of bias is small and we don't need this fancy model in the first place, or the depth of coverage is very poor, in which case accurate normalization is hopeless regardless. In summary, replacing $\Sigma_{st}$ with a typical sample-independent value $\bar{\vSigma}$ is a very reasonable approximation.
 
 A natural choice for $\bar{\Sigma}_t$ will be made apparent soon. In the meantime, we notice that the $\vSigma_s$ always appears in addition to $\vPsi$ such that the specific choice of $\bar{\Sigma}_t$ may seem to be immaterial: if $\vPsi^*$ is the MLE estimate obtained using the choice $\bar{\vSigma}^*$, we may infer that $\vPsi^* + \bar{\vSigma}^* - \bar{\vSigma}'$ is the MLE estimate had we used $\bar{\vSigma}'$ instead. However, the constraint $\Psi_t > 0$ implies that $\Psi^*_t + \bar{\Sigma}_t > 0$, such that our choice of $\bar{\Sigma}_t$ effectively sets a lower bound on the unexplained variance.\\
 
+\subsubsection{Estimating the mean read depth $d_s$}\label{sec:read_depth_estimation}
+Let us define $\lambda_{st} \equiv \PP_{st} c_{st} e^{b_{st}}$ as the total multiplicative bias per sample per target. Assuming that $\lambda_{st}$ is sharply peaked around its mode, the MLE for $d_s$ can be easily found by approximating the Poisson distributions with Gaussian like before:
+\begin{align}
+P(\vn_s | d_s \boldsymbol{\lambda}_s) &= \prod_{t|M_{st} \neq 0} \mathrm{Poisson}(n_{st} | d_s \lambda_{st}) \simeq \prod_{t|M_{st} \neq 0} \norm(n_{st}|d_s \lambda_{st}, d_s \lambda_{st})\nonumber\\
+&\propto \prod_t \left[\frac{1}{\sqrt{d_s \lambda_{st}}}\exp\left(-\frac{(n_{st} - d_s \lambda_{st})^2}{2 d_s \lambda_{st}}\right)\right]^{M_{st}}.
+\end{align}
+Replacing $\lambda_{st}$ with its mode, the log likelihood of read depth is given as:
+\begin{equation}
+\log P(\vn_s | d_s) = -\frac{1}{2} \sum_t M_{st}\left[\log d_s + \frac{1}{d_s \lambda_{st}}\,(n_{st} - d_s\lambda_{st})^2\right] + \mathrm{const.}
+\end{equation}
+Maximizing yields a quadratic equation with one acceptable solution:
+\begin{equation}
+d_s = \frac{\sqrt{4\llangle \vn^2 \rrangle_s \llangle \boldsymbol{\lambda}^2 \rrangle_s + \llangle \boldsymbol{\lambda} \rrangle_s^2} - \llangle \boldsymbol{\lambda} \rrangle_s}{2 \llangle \boldsymbol{\lambda}^2 \rrangle_s},
+\end{equation}
+where we have defined the masked target average $\llangle \cdot \rrangle_s$ as:
+\begin{equation}
+\llangle \mathbf{v} \rrangle_s \equiv \frac{\sum_t M_{st} v_{st}}{\sum_t M_{st}}.
+\end{equation}
+If $n_{st} \gg 1$, we may approximate the result as $d_s \simeq \left(\llangle \vn^2 \rrangle_s / \llangle \boldsymbol{\lambda}^2 \rrangle_s\right)^{\frac{1}{2}}$. Before learning the parameters of the coverage model, we may set $\lambda_{st} \rightarrow \PP_{st}$ to obtain a first estimate of $d_s$. This estimate can be updated along the way as better estimates for $c_{st}$ and $b_{st}$ is found.
 
-\subsubsection{EM algorithm for obtaing MLE of $(\vW, \vPsi, \vm)$:}
+\subsubsection{EM algorithm for obtaining MLE of $(\vW, \vPsi, \vm)$:}
 
 We may obtain maximum likelihood estimates of the parameters via an iterative EM approach in which we alternate between computing the Gaussian posteriors of each $\vz_s$ (E step) and maximizing the log-likelihood with respect to $\vW$, $\vSigma$, $\vm$, and $\vc$ (M step). The EM algorithm for $\vW$, $\vSigma$, and $\vm$ is similar to the factor analysis model discussed in Chapter 12 of Bishop. We note calling $\vc$ while learning $(\vW, \vPsi, \vm)$ allows us to correct for CNV events that may be present in the panel of normals\footnote{If our copy-ratio calling algorithm is a maximum-likelihood method, for example calling via the Viterbi algorithm for an HMM, then provided that our likelihood is averaged with respect to the E step for $\vz$ the entire process including optimization of $(\vc, \vW, \vPsi, \vm)$ is an EM algorithm and thus will increase likelihood at each iteration and converge.}.\\
 
@@ -1008,6 +1027,50 @@ Figs.~\ref{fig:comp_random} and~\ref{fig:comp_correlated} compares PCA denoising
 \caption{Comparison of PCA with the probablistic coverage model in different modes for correlated events. (top) $D=10$, (bottom) $D=20$.}
 \label{fig:comp_correlated}
 \end{figure}
+
+
+\subsection{Inferring sex genotype from raw read counts}
+The probabilistic target coverage model requires the germline copy number of the targets as an input for dealing with cohorts composed of samples with different sexes. If the phenotypic sex of the human subject associated to a sample is known, the nominal germline ploidy of each target is readily known. Unfortunately, the gender annotation is not available for most samples. In this section, we propose a simple statistical test for inferring the sex associated to a sample from human subjects from raw read counts on X and Y chromosomes.\\
+
+Let $T_X$ and $T_Y$ be a set of targets on X and Y chromosomes. Let $\{n_t\}$ be the raw read counts on sex chromosome targets. The likelihood of reads for either of XX or XY genotypes can be calculated from Eq.~\eqref{coverage_model}. Since we have no prior knowledge of the germline CNV events\footnote{The germline CNV events will be known only after training the target coverage model. The latter, however, requires the sex genotype as an input.}, we proceed by assuming $c_{st} = 1$. We have no prior knowledge about the multiplicative bias $e^{b_t}$ either. However, it is reasonable to assume that a major source of the mean target bias is the target length $l_t$. In particular, if the reads are corrected for the GC bias, we expect a strong $e^{b_t} \propto l_t$ proportionality. Finally, the average read depth, $d$, can be reliably estimated from the read counts on autosomal targets (see Sec.~\ref{sec:read_depth_estimation}). Put together, for the XX genotype we have:
+\begin{equation}
+\text{(XX~genotype)} \qquad \qquad n_t \sim \left\{
+\begin{array}{ll}
+	\mathrm{Poisson}(2\,\rho\,l_t) & \qquad t \in T_X,\\
+	\\
+	\mathrm{Poisson}(\epss_M\,l_t) & \qquad t \in T_Y,\\	
+\end{array}
+\right.
+\end{equation}
+where $\rho$ is {\em average read count per base per strand}, $l_t$ is the target length (number of overlapping bases), and $\epss_M \sim 10^{-5}$ is the (small) probability of a mapping error that may result in a (small) number of reads to be mapped to the Y chromosome for an XX genotype sample. Similarly, for the YY genotype we have:
+\begin{equation}
+\text{(XX~genotype)} \qquad \qquad n_t \sim \mathrm{Poisson}(\rho\, l_t) \qquad t \in T_X \cup T_Y.
+\end{equation}
+At this point, we may either proceed with a likelihood model for individual reads, or for compound reads. We discuss both cases below.\\
+
+\noindent {\bf Individual reads likelihood:} using the previous two equations, and assuming independent reads on different targets, we have:
+\begin{align}
+P(\vn|\text{XX}) &= \prod_{t \in T_X} \mathrm{Poisson}(n_t | 2\,\rho\,l_t)\,\prod_{t \in T_X} \mathrm{Poisson}(n_t | \epss_M\,\rho\,l_t\,e^{b_t}),\nonumber\\
+P(\vn|\text{XY}) &= \prod_{t \in T_X \cup T_Y} \mathrm{Poisson}(n_t | \rho\,l_t).
+\end{align}
+
+\noindent {\bf Compound reads likelihood:} we define compounds reads on X and Y chromosomes as $N_X \def \sum_{t \in T_X} n_t$ and $N_Y \def \sum_{t \in T_Y} n_t$, respectively. Both of these compound random variables have a Poisson distribution with the sum of the Poisson parameter of the underlying reads. The compounds likelihoods are given as:
+\begin{align}
+P(N_X, N_Y|\text{XX}) &= \mathrm{Poisson}(N_X|2 \rho L_X) \times \mathrm{Poisson}(N_Y | \epss_M \rho N_Y),\nonumber\\
+P(N_X, N_Y|\text{XY}) &= \mathrm{Poisson}(N_X |\rho L_X) \times \mathrm{Poisson}(N_Y |\rho L_Y).
+\end{align}
+We have defined $L_{X(Y)} \equiv \sum_{t \in T_{X(Y)}} l_t$ as the total length of targets in X and Y chromosomes.\\
+
+Having a likelihood function, the logarithmic odds of $XX$ to $XY$ genotype is readily found from the Bayes theorem:
+\begin{equation}
+\log\,\mathrm{odds}(\text{XX}/\text{XY}) = \log P(\vn|\text{XX}) + \log P(\text{XX}) - \log P(\vn|\text{XY}) - \log P(\text{XY}).
+\end{equation}
+If the compounds reads likelihood model is used, the compound likelihood functions must be accordingly:
+\begin{equation}
+\log\,\mathrm{odds}(\text{XX}/\text{XY}) = \log P(N_X, N_Y|\text{XX}) + \log P(\text{XX}) - \log P(N_X, N_Y|\text{XY}) - \log P(\text{XY}).
+\end{equation}
+
+
 
 
 %%%APPENDICES
