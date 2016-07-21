@@ -600,12 +600,14 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      * @return          List of variants discovered in the region (may be empty)
      */
     public List<VariantContext> callRegion( final AssemblyRegion region, final FeatureContext features ) {
+
+        //TODO: can we refactor the following several if-then-early-return blocks into a cleanup() method
+
         if ( hcArgs.justDetermineActiveRegions ) {
             // we're benchmarking ART and/or the active region determination code in the HC, just leave without doing any work
             return NO_CALLS;
         }
 
-        //TODO: can we refactor the following several if-then-early-return blocks into a cleanup() method
         if ( hcArgs.sampleNameToUse != null ) {
             removeReadsFromAllSamplesExcept(hcArgs.sampleNameToUse, region);
         }
@@ -964,6 +966,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
     private Map<GATKRead, GATKRead> realignReadsToTheirBestHaplotype(final ReadLikelihoods<Haplotype> originalReadLikelihoods,
                                                                      final Haplotype refHaplotype,
                                                                      final Locatable paddedReferenceLoc) {
+
         final Collection<ReadLikelihoods<Haplotype>.BestAllele> bestAlleles = originalReadLikelihoods.bestAlleles();
         final Map<GATKRead, GATKRead> result = new HashMap<>(bestAlleles.size());
 
@@ -1002,8 +1005,8 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             final Haplotype refHaplotype = createReferenceHaplotype(region, paddedLoc);
             final List<Haplotype> haplotypes = Collections.singletonList(refHaplotype);
             return referenceConfidenceModel.calculateRefConfidence(refHaplotype, haplotypes,
-                    paddedLoc, region, createDummyStratifiedReadMap(refHaplotype, samplesList, region),
-                    genotypingEngine.getPloidyModel(), Collections.emptyList());
+                                                                    paddedLoc, region, createDummyStratifiedReadMap(refHaplotype, samplesList, region),
+                                                                    genotypingEngine.getPloidyModel(), Collections.emptyList());
         }
         else {
             return NO_CALLS;
