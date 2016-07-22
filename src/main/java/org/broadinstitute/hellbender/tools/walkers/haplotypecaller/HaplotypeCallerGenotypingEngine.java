@@ -230,7 +230,7 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         final Set<Haplotype> calledHaplotypes = new HashSet<>();
         final List<VariantContext> returnCalls = new ArrayList<>();
 
-        walkOverLocationsTOAssignGLs(haplotypes, readLikelihoods, perSampleFilteredReadList, ref, refLoc, activeRegionWindow, tracker, activeAllelesToGenotype, emitReferenceConfidence, header, startPosKeySet, calledHaplotypes, returnCalls);
+        walkOverLocationsToAssignGLs(haplotypes, readLikelihoods, perSampleFilteredReadList, ref, refLoc, activeRegionWindow, tracker, activeAllelesToGenotype, emitReferenceConfidence, header, startPosKeySet, calledHaplotypes, returnCalls);
 
         final List<VariantContext> phasedCalls = doPhysicalPhasing ? phaseCalls(returnCalls, calledHaplotypes) : returnCalls;
 
@@ -254,7 +254,7 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
      * @param calledHaplotypes
      * @param returnCalls
      */
-    private void walkOverLocationsTOAssignGLs(final List<Haplotype> haplotypes,
+    private void walkOverLocationsToAssignGLs(final List<Haplotype> haplotypes,
                                               final ReadLikelihoods<Haplotype> readLikelihoods,
                                               final Map<String, List<GATKRead>> perSampleFilteredReadList,
                                               final byte[] ref,

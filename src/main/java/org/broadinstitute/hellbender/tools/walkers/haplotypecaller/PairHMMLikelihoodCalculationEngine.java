@@ -96,7 +96,7 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
      * Create a new PairHMMLikelihoodCalculationEngine using provided parameters and hmm to do its calculations
      *
      * @param constantGCP                   the gap continuation penalty to use with the PairHMM
-     * @param hmmType                       the type of the HMM to use
+     * @param hmmType                       the type of the PairHMM to use
      * @param log10globalReadMismappingRate the global mismapping probability, in log10(prob) units.  A value of
      *                                      -3 means that the chance that a read doesn't actually belong at this
      *                                      location in the genome is 1 in 1000.  The effect of this parameter is
@@ -253,7 +253,7 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
      * @param read a read to copy the header from
      * @param readBases an array containing the new bases you wish use in place of the originals
      * @param baseQualities an array containing the new base qualities you wish use in place of the originals
-     * @param baseInsertionQualities an array containing the new base insertion qaulities
+     * @param baseInsertionQualities an array containing the new base insertion qualities
      * @param baseDeletionQualities an array containing the new base deletion qualities
      * @return a read with modified bases and qualities, safe for the GATK
      */
@@ -280,7 +280,7 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
     private static Map<GATKRead, byte[]> buildGapContinuationPenalties(final List<GATKRead> reads,
                                                                        final byte gapPenalty) {
         return reads.stream().collect(Collectors.toMap(read -> read,
-                read -> Utils.dupBytes(gapPenalty, read.getLength())));
+                                                       read -> Utils.dupBytes(gapPenalty, read.getLength())));
     }
 
     private static void capMinimumReadQualities(final GATKRead read,
