@@ -475,7 +475,6 @@ public final class HDF5PCACoveragePoNCreationUtils {
                     columnsToDrop.entrySet().stream().limit(10).map(kv -> kv.getKey() + " (" + kv.getValue() + ")").collect(Collectors.joining(", "))));
             return readCounts.subsetColumns(columnsToKeep);
         }
-
     }
 
     /**
