@@ -373,12 +373,16 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
     protected GenotypesContext calculateGLsForThisEvent(final ReadLikelihoods<Allele> readLikelihoods,
                                                         final VariantContext mergedVC,
                                                         final List<Allele> noCallAlleles ) {
+        // checking
         Utils.nonNull(readLikelihoods, "readLikelihoods");
         Utils.nonNull(mergedVC, "mergedVC");
 
+        // prepare input and send off work
         final List<Allele> vcAlleles = mergedVC.getAlleles();
         final AlleleList<Allele> alleleList = readLikelihoods.numberOfAlleles() == vcAlleles.size() ? readLikelihoods : new IndexedAlleleList<>(vcAlleles);
         final GenotypingLikelihoods<Allele> likelihoods = genotypingModel.calculateLikelihoods(alleleList,new GenotypingData<>(ploidyModel,readLikelihoods));
+
+        // massage result
         final int sampleCount = samples.numberOfSamples();
         final GenotypesContext result = GenotypesContext.create(sampleCount);
         for (int s = 0; s < sampleCount; s++) {
