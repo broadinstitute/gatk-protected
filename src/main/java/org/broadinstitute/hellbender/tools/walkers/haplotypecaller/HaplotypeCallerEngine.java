@@ -972,7 +972,11 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
 
         for (final ReadLikelihoods<Haplotype>.BestAllele bestAllele : bestAlleles) {
             final GATKRead originalRead = bestAllele.read;
-            final GATKRead realignedRead = AlignmentUtils.createReadAlignedToRef(originalRead, bestAllele.allele, refHaplotype, paddedReferenceLoc.getStart(), bestAllele.isInformative());
+            final GATKRead realignedRead = AlignmentUtils.createReadAlignedToRef(originalRead,
+                                                                                 bestAllele.allele,
+                                                                                 refHaplotype,
+                                                                                 paddedReferenceLoc.getStart(),
+                                                                                 bestAllele.isInformative());
             result.put(originalRead, realignedRead);
         }
         return result;
