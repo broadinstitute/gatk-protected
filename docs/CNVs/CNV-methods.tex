@@ -779,7 +779,7 @@ First, note that $\vPsi + \vW \vW^T$ is the covariance of log-coverage due to ex
 A natural choice for $\bar{\Sigma}_t$ will be made apparent soon. In the meantime, we notice that $\vSigma_s$ always appears in the combination $\vSigma_s + \vPsi$ such that the specific choice of $\bar{\Sigma}_t$ may seem to be immaterial: if $\vPsi^*$ is the MLE estimate obtained using the choice $\bar{\vSigma}^*$, we may infer that $\vPsi^* + \bar{\vSigma}^* - \bar{\vSigma}'$ is the MLE estimate had we used $\bar{\vSigma}'$ instead. However, the constraint $\Psi_t > 0$ implies that $\Psi^*_t + \bar{\Sigma}_t > 0$, such that our choice of $\bar{\Sigma}_t$ effectively sets a lower bound on the unexplained variance.\\
 
 \subsubsection{Estimating the mean read depth $d_s$}\label{sec:read_depth_estimation}
-Let us define $\lambda_{st} \equiv \PP_{st} c_{st} e^{b_{st}}$ as the total multiplicative bias per sample per target. Assuming $\lambda_{st}$ is sharply peaked about its mode, the MLE for $d_s$ can be easily found by approximating the Poisson distributions with a Gaussian distribution as discussed earlier: 
+Let us define $\lambda_{st} \equiv \PP_{st} c_{st} e^{b_{st}}$ as the total Poisson parameter multiplicative factor per sample per target. Assuming $\lambda_{st}$ is sharply peaked about its mode, the MLE for $d_s$ can be easily found by approximating the Poisson distributions with Gaussian distributions as discussed earlier:
 \begin{align}
 P(\vn_s | d_s \boldsymbol{\lambda}_s) &= \prod_{t|M_{st} \neq 0} \mathrm{Poisson}(n_{st} | d_s \lambda_{st}) \simeq \prod_{t|M_{st} \neq 0} \norm(n_{st}|d_s \lambda_{st}, d_s \lambda_{st})\nonumber\\
 &\propto \prod_t \left[\frac{1}{\sqrt{d_s \lambda_{st}}}\exp\left(-\frac{(n_{st} - d_s \lambda_{st})^2}{2 d_s \lambda_{st}}\right)\right]^{M_{st}}.
@@ -790,13 +790,13 @@ Replacing $\lambda_{st}$ with its mode, the log likelihood of read depth is give
 \end{equation}
 Maximizing yields a quadratic equation with only one acceptable root:
 \begin{equation}
-d_s = \frac{\sqrt{4\llangle \vn^2 \rrangle_s \llangle \boldsymbol{\lambda}^2 \rrangle_s + \llangle \boldsymbol{\lambda} \rrangle_s^2} - \llangle \boldsymbol{\lambda} \rrangle_s}{2 \llangle \boldsymbol{\lambda}^2 \rrangle_s},
+d_s = \frac{\sqrt{4\llangle n^2 \, \lambda^{-1}\rrangle_s \, \llangle \lambda \rrangle_s + 1} - 1}{2 \llangle \lambda \rrangle_s},
 \end{equation}
 where we have defined the masked target average $\llangle \cdot \rrangle_s$ as:
 \begin{equation}
-\llangle \mathbf{v} \rrangle_s \equiv \frac{\sum_t M_{st} v_{st}}{\sum_t M_{st}}.
+\llangle v \rrangle_s \equiv \frac{\sum_t M_{st} v_{st}}{\sum_t M_{st}}.
 \end{equation}
-If $n_{st} \gg 1$, we may approximate the result as $d_s \simeq \left(\llangle \vn^2 \rrangle_s / \llangle \boldsymbol{\lambda}^2 \rrangle_s\right)^{\frac{1}{2}}$. Before learning the parameters of the coverage model, we may set $\lambda_{st} \rightarrow \PP_{st}$ to obtain a first estimate of $d_s$. This estimate can be updated along the way as better estimates for $c_{st}$ and $b_{st}$ is found.
+If $n_{st} \gg 1$, we may approximate the result as $d_s \simeq \sqrt{\llangle n^2 \lambda^{-1} \rrangle_s \, \llangle \lambda \rrangle_s^{-1}}$. Before learning the parameters of the coverage model, we may set $\lambda_{st} \rightarrow \PP_{st}$ to obtain a first estimate of $d_s$. This estimate can be updated along the way as better estimates for $c_{st}$ and $b_{st}$ are found.
 
 \subsubsection{EM algorithm for obtaining MLE of $(\vW, \vPsi, \vm)$:}
 
@@ -1034,9 +1034,9 @@ $D=20$\\
 
 
 \subsection{Inferring sex genotype from raw read counts}
-The probabilistic target coverage model requires the germline copy number of the targets as an input for dealing with cohorts composed of samples with different sexes. If the phenotypic sex of the human subject associated to a sample is known, the nominal germline ploidy of each target is readily known. Unfortunately, the gender annotation is not available for most samples. In this section, we propose a simple statistical test for inferring the sex associated to a sample from human subjects from raw read counts on X and Y chromosomes.\\
+The probabilistic target coverage model requires the germline copy number of the targets as an input for dealing with mixed-sex cohorts. In this section, we propose a simple statistical test for inferring sex from raw read counts when the phenotypic sex is not known.\\
 
-Let $T_X$ and $T_Y$ be a set of targets on X and Y chromosomes. Let $\{n_t\}$ be the raw read counts on sex chromosome targets. The likelihood of reads for either of XX or XY genotypes can be calculated from Eq.~\eqref{coverage_model}. Since we have no prior knowledge of the germline CNV events\footnote{The germline CNV events will be known only after training the target coverage model. The latter, however, requires the sex genotype as an input.}, we proceed by assuming $c_{st} = 1$. We have no prior knowledge about the multiplicative bias $e^{b_t}$ either. However, it is reasonable to assume that a major source of the mean target bias is the target length $l_t$. In particular, if the reads are corrected for the GC bias, we expect a strong $e^{b_t} \propto l_t$ proportionality. Finally, the average read depth, $d$, can be reliably estimated from the read counts on autosomal targets (see Sec.~\ref{sec:read_depth_estimation}). Put together, for the XX genotype we have:
+Let $T_X$ and $T_Y$ be a set of targets on X and Y chromosomes. Let $\{n_t\}$ be the raw read counts on sex chromosome targets. The likelihood of reads for either of XX or XY genotypes can be calculated from Eq.~\eqref{coverage_model}. Since we have no prior knowledge of the germline CNV events\footnote{The germline CNV events will be known only after training the target coverage model. The latter, however, requires the sex genotype as an input.}, we proceed by assuming $c_{st} = 1$. We have no prior knowledge about the multiplicative bias $e^{b_t}$ either. However, it is reasonable to assume that a major source of the mean target bias is the target length $l_t$. In particular, if the reads are corrected for the GC bias, we expect a strong $e^{b_t} \propto l_t$ proportionality. Finally, the average read depth, $d$, can be reliably estimated from the read counts on autosomal targets (see Sec.~\ref{sec:read_depth_estimation}). Put together, for XX genotype we have:
 \begin{equation}
 \text{(XX~genotype)} \qquad \qquad n_t \sim \left\{
 \begin{array}{ll}
@@ -1046,7 +1046,7 @@ Let $T_X$ and $T_Y$ be a set of targets on X and Y chromosomes. Let $\{n_t\}$ be
 \end{array}
 \right.
 \end{equation}
-where $\rho$ is {\em average read count per base per strand}, $l_t$ is the target length (number of overlapping bases), and $\epss_M \sim 10^{-5}$ is the (small) probability of a mapping error that may result in a (small) number of reads to be mapped to the Y chromosome for an XX genotype sample. Similarly, for the YY genotype we have:
+where $\rho$ is {\em average read count per base per homologous copy}, $l_t$ is the target length (number of overlapping bases), and $\epss_M \sim 10^{-5}$ is the (small) probability of a mapping error that may result in a (small) number of reads to be mapped to the Y chromosome for an XX genotype sample. Similarly, for the YY genotype we have:
 \begin{equation}
 \text{(XX~genotype)} \qquad \qquad n_t \sim \mathrm{Poisson}(\rho\, l_t) \qquad t \in T_X \cup T_Y.
 \end{equation}
@@ -1058,18 +1058,18 @@ P(\vn|\text{XX}) &= \prod_{t \in T_X} \mathrm{Poisson}(n_t | 2\,\rho\,l_t)\,\pro
 P(\vn|\text{XY}) &= \prod_{t \in T_X \cup T_Y} \mathrm{Poisson}(n_t | \rho\,l_t).
 \end{align}
 
-\noindent {\bf Compound reads likelihood:} we define compounds reads on X and Y chromosomes as $N_X \def \sum_{t \in T_X} n_t$ and $N_Y \def \sum_{t \in T_Y} n_t$, respectively. Both of these compound random variables have a Poisson distribution with the sum of the Poisson parameter of the underlying reads. The compounds likelihoods are given as:
+\noindent {\bf Compound reads likelihood:} we define compounds reads on X and Y chromosomes as $N_X \equiv \sum_{t \in T_X} n_t$ and $N_Y \equiv \sum_{t \in T_Y} n_t$, respectively, both of which also have a Poisson distribution. The compound likelihoods are given as:
 \begin{align}
 P(N_X, N_Y|\text{XX}) &= \mathrm{Poisson}(N_X|2 \rho L_X) \times \mathrm{Poisson}(N_Y | \epss_M \rho N_Y),\nonumber\\
 P(N_X, N_Y|\text{XY}) &= \mathrm{Poisson}(N_X |\rho L_X) \times \mathrm{Poisson}(N_Y |\rho L_Y).
 \end{align}
 We have defined $L_{X(Y)} \equiv \sum_{t \in T_{X(Y)}} l_t$ as the total length of targets in X and Y chromosomes.\\
 
-Having a likelihood function, the logarithmic odds of $XX$ to $XY$ genotype is readily found from the Bayes theorem:
+Having a likelihood function, the logarithmic odds of $XX$ to $XY$ genotype is readily found from Bayes' theorem:
 \begin{equation}
 \log\,\mathrm{odds}(\text{XX}/\text{XY}) = \log P(\vn|\text{XX}) + \log P(\text{XX}) - \log P(\vn|\text{XY}) - \log P(\text{XY}).
 \end{equation}
-If the compounds reads likelihood model is used, the compound likelihood functions must be accordingly:
+If the compound reads likelihood model is used, the compound likelihood functions must be used accordingly:
 \begin{equation}
 \log\,\mathrm{odds}(\text{XX}/\text{XY}) = \log P(N_X, N_Y|\text{XX}) + \log P(\text{XX}) - \log P(N_X, N_Y|\text{XY}) - \log P(\text{XY}).
 \end{equation}
