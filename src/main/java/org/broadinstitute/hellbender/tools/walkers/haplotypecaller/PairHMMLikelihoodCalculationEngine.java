@@ -147,6 +147,24 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         this( constantGCP, hmmType, log10globalReadMismappingRate, pcrErrorModel, PairHMM.BASE_QUALITY_SCORE_THRESHOLD );
     }
 
+    /**
+     * Initialize our pairHMM with parameters appropriate to the haplotypes and reads we're going to evaluate.
+     *
+     * After calling this routine the {@link PairHMM} will be configured to best evaluate all reads in the samples
+     * against the set of haplotypes.
+     *
+     * @param haplotypes        a non-null list of haplotypes
+     * @param perSampleReadList a mapping from sample -> reads
+     */
+    private void initializePairHMM(final List<Haplotype> haplotypes,
+                                   final Map<String, List<GATKRead>> perSampleReadList) {
+        final int readMaxLength = perSampleReadList.entrySet().stream().flatMap(e -> e.getValue().stream()).mapToInt(read -> read.getLength()).max().orElse(0);
+        final int haplotypeMaxLength = haplotypes.stream().mapToInt(h -> h.getBases().length).max().orElse(0);
+
+        // initialize arrays to hold the probabilities of being in the match, insertion and deletion cases
+        pairHMM.initialize(haplotypes, perSampleReadList, readMaxLength, haplotypeMaxLength);
+    }
+
     @Override
     public void close() {
         if ( likelihoodsStream != null ) {
@@ -205,6 +223,12 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         writeDebugLikelihoods(likelihoods);
     }
 
+    private static Map<GATKRead, byte[]> buildGapContinuationPenalties(final List<GATKRead> reads,
+                                                                       final byte gapPenalty) {
+        return reads.stream().collect(Collectors.toMap(read -> read,
+                read -> Utils.dupBytes(gapPenalty, read.getLength())));
+    }
+
     // -----------------------------------------------------------------------------------------------
     // Read massaging
     // -----------------------------------------------------------------------------------------------
@@ -235,6 +259,25 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
             result.add(createQualityModifiedRead(read, readBases, readQuals, readInsQuals, readDelQuals));
         }
         return result;
+    }
+
+    private static void capMinimumReadQualities(final GATKRead read,
+                                                final byte[] readQuals,
+                                                final byte[] readInsQuals,
+                                                final byte[] readDelQuals,
+                                                final byte baseQualityScoreThreshold) {
+        for( int i = 0; i < readQuals.length; i++ ) {
+            readQuals[i] = (byte) Math.min(0xff & readQuals[i], read.getMappingQuality()); // cap base quality by mapping quality, as in UG
+            readQuals[i] =    setToFixedValueIfTooLow( readQuals[i],    baseQualityScoreThreshold,             QualityUtils.MIN_USABLE_Q_SCORE );
+            readInsQuals[i] = setToFixedValueIfTooLow( readInsQuals[i], QualityUtils.MIN_USABLE_Q_SCORE,       QualityUtils.MIN_USABLE_Q_SCORE );
+            readDelQuals[i] = setToFixedValueIfTooLow( readDelQuals[i], QualityUtils.MIN_USABLE_Q_SCORE,       QualityUtils.MIN_USABLE_Q_SCORE );
+        }
+    }
+
+    private static byte setToFixedValueIfTooLow(final byte currentVal,
+                                                final byte minQual,
+                                                final byte fixedQual){
+        return currentVal < minQual ? fixedQual : currentVal;
     }
 
     /**
@@ -277,50 +320,9 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         return processedRead;
     }
 
-    private static Map<GATKRead, byte[]> buildGapContinuationPenalties(final List<GATKRead> reads,
-                                                                       final byte gapPenalty) {
-        return reads.stream().collect(Collectors.toMap(read -> read,
-                                                       read -> Utils.dupBytes(gapPenalty, read.getLength())));
-    }
-
-    private static void capMinimumReadQualities(final GATKRead read,
-                                                final byte[] readQuals,
-                                                final byte[] readInsQuals,
-                                                final byte[] readDelQuals,
-                                                final byte baseQualityScoreThreshold) {
-        for( int i = 0; i < readQuals.length; i++ ) {
-            readQuals[i] = (byte) Math.min(0xff & readQuals[i], read.getMappingQuality()); // cap base quality by mapping quality, as in UG
-            readQuals[i] =    setToFixedValueIfTooLow( readQuals[i],    baseQualityScoreThreshold,             QualityUtils.MIN_USABLE_Q_SCORE );
-            readInsQuals[i] = setToFixedValueIfTooLow( readInsQuals[i], QualityUtils.MIN_USABLE_Q_SCORE,       QualityUtils.MIN_USABLE_Q_SCORE );
-            readDelQuals[i] = setToFixedValueIfTooLow( readDelQuals[i], QualityUtils.MIN_USABLE_Q_SCORE,       QualityUtils.MIN_USABLE_Q_SCORE );
-        }
-    }
-
-    private static byte setToFixedValueIfTooLow(final byte currentVal,
-                                                final byte minQual,
-                                                final byte fixedQual){
-        return currentVal < minQual ? fixedQual : currentVal;
-    }
-
     // -----------------------------------------------------------------------------------------------
     // Utilities and debug
     // -----------------------------------------------------------------------------------------------
-    /**
-     * Initialize our pairHMM with parameters appropriate to the haplotypes and reads we're going to evaluate.
-     *
-     * After calling this routine the {@link PairHMM} will be configured to best evaluate all reads in the samples
-     * against the set of haplotypes.
-     *
-     * @param haplotypes        a non-null list of haplotypes
-     * @param perSampleReadList a mapping from sample -> reads
-     */
-    private void initializePairHMM(final List<Haplotype> haplotypes, final Map<String, List<GATKRead>> perSampleReadList) {
-        final int readMaxLength = perSampleReadList.entrySet().stream().flatMap(e -> e.getValue().stream()).mapToInt(read -> read.getLength()).max().orElse(0);
-        final int haplotypeMaxLength = haplotypes.stream().mapToInt(h -> h.getBases().length).max().orElse(0);
-
-        // initialize arrays to hold the probabilities of being in the match, insertion and deletion cases
-        pairHMM.initialize(haplotypes, perSampleReadList, readMaxLength, haplotypeMaxLength);
-    }
 
     private PrintStream makeLikelihoodStream() {
         try {
