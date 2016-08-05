@@ -276,6 +276,10 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
             // only genotype an event that is inside this active region
             if( loc < activeRegionWindow.getStart() || loc > activeRegionWindow.getEnd() ) { continue; }
 
+            /////////////////////////////////////////////////////////
+            // Input massaging before sending to sample genotyping //
+            /////////////////////////////////////////////////////////
+
             final List<VariantContext> eventsAtThisLoc = getVCsAtThisLocation(haplotypes, loc, activeAllelesToGenotype);
 
             if( eventsAtThisLoc.isEmpty() ) { continue; }
@@ -320,14 +324,24 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
                 readAlleleLikelihoods.addNonReferenceAllele(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE);
             }
 
+            ////////////////////////////////////////////////////////////////////
+            // Send off work to single sample genotype likelihood calculation //
+            ////////////////////////////////////////////////////////////////////
             final GenotypesContext genotypes = calculateGLsForThisEvent( readAlleleLikelihoods, mergedVC, noCallAlleles );
 
+            ////////////////////////////////////////////////////////////////////////////////////////////////
+            // Send off work to cohort genotype likelihood calculation -- currently depends on base class //
+            ////////////////////////////////////////////////////////////////////////////////////////////////
             final GenotypeLikelihoodsCalculationModel calculationModel = mergedVC.isSNP() ? GenotypeLikelihoodsCalculationModel.SNP
                                                                                           : GenotypeLikelihoodsCalculationModel.INDEL;
 
             final VariantContext call = calculateGenotypes(new VariantContextBuilder(mergedVC).genotypes(genotypes).make(), calculationModel, header);
 
             if( call == null) { continue; }
+
+            ////////////////////////////////////////////////////////////////////
+            // NOT SURE YET WHAT THIS DOES //
+            ////////////////////////////////////////////////////////////////////
 
             readAlleleLikelihoods = prepareReadAlleleLikelihoodsForAnnotation(readLikelihoods,
                                                                               perSampleFilteredReadList,
@@ -392,9 +406,38 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
     }
 
     // -----------------------------------------------------------------------------------------------
-    // Utilities: serving core
+    // Utilities: serving core's input massaging part
     // (not sure why they are protected, IDE indicates they could all be private, and since class is final, they should)
     // -----------------------------------------------------------------------------------------------
+
+    /**
+     * Go through the haplotypes we assembled, and decompose them into their constituent variant contexts
+     *
+     * @param haplotypes                the list of haplotypes we're working with
+     * @param ref                       the reference bases (over the same interval as the haplotypes)
+     * @param refLoc                    the span of the reference bases
+     * @param activeAllelesToGenotype   alleles we want to ensure are scheduled for genotyping (GGA mode)
+     *
+     * @return                          never {@code null} but perhaps an empty list if there is no variants to report.
+     */
+    protected TreeSet<Integer> decomposeHaplotypesIntoVariantContexts(final List<Haplotype> haplotypes,
+                                                                      final byte[] ref,
+                                                                      final SimpleInterval refLoc,
+                                                                      final List<VariantContext> activeAllelesToGenotype) {
+        final boolean in_GGA_mode = !activeAllelesToGenotype.isEmpty();
+
+        // Using the cigar from each called haplotype figure out what events need to be written out in a VCF file
+        final TreeSet<Integer> startPosKeySet = EventMap.buildEventMapsForHaplotypes(haplotypes, ref, refLoc, configuration.DEBUG);
+
+        if (in_GGA_mode) {
+            startPosKeySet.clear();
+            for (final VariantContext compVC : activeAllelesToGenotype) {
+                startPosKeySet.add(compVC.getStart());
+            }
+        }
+
+        return startPosKeySet;
+    }
 
     protected List<VariantContext> getVCsAtThisLocation(final List<Haplotype> haplotypes,
                                                         final int loc,
@@ -485,15 +528,6 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return vcs.stream().map(vc -> vc.getSource()).collect(Collectors.toList())*/
     }
 
-    protected static Map<Allele, List<Haplotype>> createAlleleMapper(final Map<VariantContext, Allele> mergeMap,
-                                                                     final Map<Event, List<Haplotype>> eventMap ) {
-        final Map<Allele, List<Haplotype>> alleleMapper = new LinkedHashMap<>();
-        for( final Map.Entry<VariantContext, Allele> entry : mergeMap.entrySet() ) {
-            alleleMapper.put(entry.getValue(), eventMap.get(new Event(entry.getKey())));
-        }
-        return alleleMapper;
-    }
-
     private VariantContext addNonRefSymbolicAllele(final VariantContext mergedVC) {
         final VariantContextBuilder vcb = new VariantContextBuilder(mergedVC);
         final List<Allele> originalList = mergedVC.getAlleles();
@@ -504,35 +538,29 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return vcb.make();
     }
 
+    protected static Map<Allele, List<Haplotype>> createAlleleMapper(final Map<VariantContext, Allele> mergeMap,
+                                                                     final Map<Event, List<Haplotype>> eventMap ) {
+        final Map<Allele, List<Haplotype>> alleleMapper = new LinkedHashMap<>();
+        for( final Map.Entry<VariantContext, Allele> entry : mergeMap.entrySet() ) {
+            alleleMapper.put(entry.getValue(), eventMap.get(new Event(entry.getKey())));
+        }
+        return alleleMapper;
+    }
 
-    /**
-     * Go through the haplotypes we assembled, and decompose them into their constituent variant contexts
-     *
-     * @param haplotypes                the list of haplotypes we're working with
-     * @param ref                       the reference bases (over the same interval as the haplotypes)
-     * @param refLoc                    the span of the reference bases
-     * @param activeAllelesToGenotype   alleles we want to ensure are scheduled for genotyping (GGA mode)
-     *
-     * @return                          never {@code null} but perhaps an empty list if there is no variants to report.
-     */
-    protected TreeSet<Integer> decomposeHaplotypesIntoVariantContexts(final List<Haplotype> haplotypes,
-                                                                      final byte[] ref,
-                                                                      final SimpleInterval refLoc,
-                                                                      final List<VariantContext> activeAllelesToGenotype) {
-        final boolean in_GGA_mode = !activeAllelesToGenotype.isEmpty();
-
-        // Using the cigar from each called haplotype figure out what events need to be written out in a VCF file
-        final TreeSet<Integer> startPosKeySet = EventMap.buildEventMapsForHaplotypes(haplotypes, ref, refLoc, configuration.DEBUG);
-
-        if (in_GGA_mode) {
-            startPosKeySet.clear();
-            for (final VariantContext compVC : activeAllelesToGenotype) {
-                startPosKeySet.add(compVC.getStart());
+    protected static boolean containsVCWithMatchingAlleles(final List<VariantContext> list,
+                                                           final VariantContext vcToTest ) {
+        for( final VariantContext vc : list ) {
+            if( vc.hasSameAllelesAs(vcToTest) ) {
+                return true;
             }
         }
-
-        return startPosKeySet;
+        return false;
     }
+
+    // -----------------------------------------------------------------------------------------------
+    // Utilities: serving core's output postprocessing part after cohort genotyping step
+    // (not sure why they are protected, IDE indicates they could all be private, and since class is final, they should)
+    // -----------------------------------------------------------------------------------------------
 
     /**
      * Builds the read-likelihoods collection to use for annotation considering user arguments and the collection used for genotyping.
@@ -576,16 +604,6 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return readAlleleLikelihoodsForAnnotations;
     }
 
-    protected static boolean containsVCWithMatchingAlleles(final List<VariantContext> list,
-                                                           final VariantContext vcToTest ) {
-        for( final VariantContext vc : list ) {
-            if( vc.hasSameAllelesAs(vcToTest) ) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private Map<String, List<GATKRead>> overlappingFilteredReads(final Map<String, List<GATKRead>> perSampleFilteredReadList,
                                                                  final SimpleInterval loc) {
         final Map<String,List<GATKRead>> overlappingFilteredReads = new HashMap<>(perSampleFilteredReadList.size());
@@ -610,7 +628,8 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return overlappingFilteredReads;
     }
     // -----------------------------------------------------------------------------------------------
-    // Utilities: phasing (not sure why they are protected)
+    // Utilities: phasing (optional, last functionality of this engine)
+    // (not sure why they are protected, IDE indicates they could all be private, and since class is final, they should)
     // -----------------------------------------------------------------------------------------------
     /**
      * Tries to phase the individual alleles based on pairwise comparisons to the other alleles based on all called haplotypes
