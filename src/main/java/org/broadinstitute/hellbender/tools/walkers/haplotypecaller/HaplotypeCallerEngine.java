@@ -603,6 +603,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
 
         //TODO: can we refactor the following several if-then-early-return blocks into a cleanup() method
 
+        /**
+         * Block 1: early return checks when no variant is detected.
+         */
         if ( hcArgs.justDetermineActiveRegions ) {
             // we're benchmarking ART and/or the active region determination code in the HC, just leave without doing any work
             return NO_CALLS;
@@ -637,7 +640,13 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             // No reads here so nothing to do!
             return referenceModelForNoVariation(region, true);
         }
+        /**
+         * Block 1: end.
+         */
 
+        /**
+         * Block 2: local assembly and post processing.
+         */
         // run the local assembler, getting back a collection of information on how we should proceed
         final AssemblyResultSet untrimmedAssemblyResult = assembleReads(region, givenAlleles);
 
@@ -681,7 +690,13 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             // no reads remain after filtering so nothing else to do!
             return referenceModelForNoVariation(region, false);
         }
+        /**
+         * Block 2: end.
+         */
 
+        /**
+         * Block 3: read likelihood calculation and read post processing
+         */
         // evaluate each sample's reads against all haplotypes
         final List<Haplotype> haplotypes = assemblyResult.getHaplotypeList();
         final Map<String,List<GATKRead>> reads = splitReadsBySample(regionForGenotyping.getReads());
@@ -692,6 +707,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         // Realign reads to their best haplotype.
         final Map<GATKRead, GATKRead> readRealignments = realignReadsToTheirBestHaplotype(readLikelihoods, assemblyResult.getReferenceHaplotype(), assemblyResult.getPaddedReferenceLoc());
         readLikelihoods.changeReads(readRealignments);
+        /**
+         * Block 3: end.
+         */
 
         // Note: we used to subset down at this point to only the "best" haplotypes in all samples for genotyping, but there
         //  was a bad interaction between that selection and the marginalization that happens over each event when computing
@@ -699,6 +717,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         //  haplotype containing C as reference (and vice versa).  Now this is fine if all possible haplotypes are included
         //  in the genotyping, but we lose information if we select down to a few haplotypes.  [EB]
 
+        /**
+         * Block 4: sample and cohort genotyping
+         */
         final HaplotypeCallerGenotypingEngine.CalledHaplotypes calledHaplotypes = genotypingEngine.assignGenotypeLikelihoods(
                                                                                                                             haplotypes,
                                                                                                                             readLikelihoods,
@@ -710,7 +731,13 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
                                                                                                                             (hcArgs.assemblerArgs.consensusMode ? Collections.<VariantContext>emptyList() : givenAlleles),
                                                                                                                             emitReferenceConfidence(),
                                                                                                                             readsHeader);
+        /**
+         * Block 4: end.
+         */
 
+        /**
+         * Block 5: --bamout optional output
+         */
         if ( haplotypeBAMWriter != null ) {
             final Set<Haplotype> calledHaplotypeSet = new HashSet<>(calledHaplotypes.getCalledHaplotypes());
             if ( hcArgs.disableOptimizations ) {
@@ -719,11 +746,17 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             haplotypeBAMWriter.writeReadsAlignedToHaplotypes(haplotypes, assemblyResult.getPaddedReferenceLoc(), haplotypes,
                                                              calledHaplotypeSet, readLikelihoods);
         }
+        /**
+         * Block 5: end.
+         */
 
         if( hcArgs.DEBUG ) {
             logger.info("----------------------------------------------------------------------------------");
         }
 
+        /**
+         * Block 6: WHAT IS THIS?
+         */
         if ( emitReferenceConfidence() ) {
             if ( !containsCalls(calledHaplotypes) ) {
                 // no called all of the potential haplotypes
@@ -754,6 +787,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         else {
             return calledHaplotypes.getCalls();
         }
+        /**
+         * Block 6: END.
+         */
     }
 
     // -----------------------------------------------------------------------------------------------
@@ -779,14 +815,6 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         }
         activeRegion.removeAll(readsToRemove);
         return readsToRemove;
-        /**
-         * attempt to use stream (logic to be inverted)
-         * final Set<GATKRead> readsToRemove = activeRegion.getReads().stream().filter(rec -> rec.getLength() < READ_LENGTH_FILTER_THRESHOLD ||
-                                                                                              rec.getMappingQuality() < READ_QUALITY_FILTER_THRESHOLD ||
-                                                                                              ! ReadFilterLibrary.MATE_ON_SAME_CONTIG_OR_NO_MAPPED_MATE.test(rec) ||
-                                                                                              (hcArgs.keepRG != null && !rec.getReadGroup().equals(hcArgs.keepRG)))
-                                                                      .collect(Collectors.toSet()); // should be LinkedHashSet
-         */
     }
 
     /**
@@ -953,7 +981,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
     }
 
     // -----------------------------------------------------------------------------------------------
-    // utilities: for genotyping
+    // utilities: read postprocessing after likelihood calculation
     // -----------------------------------------------------------------------------------------------
 
     /**
@@ -983,7 +1011,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
     }
 
     // -----------------------------------------------------------------------------------------------
-    // utilities: when interesting stuff is gone
+    // utilities: when "interesting stuff" is gone
     // -----------------------------------------------------------------------------------------------
 
     /**
