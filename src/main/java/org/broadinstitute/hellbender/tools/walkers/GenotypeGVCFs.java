@@ -285,10 +285,9 @@ public final class GenotypeGVCFs extends VariantWalker {
                     attrs.put(GATKVCFConstants.REFERENCE_GENOTYPE_QUALITY, oldGT.getGQ());
                 }
 
-                //keep 0 depth samples as no-call
-                if (depth > 0) {
-                    final int ploidy = oldGT.getPloidy();
-                    final List<Allele> refAlleles = Collections.nCopies(ploidy,vc.getReference());
+                //keep 0 depth samples and 0 GQ samples as no-call
+                if (depth > 0 && oldGT.hasGQ() && oldGT.getGQ() > 0) {
+                    final List<Allele> refAlleles = Collections.nCopies(oldGT.getPloidy(), vc.getReference());
                     builder.alleles(refAlleles);
                 }
 

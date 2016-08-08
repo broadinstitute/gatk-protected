@@ -4,6 +4,7 @@ import htsjdk.variant.variantcontext.*;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.broadinstitute.hellbender.utils.test.VariantContextTestUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
+import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -121,9 +122,18 @@ public class GenotypeGVCFsUnitTest extends BaseTest {
         Assert.assertEquals(homVarAfterCleanup.getAnyAttribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY), GenotypeGVCFs.PHASED_HOM_VAR_STRING);
         final Genotype homRefAfterCleaning = GenotypeGVCFs.cleanupGenotypeAnnotations(withPhasing, true).get(1);
         Assert.assertEquals(homRefAfterCleaning.getAnyAttribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY), "something");
-
     }
 
+    @Test
+    public void testRGQ0IsNoCall(){
+        final List<Allele> noCall = GATKVariantContextUtils.noCallAlleles(2);
+        final VariantContext gq0 = getHetWithGenotype(generateGenotypes(b -> b.GQ(0).DP(10).alleles(noCall), // GQ = 0
+                                                                        (b -> b.DP(10).alleles(noCall)))); //no GQ
+        final List<Genotype> genotypes = GenotypeGVCFs.cleanupGenotypeAnnotations(gq0, true);
+        for( Genotype genotype : genotypes ){
+            Assert.assertEquals(genotype.getAlleles(), noCall);
+        }
+    }
 
 
 }
