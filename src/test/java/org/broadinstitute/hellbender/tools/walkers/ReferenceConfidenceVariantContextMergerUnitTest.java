@@ -26,7 +26,7 @@ public class ReferenceConfidenceVariantContextMergerUnitTest extends BaseTest {
     private final Allele C = Allele.create("C");
     private final Allele G = Allele.create("G");
     private final Allele ATC = Allele.create("ATC");
-    private final Allele del = GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED;
+    private final Allele del = Allele.SPAN_DEL;
     private final Allele ATCref = Allele.create("ATC", true);
 
     @Test(dataProvider = "referenceConfidenceMergeData")

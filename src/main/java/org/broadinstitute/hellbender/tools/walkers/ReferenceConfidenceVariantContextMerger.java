@@ -136,7 +136,7 @@ final class ReferenceConfidenceVariantContextMerger {
             if ( allele.equals(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE) ) {
                 replacement = allele;
             } else if ( allele.length() < vc.getReference().length() ) {
-                replacement = GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED;
+                replacement = Allele.SPAN_DEL;
             } else {
                 replacement = Allele.NO_CALL;
             }
@@ -205,7 +205,8 @@ final class ReferenceConfidenceVariantContextMerger {
         // record whether it's also a spanning deletion/event (we know this because the VariantContext type is no
         // longer "symbolic" but "mixed" because there are real alleles mixed in with the symbolic non-ref allele)
         public boolean isSpanningDeletion() {
-            return  (isSpanningEvent && vc.isMixed()) || vc.getAlleles().contains(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED);
+            return  (isSpanningEvent && vc.isMixed()) || vc.getAlleles().contains(Allele.SPAN_DEL)
+                    || vc.getAlleles().contains(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED);
         }
 
         public boolean isNonSpanningEvent() {
@@ -238,7 +239,7 @@ final class ReferenceConfidenceVariantContextMerger {
 
         // Add <DEL> and <NON_REF> to the end if at all required in in the output.
         if ( sawSpanningDeletion && (sawNonSpanningEvent || !removeNonRefSymbolicAllele) ) {
-            finalAlleleSet.add(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED);
+            finalAlleleSet.add(Allele.SPAN_DEL);
         }
         if (!removeNonRefSymbolicAllele) {
             finalAlleleSet.add(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE);

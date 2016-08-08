@@ -135,7 +135,6 @@ public final class GenotypeGVCFs extends VariantWalker {
         headerLines.addAll(genotypingEngine.getAppropriateVCFInfoHeaders());
 
         // add headers for annotations added by this tool
-        headerLines.add(new VCFSimpleHeaderLine(GATKVCFConstants.SYMBOLIC_ALLELE_DEFINITION_HEADER_TAG, GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_NAME_DEPRECATED, "Represents any possible spanning deletion allele at this location"));
         headerLines.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.MLE_ALLELE_COUNT_KEY));
         headerLines.add(GATKVCFHeaderLines.getInfoLine(GATKVCFConstants.MLE_ALLELE_FREQUENCY_KEY));
         headerLines.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.REFERENCE_GENOTYPE_QUALITY));
@@ -173,7 +172,7 @@ public final class GenotypeGVCFs extends VariantWalker {
         if ( result.isVariant() ) {
             // only re-genotype polymorphic sites
             VariantContext regenotypedVC = genotypingEngine.calculateGenotypes(result, GenotypeLikelihoodsCalculationModel.SNP, null);
-            if (regenotypedVC == null || regenotypedVC.isSymbolic()) {
+            if ( !isProperlyPolymorphic(regenotypedVC) ) {
                 if (!includeNonVariants) {
                     return null;
                 }
@@ -199,6 +198,22 @@ public final class GenotypeGVCFs extends VariantWalker {
             return new VariantContextBuilder(reannotated).genotypes(cleanupGenotypeAnnotations(reannotated, false)).make();
         }
 
+    }
+
+    /**
+     * Determines whether the provided VariantContext has real alternate alleles
+     *
+     * @param vc  the VariantContext to evaluate
+     * @return true if it has proper alternate alleles, false otherwise
+     */
+    private boolean isProperlyPolymorphic(final VariantContext vc) {
+        return ( vc != null &&
+                !vc.getAlternateAlleles().isEmpty() &&
+                (!vc.isBiallelic() ||
+                        (!vc.getAlternateAllele(0).equals(Allele.SPAN_DEL) &&
+                                !vc.getAlternateAllele(0).equals(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED))
+                )
+        );
     }
 
     /**
