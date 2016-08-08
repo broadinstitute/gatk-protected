@@ -224,70 +224,6 @@ public final class ReferenceConfidenceModel {
     }
 
     /**
-     * Get the GenotypeLikelihoods with the least strong corresponding GQ value
-     * @param gl1 first to consider (cannot be null)
-     * @param gl2 second to consider (cannot be null)
-     * @return gl1 or gl2, whichever has the worst GQ
-     */
-    @VisibleForTesting
-    GenotypeLikelihoods getGLwithWorstGQ(final GenotypeLikelihoods gl1, final GenotypeLikelihoods gl2) {
-        if (getGQForHomRef(gl1) > getGQForHomRef(gl2)) {
-            return gl1;
-        } else {
-            return gl2;
-        }
-    }
-
-    private double getGQForHomRef(final GenotypeLikelihoods gls){
-        return GenotypeLikelihoods.getGQLog10FromLikelihoods(IDX_HOM_REF, gls.getAsVector());
-    }
-
-    /**
-     * Get indel PLs corresponding to seeing N nIndelInformativeReads at this site
-     *
-     * @param nInformativeReads the number of reads that inform us about being ref without an indel at this site
-     * @param ploidy the requested ploidy.
-     * @return non-null GenotypeLikelihoods given N
-     */
-    @VisibleForTesting
-    GenotypeLikelihoods getIndelPLs(final int ploidy, final int nInformativeReads) {
-        return indelPLCache(ploidy, nInformativeReads > MAX_N_INDEL_INFORMATIVE_READS ? MAX_N_INDEL_INFORMATIVE_READS : nInformativeReads);
-    }
-
-    private GenotypeLikelihoods indelPLCache(final int ploidy, final int nInformativeReads) {
-        return initializeIndelPLCache(ploidy)[nInformativeReads];
-    }
-
-    private GenotypeLikelihoods[] initializeIndelPLCache(final int ploidy) {
-
-        if (indelPLCache.length <= ploidy) {
-            indelPLCache = Arrays.copyOf(indelPLCache, ploidy << 1);
-        }
-
-        if (indelPLCache[ploidy] != null) {
-            return indelPLCache[ploidy];
-        }
-
-        final double denominator =  - MathUtils.log10(ploidy);
-        final GenotypeLikelihoods[] result = new GenotypeLikelihoods[MAX_N_INDEL_INFORMATIVE_READS + 1];
-
-        //Note: an array of zeros is the right answer for result[0].
-        result[0] = GenotypeLikelihoods.fromLog10Likelihoods(new double[ploidy + 1]);
-        for( int nInformativeReads = 1; nInformativeReads <= MAX_N_INDEL_INFORMATIVE_READS; nInformativeReads++ ) {
-            final double[] PLs = new double[ploidy + 1];
-            PLs[0] = nInformativeReads * NO_INDEL_LIKELIHOOD;
-            for (int altCount = 1; altCount <= ploidy; altCount++) {
-                final double refLikelihoodAccum = NO_INDEL_LIKELIHOOD + MathUtils.log10(ploidy - altCount);
-                final double altLikelihoodAccum = INDEL_LIKELIHOOD + MathUtils.log10(altCount);
-                PLs[altCount] = nInformativeReads * (MathUtils.approximateLog10SumLog10(refLikelihoodAccum ,altLikelihoodAccum) + denominator);
-            }
-            result[nInformativeReads] = GenotypeLikelihoods.fromLog10Likelihoods(PLs);
-        }
-        indelPLCache[ploidy] = result;
-        return result;
-    }
-
-    /**
      * Calculate the genotype likelihoods for the sample in pileup for being hom-ref contrasted with being ref vs. alt
      *
      * @param ploidy target sample ploidy.
@@ -322,6 +258,101 @@ public final class ReferenceConfidenceModel {
         }
         return result;
     }
+
+    /**
+     * Create a reference haplotype for an active region
+     *
+     * @param activeRegion the active region
+     * @param refBases the ref bases
+     * @param paddedReferenceLoc the location spanning of the refBases -- can be longer than activeRegion.getLocation()
+     * @return a reference haplotype
+     */
+    public static Haplotype createReferenceHaplotype(final AssemblyRegion activeRegion,
+                                                     final byte[] refBases,
+                                                     final SimpleInterval paddedReferenceLoc) {
+        Utils.nonNull(activeRegion, "null region");
+        Utils.nonNull(refBases, "null refBases");
+        Utils.nonNull(paddedReferenceLoc, "null paddedReferenceLoc");
+
+        final int alignmentStart = activeRegion.getExtendedSpan().getStart() - paddedReferenceLoc.getStart();
+        if ( alignmentStart < 0 ) {
+            throw new IllegalStateException("Bad alignment start in createReferenceHaplotype " + alignmentStart);
+        }
+        final Haplotype refHaplotype = new Haplotype(refBases, true);
+        refHaplotype.setAlignmentStartHapwrtRef(alignmentStart);
+        final Cigar c = new Cigar();
+        c.add(new CigarElement(refHaplotype.getBases().length, CigarOperator.M));
+        refHaplotype.setCigar(c);
+        return refHaplotype;
+    }
+
+    /**
+     * Get the GenotypeLikelihoods with the least strong corresponding GQ value
+     * @param gl1 first to consider (cannot be null)
+     * @param gl2 second to consider (cannot be null)
+     * @return gl1 or gl2, whichever has the worst GQ
+     */
+    @VisibleForTesting
+    GenotypeLikelihoods getGLwithWorstGQ(final GenotypeLikelihoods gl1,
+                                         final GenotypeLikelihoods gl2) {
+        if (getGQForHomRef(gl1) > getGQForHomRef(gl2)) {
+            return gl1;
+        } else {
+            return gl2;
+        }
+    }
+
+    private double getGQForHomRef(final GenotypeLikelihoods gls){
+        return GenotypeLikelihoods.getGQLog10FromLikelihoods(IDX_HOM_REF, gls.getAsVector());
+    }
+
+    /**
+     * Get indel PLs corresponding to seeing N nIndelInformativeReads at this site
+     *
+     * @param nInformativeReads the number of reads that inform us about being ref without an indel at this site
+     * @param ploidy the requested ploidy.
+     * @return non-null GenotypeLikelihoods given N
+     */
+    @VisibleForTesting
+    GenotypeLikelihoods getIndelPLs(final int ploidy,
+                                    final int nInformativeReads) {
+        return indelPLCache(ploidy, nInformativeReads > MAX_N_INDEL_INFORMATIVE_READS ? MAX_N_INDEL_INFORMATIVE_READS : nInformativeReads);
+    }
+
+    private GenotypeLikelihoods indelPLCache(final int ploidy,
+                                             final int nInformativeReads) {
+        return initializeIndelPLCache(ploidy)[nInformativeReads];
+    }
+
+    private GenotypeLikelihoods[] initializeIndelPLCache(final int ploidy) {
+
+        if (indelPLCache.length <= ploidy) {
+            indelPLCache = Arrays.copyOf(indelPLCache, ploidy << 1);
+        }
+
+        if (indelPLCache[ploidy] != null) {
+            return indelPLCache[ploidy];
+        }
+
+        final double denominator =  - MathUtils.log10(ploidy);
+        final GenotypeLikelihoods[] result = new GenotypeLikelihoods[MAX_N_INDEL_INFORMATIVE_READS + 1];
+
+        //Note: an array of zeros is the right answer for result[0].
+        result[0] = GenotypeLikelihoods.fromLog10Likelihoods(new double[ploidy + 1]);
+        for( int nInformativeReads = 1; nInformativeReads <= MAX_N_INDEL_INFORMATIVE_READS; nInformativeReads++ ) {
+            final double[] PLs = new double[ploidy + 1];
+            PLs[0] = nInformativeReads * NO_INDEL_LIKELIHOOD;
+            for (int altCount = 1; altCount <= ploidy; altCount++) {
+                final double refLikelihoodAccum = NO_INDEL_LIKELIHOOD + MathUtils.log10(ploidy - altCount);
+                final double altLikelihoodAccum = INDEL_LIKELIHOOD + MathUtils.log10(altCount);
+                PLs[altCount] = nInformativeReads * (MathUtils.approximateLog10SumLog10(refLikelihoodAccum ,altLikelihoodAccum) + denominator);
+            }
+            result[nInformativeReads] = GenotypeLikelihoods.fromLog10Likelihoods(PLs);
+        }
+        indelPLCache[ploidy] = result;
+        return result;
+    }
+
 
     private void applyPileupElementRefVsNonRefLikelihoodAndCount(final byte refBase,
                                                                  final int likelihoodCount,
@@ -399,7 +430,8 @@ public final class ReferenceConfidenceModel {
      * @return a VariantContext, or null if none overlaps
      */
     @VisibleForTesting
-    VariantContext getOverlappingVariantContext(final Locatable curPos, final Collection<VariantContext> maybeOverlapping) {
+    VariantContext getOverlappingVariantContext(final Locatable curPos,
+                                                final Collection<VariantContext> maybeOverlapping) {
         final SimpleInterval curPosSI = new SimpleInterval(curPos);
         VariantContext overlaps = null;
         for ( final VariantContext vc : maybeOverlapping ) {
@@ -494,7 +526,10 @@ public final class ReferenceConfidenceModel {
      * @return an integer >= 0
      */
     @VisibleForTesting
-    int calcNIndelInformativeReads(final ReadPileup pileup, final int pileupOffsetIntoRef, final byte[] ref, final int maxIndelSize) {
+    int calcNIndelInformativeReads(final ReadPileup pileup,
+                                   final int pileupOffsetIntoRef,
+                                   final byte[] ref,
+                                   final int maxIndelSize) {
         int nInformative = 0;
         for ( final PileupElement p : pileup ) {
             final GATKRead read = p.getRead();
@@ -514,30 +549,5 @@ public final class ReferenceConfidenceModel {
             }
         }
         return nInformative;
-    }
-
-    /**
-     * Create a reference haplotype for an active region
-     *
-     * @param activeRegion the active region
-     * @param refBases the ref bases
-     * @param paddedReferenceLoc the location spanning of the refBases -- can be longer than activeRegion.getLocation()
-     * @return a reference haplotype
-     */
-    public static Haplotype createReferenceHaplotype(final AssemblyRegion activeRegion, final byte[] refBases, final SimpleInterval paddedReferenceLoc) {
-        Utils.nonNull(activeRegion, "null region");
-        Utils.nonNull(refBases, "null refBases");
-        Utils.nonNull(paddedReferenceLoc, "null paddedReferenceLoc");
-
-        final int alignmentStart = activeRegion.getExtendedSpan().getStart() - paddedReferenceLoc.getStart();
-        if ( alignmentStart < 0 ) {
-            throw new IllegalStateException("Bad alignment start in createReferenceHaplotype " + alignmentStart);
-        }
-        final Haplotype refHaplotype = new Haplotype(refBases, true);
-        refHaplotype.setAlignmentStartHapwrtRef(alignmentStart);
-        final Cigar c = new Cigar();
-        c.add(new CigarElement(refHaplotype.getBases().length, CigarOperator.M));
-        refHaplotype.setCigar(c);
-        return refHaplotype;
     }
 }

@@ -230,7 +230,8 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         final Set<Haplotype> calledHaplotypes = new HashSet<>();
         final List<VariantContext> returnCalls = new ArrayList<>();
 
-        walkOverLocationsToAssignGLs(haplotypes, readLikelihoods, perSampleFilteredReadList, ref, refLoc, activeRegionWindow, tracker, activeAllelesToGenotype, emitReferenceConfidence, header, startPosKeySet, calledHaplotypes, returnCalls);
+        walkOverLocationsToAssignGLs(haplotypes, readLikelihoods, perSampleFilteredReadList, ref, refLoc, activeRegionWindow,
+                tracker, activeAllelesToGenotype, emitReferenceConfidence, header, startPosKeySet, calledHaplotypes, returnCalls);
 
         final List<VariantContext> phasedCalls = doPhysicalPhasing ? phaseCalls(returnCalls, calledHaplotypes) : returnCalls;
 
@@ -638,7 +639,8 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
      * @param calledHaplotypes  the set of haplotypes used for calling
      * @return a non-null list which represents the possibly phased version of the calls
      */
-    protected List<VariantContext> phaseCalls(final List<VariantContext> calls, final Set<Haplotype> calledHaplotypes) {
+    protected List<VariantContext> phaseCalls(final List<VariantContext> calls,
+                                              final Set<Haplotype> calledHaplotypes) {
 
         // construct a mapping from alternate allele to the set of haplotypes that contain that allele
         final Map<VariantContext, Set<Haplotype>> haplotypeMap = constructHaplotypeMapping(calls, calledHaplotypes);
@@ -853,7 +855,9 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
      * @param phaseGT the phase GT string to use
      * @return phased non-null variant context
      */
-    private static VariantContext phaseVC(final VariantContext vc, final String ID, final String phaseGT) {
+    private static VariantContext phaseVC(final VariantContext vc,
+                                          final String ID,
+                                          final String phaseGT) {
         final List<Genotype> phasedGenotypes = new ArrayList<>();
         for ( final Genotype g : vc.getGenotypes() ) {
             phasedGenotypes.add(new GenotypeBuilder(g).attribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY, ID).attribute(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_GT_KEY, phaseGT).make());
@@ -869,7 +873,10 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
      * @Deprecated - inline it at callsites
      */
     @Deprecated
-    protected static Map<Integer,VariantContext> generateVCsFromAlignment(final Haplotype haplotype, final byte[] ref, final Locatable refLoc, final String sourceNameToAdd ) {
+    protected static Map<Integer,VariantContext> generateVCsFromAlignment(final Haplotype haplotype,
+                                                                          final byte[] ref,
+                                                                          final Locatable refLoc,
+                                                                          final String sourceNameToAdd ) {
         return new EventMap(haplotype, ref, refLoc, sourceNameToAdd);
     }
 

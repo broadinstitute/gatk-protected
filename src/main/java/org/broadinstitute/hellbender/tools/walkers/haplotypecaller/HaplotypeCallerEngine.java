@@ -323,7 +323,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      * @throws IllegalArgumentException if any of the argument is {@code null}, and
      * @throws UserException            if any of arguments in {@code hcArgs} doesn't make sense
      */
-    public HaplotypeCallerEngine( final HaplotypeCallerArgumentCollection hcArgs, final SAMFileHeader readsHeader, final String reference ) {
+    public HaplotypeCallerEngine( final HaplotypeCallerArgumentCollection hcArgs,
+                                  final SAMFileHeader readsHeader,
+                                  final String reference ) {
         Utils.nonNull(hcArgs);
         Utils.nonNull(readsHeader);
         Utils.nonNull(reference);
@@ -540,7 +542,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      * @param features      features overlapping the pileup locus
      * @return              probability between 0.0 and 1.0 that the site is active (in practice with this implementation: either 0.0 or 1.0)
      */
-    public ActivityProfileState isActive( final AlignmentContext context, final ReferenceContext ref, final FeatureContext features ) {
+    public ActivityProfileState isActive( final AlignmentContext context,
+                                          final ReferenceContext ref,
+                                          final FeatureContext features ) {
 
         if ( hcArgs.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES ) {
             final VariantContext vcFromAllelesRod = GenotypingGivenAllelesUtils.composeGivenAllelesVariantContextFromRod(features, ref.getInterval(), false, logger, hcArgs.alleles);
@@ -1022,7 +1026,8 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      * @param needsToBeFinalized    should the region be finalized before computing the ref model (should be false if already done)
      * @return                      a list of variant contexts (can be empty) to emit for this ref region
      */
-    private List<VariantContext> referenceModelForNoVariation(final AssemblyRegion region, final boolean needsToBeFinalized) {
+    private List<VariantContext> referenceModelForNoVariation(final AssemblyRegion region,
+                                                              final boolean needsToBeFinalized) {
         if ( emitReferenceConfidence() ) {
             //TODO - why the activeRegion cannot manage its own one-time finalization and filtering?
             //TODO - perhaps we can remove the last parameter of this method and the three lines bellow?
