@@ -180,10 +180,11 @@ where we have defined:
 \label{eq:psi_def}
 \end{equation}
 We model the copy number states (or copy ratios in case of somatic samples) using a finite state hidden Markov model (HMM). Put together, we obtain:
-\begin{equation}
-P(\vn_s, \vz_s, \vc_s, d_s | \vtheta) \propto \left[P(c_{s,0}|\vpi) \prod_{t=1}^{T-1}P(c_{s,t}| c_{s,t-1}, \mathbf{T}_t)\right] \left[\prod_{t=0}^{T-1} P(n_{st}, z_{st} | c_{st}, \vtheta)\right].
+\begin{align}
+P(\vn_s, \vz_s, \vc_s, d_s | \vtheta) &\propto P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big)\, \prod_t P(n_{st}, z_{st}, d_s | c_{st}, \vtheta),\nonumber\\
+P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big) &\equiv P(c_{s,0}|\vpi) \prod_{t=1}^{T-1}P(c_{s,t}| c_{s,t-1}, \mathbf{T}_t).
 \label{eq:complete_log_likelihood}
-\end{equation}
+\end{align}
 Here, $\vpi$ is a vector denoting the prior probabilities of various copy number states, and $\mathbf{T}_t$ is the transition matrix at target $t$. We treat HMM parameters as given (hyperparameters).\\
 
 It is illuminating to study Eq.~\eqref{coverage_likelihood} before we proceed. To this end, we marginalize the bias latent variable $\vz_s$ in Eq.~\eqref{coverage_likelihood} to obtain the incomplete-data likelihood function. The final result can be put in a simple form using the Woodbury identity and properties of projection matrices:
@@ -220,9 +221,9 @@ Here, $k^* = \min(k, T - 1 - k)$, $k_l \sim \lfloor T / \ell_\mathrm{max} \rfloo
 \end{equation}
 where $F_{tt'} = f(t-t') \equiv T^{-1} \sum_{k=0}^{T-1} e^{2\pi i k (t-t')/T} \tilde{f}(k)$ is the inverse DFT of $\tilde{f}(k)$. Now, in order to avoid picking up event-like variations as noise, we simply penalize variations with large $\kappa$. To this end, we regularize the coverage likelihood function Eq.~\eqref{coverage_likelihood} with the following Laplace penalty:
 \begin{equation}
-R_f \equiv \exp\left(-\frac{\lambda}{2} \sum_{s=1}^S\kappa_s\right) = \exp\left(-\frac{\lambda}{T}\sum_{s=1}^S\sum_{t,t'=1}^{T-1}f(t-t') \, W_{t\mu} \, W_{t'\nu} \, z_{s\mu} \, z_{s\nu}\right).
+R_f \equiv \exp\left(-\frac{\lambda}{2} \sum_{s=1}^S\kappa_s\right) = \exp\left(-\frac{\lambda}{T}\sum_{s=1}^S\sum_{t,t'=0}^{T-1}f(t-t') \, W_{t\mu} \, W_{t'\nu} \, z_{s\mu} \, z_{s\nu}\right).
 \end{equation}
-We will discuss a proper choice of $\lambda$ later. 
+We will discuss a proper choice of $\lambda$ later. We also define the matrix $F_{t,t'} \equiv f(t-t')/T$ for later sections.
 
 \subsection{Automatic relevance determination (ARD) prior on $\vW$}
 The true dimension of the latent space is not known a priori. When abundant data is available (i.e. $S \gg D_\mathrm{true}$), this problem can be addressed using the automatic relevance determination (ARD) technique. To this end, one starts with a liberal estimate for $D$ and imposes a Gaussian prior on $\vW$:
@@ -238,38 +239,51 @@ Let us start by writing out the complete-data log likelihood (see Eq.~\ref{eq:co
 \begin{align}
 \label{eq:complete_log_likelihood}
 \ln P(\vn, \vc, \vz, \vd | \vtheta) &= \sum_{s} \ln P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big) - \frac{1}{2}\sum_{st} M_{st} \, \bigg\{\ln \Psi_{st} + \Psi_{st}^{-1}\Big[(\vW \vz_s)_t^2 + \Delta_{st}^2 - 2\Delta_{st} (\vW \vz_s)_t\Big]\bigg\}\nonumber\\
-& - \frac{\lambda}{2}\left(\frac{1}{T}\sum_{s=1}^S\sum_{t,t'=0}^{T-1}f(t-t') \, W_{t\mu} \, W_{t'\nu} \, z_{s\mu} \, z_{s\nu}\right) - \sum_{\mu=1}^{D}\left(\frac{T}{2} \, \ln \alpha_\mu -\frac{\alpha_\mu}{2} \sum_{t=0}^{T-1} W_{t\mu}^2  \right) + \mathrm{const.},\\
+& - \frac{\lambda}{2} \, \sum_s \sum_{t,t'} F_{tt'} \, W_{t\mu} \, W_{t'\nu} \, z_{s\mu} \, z_{s\nu} - \frac{1}{2}\sum_{s} \vz_s^T \vz_s - \sum_{\mu=1}^{D}\left(\frac{T}{2} \, \ln \alpha_\mu -\frac{\alpha_\mu}{2} \sum_{t=0}^{T-1} W_{t\mu}^2  \right) + \mathrm{const.},\\
 \label{eq:delta_def}
-\Delta_{st} &= \ln(n_{st}/\PP_{st}) - \ln c_{st} - \ln d_s - m_t.
+\Delta_{st} &\equiv \ln(n_{st}/\PP_{st}) - \ln c_{st} - \ln d_s - m_t.
 \end{align}
 \end{subequations}
 We notice that the latent variables $(\vc, \vd)$ are coupled to $\vz$ due to the cross term $\Delta \vW \vz$, resulting in an intractable E step. Intuitively, we expect the posterior distribution of $\vz$ to be quite narrow near the optimal solution provided $D_\mathrm{true} \ll T$. Therefore, we do not foresee the coupling to play a substantial role. This motivates the introduction of a factorized variational ansatz for the latent posterior distribution:
 \begin{equation}
-P(\vc, \vz, \vd | \vn, \vtheta) \simeq Q_c(\vc) \, Q_z(\vz) \, Q_d(\vd).
+P(\vc, \vz, \vd | \vn, \vtheta) \simeq \Phi_c(\vc) \, \Phi(\vz) \, \Phi(\vd).
 \end{equation}
 The E step requires solving the following set of mean-field self-consistency equations:
 \begin{subequations}
 \begin{align}
-\ln Q_c(\vc) &= \EE_{\vz, \vd}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big],\\
-\ln Q_z(\vz) &= \EE_{\vc, \vd}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big],\\
-\ln Q_d(\vd) &= \EE_{\vc, \vz}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big],
+\ln \Phi_c(\vc) &= \EE_{\vz, \vd}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big],\\
+\ln \Phi_z(\vz) &= \EE_{\vc, \vd}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big],\\
+\ln \Phi_d(\vd) &= \EE_{\vc, \vz}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big],
 \end{align}
 \end{subequations}
-where the expectations are perform with respect to the factorized ansatz for the posteriors.\\
-(UP TO HERE)
-
-
-
-
-
-The E step follows from substituting $\vPsi \rightarrow \vPsi_s \equiv  \vPsi + \vSigma_s$ in Bishop's Eqs. 12.66-67 and including the sample-target mask matrix $\vM$. The result is:
-%j
+where the posterior expectation values are calculated with respect to the factorized distribution. Writing out the right hand side explicitly, we find:
 \begin{align}
-\vG_s &= \left( \vI + \vW^T \vM_s \vPsi_s^{-1} \vW \right)^{-1}, \nonumber\\
-\EE \left[ \vz_s \right] &= \vG_s \vW^T \vM_s \vPsi_s^{-1} (\vm_s - \vm), \nonumber\\
-\EE \left[ \vz_s \vz_s^T \right] &= \vG_s + \EE[\vz_s] \EE[\vz_s]^T.
+\Phi_c(\vc_s) &\propto P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big)\prod_{t=0}^{T-1} \exp\left[- \frac{1}{2} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \ln c_{st} - \EE[\ln d_s] - m_t - (\vW \EE[\vz_s])_t\big]^2\right],\\
+\Phi_z(\vz_s) &\propto \exp\left[-\frac{1}{2} \, \vz_s^T \Big(\vI + \vW^T \vM_s \vPsi_s^{-1}\vW + \lambda \vW^T \vF \vW \Big)\,\vz_s + \vW^T \vM_{s} \, \EE[\mathbf{\Delta}_{s}]\,\vz_s \right],\\
+\Phi_d(d_s) &\propto \exp\left[- \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \ln d_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right].
 \end{align}
-%
+Note that we have completed the squares in the first and the last equation in exchange for different normalization factors (which we do not need to calculate). We observe that: (1) $\Phi_z(\vz_s)$ is conveniently Gaussian; (2) $\Phi_d(d_s)$ admits a Gaussian distribution over $\rho \equiv \ln d$:
+\begin{equation}
+\Phi_\rho(\rho_s) = e^{\rho_s}\,\Phi_d(e^{\rho_s}) \propto \exp\left[ \rho_s - \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \rho_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right],
+\end{equation}
+which is normalizable and does not require regularization; (3) the factorized distribution for $\vc_s$  implies an emission model that is local in the target space. These observations allow us to arrive at a simple recipe for the E step. We summarize the mean-field equations as follows:
+\begin{subequations}
+\begin{align}
+\EE\big[\ln d_s \big] &= \frac{1 + \sum_t M_{st} \Psi_{st}^{-1}\left[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - m_t - (\vW \EE[\vz_s])_t\right]}{\sum_t M_{st} \Psi_{st}^{-1}},\nonumber\\
+\EE\big[\Delta_{st}\big] &= \ln(n_{st}/\PP_{st}) - \EE\big[\ln c_{st}\big] - \EE\big[\ln d_s\big] - m_t,\\
+\EE\big[\vz_s\big] &= \vG_s \vW^T \vM_s \vPsi_s^{-1} \EE\big[\mathbf{\Delta}_s\big],\qquad \vG_s \equiv \left( \vI + \vW^T \vM_s \vPsi_s^{-1} \vW + \lambda \vW^T \vF \vW \right)^{-1}\\
+\EE\big[\ln c_{st}\big] &= \sum_{c} \gamma_{st}(c) \ln(c),
+\end{align}
+\end{subequations}
+where in the last equation, the summation is over different copy number (or ratio) states, and $\gamma_{st}(c) \equiv P(c_{st} = c | \vn)$ which can be efficiently found using forward-backward message passing method. In practice, we can set $\EE[\vz_s] = \EE[\ln c_{st}] = 0$ and cycle through the mean-field equations for $d$, $z$ and $c$ in succession until convergence is achieved. Once the self-consistent is found, the additional expectation values required for calculating the posterior expectation of $\ln P$ are easily found as:
+\begin{align}
+\EE\big[\vz_s \vz_s^T \big] &= \vG_s + \EE\big[\vz_s\big] \EE\big[\vz_s\big]^T,\nonumber\\
+\EE\big[\Delta_{st}^2\big] &= \EE[\Delta_{st}]^2 + \mathrm{var}\big[\ln c_{st}\big] + \mathrm{var}\big[\ln d_{s}\big],\nonumber\\
+\mathrm{var}\big[\ln c_{st}\big] &= \sum_{c} \gamma_{st}(c) \ln^2(c) - \EE\big[\ln c_{st}\big]^2,\nonumber\\
+\mathrm{var}\big[\ln d_s\big] &= \left(\sum_t M_{st} \Psi_{st}^{-1}\right)^{-1}
+\end{align}
+
+
 In the M step, we calculate the expectation value of the complete-data log likelihood with respect to the posterior estimate of $\vz_s$. Save for terms independent of the model parameters, the result is:
 %
 \begin{equation}
