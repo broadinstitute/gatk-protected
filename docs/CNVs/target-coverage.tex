@@ -32,8 +32,10 @@
 \newcommand{\vSigma}{{\bf \Sigma}}
 \newcommand{\vlambda}{{\bf \lambda}}
 \newcommand{\vLambda}{{\bf \Lambda}}
+\newcommand{\vDelta}{{\bf \Delta}}
 \newcommand{\vtheta}{{\boldsymbol \theta}}
 \newcommand{\vpi}{{\boldsymbol \pi}}
+\newcommand{\valpha}{{\boldsymbol \alpha}}
 \newcommand{\vA}{{\bf A}}
 \newcommand{\MM}{M}
 \newcommand{\PP}{\mathcal{P}}
@@ -223,7 +225,7 @@ where $F_{tt'} = f(t-t') \equiv T^{-1} \sum_{k=0}^{T-1} e^{2\pi i k (t-t')/T} \t
 \begin{equation}
 R_f \equiv \exp\left(-\frac{\lambda}{2} \sum_{s=1}^S\kappa_s\right) = \exp\left(-\frac{\lambda}{T}\sum_{s=1}^S\sum_{t,t'=0}^{T-1}f(t-t') \, W_{t\mu} \, W_{t'\nu} \, z_{s\mu} \, z_{s\nu}\right).
 \end{equation}
-We will discuss a proper choice of $\lambda$ later. We also define the matrix $F_{t,t'} \equiv f(t-t')/T$ for later sections.
+We define the matrix $F_{t,t'} \equiv f(t-t')/T$ for notational convenience. The regularizer ``kicks in'' when $\lambda \sim \Psi^{-1}$, as it can be inferred directly from Eq.~\eqref{eq:W_eq_reg}. One may initially choose $\lambda \sim 1000\,\Psi^{-1}$ and progressively relax it as the optimal solution is approached.
 
 \subsection{Automatic relevance determination (ARD) prior on $\vW$}
 The true dimension of the latent space is not known a priori. When abundant data is available (i.e. $S \gg D_\mathrm{true}$), this problem can be addressed using the automatic relevance determination (ARD) technique. To this end, one starts with a liberal estimate for $D$ and imposes a Gaussian prior on $\vW$:
@@ -238,15 +240,15 @@ Let us start by writing out the complete-data log likelihood (see Eq.~\ref{eq:co
 \begin{subequations}
 \begin{align}
 \label{eq:complete_log_likelihood}
-\ln P(\vn, \vc, \vz, \vd | \vtheta) &= \sum_{s} \ln P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big) - \frac{1}{2}\sum_{st} M_{st} \, \bigg\{\ln \Psi_{st} + \Psi_{st}^{-1}\Big[(\vW \vz_s)_t^2 + \Delta_{st}^2 - 2\Delta_{st} (\vW \vz_s)_t\Big]\bigg\}\nonumber\\
+\ln P(\vn, \vc, \vz, \vd | \vtheta, \valpha) =&\, \sum_{s} \ln P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big) - \frac{1}{2}\sum_{st} M_{st} \, \bigg\{\ln \Psi_{st} + \Psi_{st}^{-1}\Big[(\vW \vz_s)_t^2 + \Delta_{st}^2 - 2\Delta_{st} (\vW \vz_s)_t\Big]\bigg\}\nonumber\\
 & - \frac{\lambda}{2} \, \sum_s \sum_{t,t'} F_{tt'} \, W_{t\mu} \, W_{t'\nu} \, z_{s\mu} \, z_{s\nu} - \frac{1}{2}\sum_{s} \vz_s^T \vz_s - \sum_{\mu=1}^{D}\left(\frac{T}{2} \, \ln \alpha_\mu -\frac{\alpha_\mu}{2} \sum_{t=0}^{T-1} W_{t\mu}^2  \right) + \mathrm{const.},\\
 \label{eq:delta_def}
-\Delta_{st} &\equiv \ln(n_{st}/\PP_{st}) - \ln c_{st} - \ln d_s - m_t.
+\Delta_{st} \equiv&\, \ln(n_{st}/\PP_{st}) - \ln c_{st} - \ln d_s - m_t.
 \end{align}
 \end{subequations}
-We notice that the latent variables $(\vc, \vd)$ are coupled to $\vz$ due to the cross term $\Delta \vW \vz$, resulting in an intractable E step. Intuitively, we expect the posterior distribution of $\vz$ to be quite narrow near the optimal solution provided $D_\mathrm{true} \ll T$. Therefore, we do not foresee the coupling to play a substantial role. This motivates the introduction of a factorized variational ansatz for the latent posterior distribution:
+We notice that the latent variables $(\vc, \vd)$ are coupled to $\vz$ due to the cross term $\Delta \vW \vz$, and $\vc$ is coupled to $\vd$ due to $\Delta^2$. These couplings result in an intractable E step. Intuitively, we expect the posterior distribution for $\vz$ and $\vd$ to be quite sharp near the optimal solution, provided $D_\mathrm{true} \ll T$. Therefore, we do not foresee these couplings to play a substantial role. This motivates the introduction of a factorized variational ansatz for the latent posterior distribution:
 \begin{equation}
-P(\vc, \vz, \vd | \vn, \vtheta) \simeq \Phi_c(\vc) \, \Phi(\vz) \, \Phi(\vd).
+\Phi(\vc, \vz, \vd) \equiv P(\vc, \vz, \vd | \vn, \vtheta_\mathrm{old}) \simeq \Phi_c(\vc) \, \Phi(\vz) \, \Phi(\vd).
 \end{equation}
 The E step requires solving the following set of mean-field self-consistency equations:
 \begin{subequations}
@@ -262,7 +264,7 @@ where the posterior expectation values are calculated with respect to the factor
 \Phi_z(\vz_s) &\propto \exp\left[-\frac{1}{2} \, \vz_s^T \Big(\vI + \vW^T \vM_s \vPsi_s^{-1}\vW + \lambda \vW^T \vF \vW \Big)\,\vz_s + \vW^T \vM_{s} \, \EE[\mathbf{\Delta}_{s}]\,\vz_s \right],\\
 \Phi_d(d_s) &\propto \exp\left[- \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \ln d_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right].
 \end{align}
-Note that we have completed the squares in the first and the last equation in exchange for different normalization factors (which we do not need to calculate). We observe that: (1) $\Phi_z(\vz_s)$ is conveniently Gaussian; (2) $\Phi_d(d_s)$ admits a Gaussian distribution over $\rho \equiv \ln d$:
+We have completed the square in the first and the last equation in exchange for different normalization factors (which we do not need to calculate). We observe that: (1) $\Phi_z(\vz_s)$ is conveniently Gaussian; (2) $\Phi_d(d_s)$ admits a Gaussian distribution over $\rho \equiv \ln d$:
 \begin{equation}
 \Phi_\rho(\rho_s) = e^{\rho_s}\,\Phi_d(e^{\rho_s}) \propto \exp\left[ \rho_s - \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \rho_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right],
 \end{equation}
@@ -283,186 +285,80 @@ where in the last equation, the summation is over different copy number (or rati
 \mathrm{var}\big[\ln d_s\big] &= \left(\sum_t M_{st} \Psi_{st}^{-1}\right)^{-1}
 \end{align}
 
-
-In the M step, we calculate the expectation value of the complete-data log likelihood with respect to the posterior estimate of $\vz_s$. Save for terms independent of the model parameters, the result is:
+In the M step, we calculate the expectation value of the complete-data log likelihood with respect to the posterior distribution (using the old values of $\vtheta$), and maximize it with respect to $\theta$. The quantity of interest is:
 %
-\begin{equation}
-\mathcal{L} = -\frac{1}{2} \sum_{st} \left\{ M_{st} \ln \Psi_{st} + M_{st} \Psi_{st}^{-1} \left[  \left( \vW \EE[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW \EE[\vz_s] \right)_t + (m_t - m_{st})^2 \right] \right\},
-\end{equation}
+\begin{align}
+\mathcal{Q}(\vtheta|\vtheta_\mathrm{old}, \valpha) =&\, \EE_{q(\vc, \vz, \vd)}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big]\nonumber\\
+=&\, - \frac{1}{2}\sum_{st} M_{st} \, \bigg\{\ln \Psi_{st} + \Psi_{st}^{-1}\Big[\big(\vW \EE[\vz_s \vz_s^T] \vW\big)_{tt} + \EE\big[\Delta_{st}^2\big] - 2 \, \EE\big[\vDelta_{st}^T\big] \, \vW \, \EE\big[\vz_s\big]\Big]\bigg\}\nonumber\\
+&\,- \frac{\lambda}{2} \, \sum_s \mathrm{Tr}\Big(\vW^T \vF \vW \, \EE\big[\vz_s \vz_s^T\big]\Big) - \sum_{\mu=1}^{D}\left(\frac{T}{2} \, \ln \alpha_\mu -\frac{\alpha_\mu}{2} \sum_{t=0}^{T-1} W_{t\mu}^2  \right) + \mathrm{const.}
+\label{eq:posterior_exp_log_likelihood}
+\end{align}
 %
-The stationarity condition for $\mathcal{L}$ with respect to $\vm$ gives:
+Maximizing $\mathcal{Q}$ with respect to $\vm$ gives:
 \begin{align}
 m_t = \left(\sum_s \vM_s \vPsi_{s}^{-1} \right)^{-1} \sum_s \left[ \vM_s \vPsi_{s}^{-1}  (\vm_{s}  - \vW  \EE[\vz_{s}] ) \right].
 \end{align}
-The stationarity condition with respect to $\Psi_t$ gives:
+Maximizing $\mathcal{Q}$ with respect to $\Psi_t$ gives:
 \begin{equation}\label{eq:psi_stationarity}
 \sum_s M_{st}\left[\frac{1}{\Psi_t + \Sigma_{st}} - \frac{B_{st}}{(\Psi_t + \Sigma_{st})^2} \right] = 0,
 \end{equation}
 where:
 \begin{equation}
-B_{st} = \left( \vW \EE[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW \EE[\vz_s] \right)_t + (m_t - m_{st})^2
+B_{st} = \big(\vW \EE[\vz_s \vz_s^T] \vW\big)_{tt} + \EE\big[\Delta_{st}^2\big] - 2 \, \EE\big[\vDelta_{st}^T\big] \, \vW \, \EE\big[\vz_s\big]
 \end{equation}
-The above nonlinear equation must be solved for each target, which is a computationally demanding task for a large number of targets. If this is to be avoided, we offer two approximation schemes:\\
+The above nonlinear equation must be solved for each target. In practice, we found that the best approach was to use Brent solver for each target. On average, $10 \sim 15$ function calls yields the solution within a $10^{-6}$ tolerance. Newton's method required approximately 20 evaluations to converge within the same tolerance and was not stable all the time.\\
 
-\noindent {\bf (Scheme 1) Assuming small sample to sample variations in $\Sigma_{st}$:} Had $\Sigma_{st}$ been constant, then Eq.~\eqref{eq:psi_stationarity} would have the following simple solution:
-\begin{equation}
-\Psi^\mathrm{approx}_t = \llangle \mathbf{B} \rrangle_t - \bar{\Sigma}_t,
-\end{equation}
-where $\bar{\Sigma}_t$ is the sample-independent value of $\Sigma_{st}$, and we have defined the double angle bracket average as:
-\begin{equation}\label{eq:psi_approx}
-\llangle \mathbf{B} \rrangle_t \equiv \frac{\sum_s M_{st}B_{st}}{\sum_s M_{st}}.
-\end{equation}
-It is tempting to replace $\bar{\Sigma}_t$ with its $M$-averaged value. However, a more principled approach is to choose $\bar{\Sigma}_t$ such that the approximation solution given in \eqref{eq:psi_approx} is as close to the exact solution as possible. To this end, we assume $\Sigma_{st} = \bar{\Sigma}_t + (\Sigma_{st} - \bar{\Sigma}_t)$ such that $|\Sigma_{st} - \bar{\Sigma}_t| \ll \bar{\Sigma}_t$, expand Eq.~\eqref{eq:psi_stationarity} in $\Sigma_{st} - \bar{\Sigma}_t$ to linear order, and require that $\Psi^\mathrm{approx}_t$ represents the exact solution. This procedure yields:
-\begin{equation}
-\bar{\Sigma}_t = \frac{2 \llangle \mathbf{B} \vSigma \rrangle_t - \llangle \vSigma \rrangle_t \llangle \mathbf{B}\rrangle_t}{\llangle \mathbf{B}\rrangle_t}.
-\end{equation}
-Plugging this result back in Eq.~\eqref{eq:psi_approx}, we find:
-\begin{equation}\label{eq:psi_approx_2}
-\Psi^\mathrm{approx}_t = \llangle \mathbf{B} \rrangle_t + \llangle \vSigma \rrangle_t - 2 \, \frac{\llangle \mathbf{B} \vSigma \rrangle_t}{\llangle \mathbf{B}\rrangle_t}.
-\end{equation}
-This solution is accurate to linear order in deviations of $\Sigma_{st}$ about $\bar{\Sigma}_t$.\\
-
-\noindent {\bf (Scheme 2) Newton iterations:} The complexity of solving Eq.~\eqref{eq:psi_stationarity} numerically is not too high given that the Hessian matrix is diagonal. Expanding $\mathcal{L}$ about $\vPsi_0$, we find:
-\begin{equation}
-\mathcal{L}(\vPsi) = \mathcal{L}(\vPsi_0) + \alpha_t \, (\Psi_t - \Psi_{0,t}) + \frac{1}{2} \, \beta_t \, (\Psi_t - \Psi_{t,0})^2 + \ldots
+\noindent Maximizing $\mathcal{Q}$ with respect to $\vW$ gives:
+\begin{equation}\label{eq:W_eq_reg}
+\sum_{\nu} \left(Q_{t\mu\nu} + A_{\mu\nu}\right) W_{t\nu} + \lambda \sum_{\nu,t'} Z_{\mu\nu} F_{tt'} W_{t'\nu} = v_{t\mu},
 \end{equation}
 where:
 \begin{align}
-\alpha_t &= \frac{\partial \mathcal{L}}{\partial \Psi_t} = -\frac{1}{2}\sum_s M_{st}\left[\frac{1}{\Psi_t + \Sigma_{st}} - \frac{B_{st}}{(\Psi_t + \Sigma_{st})^2}\right],\nonumber\\
-\beta_t &= \frac{\partial^2 \mathcal{L}}{\partial \Psi_t^2} = +\frac{1}{2}\sum_s M_{st}\left[\frac{1}{(\Psi_t + \Sigma_{st})^2} - \frac{2B_{st}}{(\Psi_t + \Sigma_{st})^3}\right].
+Q_{t\mu\nu} &= \sum_s M_{st} \Psi_{st}^{-1} \, \EE\big[z_{s\mu} z_{s\nu}\big],\nonumber\\
+v_{t\mu} &= \sum_s M_{st} \Psi_{st}^{-1} \EE\big[\Delta_{st}\big]\, \EE\big[z_{s\mu}\big],\nonumber\\
+A_{\mu\nu} &= \delta_{\mu\nu}\,\alpha_{\mu},\nonumber\\
+Z_{\mu\nu} &= \sum_{s=1}^S \EE[z_{s\mu} z_{s\nu}].
 \end{align}
-The Newton's approximate solution is therefore:
-\begin{equation}
-\Psi_{t,1} = \Psi_{t,0} - \frac{\alpha_t(\vPsi_0)}{\beta_t(\vPsi_0)}.
-\end{equation}
-One may start iterations using the result of Scheme 1 as the initial guess and continue until convergence.\\
+Thanks to Krylov subspace methods and the sparse structure of the above linear equation, it can be solved numerically efficiently (discussed later).\\
 
-\noindent{\bf Remark:} In practice, when sample-to-sample variance of $\Sigma$ was large (e.g. read depths varying from 50 to 1000 randomly), we noticed that the best approach was to use Brent root finding for each target. On average, 10 function calls yields the solution within a $10^{-6}$ tolerance. Newton's method required approximately 20 evaluations of $\alpha_t$ and $\beta_t$ to converge within the same tolerance. Also, we found that the most robust scheme was to start from $\Psi_t = 0$ rather than using Eq.~\eqref{eq:psi_approx_2}.\\
-
-
-In the M step equation for $\vW$, we may incorporate an automatic relevance determination (ARD) prior:
+\noindent Finally, to determine $\alpha_\mu$, we re-exponentiate $\mathcal{Q}(\vtheta|\vtheta_\mathrm{old}, \valpha)$ and integrate out $\vW$ to obtain the evidence for $\vA$:
 %
 \begin{align}
-P(\vW) =& \prod_\mu \left( \frac{\alpha_\mu}{2 \pi} \right)^{T/2} \exp \left( -\frac{1}{2} \alpha_\mu \sum_t W_{t\mu}^2  \right).
-\end{align}
-%
-If $\alpha_\mu \rightarrow \infty$, the latent feature $\mu$ is effectively turned off. Thus we can initially choose a liberal estimate of $D$ and the model will automatically become more parsimonious. The M step log likelihood times the ARD prior depend on the $t$-th row of $\vW$ as:
-%
-\begin{equation}
- -\frac{1}{2}   \left( -\sum_\mu \ln \alpha_\mu  + \sum_{\mu\nu}W_{t\mu} \left(A_{\mu\nu} +  Q_{t\mu\nu} \right) W_{t\nu} - 2 \sum_{\mu}W_{t \mu} v_{t\mu}  \right),
- \label{ARD_likelihood}
-\end{equation}
-%
-where $\vA \equiv {\rm diag}(\alpha_1, \alpha_2 \ldots \alpha_D)$ and we have defined:
-%
-\begin{equation}
-Q_{t\mu\nu} = \sum_s M_{st} \Psi_{st}^{-1} \, \EE\left[z_{s\mu} z_{s\nu}\right], \, \qquad v_{t\mu} = \sum_s M_{st} \Psi_{st}^{-1} (m_{st} - m_t)\, \EE[v_{s\mu}].
-\end{equation}
-%
-The maximum a posteriori result for $W_{t \mu}$ is:
-%
-\begin{equation}
-W_{t \mu} = \sum_{\nu}\left( \vA + \vQ_t \right)^{-1}_{\mu\nu} \, v_{t\nu}.
-\label{M_step_W}
-\end{equation}
-%
-In the approximation $\vSigma_s \rightarrow \bar{\vSigma}$, this formula is unchanged but $\vQ_t$ is $S$ times as fast to calculate. The other M steps and the E step are not affected by the ARD prior. To determine $\alpha_\mu$, we re-exponentiate expression~$\eqref{ARD_likelihood}$\footnote{This is the distribution on $\vW$ that we would obtain from a mean-field variational factorization $q(\vz) q(\vW)$.} and integrate out $\vW$ to obtain the evidence for $\vA$:
-%
-\begin{align}
-P(\vn | \vA) \propto& \prod_k \alpha_k^{T/2} \prod_t \int q(\vW|t) \, \prod_{\mu}\mathrm{d} W_{t \mu},
+P(\vn | \vA) \propto& \prod_\mu \alpha_\mu^{T/2} \int q(\vW) \, \mathrm{d} \vW,
 \label{ARD_evidence}
 \end{align}
 where:
 \begin{equation}
-q(\vW | t) \equiv \exp\left(-\frac{1}{2} \sum_{\mu\nu} W_{t \mu} (A_{\mu\nu} + Q_{t\mu\nu}) W_{t \nu} - \sum_\mu W_{t\mu} v_{t\mu}\right).
+q(\vW) \equiv \exp\left(-\frac{1}{2} \sum_{\mu\nu} \sum_{tt'} W_{t \mu} \left[\left(A_{\mu\nu} + Q_{t\mu\nu}\right)\delta_{tt'} + \lambda F_{tt'}\,Z_{\mu\nu}\right] W_{t' \nu} - \sum_\mu W_{t\mu} v_{t\mu}\right).
 \end{equation}
 %
-The ARD coefficients $\alpha$ are determined by maximizing the log evidence.  That is, we set
-\begin{align}
-\frac{\partial}{\partial \alpha_k} \ln P(\vn | \vA) = 0 \Rightarrow  \frac{1}{2} \left( \frac{T}{\alpha_\mu}  - \sum_t \ave{W_{t\mu}^2} \right) = 0 \Rightarrow \alpha_\mu = \frac{T}{\sum_t \ave{W_{t\mu}^2}},
-\end{align}
-where the average $\ave{W_{t\mu}^2}$ is taken with respect to the density $q(\vW|t)$. Completing the square, we find that $q(\vW_{t \cdot})$ is Gaussian with covariance $(\vA + \vQ_t)^{-1}$ and mean $(\vA + \vQ_t)^{-1} \vv_t$.  Note that this mean is precisely the M step value for $q(\vW|t)$, as we would hope!  Thus we get:
-%
+The ARD coefficients $\alpha$ are determined by maximizing the log evidence, i.e. $\partial/\partial \alpha_\mu \ln P(\vn | \vA) = 0$ which easily gives:
 \begin{equation}
-\ave{W_{t\mu}^2} = W_{t\mu}^2 + (\vA + \vQ_t)^{-1}_{\mu\mu}
-\end{equation}\\
-%
-
-\noindent Let us now summarize these steps:
-\begin{itemize}
-\item E step: $\vG_s = \left( \vI + \vW^T \vM_s \vPsi_s^{-1} \vW \right)^{-1}, \,
-\EE \left[ \vz_s \right] = \vG_s \vW^T \vPsi_s^{-1} (\vm_s - \vm), \,
-\EE \left[ \vz_s \vz_s^T \right] = \vG_s + \EE[\vz_s] \EE[\vz_s]^T$.
-
-$\vG_s$ and all the $\EE[\vz_s]$ are each $O(D^2 T S)$. $\EE[\vz_s \vz_s^T]$ is $O(D^2 S)$.  The E step overall is $O(D^2 T S)$.
-
-\item $\vm = \left( \sum_s \vM_s \vPsi_{s}^{-1} \right)^{-1} \sum_s \left[ \vM_s \vPsi_{s}^{-1}  (\vm_{s}  - \vW  E[\vz_{s}] ) \right]$ is $O(D T S)$.
-
-\item  $ B_{st} =\left( \vW \EE[\vz_s \vz_s^T] \vW^T \right)_{tt} +2 (m_t - m_{st}) \left( \vW \EE[\vz_s] \right)_t + (m_t - m_{st})^2$ is $O(D^2 T S)$
-
-\item Solving Eq.~\eqref{eq:psi_stationarity} for each $t$ is $O(T S)$ with a prefactor equal to the number of evaluations required to find a root (approximately $10 \sim 20$). As long as this number is less than $D^2$ this step is subleading.
-
-\item $\vQ_t = \sum_s M_{st} \Psi_{st}^{-1} \EE[\vz_s \vz_s^T]$ is $O(D^2 T S)$.
-
-\item $\vv_t = \sum_s M_{st} \Psi_{st}^{-1} (m_{st} - m_t)E[\vz_s ]$ is $O(D T S)$.
-
-\item $ \vW_{t \cdot} = W_{t \mu} = \sum_{\nu}\left( \vA + \vQ_t \right)^{-1}_{\mu\nu} \, v_{t\nu}$ is $O(D^3 T)$.
-
-\item $\ave{W_{t\mu}^2} = W_{t\mu}^2 + (\vA + \vQ_t)^{-1}_{\mu\mu}$ is $O(D^3 T)$.
-
-\item $\alpha_\mu = T / \sum_t \ave{W_{t\mu}^2}$ is $O(D T)$.
-
-\end{itemize}
-
-The leading cost is a few terms of $O(D^2 T S)$ flops, each with small prefactors, per iteration. Assuming a total prefactor of $10$ and $T = 2 \times 10^5$, $D = 10$, $S = 500$ a full EM iteration costs $10^{11}$ flops in exact mode. On a single 1 GHz core ($10^9$ flops per second) this comes out to roughly 100 or 10 seconds.\\
-
-We can apply the parameters learned from the panel of normals to single-sample calling, which requires the likelihood as a function of the copy numbers $\vc$.  Applying the same E step as above, the likelihood is
-\begin{equation}
-P(\vn | \vc, \vW, \vm, \vPsi) \propto \prod_t \exp \left[ -\frac{1}{2} \, M_{st} \Psi_{st}^{-1} \big( \ln \left( n_{st} / (d_s \PP_{st}) \right) - \ln(c_{st}) - m_t - \left(\vW \EE[\vz_{s}]\right)_t \big)^2 \right],
+\frac{\alpha_\mu}{T} = \left(\frac{\displaystyle\int \sum_t W^2_{t\mu}\, q(\vW)\,\mathrm{d}\vW}{\displaystyle\int q(\vW) \, \mathrm{d}\vW}\right)^{-1} = \left(\sum_t \left(W_{t\mu}^*\right)^2 + \sum_t\left(\vA + \vQ + \lambda \vF \otimes \vZ \right)^{-1}_{\mu t, \mu t}\right)^{-1},
 \end{equation}
-We have only kept factors that depends on $\vc$ in the above likelihood. Note that this is factorized into independent likelihood terms for each target and is thus suitable for the emission model of an HMM.  This likelihood is not Gaussian in $\vc$, but it does not need to be for the Viterbi and forward-backward algorithms. Also, note that when $c_{st} = 0$ is the most likely solution, this must be incorporated in the mask matrix $M_{st}$ in order to avoid ambiguous expressions due to the breakdown of the Laplace approximation used to replace the Poisson with a Gaussian.\\
+where $\vW^*$ is the latest M step value for $\vW$. Unfortunately, the presence of the regularizer and the coupling it introduces between the targets makes the matrix inversion appearing above numerically challenging. Without the regularizer term, the inversion can be performed per-target and only within the low dimensional latent space. One approach is to extract the required matrix elements using stochastic methods. For example, one can efficiently calculate $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$. If we calculate this value for an ensemble of pairs $(\mathbf{v}, \mathbf{w})$ such that $\EE[v_{\alpha t} w_{\beta t'}] = \delta)_{\alpha\beta}\delta_{\alpha\mu}\delta_{tt'}$, the ensemble average of $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$ yields the desired matrix element. Another approach is to disable the regularizer after a number of EM iterations, and enable the ARD prior instead.
 
-\subsubsection{GC bias correction}
-We can easily integrate sample-specific GC bias into this model.  Let $f_s({\rm GC})$ be the GC bias of GC content ${\rm GC}$ for sample $s$.  Then this enters into the model as an additional multiplier to the Poisson parameter.  That is, we replace $d_s c_{st} \rightarrow d_s c_{st} f_s({\rm GC}_t)$, which affects the model learning and inference only via the definition of $m_{st}$.  We can iteratively re-estimate the GC bias function $f_s$ by regressing the bias not explained by the latent factors.  That is, for each target the Poisson parameter is, ignoring GC effects,
-\begin{equation}
-c_{st} d_s \exp \left( \vW_t \EE[\vz_s] + m_t \right)
-\end{equation}
-and thus the ratio $n_{st} / \left[ c_{st} d_s \exp \left( \vW_t \EE[\vz_s] + m_t \right) \right]$ (with error bars of size $1/\sqrt{n}$ if we want to do a weighted regression) is an estimate of $f_s({\rm GC}_t)$ that we can feed into our favorite regression model.  This is more sophisticated than the standard approach of simply regressing $n$ versus ${\rm GC}$ in that it seeks to explain with GC only the bias that cannot be explained by linear latent features.
-
-\subsubsection{PCA and the curse of small samples}Since this regularizer is quadratic in $z$, the Gaussian structure of the likelihood is preserved and the E step remains as simple as before. The only difference is the presence of an additional term in $\vG_s^{-1}$:
-\begin{equation}
-\vG_s^{-1} \rightarrow \vI + \vW^T \left[\vM_s \vPsi_s^{-1} + \lambda \vF\right]\vW.
-\end{equation}
+\subsection{Efficient computational of expressions involving the regularizer}
+\noindent{\bf Calculating $\vW^T \vF \vW$ ---}
 Since $\vF$ is not diagonal in the target space, a naive matrix multiplication implies a multiplication complexity of $\mathcal{O}(D^2 T^2)$ for the new term. However, this complexity can be reduced to a manageable $\mathcal{O}(D^2 T \log T)$ using FFT:
 \begin{equation}
 (\vW^T \vF \vW)_{\mu\nu} = \sum_{t=0}^{T-1} W_{\mu t} \, \mathrm{FFT}_t^{-1}\left[\sum_{k=0}^{T-1} \tilde{f}(k) \, \mathrm{FFT}_k[W_{t\nu}]\right].
 \end{equation}
-The M step equations for $\vPsi$ and $\vM$ remain the same. For $\vW$, we find:
-\begin{equation}\label{eq:W_eq_reg}
-\sum_{\nu} Q_{t\mu\nu} W_{t\nu} + \lambda \sum_{\nu,t'} Z_{\mu\nu} F_{tt'} W_{t'\nu} = v_{t\mu},
-\end{equation}
-where $\vQ$ and $\vv$ are defined as before and:
-\begin{equation}
-\vZ = \sum_{s=1}^S \EE[\vz_s \vz_s^T].
-\end{equation}
-As one would expect, the regularizer mixes different targets such that $t$ is no longer a mere label in the stationarity condition for $\vW$. The direct solution to Eq.~\eqref{eq:W_eq_reg} is impractical since it involves inverting a matrix of size $DT \times DT$.
 
-Fortunately, the linear operator in question, $\vQ + \lambda \vZ \otimes \vF$, is the sum of two sparse operators: $\vQ$ is diagonal in the target space, and $\mathbf{A} \equiv \vZ \otimes \vF$ is diagonal in Fourier space ($\vZ$ acts on the latent space, $\vF$ acts on the target space). Both $\vQ$ and $\vZ \otimes \vF$ are dense in the latent space, but this space has a low dimensionality and is not prohibitive in numerics. Eq.~\eqref{eq:W_eq_reg} can be solved very efficiently using preconditioned iterative Krylov space solvers such as conjugate gradients or GMRES. A decent preconditioner for $\mathbf{A}$ can be constructed by taking a target average of $Q_{t\mu\nu}$:
+\noindent{\bf Solving the M step equation for $\vW$ ---} Fortunately, the linear operator $\vQ + \vA + \lambda \vZ \otimes \vF$, is the sum of two sparse operators: $\vQ + \vA$ is diagonal in the target space, and $\vZ \otimes \vF$ is diagonal in Fourier space ($\vZ$ acts on the latent space, $\vF$ acts on the target space). Both $\vQ + \vA$ and $\vZ \otimes \vF$ are dense in the latent space, but this space has a low dimensionality and is not prohibitive in numerics. Eq.~\eqref{eq:W_eq_reg} can be solved very efficiently using preconditioned iterative Krylov space solvers such as conjugate gradients (CG) or generalized minimal residual (GMRES.) A decent preconditioner can be constructed by taking a target average of $Q_{t\mu\nu}$:
 \begin{equation}
-\tilde{\mathbf{A}} \equiv \tilde{\vQ} + \lambda \vZ \otimes \vF, \qquad \tilde{\vQ} = \frac{1}{T}\sum_t \vQ_t.
+\mathbf{\Lambda} \equiv \tilde{\vQ} + \vA + \lambda \vZ \otimes \vF, \qquad \tilde{\vQ} = \frac{1}{T}\sum_t \vQ_t.
 \end{equation}
-Note that $\tilde{\mathbf{A}}$ is now easily invertible in the Fourier space. In iterative methods, we only need to be able to calculate $\tilde{\mathbf{A}}^{-1} \mathbf{W}$ for arbitrary $\vW$. The complexity for this is $\mathcal{O}(D^3 T \log T)$ using FFT:
+Note that $\mathbf{\Lambda}$ is now easily invertible in the Fourier space. In iterative methods, we only need to be able to calculate $\mathbf{\Lambda}^{-1} \mathbf{W}$ for arbitrary $\vW$. The complexity for this is $\mathcal{O}(D^3 T \log T)$ using FFT:
 \begin{equation}
-\left(\tilde{\mathbf{A}}^{-1} \mathbf{W}\right)_{t\mu} = \mathrm{FFT}_t^{-1}\left[\left(\tilde{\vQ} + \lambda \tilde{f}(k) \vZ\right)^{-1} \mathrm{FFT}_k[\vW_t]\right].
+\left(\mathbf{\Lambda}^{-1} \mathbf{W}\right)_{t\mu} = \mathrm{FFT}_t^{-1}\left[\left(\tilde{\vQ} + \vA + \lambda \tilde{f}(k) \vZ\right)^{-1} \mathrm{FFT}_k[\vW_t]\right].
 \end{equation}
-Note that if target-to-target variance $\vQ_t$ is small (which is the case if the targets have a comparable degree of unexplained variance), $\tilde{\mathbf{A}}^{-1} \vv$ is an excellent approximate solution to Eq.~\eqref{eq:W_eq_reg} and can be used as a starting point. In practice, we found preconditioned CG iterations to converge within an error tolerance of $10^{-6}$ within less than 10 steps. The complexity of each CG step is also $\mathcal{O}(D^3 T \log T)$.\\
+Note that if target-to-target variance $\vQ_t$ is small (which is the case if the targets have a comparable degree of unexplained variance), $\mathbf{\Lambda}^{-1} \vv$ is an excellent approximate solution to Eq.~\eqref{eq:W_eq_reg} and can be used as a starting point. In practice, we found preconditioned CG iterations to converge within an error tolerance of $10^{-6}$ within less than 10 steps. The complexity of each CG step is also $\mathcal{O}(D^3 T \log T)$.\\
 
-\noindent {\em Choice of $\lambda$ ---} The regularizer ``kicks in'' when $\lambda \sim \Psi^{-1}$, as it can be inferred directly from Eq.~\eqref{eq:W_eq_reg}. One may initially choose $\lambda \sim 1000\,\Psi^{-1}$ and progressively relax it as CNV calls stabilize.
-
-\subsubsection{Results}
+\section{Results}
 In this section, we present the result of the algorithm on synthetic coverage data where the ground truth is known (this section must be eventually supplemented with real data). We synthesize the data according to Eq.~\eqref{coverage_model} along with random duplication events of varying lengths. We choose $T=4000$ targets, $D=10$ true latent variables, $S=100$ samples, mean read depth $d$ uniformly sampled from $[50, 1000]$, mean bias $m_t \sim \norm(0, 1)$, eigenvalues of the covariance matrix $\vW \vW^T$ uniformly sampled from $[0, 10]$, and residual variance $\Psi_t$ uniformly sampled from $[0.01, 0.05]$. Finally, the length of CNV events are randomly sampled from $[50, 500]$ targets.\\
 
-Figs.~\ref{fig:comp_random} and~\ref{fig:comp_correlated} compares PCA denoising against our probabilistic model with different features turned on/off (ARD, CNV event regularization) for random and correlated events, respectively. It is clearly observed that the regularized model retains all of the events even when the number of latent features chosen is greater than the true number.
+Fig.~\ref{fig:comp_regularizer} compares PCA denoising against our probabilistic model with different features turned on/off (ARD, CNV event regularization) for random and correlated events, respectively. It is clearly observed that the regularized model retains all of the events even when the number of latent features chosen is greater than the true number.
 
 \begin{figure}
 \center
