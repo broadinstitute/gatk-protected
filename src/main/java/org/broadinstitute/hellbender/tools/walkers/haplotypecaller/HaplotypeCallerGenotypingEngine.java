@@ -33,6 +33,7 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
     // -----------------------------------------------------------------------------------------------
     // Helper structs fields block
     // -----------------------------------------------------------------------------------------------
+
     /**
      * Carries the result of a call to
      * {@link #assignGenotypeLikelihoods(List, ReadLikelihoods, Map, byte[], SimpleInterval, SimpleInterval, FeatureContext, List, boolean, SAMFileHeader)}
@@ -93,13 +94,17 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
     private final IndependentSampleGenotypesModel genotypingModel;
 
     private final PloidyModel ploidyModel;
+
     // -----------------------------------------------------------------------------------------------
     // Settable fields block
     // -----------------------------------------------------------------------------------------------
+
     protected final boolean doPhysicalPhasing;
+
     // -----------------------------------------------------------------------------------------------
     // Secret sauce block
     // -----------------------------------------------------------------------------------------------
+
     protected static final int ALLELE_EXTENSION = 2;
     private static final String phase01 = "0|1";
     private static final String phase10 = "1|0";
@@ -628,6 +633,7 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         }
         return overlappingFilteredReads;
     }
+
     // -----------------------------------------------------------------------------------------------
     // Utilities: phasing (optional, last functionality of this engine)
     // (not sure why they are protected, IDE indicates they could all be private, and since class is final, they should)

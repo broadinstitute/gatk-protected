@@ -527,7 +527,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
     }
 
     // -----------------------------------------------------------------------------------------------
-    // CORE
+    // CORE 1
     // -----------------------------------------------------------------------------------------------
 
     /**
@@ -596,6 +596,9 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         return new ActivityProfileState(ref.getInterval(), isActiveProb, averageHQSoftClips.mean() > AVERAGE_HQ_SOFTCLIPS_HQ_BASES_THRESHOLD ? ActivityProfileState.Type.HIGH_QUALITY_SOFT_CLIPS : ActivityProfileState.Type.NONE, averageHQSoftClips.mean() );
     }
 
+    // -----------------------------------------------------------------------------------------------
+    // CORE 2
+    // -----------------------------------------------------------------------------------------------
     /**
      * Generate variant calls for an assembly region
      *
@@ -794,6 +797,50 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         /**
          * Block 6: END.
          */
+    }
+
+    // -----------------------------------------------------------------------------------------------
+    // CORE 3
+    // -----------------------------------------------------------------------------------------------
+
+    /**
+     * Create a ref model result (ref model or no calls depending on mode) for an active region without any variation
+     * (not is active, or assembled to just ref)
+     *
+     * @param region                the region to return a no-variation result
+     * @param needsToBeFinalized    should the region be finalized before computing the ref model (should be false if already done)
+     * @return                      a list of variant contexts (can be empty) to emit for this ref region
+     */
+    private List<VariantContext> referenceModelForNoVariation(final AssemblyRegion region,
+                                                              final boolean needsToBeFinalized) {
+        if ( emitReferenceConfidence() ) {
+            //TODO - why the activeRegion cannot manage its own one-time finalization and filtering?
+            //TODO - perhaps we can remove the last parameter of this method and the three lines bellow?
+            if ( needsToBeFinalized ) {
+                finalizeRegion(region);
+            }
+            filterNonPassingReads(region);
+
+            final SimpleInterval paddedLoc = region.getExtendedSpan();
+            final Haplotype refHaplotype = createReferenceHaplotype(region, paddedLoc);
+            final List<Haplotype> haplotypes = Collections.singletonList(refHaplotype);
+            return referenceConfidenceModel.calculateRefConfidence(refHaplotype, haplotypes,
+                    paddedLoc, region, createDummyStratifiedReadMap(refHaplotype, samplesList, region),
+                    genotypingEngine.getPloidyModel(), Collections.emptyList());
+        }
+        else {
+            return NO_CALLS;
+        }
+    }
+
+    private boolean containsCalls(final HaplotypeCallerGenotypingEngine.CalledHaplotypes calledHaplotypes) {
+        final List<VariantContext> calls = calledHaplotypes.getCalls();
+        if (calls.isEmpty()) return false;
+        for (final VariantContext call : calls)
+            for (final Genotype genotype : call.getGenotypes())
+                if (genotype.isCalled())
+                    return true;
+        return false;
     }
 
     // -----------------------------------------------------------------------------------------------
@@ -1012,49 +1059,5 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             result.put(originalRead, realignedRead);
         }
         return result;
-    }
-
-    // -----------------------------------------------------------------------------------------------
-    // utilities: when "interesting stuff" is gone
-    // -----------------------------------------------------------------------------------------------
-
-    /**
-     * Create a ref model result (ref model or no calls depending on mode) for an active region without any variation
-     * (not is active, or assembled to just ref)
-     *
-     * @param region                the region to return a no-variation result
-     * @param needsToBeFinalized    should the region be finalized before computing the ref model (should be false if already done)
-     * @return                      a list of variant contexts (can be empty) to emit for this ref region
-     */
-    private List<VariantContext> referenceModelForNoVariation(final AssemblyRegion region,
-                                                              final boolean needsToBeFinalized) {
-        if ( emitReferenceConfidence() ) {
-            //TODO - why the activeRegion cannot manage its own one-time finalization and filtering?
-            //TODO - perhaps we can remove the last parameter of this method and the three lines bellow?
-            if ( needsToBeFinalized ) {
-                finalizeRegion(region);
-            }
-            filterNonPassingReads(region);
-
-            final SimpleInterval paddedLoc = region.getExtendedSpan();
-            final Haplotype refHaplotype = createReferenceHaplotype(region, paddedLoc);
-            final List<Haplotype> haplotypes = Collections.singletonList(refHaplotype);
-            return referenceConfidenceModel.calculateRefConfidence(refHaplotype, haplotypes,
-                                                                    paddedLoc, region, createDummyStratifiedReadMap(refHaplotype, samplesList, region),
-                                                                    genotypingEngine.getPloidyModel(), Collections.emptyList());
-        }
-        else {
-            return NO_CALLS;
-        }
-    }
-
-    private boolean containsCalls(final HaplotypeCallerGenotypingEngine.CalledHaplotypes calledHaplotypes) {
-        final List<VariantContext> calls = calledHaplotypes.getCalls();
-        if (calls.isEmpty()) return false;
-        for (final VariantContext call : calls)
-            for (final Genotype genotype : call.getGenotypes())
-                if (genotype.isCalled())
-                    return true;
-        return false;
     }
 }
