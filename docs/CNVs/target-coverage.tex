@@ -260,6 +260,7 @@ The E step requires solving the following set of mean-field self-consistency equ
 \end{subequations}
 where the posterior expectation values are calculated with respect to the factorized distribution. Writing out the right hand side explicitly, we find:
 \begin{align}
+\label{eq:Phi_c}
 \Phi_c(\vc_s) &\propto P_\mathrm{HMM}\big(\vc_s \big|\vpi, \{\mathbf{T}_t\}\big)\prod_{t=0}^{T-1} \exp\left[- \frac{1}{2} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \ln c_{st} - \EE[\ln d_s] - m_t - (\vW \EE[\vz_s])_t\big]^2\right],\\
 \Phi_z(\vz_s) &\propto \exp\left[-\frac{1}{2} \, \vz_s^T \Big(\vI + \vW^T \vM_s \vPsi_s^{-1}\vW + \lambda \vW^T \vF \vW \Big)\,\vz_s + \vW^T \vM_{s} \, \EE[\mathbf{\Delta}_{s}]\,\vz_s \right],\\
 \Phi_d(d_s) &\propto \exp\left[- \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \ln d_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right].
@@ -337,6 +338,32 @@ The ARD coefficients $\alpha$ are determined by maximizing the log evidence, i.e
 \frac{\alpha_\mu}{T} = \left(\frac{\displaystyle\int \sum_t W^2_{t\mu}\, q(\vW)\,\mathrm{d}\vW}{\displaystyle\int q(\vW) \, \mathrm{d}\vW}\right)^{-1} = \left(\sum_t \left(W_{t\mu}^*\right)^2 + \sum_t\left(\vA + \vQ + \lambda \vF \otimes \vZ \right)^{-1}_{\mu t, \mu t}\right)^{-1},
 \end{equation}
 where $\vW^*$ is the latest M step value for $\vW$. Unfortunately, the presence of the regularizer and the coupling it introduces between the targets makes the matrix inversion appearing above numerically challenging. Without the regularizer term, the inversion can be performed per-target and only within the low dimensional latent space. One approach is to extract the required matrix elements using stochastic methods. For example, one can efficiently calculate $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$. If we calculate this value for an ensemble of pairs $(\mathbf{v}, \mathbf{w})$ such that $\EE[v_{\alpha t} w_{\beta t'}] = \delta)_{\alpha\beta}\delta_{\alpha\mu}\delta_{tt'}$, the ensemble average of $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$ yields the desired matrix element. Another approach is to disable the regularizer after a number of EM iterations, and enable the ARD prior instead.
+
+\subsection{On the emission probability}
+The emission probability for the HMM is local in target and sample indices, and can be read from Eq.~\eqref{eq:Phi_c}:
+\begin{equation}
+P_\mathrm{em}(n_{st}|c_{st}) = \mathcal{N}_{st} \exp\left[- \frac{1}{2} \, \Lambda_{st} \, \big(\ln n_{st} - \mu_{st}\big)^2\right],
+\end{equation}
+where we have defined:
+\begin{align}
+\Lambda_{st} &= M_{st}\Psi_{st}^{-1},\nonumber\\
+\mu_{st} &= \ln(c_{st}) + \ln(\PP_{st}) + \EE[\ln d_s] + m_t + (\vW \EE[\vz_s])_t,
+\end{align}
+and $\mathrm{N}_{st}$ is a normalization factor. We will drop the $st$ indices for brevity hereafter in this section. The emission model must be a proper probability function, i.e. it must sum to unity by considering all possible read counts. Consequently, the (inverse) normalization factor is given by:
+\begin{equation}
+\mathcal{N}^{-1} = \sum_{n=1}^\infty \exp\left[-\frac{\Lambda}{2}\,(\ln n - \mu)^2\right].
+\end{equation}
+We have not considered the case $n=0$ since we implicitly assume such targets are masked out\footnote{Only unmasked targets must be passed to the HMM.}. An excellent approximation in cases where target coverage is high is to replace the discrete sum with an integral:
+\begin{align}
+\mathcal{N}^{-1} &\simeq \int_{1}^\infty \mathrm{d}n\,\exp\left[-\frac{\Lambda}{2}\,(\ln n - \mu)^2\right]\nonumber\\
+&= \int_{0}^\infty \mathrm{d}x \, \exp\left[-\frac{\Lambda}{2}\,(x - \mu)^2 + x\right] = \exp\left(\mu + \frac{1}{2\Lambda}\right)\int_{0}^\infty \mathrm{d}x \, \exp\left[-\frac{\Lambda}{2}\,(x - \mu - \Lambda^{-1})^2\right]\nonumber\\
+&= \sqrt{\frac{2\Lambda}{\pi}}\,\exp\left(\mu + \frac{1}{2\Lambda}\right) \mathrm{erfc}\left(-\frac{\Lambda \mu + 1}{\sqrt{2\Lambda}}\right).
+\end{align}
+In summary, the log emission probability is given by:
+\begin{equation}
+\ln P_{\mathrm{em}}(n|c) \simeq \frac{1}{2}\,\ln\left(\frac{\pi}{2\Lambda}\right) - \mu - \frac{1}{2\Lambda} - \ln \mathrm{erfc}\left(-\frac{\Lambda \mu + 1}{\sqrt{2\Lambda}}\right) - \frac{1}{2}\,\Lambda\,(\ln n - \mu)^2.
+\end{equation}
+Note that $c$ implicitly appears in $\mu$.
 
 \subsection{Efficient computational of expressions involving the regularizer}
 \noindent{\bf Calculating $\vW^T \vF \vW$ ---}
