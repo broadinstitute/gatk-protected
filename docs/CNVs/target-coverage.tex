@@ -363,7 +363,7 @@ In summary, the log emission probability is given by:
 \begin{equation}
 \ln P_{\mathrm{em}}(n|c) \simeq \frac{1}{2}\,\ln\left(\frac{\pi}{2\Lambda}\right) - \mu - \frac{1}{2\Lambda} - \ln \mathrm{erfc}\left(-\frac{\Lambda \mu + 1}{\sqrt{2\Lambda}}\right) - \frac{1}{2}\,\Lambda\,(\ln n - \mu)^2.
 \end{equation}
-Note that $c$ implicitly appears in $\mu$.
+Note that $c$ implicitly appears in $\mu$. Also, we recall that $\mathrm{erfc}(-x) = 1 + \mathrm{erf}(x)$ which is useful in numerics.
 
 \subsection{Efficient computational of expressions involving the regularizer}
 \noindent{\bf Calculating $\vW^T \vF \vW$ ---}
