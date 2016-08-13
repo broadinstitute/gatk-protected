@@ -196,7 +196,7 @@ P(\vn | \vc, \vtheta) \propto \exp \left( -\frac{1}{2} \sum_s (\vm_s - \vm)^T \v
 \label{marginalized coverage_likelihood}
 \end{equation}
 %
-where $\vM_s$ and $\Sigma_{s}$ are $T \times T$ diagonal matrices having $M_{st}$ and $\Sigma_{st}$ in their diagonal entries, respectively. The incomplete-data likelihood function poses a Gaussian distribution for $\ln(n_{st})$ (See Eq.~\ref{eq:m_sigma_def}). The covariance matrix is the diagonal in the target space and is composed of three terms: (1) $\vPsi$ target-specific ``unexplained'' noises, (2) $\vM_s \vW \vW^T \vM_s$ denotes the ``explained'' variance due to laboratory conditions, and (3) $\Sigma_{st} = 1/n_{st}$ denotes the statistical variance in read counts, it has roots in the Poisson distribution for read counts, and can be thought of as a penalty factor that decreases the role of lower-coverage samples in the likelihood.
+where $\vM_s$ and $\vSigma_{s}$ are $T \times T$ diagonal matrices having $M_{st}$ and $\Sigma_{st}$ in their diagonal entries for $t=0, \ldots, T-1$., respectively. The incomplete-data likelihood function poses a Gaussian distribution for $\ln(n_{st})$ (See Eq.~\ref{eq:m_sigma_def}). The covariance matrix is the diagonal in the target space and is composed of three terms: (1) $\vPsi$ denotes target-specific ``unexplained'' noises, (2) $\vM_s \vW \vW^T \vM_s$ denotes the variance explained by the model, and (3) $\Sigma_{st} = 1/n_{st}$ denotes the statistical variance in read counts. This term originates from the Poisson distribution for read counts and can be thought of as a penalty factor that decreases the role of lower-coverage samples in the likelihood.
 
 \subsection{A Laplace regularization scheme for separating latent features from biological CNV events}
 PCA-like approaches to denoising aim at minimizing the {\em total variance} of the data by learning and subtracting the contribution of the underlying latent features. In practice, this objective is achieved using either the maximum variance principle (usual PCA) or the maximum likelihood principle on a linear-Gaussian model as explained here. Using either method, when the number of samples largely exceeds the dimension of the latent space, sample-specific variations become immaterial and the true underlying latent features can be learned from the data. However, when the number of samples is comparable to the number of latent features, the statistical power for separating sample-specific variations from mutual variations is significantly reduced.
@@ -228,15 +228,15 @@ R_f \equiv \exp\left(-\frac{\lambda}{2} \sum_{s=1}^S\kappa_s\right) = \exp\left(
 We define the matrix $F_{t,t'} \equiv f(t-t')/T$ for notational convenience. The regularizer ``kicks in'' when $\lambda \sim \Psi^{-1}$, as it can be inferred directly from Eq.~\eqref{eq:W_eq_reg}. One may initially choose $\lambda \sim 1000\,\Psi^{-1}$ and progressively relax it as the optimal solution is approached.
 
 \subsection{Automatic relevance determination (ARD) prior on $\vW$}
-The true dimension of the latent space is not known a priori. When abundant data is available (i.e. $S \gg D_\mathrm{true}$), this problem can be addressed using the automatic relevance determination (ARD) technique. To this end, one starts with a liberal estimate for $D$ and imposes a Gaussian prior on $\vW$:
+The true dimension of the latent space is not known {\em a priori}. When abundant data is available (i.e. $S \gg D_\mathrm{true}$), this problem can be addressed using the automatic relevance determination (ARD) technique. To this end, one starts with a liberal estimate for $D$ and imposes a Gaussian prior on the rows of $\vW$ (principal components):
 \begin{equation}
 P(\vW) \propto \prod_\mu \alpha_\mu^{T/2} \exp \left( -\frac{1}{2} \alpha_\mu \sum_t W_{t\mu}^2  \right).
 \label{eq:ARD_prior}
 \end{equation}
-If $\alpha_\mu \rightarrow \infty$, the latent feature $\mu$ is effectively turned off whereas if $\alpha_\mu \rightarrow 0$, the flat prior is recovered. The recipe for ARD is to initially set $\alpha_\mu \simeq 0$ while calculating and maximizing the model evidence $P(\vn | \{\alpha_\mu\}$ with respect to $\{\alpha_\mu\}$. If $D > D_\mathrm{true}$, we expect $D - D_\mathrm{true}$ elements of $\{\alpha_\mu\}$ to run to infinity. If $D_\mathrm{true}$, all of $\{\alpha_\mu\}$ will remain of the same order, signaling the necessity of increasing $D$.
+If $\alpha_\mu \rightarrow \infty$, the latent feature $\mu$ is effectively turned off whereas if $\alpha_\mu \rightarrow 0$, the flat prior is recovered. The recipe for ARD is to set $\alpha_\mu \simeq 0$ initially while calculating and maximizing the model evidence $P(\vn | \{\alpha_\mu\}$ with respect to $\{\alpha_\mu\}$ during the EM algorithm. If $D > D_\mathrm{true}$, we expect $D - D_\mathrm{true}$ elements of $\{\alpha_\mu\}$ to run to infinity. If $D < D_\mathrm{true}$, all of $\{\alpha_\mu\}$ will remain of the same order, signaling the necessity of increasing $D$.
 
 \section{Mean-field variational EM algorithm}
-Let us start by writing out the complete-data log likelihood (see Eq.~\ref{eq:complete_log_likelihood}), including the ARD prior and the Laplace regularizer:
+We start by writing the complete-data log likelihood (see Eq.~\ref{eq:complete_log_likelihood}), including the ARD prior and the Laplace regularizer:
 \begin{subequations}
 \begin{align}
 \label{eq:complete_log_likelihood}
@@ -246,7 +246,7 @@ Let us start by writing out the complete-data log likelihood (see Eq.~\ref{eq:co
 \Delta_{st} \equiv&\, \ln(n_{st}/\PP_{st}) - \ln c_{st} - \ln d_s - m_t.
 \end{align}
 \end{subequations}
-We notice that the latent variables $(\vc, \vd)$ are coupled to $\vz$ due to the cross term $\Delta \vW \vz$, and $\vc$ is coupled to $\vd$ due to $\Delta^2$. These couplings result in an intractable E step. Intuitively, we expect the posterior distribution for $\vz$ and $\vd$ to be quite sharp near the optimal solution, provided $D_\mathrm{true} \ll T$. Therefore, we do not foresee these couplings to play a substantial role. This motivates the introduction of a factorized variational ansatz for the latent posterior distribution:
+We notice that the latent variables $(\vc, \vd)$ are coupled to $\vz$ due to the cross term $\Delta \vW \vz$, and $\vc$ is coupled to $\vd$ due to $\Delta^2$. These couplings result in an intractable E step. We expect the posterior distribution for $\vz$ and $\vd$ to be quite sharp near the optimal solution, provided $D_\mathrm{true} \ll T$. Therefore, we do not foresee these couplings to play a substantial role, allowing us to utilize an approximate factorized variational ansatz for the latent posterior distribution:
 \begin{equation}
 \Phi(\vc, \vz, \vd) \equiv P(\vc, \vz, \vd | \vn, \vtheta_\mathrm{old}) \simeq \Phi_c(\vc) \, \Phi(\vz) \, \Phi(\vd).
 \end{equation}
@@ -265,11 +265,11 @@ where the posterior expectation values are calculated with respect to the factor
 \Phi_z(\vz_s) &\propto \exp\left[-\frac{1}{2} \, \vz_s^T \Big(\vI + \vW^T \vM_s \vPsi_s^{-1}\vW + \lambda \vW^T \vF \vW \Big)\,\vz_s + \vW^T \vM_{s} \, \EE[\mathbf{\Delta}_{s}]\,\vz_s \right],\\
 \Phi_d(d_s) &\propto \exp\left[- \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \ln d_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right].
 \end{align}
-We have completed the square in the first and the last equation in exchange for different normalization factors (which we do not need to calculate). We observe that: (1) $\Phi_z(\vz_s)$ is conveniently Gaussian; (2) $\Phi_d(d_s)$ admits a Gaussian distribution over $\rho \equiv \ln d$:
+We have completed the squares in the first and the last equation in exchange for different normalization factors (which we do not need to calculate). We observe that: (1) $\Phi_z(\vz_s)$ is conveniently Gaussian in $\vz_s$; (2) $\Phi_d(d_s)$ admits a Gaussian distribution over $\rho \equiv \ln d$:
 \begin{equation}
 \Phi_\rho(\rho_s) = e^{\rho_s}\,\Phi_d(e^{\rho_s}) \propto \exp\left[ \rho_s - \frac{1}{2} \sum_{t=0}^{T-1} M_{st}\Psi_{st}^{-1}\big[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - \rho_s - m_t - (\vW \EE[\vz_s])_t\big]^2\right],
 \end{equation}
-which is normalizable and does not require regularization; (3) the factorized distribution for $\vc_s$  implies an emission model that is local in the target space. These observations allow us to arrive at a simple recipe for the E step. We summarize the mean-field equations as follows:
+which is normalizable and does not require regularization; (3) the factorized distribution for $\vc_s$ yields an emission model that is local in the target space. These observations allow us to arrive at a simple recipe for the E step, which can be summarized as the following set of self-consistent mean-field equations:
 \begin{subequations}
 \begin{align}
 \EE\big[\ln d_s \big] &= \frac{1 + \sum_t M_{st} \Psi_{st}^{-1}\left[\ln(n_{st}/\PP_{st}) - \EE[\ln c_{st}] - m_t - (\vW \EE[\vz_s])_t\right]}{\sum_t M_{st} \Psi_{st}^{-1}},\nonumber\\
@@ -278,7 +278,7 @@ which is normalizable and does not require regularization; (3) the factorized di
 \EE\big[\ln c_{st}\big] &= \sum_{c} \gamma_{st}(c) \ln(c),
 \end{align}
 \end{subequations}
-where in the last equation, the summation is over different copy number (or ratio) states, and $\gamma_{st}(c) \equiv P(c_{st} = c | \vn)$ which can be efficiently found using forward-backward message passing method. In practice, we can set $\EE[\vz_s] = \EE[\ln c_{st}] = 0$ and cycle through the mean-field equations for $d$, $z$ and $c$ in succession until convergence is achieved. Once the self-consistent is found, the additional expectation values required for calculating the posterior expectation of $\ln P$ are easily found as:
+where in the last equation, the summation is over different copy number (or ratio) states, and $\gamma_{st}(c) \equiv P(c_{st} = c | \vn)$ which can be efficiently found using forward-backward algorithm. In practice, we can set $\EE[\vz_s] = \EE[\ln c_{st}] = 0$ initially and cycle through the mean-field equations for $d$, $z$ and $c$ in succession until convergence is achieved to a desired degree. Once the self-consistent solution is found, the additional quantities required for calculating the posterior expectation of $\ln P$ are easily found as:
 \begin{align}
 \EE\big[\vz_s \vz_s^T \big] &= \vG_s + \EE\big[\vz_s\big] \EE\big[\vz_s\big]^T,\nonumber\\
 \EE\big[\Delta_{st}^2\big] &= \EE[\Delta_{st}]^2 + \mathrm{var}\big[\ln c_{st}\big] + \mathrm{var}\big[\ln d_{s}\big],\nonumber\\
@@ -286,7 +286,7 @@ where in the last equation, the summation is over different copy number (or rati
 \mathrm{var}\big[\ln d_s\big] &= \left(\sum_t M_{st} \Psi_{st}^{-1}\right)^{-1}
 \end{align}
 
-In the M step, we calculate the expectation value of the complete-data log likelihood with respect to the posterior distribution (using the old values of $\vtheta$), and maximize it with respect to $\theta$. The quantity of interest is:
+In the M step, we calculate the expectation value of the complete-data log likelihood with respect to the posterior distribution, and maximize it with respect to $\vtheta$. The quantity of interest is:
 %
 \begin{align}
 \mathcal{Q}(\vtheta|\vtheta_\mathrm{old}, \valpha) =&\, \EE_{q(\vc, \vz, \vd)}\big[\ln P(\vn, \vc, \vz, \vd | \vtheta)\big]\nonumber\\
@@ -320,7 +320,7 @@ v_{t\mu} &= \sum_s M_{st} \Psi_{st}^{-1} \EE\big[\Delta_{st}\big]\, \EE\big[z_{s
 A_{\mu\nu} &= \delta_{\mu\nu}\,\alpha_{\mu},\nonumber\\
 Z_{\mu\nu} &= \sum_{s=1}^S \EE[z_{s\mu} z_{s\nu}].
 \end{align}
-Thanks to Krylov subspace methods and the sparse structure of the above linear equation, it can be solved numerically efficiently (discussed later).\\
+The sparse structure of the above linear equation allows us to solve it efficiently using Krylov subspace methods (to be discussed later).\\
 
 \noindent Finally, to determine $\alpha_\mu$, we re-exponentiate $\mathcal{Q}(\vtheta|\vtheta_\mathrm{old}, \valpha)$ and integrate out $\vW$ to obtain the evidence for $\vA$:
 %
@@ -337,7 +337,7 @@ The ARD coefficients $\alpha$ are determined by maximizing the log evidence, i.e
 \begin{equation}
 \frac{\alpha_\mu}{T} = \left(\frac{\displaystyle\int \sum_t W^2_{t\mu}\, q(\vW)\,\mathrm{d}\vW}{\displaystyle\int q(\vW) \, \mathrm{d}\vW}\right)^{-1} = \left(\sum_t \left(W_{t\mu}^*\right)^2 + \sum_t\left(\vA + \vQ + \lambda \vF \otimes \vZ \right)^{-1}_{\mu t, \mu t}\right)^{-1},
 \end{equation}
-where $\vW^*$ is the latest M step value for $\vW$. Unfortunately, the presence of the regularizer and the coupling it introduces between the targets makes the matrix inversion appearing above numerically challenging. Without the regularizer term, the inversion can be performed per-target and only within the low dimensional latent space. One approach is to extract the required matrix elements using stochastic methods. For example, one can efficiently calculate $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$. If we calculate this value for an ensemble of pairs $(\mathbf{v}, \mathbf{w})$ such that $\EE[v_{\alpha t} w_{\beta t'}] = \delta)_{\alpha\beta}\delta_{\alpha\mu}\delta_{tt'}$, the ensemble average of $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$ yields the desired matrix element. Another approach is to disable the regularizer after a number of EM iterations, and enable the ARD prior instead.
+where $\vW^*$ is the latest M step value for $\vW$. Unfortunately, the presence of the regularizer and the coupling it introduces between the targets makes calculating the required inverse matrix element a numerically challenging problem. Without the regularizer term, the inversion can be performed per-target and only within the low dimensional latent space. One approach is to extract the required matrix elements using stochastic methods. For example, one can efficiently calculate $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$ using Krylov subspace methods. If one calculates this scalar quantity for an ensemble of pairs $(\mathbf{v}, \mathbf{w})$ such that $\EE[v_{\alpha t} w_{\beta t'}] = \delta_{\alpha\beta}\delta_{\alpha\mu}\delta_{tt'}$, the ensemble average of $\mathbf{w}^T \left(\ldots\right)^{-1} \mathbf{v}$ yields the desired matrix element. Another approach is to disable the regularizer after a number of EM iterations, and enable the ARD prior instead.
 
 \subsection{On the emission probability}
 The emission probability for the HMM is local in target and sample indices, and can be read from Eq.~\eqref{eq:Phi_c}:
@@ -349,11 +349,11 @@ where we have defined:
 \Lambda_{st} &= M_{st}\Psi_{st}^{-1},\nonumber\\
 \mu_{st} &= \ln(c_{st}) + \ln(\PP_{st}) + \EE[\ln d_s] + m_t + (\vW \EE[\vz_s])_t,
 \end{align}
-and $\mathrm{N}_{st}$ is a normalization factor. We will drop the $st$ indices for brevity hereafter in this section. The emission model must be a proper probability function, i.e. it must sum to unity by considering all possible read counts. Consequently, the (inverse) normalization factor is given by:
+and $\mathcal{N}_{st}$ is a normalization factor. We will drop the $st$ indices for brevity hereafter in this section. The emission function must be a proper probability function, i.e. it must sum to unity by considering all possible read counts. Consequently, the (inverse) normalization factor is given by:
 \begin{equation}
 \mathcal{N}^{-1} = \sum_{n=1}^\infty \exp\left[-\frac{\Lambda}{2}\,(\ln n - \mu)^2\right].
 \end{equation}
-We have not considered the case $n=0$ since we implicitly assume such targets are masked out\footnote{Only unmasked targets must be passed to the HMM.}. An excellent approximation in cases where target coverage is high is to replace the discrete sum with an integral:
+We have left out $n=0$ from the summation since we implicitly assume such targets are masked out\footnote{Only unmasked targets must be passed to the HMM.}. An excellent approximation in cases where target coverage is high is to replace the discrete sum with an integral:
 \begin{align}
 \mathcal{N}^{-1} &\simeq \int_{1}^\infty \mathrm{d}n\,\exp\left[-\frac{\Lambda}{2}\,(\ln n - \mu)^2\right]\nonumber\\
 &= \int_{0}^\infty \mathrm{d}x \, \exp\left[-\frac{\Lambda}{2}\,(x - \mu)^2 + x\right] = \exp\left(\mu + \frac{1}{2\Lambda}\right)\int_{0}^\infty \mathrm{d}x \, \exp\left[-\frac{\Lambda}{2}\,(x - \mu - \Lambda^{-1})^2\right]\nonumber\\
