@@ -13,8 +13,8 @@ import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountWithPh
 import org.broadinstitute.hellbender.tools.exome.pulldown.Pulldown;
 import org.broadinstitute.hellbender.tools.pon.allelic.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
-import org.broadinstitute.hellbender.utils.mcmc.ParameterReader;
-import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
+import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.ParameterReader;
+import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummary;
 
 import java.io.File;
 import java.io.IOException;

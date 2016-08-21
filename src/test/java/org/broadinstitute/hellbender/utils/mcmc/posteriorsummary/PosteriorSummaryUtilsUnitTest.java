@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.utils.mcmc;
+package org.broadinstitute.hellbender.utils.mcmc.posteriorsummary;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.math3.distribution.BetaDistribution;
@@ -7,6 +7,8 @@ import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
+import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummary;
+import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummaryUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
