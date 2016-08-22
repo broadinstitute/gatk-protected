@@ -19,12 +19,12 @@ import java.util.stream.Collectors;
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class PloidyAnnotatedTargetCollection implements TargetCollection<Target> {
+public final class GermlinePloidyAnnotatedTargetCollection implements TargetCollection<Target> {
 
     /**
-     * Map from targets to their ploidy annotations (based on target contigs)
+     * Map from targets to their germline ploidy annotations (based on target contigs)
      */
-    private Map<Target, ContigPloidyAnnotation> targetToContigPloidyAnnotationMap;
+    private Map<Target, ContigGermlinePloidyAnnotation> targetToContigPloidyAnnotationMap;
 
     /**
      * List of autosomal targets
@@ -50,19 +50,19 @@ public final class PloidyAnnotatedTargetCollection implements TargetCollection<T
     /**
      * Public constructor.
      *
-     * @param contigAnnotsList list of contig ploidy annotations.
+     * @param contigAnnotsList list of contig germline ploidy annotations.
      * @param targetList list of targets
      */
-    public PloidyAnnotatedTargetCollection(@Nonnull final List<ContigPloidyAnnotation> contigAnnotsList,
-                                           @Nonnull final List<Target> targetList) {
+    public GermlinePloidyAnnotatedTargetCollection(@Nonnull final List<ContigGermlinePloidyAnnotation> contigAnnotsList,
+                                                   @Nonnull final List<Target> targetList) {
         performValidityChecks(targetList, contigAnnotsList);
 
         fullTargetList = Collections.unmodifiableList(targetList);
         fullTargetSet = Collections.unmodifiableSet(new HashSet<>(fullTargetList));
 
         /* map targets to ploidy annotations */
-        final Map<String, ContigPloidyAnnotation> contigNameToContigPloidyAnnotationMap = contigAnnotsList.stream()
-                .collect(Collectors.toMap(ContigPloidyAnnotation::getContigName, Function.identity()));
+        final Map<String, ContigGermlinePloidyAnnotation> contigNameToContigPloidyAnnotationMap = contigAnnotsList.stream()
+                .collect(Collectors.toMap(ContigGermlinePloidyAnnotation::getContigName, Function.identity()));
         targetToContigPloidyAnnotationMap = Collections.unmodifiableMap(
                 fullTargetList.stream().collect(Collectors.toMap(Function.identity(),
                         target -> contigNameToContigPloidyAnnotationMap.get(target.getContig()))));
@@ -97,14 +97,14 @@ public final class PloidyAnnotatedTargetCollection implements TargetCollection<T
      * Returns the ploidy of a target for a given ploidy tag (= genotype identifier string)
      *
      * @param target target in question
-     * @param ploidyTag ploidy tag (= genotype identifier string)
+     * @param genotypeName genotype identifier string
      * @return integer ploidy
      */
-    public int getTargetPloidyByTag(@Nonnull final Target target, @Nonnull final String ploidyTag) {
+    public int getTargetGermlinePloidyByGenotype(@Nonnull final Target target, @Nonnull final String genotypeName) {
         if (!fullTargetSet.contains(target)) {
             throw new IllegalArgumentException("Target \"" + target.getName() + "\" can not be found");
         }
-        return targetToContigPloidyAnnotationMap.get(target).getPloidy(ploidyTag);
+        return targetToContigPloidyAnnotationMap.get(target).getGermlinePloidy(genotypeName);
     }
 
     /**
@@ -119,13 +119,13 @@ public final class PloidyAnnotatedTargetCollection implements TargetCollection<T
      * @param targetList list of targets
      * @param contigAnnotsList list of contig ploidy annotations
      */
-    private void performValidityChecks(final List<Target> targetList, final List<ContigPloidyAnnotation> contigAnnotsList) {
+    private void performValidityChecks(final List<Target> targetList, final List<ContigGermlinePloidyAnnotation> contigAnnotsList) {
         /* assert the lists are non-empty */
         if (targetList.isEmpty()) {
             throw new UserException.BadInput("Target list can not be empty");
         }
         if (contigAnnotsList.isEmpty()) {
-            throw new UserException.BadInput("Contig ploidy annotation list can not be empty");
+            throw new UserException.BadInput("Contig germline ploidy annotation list can not be empty");
         }
 
         /* assert targets have unique names */
@@ -141,7 +141,7 @@ public final class PloidyAnnotatedTargetCollection implements TargetCollection<T
 
         /* assert contigs are not annotated multiple times */
         final Map<String, Long> contigAnnotsCounts = contigAnnotsList.stream()
-                .map(ContigPloidyAnnotation::getContigName)
+                .map(ContigGermlinePloidyAnnotation::getContigName)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
         if (contigAnnotsCounts.keySet().size() < contigAnnotsList.size()) {
             throw new UserException.BadInput("Some contigs are multiply annotated: " +
@@ -154,7 +154,7 @@ public final class PloidyAnnotatedTargetCollection implements TargetCollection<T
         final Set<String> contigNamesFromTargets = targetList.stream()
                 .map(Target::getContig).collect(Collectors.toSet());
         final Set<String> contigNamesFromAnnots = contigAnnotsList.stream()
-                .map(ContigPloidyAnnotation::getContigName).collect(Collectors.toSet());
+                .map(ContigGermlinePloidyAnnotation::getContigName).collect(Collectors.toSet());
         final Set<String> missingContigs = Sets.difference(contigNamesFromTargets, contigNamesFromAnnots);
         if (missingContigs.size() > 0) {
             throw new UserException.BadInput("All contigs must be annotated. Annotations are missing for: " +
@@ -164,8 +164,8 @@ public final class PloidyAnnotatedTargetCollection implements TargetCollection<T
         /* assert all contigs have annotations for all ploidy classes */
         final Set<String> firstAnnotPloidyTagSet = contigAnnotsList.get(0).getGenotypesSet();
         if (contigAnnotsList.stream().filter(annot -> !annot.getGenotypesSet().equals(firstAnnotPloidyTagSet)).count() > 0) {
-            throw new UserException.BadInput("Not all entries in the contig ploidy annotation list have the same " +
-                    "ploidy tag set");
+            throw new UserException.BadInput("Not all entries in the contig germline ploidy annotation list have the same " +
+                    "set of genotypes");
         }
     }
 

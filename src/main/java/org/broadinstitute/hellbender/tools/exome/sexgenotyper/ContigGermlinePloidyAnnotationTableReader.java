@@ -15,33 +15,33 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Reads contig ploidy annotations from tab-separated files and readers.
+ * Reads contig germline ploidy annotations from tab-separated files and readers.
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class ContigPloidyAnnotationTableReader extends TableReader<ContigPloidyAnnotation> {
+public final class ContigGermlinePloidyAnnotationTableReader extends TableReader<ContigGermlinePloidyAnnotation> {
 
-    public static final Logger logger = LogManager.getLogger(ContigPloidyAnnotationTableReader.class);
+    public static final Logger logger = LogManager.getLogger(ContigGermlinePloidyAnnotationTableReader.class);
 
     /**
-     * The set of ploidy tags (= sex genotype identifer strings)
+     * The set of ploidy tags (= sex genotype identifier strings)
      */
     private final Set<String> ploidyTagsSet;
 
     /**
-     * Public constructor.
+     * Public constructor from a reader.
      *
      * @param sourceName name of the source
      * @param sourceReader an instance of {@link Reader}
      * @throws IOException if a reading error occurs
      */
-    public ContigPloidyAnnotationTableReader(final String sourceName, @Nonnull final Reader sourceReader)
+    public ContigGermlinePloidyAnnotationTableReader(final String sourceName, @Nonnull final Reader sourceReader)
             throws IOException {
         super(sourceName, sourceReader);
-        TableUtils.checkMandatoryColumns(columns(), ContigPloidyAnnotationTableColumn.MANDATORY_CONTIG_ANNOTATION_COLUMNS,
+        TableUtils.checkMandatoryColumns(columns(), ContigGermlinePloidyAnnotationTableColumn.MANDATORY_CONTIG_ANNOTATION_COLUMNS,
                 UserException.BadInput::new);
         ploidyTagsSet = Sets.difference(new HashSet<>(columns().names()),
-                ContigPloidyAnnotationTableColumn.MANDATORY_CONTIG_ANNOTATION_COLUMNS_SET);
+                ContigGermlinePloidyAnnotationTableColumn.MANDATORY_CONTIG_ANNOTATION_COLUMNS_SET);
         if (ploidyTagsSet.isEmpty()) {
             throw new UserException.BadInput("At least one ploidy column is required!");
         }
@@ -49,27 +49,27 @@ public final class ContigPloidyAnnotationTableReader extends TableReader<ContigP
     }
 
     /**
-     * Public constructor.
+     * Public constructor from a reader.
      *
      * @param sourceReader an instance of {@link Reader}
      * @throws IOException if a reading error occurs
      */
-    public ContigPloidyAnnotationTableReader(@Nonnull final Reader sourceReader) throws IOException {
+    public ContigGermlinePloidyAnnotationTableReader(@Nonnull final Reader sourceReader) throws IOException {
         this(null, sourceReader);
     }
 
     /**
-     * Creates a {@link ContigPloidyAnnotation} instance from a {@link DataLine}
+     * Creates a {@link ContigGermlinePloidyAnnotation} instance from a {@link DataLine}
      *
      * @param dataLine a data line
-     * @return an instance of {@link ContigPloidyAnnotation}
+     * @return an instance of {@link ContigGermlinePloidyAnnotation}
      */
     @Override
-    protected ContigPloidyAnnotation createRecord(@Nonnull final DataLine dataLine) {
-        final String contigName = dataLine.get(ContigPloidyAnnotationTableColumn.CONTIG_NAME);
+    protected ContigGermlinePloidyAnnotation createRecord(@Nonnull final DataLine dataLine) {
+        final String contigName = dataLine.get(ContigGermlinePloidyAnnotationTableColumn.CONTIG_NAME);
 
         final ContigClass contigClass;
-        final String contigClassString = dataLine.get(ContigPloidyAnnotationTableColumn.CONTIG_CLASS);
+        final String contigClassString = dataLine.get(ContigGermlinePloidyAnnotationTableColumn.CONTIG_CLASS);
         if (!ContigClass.CONTIG_CLASS_NAMES_SET.contains(contigClassString)) {
             throw new UserException.BadInput("Bad contig class: provided value: " + contigClassString + ", acceptable values: " +
                     ContigClass.CONTIG_CLASS_NAMES_SET.stream().collect(Collectors.joining(", ", "[", "]")));
@@ -82,46 +82,46 @@ public final class ContigPloidyAnnotationTableReader extends TableReader<ContigP
             /* all lines must have all ploidy annotations defined in the header */
             ploidyTagsSet.forEach(tag -> ploidyMap.put(tag, dataLine.getInt(tag)));
         } catch (final IllegalArgumentException ex) {
-            throw new UserException.BadInput("All lines in the contig ploidy annotation table must have values for all" +
+            throw new UserException.BadInput("All lines in the contig germline ploidy annotation table must have values for all" +
                     " ploidy classes; " + ex.getMessage());
         }
 
-        return new ContigPloidyAnnotation(contigName, contigClass, ploidyMap);
+        return new ContigGermlinePloidyAnnotation(contigName, contigClass, ploidyMap);
     }
 
     /**
      * Reads contig ploidy annotations from a file.
      *
-     * @param contigPloidyAnnotationsFile a file containing contig ploidy annotations
+     * @param contigGermlinePloidyAnnotationsFile a file containing contig germline ploidy annotations
      * @return a list of contig ploidy annotations
      * @throws IOException if a read error occurs
      */
-    public static List<ContigPloidyAnnotation> readContigPloidyAnnotationsFromFile(@Nonnull final File contigPloidyAnnotationsFile)
+    public static List<ContigGermlinePloidyAnnotation> readContigGermlinePloidyAnnotationsFromFile(@Nonnull final File contigGermlinePloidyAnnotationsFile)
             throws IOException {
-        Utils.regularReadableUserFile(contigPloidyAnnotationsFile);
+        Utils.regularReadableUserFile(contigGermlinePloidyAnnotationsFile);
         try {
-            return readContigPloidyAnnotationsFromReader(contigPloidyAnnotationsFile.getAbsolutePath(),
-                    new FileReader(contigPloidyAnnotationsFile));
+            return readContigGermlinePloidyAnnotationsFromReader(contigGermlinePloidyAnnotationsFile.getAbsolutePath(),
+                    new FileReader(contigGermlinePloidyAnnotationsFile));
         } catch (final FileNotFoundException ex) {
-            throw new UserException.CouldNotReadInputFile("Could not read contig ploidy annotations file " +
-                    contigPloidyAnnotationsFile.getAbsolutePath());
+            throw new UserException.CouldNotReadInputFile("Could not read contig germline ploidy annotations file " +
+                    contigGermlinePloidyAnnotationsFile.getAbsolutePath());
         }
     }
 
     /**
-     * Reads contig ploidy annotations from a {@link Reader}.
+     * Reads contig germline ploidy annotations from a {@link Reader}.
      *
      * @param contigAnnotationSourceName a string identifier for the reader.
      * @param contigAnnotationReader an instance of {@link Reader}.
      * @return list of contig ploidy annotations
      * @throws IOException if a read error occurs
      */
-    public static List<ContigPloidyAnnotation> readContigPloidyAnnotationsFromReader(@Nonnull final String contigAnnotationSourceName,
-                                                                                     @Nonnull final Reader contigAnnotationReader)
+    public static List<ContigGermlinePloidyAnnotation> readContigGermlinePloidyAnnotationsFromReader(@Nonnull final String contigAnnotationSourceName,
+                                                                                                     @Nonnull final Reader contigAnnotationReader)
             throws IOException {
         /* read contig annotations */
-        try (final ContigPloidyAnnotationTableReader reader =
-                     new ContigPloidyAnnotationTableReader(contigAnnotationSourceName, contigAnnotationReader)) {
+        try (final ContigGermlinePloidyAnnotationTableReader reader =
+                     new ContigGermlinePloidyAnnotationTableReader(contigAnnotationSourceName, contigAnnotationReader)) {
             return reader.stream().collect(Collectors.toList());
         } catch (final IOException | UncheckedIOException e) {
             throw new UserException.CouldNotReadInputFile(contigAnnotationSourceName, e);

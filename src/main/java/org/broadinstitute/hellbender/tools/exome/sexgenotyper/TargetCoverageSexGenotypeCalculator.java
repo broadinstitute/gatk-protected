@@ -50,7 +50,7 @@ public final class TargetCoverageSexGenotypeCalculator {
     private final int[] autosomalTargetLengths;
 
     /**
-     * Map from ploidy tags to the list of ploidies in the same order as {@code allosomalTargetList}
+     * Map from genotype names to the list of target germline ploidies in the same order as {@code allosomalTargetList}
      */
     private final Map<String, int[]> allosomalTargetPloidies;
 
@@ -63,19 +63,19 @@ public final class TargetCoverageSexGenotypeCalculator {
      * Public constructor.
      *
      * @param rawReadCounts raw read count collection
-     * @param contigPloidyAnnotsList list of contig ploidy annotations
+     * @param contigPloidyAnnotsList list of contig germline ploidy annotations
      * @param baselineMappingErrorProbability typical mapping error probabilty
      */
     public TargetCoverageSexGenotypeCalculator(@Nonnull final ReadCountCollection rawReadCounts,
-                                               @Nonnull final List<ContigPloidyAnnotation> contigPloidyAnnotsList,
+                                               @Nonnull final List<ContigGermlinePloidyAnnotation> contigPloidyAnnotsList,
                                                final double baselineMappingErrorProbability) {
         this.baselineMappingErrorProbability = ParamUtils.inRange(baselineMappingErrorProbability,
                 0, 1, "The baseline mapping error probability must be a number in [0, 1] interval");
         processedReadCounts = processReadCounts(rawReadCounts);
 
-        /* annotate targets with ploidy data */
-        final PloidyAnnotatedTargetCollection ploidyAnnots =
-                new PloidyAnnotatedTargetCollection(contigPloidyAnnotsList, processedReadCounts.targets());
+        /* annotate targets with germline ploidy data */
+        final GermlinePloidyAnnotatedTargetCollection ploidyAnnots =
+                new GermlinePloidyAnnotatedTargetCollection(contigPloidyAnnotsList, processedReadCounts.targets());
 
         /* populate lists and maps */
         autosomalTargetList = ploidyAnnots.getAutosomalTargetList();
@@ -97,7 +97,7 @@ public final class TargetCoverageSexGenotypeCalculator {
         /* autosomal targets have the same ploidy for all ploidy classes (this is asserted earlier); so pick the first one */
         final String somePloidyTag = sexGenotypeIdentifiers.iterator().next();
         autosomalTargetPloidies = autosomalTargetList.stream()
-                .mapToInt(t -> ploidyAnnots.getTargetPloidyByTag(t, somePloidyTag)).toArray();
+                .mapToInt(t -> ploidyAnnots.getTargetGermlinePloidyByGenotype(t, somePloidyTag)).toArray();
         autosomalTargetLengths = autosomalTargetList.stream()
                 .mapToInt(t -> t.getEnd() - t.getStart() + 1).toArray();
 
@@ -106,7 +106,7 @@ public final class TargetCoverageSexGenotypeCalculator {
                 .map(ploidyTag -> ImmutablePair.of(
                         ploidyTag,
                         allosomalTargetList.stream()
-                                .mapToInt(t -> ploidyAnnots.getTargetPloidyByTag(t, ploidyTag)).toArray()))
+                                .mapToInt(t -> ploidyAnnots.getTargetGermlinePloidyByGenotype(t, ploidyTag)).toArray()))
                 .collect(Collectors.toMap(ImmutablePair::getLeft, ImmutablePair::getRight)));
         allosomalTargetLengths = allosomalTargetList.stream()
                 .mapToInt(t -> t.getEnd() - t.getStart() + 1).toArray();
@@ -218,7 +218,7 @@ public final class TargetCoverageSexGenotypeCalculator {
      * Returns the ploidies of autosomal targets in the same order as targets in the input read count collection
      * @return an integer array of autosomal target ploidies
      */
-    public int[] getAutosomalTargetPloidies() {
+    public int[] getAutosomalTargetGermlinePloidies() {
         return autosomalTargetPloidies;
     }
 
@@ -227,7 +227,7 @@ public final class TargetCoverageSexGenotypeCalculator {
      * same order as allosomal targets in the input read count collection
      * @return a map from sex genotype string identifiers to an integer array of allosomal target ploidies
      */
-    public Map<String, int[]> getAllosomalTargetPloidies() {
+    public Map<String, int[]> getAllosomalTargetGermlinePloidiesMap() {
         return allosomalTargetPloidies;
     }
 

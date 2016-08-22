@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Contig class annotations (see {@link ContigPloidyAnnotation}).
+ * Contig class annotations (see {@link ContigGermlinePloidyAnnotation}).
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */

@@ -21,7 +21,7 @@ public enum SexGenotypeTableColumn {
 
     /**
      * Sex genotype; if the table is used as an input for target coverage modeller, genotype names must match
-     * those in {@link PloidyAnnotatedTargetCollection}
+     * those in {@link GermlinePloidyAnnotatedTargetCollection}
      */
     SEX_GENOTYPE;
 

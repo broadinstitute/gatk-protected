@@ -9,11 +9,11 @@ import java.io.FileReader;
 import java.io.IOException;
 
 /**
- * Unit tests for {@link ContigPloidyAnnotationTableReader}.
+ * Unit tests for {@link ContigGermlinePloidyAnnotationTableReader}.
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public class ContigPloidyAnnotationTableReaderUnitTest extends BaseTest {
+public class ContigGermlinePloidyAnnotationTableReaderUnitTest extends BaseTest {
     private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/hellbender/tools/exome/sexgenotyper/";
     private static final File BAD_CONTIG_PLOIDY_ANNOTS_FILE_1 = new File(TEST_SUB_DIR, "contig_annots_bad_autosomal_annot.tsv");
     private static final File BAD_CONTIG_PLOIDY_ANNOTS_FILE_2 = new File(TEST_SUB_DIR, "contig_annots_bad_class.tsv");
@@ -23,7 +23,7 @@ public class ContigPloidyAnnotationTableReaderUnitTest extends BaseTest {
     @Test(expectedExceptions = UserException.BadInput.class)
     public void testBadAutosomalContigPloidyValues() {
         try {
-            final ContigPloidyAnnotationTableReader reader = new ContigPloidyAnnotationTableReader(
+            final ContigGermlinePloidyAnnotationTableReader reader = new ContigGermlinePloidyAnnotationTableReader(
                     new FileReader(BAD_CONTIG_PLOIDY_ANNOTS_FILE_1));
             reader.stream().count();
         } catch (IOException ex) {
@@ -35,7 +35,7 @@ public class ContigPloidyAnnotationTableReaderUnitTest extends BaseTest {
     @Test(expectedExceptions = UserException.BadInput.class)
     public void testBadContigClass() {
         try {
-            final ContigPloidyAnnotationTableReader reader = new ContigPloidyAnnotationTableReader(
+            final ContigGermlinePloidyAnnotationTableReader reader = new ContigGermlinePloidyAnnotationTableReader(
                     new FileReader(BAD_CONTIG_PLOIDY_ANNOTS_FILE_2));
             reader.stream().count();
         } catch (IOException ex) {
@@ -47,7 +47,7 @@ public class ContigPloidyAnnotationTableReaderUnitTest extends BaseTest {
     @Test(expectedExceptions = UserException.BadInput.class)
     public void testBadMissingSomeAnnotations() {
         try {
-            final ContigPloidyAnnotationTableReader reader = new ContigPloidyAnnotationTableReader(
+            final ContigGermlinePloidyAnnotationTableReader reader = new ContigGermlinePloidyAnnotationTableReader(
                     new FileReader(BAD_CONTIG_PLOIDY_ANNOTS_FILE_3));
             reader.stream().count();
         } catch (IOException ex) {

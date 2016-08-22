@@ -11,7 +11,6 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.ReadCountCollection;
 import org.broadinstitute.hellbender.tools.exome.ReadCountCollectionUtils;
 import org.broadinstitute.hellbender.utils.Utils;
-import org.broadinstitute.hellbender.utils.param.ParamUtils;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -23,7 +22,7 @@ import java.util.List;
  *
  * <p>
  *     In addition to the raw target coverage file, the user must provide a tab-separated contig
- *     ploidy annotation file. For homo sapiens, the annotation file may be as follows:
+ *     germline ploidy annotation file. For example, a basic annotation file for homo sapiens is as follows:
  *
  *     <pre>
  *         CONTIG_NAME    CONTIG_CLASS    SEX_XX    SEX_XY
@@ -78,8 +77,15 @@ import java.util.List;
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        summary = "Infers the sex genotypes from raw read counts.",
-        oneLineSummary = "Infers the sex genotypes from raw read counts.",
+        summary = "This tool infers sample sex genotypes from raw target read counts by calculating the likelihoods of all provided " +
+                "genotypes and choosing the most likely one. The required inputs are (1) a table of raw target read counts " +
+                "from one or more samples, and (2) a table of annotated contigs that includes a CONTIG_NAME column, " +
+                "a CONTIG_CLASS column (AUTOSOMAL, or ALLOSOMAL), and one additional column for each sex genotype " +
+                "that lists the expected germline ploidy of the contig. Sex genotypes may have arbitrary names and are " +
+                "identified with their given column name. All contigs that appear in the input read count table targets " +
+                "must be annotated in this file. The output is a tab-separated file that includes sample names, their " +
+                "inferred sex genotypes, and the log likelihood of each sex genotype.",
+        oneLineSummary = "Infers sample sex genotypes from raw read counts.",
         programGroup = CopyNumberProgramGroup.class
 )
 
@@ -87,17 +93,17 @@ public class TargetCoverageSexGenotyper extends CommandLineProgram {
 
     private final Logger logger = LogManager.getLogger(TargetCoverageSexGenotyper.class);
 
-    private static final String INPUT_READ_COUNT_COLLECTION_LONG_NAME = StandardArgumentDefinitions.INPUT_LONG_NAME;
-    private static final String INPUT_READ_COUNT_COLLECTION_SHORT_NAME = StandardArgumentDefinitions.INPUT_SHORT_NAME;
+    public static final String INPUT_READ_COUNT_COLLECTION_LONG_NAME = StandardArgumentDefinitions.INPUT_LONG_NAME;
+    public static final String INPUT_READ_COUNT_COLLECTION_SHORT_NAME = StandardArgumentDefinitions.INPUT_SHORT_NAME;
 
-    private static final String OUTPUT_SEX_GENOTYPE_LONG_NAME = StandardArgumentDefinitions.OUTPUT_LONG_NAME;
-    private static final String OUTPUT_SEX_GENOTYPE_SHORT_NAME = StandardArgumentDefinitions.OUTPUT_SHORT_NAME;
+    public static final String OUTPUT_SEX_GENOTYPE_LONG_NAME = StandardArgumentDefinitions.OUTPUT_LONG_NAME;
+    public static final String OUTPUT_SEX_GENOTYPE_SHORT_NAME = StandardArgumentDefinitions.OUTPUT_SHORT_NAME;
 
-    private static final String INPUT_CONTIG_ANNOTS_LONG_NAME = "contigAnnotations";
-    private static final String INPUT_CONTIG_ANNOTS_SHORT_NAME = "annots";
+    public static final String INPUT_CONTIG_ANNOTS_LONG_NAME = "contigAnnotations";
+    public static final String INPUT_CONTIG_ANNOTS_SHORT_NAME = "annots";
 
-    private static final String BASELINE_MAPPING_ERROR_PROBABILITY_LONG_NAME = "baselineMappingError";
-    private static final String BASELINE_MAPPING_ERROR_PROBABILITY_SHORT_NAME = "mapErr";
+    public static final String BASELINE_MAPPING_ERROR_PROBABILITY_LONG_NAME = "baselineMappingError";
+    public static final String BASELINE_MAPPING_ERROR_PROBABILITY_SHORT_NAME = "mapErr";
 
     @Argument(
             doc = "Input raw read count collection tab-separated file.",
@@ -136,12 +142,14 @@ public class TargetCoverageSexGenotyper extends CommandLineProgram {
         /* check args */
         Utils.regularReadableUserFile(inputRawReadCountsFile);
         Utils.regularReadableUserFile(inputContigAnnotsFile);
-        ParamUtils.inRange(baselineMappingErrorProbability, 0, 1, "Baseline mapping error probability must be a positive " +
-                "real number between 0 and 1");
+        if (baselineMappingErrorProbability <= 0 || baselineMappingErrorProbability >= 1) {
+            throw new IllegalArgumentException("Baseline mapping error probability must be a positive real number in " +
+                    "range (0, 1) excluding endpoints.");
+        }
 
         /* read input data */
         ReadCountCollection rawReadCounts;
-        List<ContigPloidyAnnotation> contigPloidyAnnotationList;
+        List<ContigGermlinePloidyAnnotation> contigGermlinePloidyAnnotationList;
         try {
             logger.info("Parsing raw read count collection file...");
             rawReadCounts = ReadCountCollectionUtils.parse(inputRawReadCountsFile);
@@ -150,14 +158,14 @@ public class TargetCoverageSexGenotyper extends CommandLineProgram {
         }
         try {
             logger.info("Parsing contig genotype ploidy annotations file...");
-            contigPloidyAnnotationList = ContigPloidyAnnotationTableReader.readContigPloidyAnnotationsFromFile(inputContigAnnotsFile);
+            contigGermlinePloidyAnnotationList = ContigGermlinePloidyAnnotationTableReader.readContigGermlinePloidyAnnotationsFromFile(inputContigAnnotsFile);
         } catch (final IOException ex) {
             throw new UserException.CouldNotReadInputFile("Could not read contig genotype ploidy annotations file");
         }
 
         /* perform genotyping */
         final TargetCoverageSexGenotypeCalculator genotyper = new TargetCoverageSexGenotypeCalculator(rawReadCounts,
-                contigPloidyAnnotationList, baselineMappingErrorProbability);
+                contigGermlinePloidyAnnotationList, baselineMappingErrorProbability);
         final SexGenotypeDataCollection sampleSexGenotypeCollection = genotyper.inferSexGenotypes();
 
         /* save results */

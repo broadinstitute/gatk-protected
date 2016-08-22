@@ -9,12 +9,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * A class for storing contig ploidy annotations for sex genotyping
+ * A class for storing contig germline ploidy annotations for sex genotyping
  * (see {@link TargetCoverageSexGenotypeCalculator)}).
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class ContigPloidyAnnotation {
+public final class ContigGermlinePloidyAnnotation {
 
     private final String contigName;
 
@@ -29,11 +29,12 @@ public final class ContigPloidyAnnotation {
      *
      * @param contigName contig name
      * @param contigClass contig class (an instance of {@link ContigClass})
-     * @param ploidyMap a map from genotype class identifier to the contig ploidy within that genotype class
+     * @param ploidyMap a map from genotype class identifier (string) to the contig ploidy (integer) for that
+     *                  genotype class
      */
-    public ContigPloidyAnnotation(@Nonnull final String contigName,
-                                  @Nonnull final ContigClass contigClass,
-                                  @Nonnull final Map<String, Integer> ploidyMap) {
+    public ContigGermlinePloidyAnnotation(@Nonnull final String contigName,
+                                          @Nonnull final ContigClass contigClass,
+                                          @Nonnull final Map<String, Integer> ploidyMap) {
         this.contigName = contigName;
         this.contigClass = contigClass;
         if (ploidyMap.isEmpty()) {
@@ -42,18 +43,18 @@ public final class ContigPloidyAnnotation {
         /* if autosomal, check if all ploidy classes have the same value */
         if (contigClass == ContigClass.AUTOSOMAL) {
             if (ploidyMap.values().stream().collect(Collectors.toSet()).size() > 1) {
-                throw new UserException.BadInput("Autosomal contigs must have the same ploidy for all sexes. Erroneously " +
-                        "annotated contig: " + contigName);
+                throw new UserException.BadInput("Autosomal contigs must have the same germline ploidy for all sexes." +
+                        " Error(s) found in the following contig(s): " + contigName);
             }
             if (ploidyMap.values().stream().filter(p -> p <= 0).count() > 0) {
-                throw new UserException.BadInput("Autosomal contigs must have positive ploidies");
+                throw new UserException.BadInput("Autosomal contigs must have positive germline ploidies");
             }
         }
 
         /* if allosomal, check if all ploidy classes have >=0 values */
         if (contigClass == ContigClass.ALLOSOMAL) {
             if (ploidyMap.values().stream().filter(p -> p < 0).count() > 0) {
-                throw new UserException.BadInput("Autosomal contigs must have non-negative ploidies");
+                throw new UserException.BadInput("Autosomal contigs must have non-negative germline ploidies");
             }
         }
 
@@ -71,14 +72,14 @@ public final class ContigPloidyAnnotation {
 
     /**
      * Returns the ploidy of the contig for a genotype class
-     * @param sexGenotype the string identifier of a genotype class
+     * @param sexGenotypeName the string identifier of a genotype class
      * @return integer contig ploidy
      */
-    public int getPloidy(@Nonnull final String sexGenotype) {
-        if (!genotypesSet.contains(sexGenotype)) {
-            throw new IllegalArgumentException("The ploidy class \"" + sexGenotype + "\" can not be found");
+    public int getGermlinePloidy(@Nonnull final String sexGenotypeName) {
+        if (!genotypesSet.contains(sexGenotypeName)) {
+            throw new IllegalArgumentException("The input genotype class \"" + sexGenotypeName + "\" can not be found");
         } else {
-            return ploidyMap.get(sexGenotype);
+            return ploidyMap.get(sexGenotypeName);
         }
     }
 

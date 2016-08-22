@@ -48,11 +48,11 @@ public class TargetCoverageSexGenotypeCalculatorUnitTest extends BaseTest {
 
     @BeforeClass
     public static void initSexGenotyper() {
-        final List<ContigPloidyAnnotation> contigPloidyAnnotsList;
+        final List<ContigGermlinePloidyAnnotation> contigPloidyAnnotsList;
         final ReadCountCollection readCounts;
         try {
             contigPloidyAnnotsList =
-                    ContigPloidyAnnotationTableReader.readContigPloidyAnnotationsFromFile(TEST_CONTIG_PLOIDY_ANNOTS_FILE);
+                    ContigGermlinePloidyAnnotationTableReader.readContigGermlinePloidyAnnotationsFromFile(TEST_CONTIG_PLOIDY_ANNOTS_FILE);
             readCounts = ReadCountCollectionUtils.parse(TEST_RCC_FILE);
         } catch (final IOException ex) {
             throw new UserException.CouldNotReadInputFile("Could not read test resource files");
@@ -67,8 +67,8 @@ public class TargetCoverageSexGenotypeCalculatorUnitTest extends BaseTest {
     public void testGenotyperInitialization() {
         final Set<String> ploidyTags = genotyper.getSexGenotypeIdentifiers();
 
-        final int[] autosomalTargetPloidies = genotyper.getAutosomalTargetPloidies();
-        final Map<String, int[]> allosomalTargetPloidies = genotyper.getAllosomalTargetPloidies();
+        final int[] autosomalTargetPloidies = genotyper.getAutosomalTargetGermlinePloidies();
+        final Map<String, int[]> allosomalTargetPloidies = genotyper.getAllosomalTargetGermlinePloidiesMap();
 
         /* assert all ploidy tags are present */
         Assert.assertTrue(ploidyTags.equals(Arrays.stream(GENOTYPES).collect(Collectors.toSet())));
