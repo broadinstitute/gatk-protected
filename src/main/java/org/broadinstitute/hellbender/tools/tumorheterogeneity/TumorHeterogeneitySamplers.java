@@ -63,8 +63,17 @@ final class TumorHeterogeneitySamplers {
 
         public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
             final Function<Double, Double> logConditionalPDF = newVariance -> {
-
-                return 1.;
+                double ll = -dataCollection.numPoints() * Math.log(newVariance);
+                final double inverseDenominator = 1. / (2. * newVariance * newVariance);
+                for (int dataIndex = 0; dataIndex < dataCollection.numPoints(); dataIndex++) {
+                    for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
+                        if (state.isInPopulation(dataIndex, populationIndex)) {
+                            final double meanDifference = dataCollection.getPoint(dataIndex) - state.mean(populationIndex);
+                            ll -= meanDifference * meanDifference * inverseDenominator;
+                        }
+                    }
+                }
+                return ll;
             };
             return new SliceSampler(rng, logConditionalPDF, varianceMin, varianceMax, varianceSliceSamplingWidth).sample(state.variance());
         }
@@ -93,6 +102,35 @@ final class TumorHeterogeneitySamplers {
             final List<Double> populationFractions = unnormalizedPopulationFractions.stream().map(u -> u / normalization).collect(Collectors.toList());
 
             return new TumorHeterogeneityState.PopulationFractions(populationFractions);
+        }
+    }
+
+    protected static final class MeansSampler implements ParameterSampler<TumorHeterogeneityState.Means, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        private final double meanMin;
+        private final double meanMax;
+        private final double meanSliceSamplingWidth;
+
+        public MeansSampler(final double meanMin, final double meanMax, final double meanSliceSamplingWidth) {
+            this.meanMin = meanMin;
+            this.meanMax = meanMax;
+            this.meanSliceSamplingWidth = meanSliceSamplingWidth;
+        }
+
+        public TumorHeterogeneityState.Means sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+            final int numPopulations = state.numPopulations();
+            final List<Double> newMeans = Collections.nCopies(numPopulations, 0.);
+            for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                final int i = populationIndex;
+                final Function<Double, Double> logConditionalPDF = newMean -> {
+                    final double inverseDenominator = 1. / (2. * state.variance() * state.variance());
+                    return IntStream.range(0, dataCollection.numPoints())
+                            .filter(j -> state.isInPopulation(j, i))
+                            .mapToDouble(j -> -(dataCollection.getPoint(j) - newMean) * (dataCollection.getPoint(j) - newMean) * inverseDenominator)
+                            .sum();
+                };
+                newMeans.set(populationIndex, new SliceSampler(rng, logConditionalPDF, meanMin, meanMax, meanSliceSamplingWidth).sample(state.variance()));
+            }
+            return new TumorHeterogeneityState.Means(newMeans);
         }
     }
 }
