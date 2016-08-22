@@ -23,6 +23,10 @@ public final class TumorHeterogeneityModeller {
     private static final double VARIANCE_MAX = 10.;
     private static final double VARIANCE_SLICE_SAMPLING_WIDTH = 0.1;
 
+    private static final double MEAN_MIN = -10.;
+    private static final double MEAN_MAX = 10.;
+    private static final double MEAN_SLICE_SAMPLING_WIDTH = 0.1;
+
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
@@ -57,6 +61,8 @@ public final class TumorHeterogeneityModeller {
                 new TumorHeterogeneitySamplers.VarianceSampler(VARIANCE_MIN, VARIANCE_MAX, VARIANCE_SLICE_SAMPLING_WIDTH);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
+        final TumorHeterogeneitySamplers.MeansSampler meansSampler =
+                new TumorHeterogeneitySamplers.MeansSampler(MEAN_MIN, MEAN_MAX, MEAN_SLICE_SAMPLING_WIDTH);
 
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
