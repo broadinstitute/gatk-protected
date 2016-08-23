@@ -45,11 +45,8 @@ public final class TumorHeterogeneityModeller {
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
         final TumorHeterogeneityState.Means initialMeans =
                 new TumorHeterogeneityState.Means(Collections.nCopies(numPopulations, 0.));
-        final TumorHeterogeneityState.PopulationIndicator firstPopulationIndicator =
-                new TumorHeterogeneityState.PopulationIndicator(Collections.nCopies(numPopulations, false));
-        firstPopulationIndicator.set(0, true);
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                new TumorHeterogeneityState.PopulationIndicators(Collections.nCopies(numPoints, firstPopulationIndicator));
+                new TumorHeterogeneityState.PopulationIndicators(Collections.nCopies(numPoints, 0));
 
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
                 CONCENTRATION_INITIAL, VARIANCE_INITIAL, initialPopulationFractions, initialMeans, initialPopulationIndicators);
@@ -63,6 +60,8 @@ public final class TumorHeterogeneityModeller {
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.MeansSampler meansSampler =
                 new TumorHeterogeneitySamplers.MeansSampler(MEAN_MIN, MEAN_MAX, MEAN_SLICE_SAMPLING_WIDTH);
+        final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
+                new TumorHeterogeneitySamplers.PopulationIndicatorsSampler();
 
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
