@@ -1,9 +1,12 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import com.google.common.primitives.Doubles;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
+import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
+import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
 import org.broadinstitute.hellbender.utils.mcmc.SliceSampler;
 
@@ -120,17 +123,42 @@ final class TumorHeterogeneitySamplers {
             final int numPopulations = state.numPopulations();
             final List<Double> newMeans = Collections.nCopies(numPopulations, 0.);
             for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
-                final int i = populationIndex;
+                final int j = populationIndex;
                 final Function<Double, Double> logConditionalPDF = newMean -> {
                     final double inverseDenominator = 1. / (2. * state.variance() * state.variance());
                     return IntStream.range(0, dataCollection.numPoints())
-                            .filter(j -> state.isInPopulation(j, i))
-                            .mapToDouble(j -> -(dataCollection.getPoint(j) - newMean) * (dataCollection.getPoint(j) - newMean) * inverseDenominator)
+                            .filter(i -> state.isInPopulation(i, j))
+                            .mapToDouble(i -> -(dataCollection.getPoint(i) - newMean) * (dataCollection.getPoint(i) - newMean) * inverseDenominator)
                             .sum();
                 };
                 newMeans.set(populationIndex, new SliceSampler(rng, logConditionalPDF, meanMin, meanMax, meanSliceSamplingWidth).sample(state.variance()));
             }
             return new TumorHeterogeneityState.Means(newMeans);
+        }
+    }
+
+    protected static final class PopulationIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        public PopulationIndicatorsSampler() {}
+
+        public TumorHeterogeneityState.PopulationIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+            final int numPopulations = state.numPopulations();
+            final List<Integer> populationIndicators = new ArrayList<>(numPopulations);
+            final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
+            final int numPoints = dataCollection.numPoints();
+            final double inverseDenominator = 1. / (2. * state.variance() * state.variance());
+            final double logPrefactor = -0.5 * Math.log(inverseDenominator / Math.PI);
+            for (int dataIndex = 0; dataIndex < numPoints; dataIndex++) {
+                final double point = dataCollection.getPoint(dataIndex);
+                final List<Double> unnormalizedPopulationLog10Probabilities = IntStream.range(0, numPopulations).boxed()
+                        .map(j -> Math.log(state.populationFraction(j) + EPSILON) + logPrefactor - (point - state.mean(j)) * (point - state.mean(j)) * inverseDenominator)
+                        .map(MathUtils::logToLog10)
+                        .collect(Collectors.toList());
+                final double[] normalizedPopulationProbabilities = MathUtils.normalizeFromLog10(Doubles.toArray(unnormalizedPopulationLog10Probabilities));
+                final Function<Integer, Double> probabilityFunction = j -> normalizedPopulationProbabilities[j];
+                final int populationIndex = GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng);
+                populationIndicators.add(populationIndex);
+            }
+            return new TumorHeterogeneityState.PopulationIndicators(populationIndicators);
         }
     }
 }
