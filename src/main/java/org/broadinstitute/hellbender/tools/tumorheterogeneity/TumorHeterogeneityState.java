@@ -6,6 +6,7 @@ import org.broadinstitute.hellbender.utils.mcmc.ParameterizedState;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -28,16 +29,9 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         }
     }
 
-    static final class PopulationIndicator extends ArrayList<Boolean> {
-        private static final long serialVersionUID = 44561L;
-        public PopulationIndicator(final List<Boolean> oneOfNumPopulationsArray) {
-            super(oneOfNumPopulationsArray);
-        }
-    }
-
-    public static final class PopulationIndicators extends ArrayList<ArrayList<Boolean>> {
+    public static final class PopulationIndicators extends ArrayList<Integer> {
         private static final long serialVersionUID = 44345L;
-        public PopulationIndicators(final List<PopulationIndicator> populationIndicators) {
+        public PopulationIndicators(final List<Integer> populationIndicators) {
             super(populationIndicators);
         }
     }
@@ -54,7 +48,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         Utils.validateArg(populationFractions.size() > 0, "Number of populations must be positive.");
         Utils.validateArg(populationIndicators.size() > 0, "Number of points must be positive.");
         Utils.validateArg(populationFractions.size() == means.size(), "Number of populations must be same for fractions and means.");
-        Utils.validateArg(populationFractions.size() == populationIndicators.get(0).size(), "Number of populations must be same for fractions and indicators.");
+        Utils.validateArg(Collections.max(populationIndicators) <= populationFractions.size(), "Number of populations must be same for fractions and indicators.");
         numPopulations = populationFractions.size();
     }
 
@@ -79,6 +73,6 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     }
 
     public boolean isInPopulation(final int dataIndex, final int populationIndex) {
-        return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(dataIndex).get(populationIndex);
+        return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(dataIndex) == populationIndex;
     }
 }
