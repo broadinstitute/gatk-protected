@@ -1,9 +1,14 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -11,21 +16,21 @@ import java.util.*;
 public final class TumorHeterogeneityModeller {
     private static final double EPSILON = 1E-10;
 
-    private static final double CONCENTRATION_INITIAL = 1.;
+    private static final double CONCENTRATION_INITIAL = 0.01;
     private static final double CONCENTRATION_MIN = EPSILON;
     private static final double CONCENTRATION_MAX = 10.;
-    private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 10.;
+    private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 0.005;
     private static final double CONCENTRATION_PRIOR_ALPHA = 1.;
-    private static final double CONCENTRATION_PRIOR_BETA = 1.;
+    private static final double CONCENTRATION_PRIOR_BETA = 1000.;
 
-    private static final double VARIANCE_INITIAL = 1.;
+    private static final double VARIANCE_INITIAL = 0.1;
     private static final double VARIANCE_MIN = EPSILON;
     private static final double VARIANCE_MAX = 10.;
-    private static final double VARIANCE_SLICE_SAMPLING_WIDTH = 0.1;
+    private static final double VARIANCE_SLICE_SAMPLING_WIDTH = 0.01;
 
     private static final double MEAN_MIN = -10.;
     private static final double MEAN_MAX = 10.;
-    private static final double MEAN_SLICE_SAMPLING_WIDTH = 0.1;
+    private static final double MEAN_SLICE_SAMPLING_WIDTH = 0.01;
 
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
 
@@ -37,16 +42,19 @@ public final class TumorHeterogeneityModeller {
 
     /**
      */
-    public TumorHeterogeneityModeller(final List<Double> points, final int numPopulations) {
+    public TumorHeterogeneityModeller(final List<Double> points, final int numPopulations, final RandomGenerator rng) {
         final int numPoints = points.size();
         final TumorHeterogeneityData data = new TumorHeterogeneityData(points);
 
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
         final TumorHeterogeneityState.Means initialMeans =
-                new TumorHeterogeneityState.Means(Collections.nCopies(numPopulations, 0.));
+                new TumorHeterogeneityState.Means(IntStream.range(0, numPopulations).boxed().map(i -> (i + 0.5) * (MEAN_MAX - MEAN_MIN) / numPopulations + MEAN_MIN).collect(Collectors.toList()));
+        final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
+        final Function<Integer, Double> probabilityFunction = j -> 1. / numPopulations;
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                new TumorHeterogeneityState.PopulationIndicators(Collections.nCopies(numPoints, 0));
+                new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numPoints).boxed()
+                        .map(p -> GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng)).collect(Collectors.toList()));
 
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
                 CONCENTRATION_INITIAL, VARIANCE_INITIAL, initialPopulationFractions, initialMeans, initialPopulationIndicators);
