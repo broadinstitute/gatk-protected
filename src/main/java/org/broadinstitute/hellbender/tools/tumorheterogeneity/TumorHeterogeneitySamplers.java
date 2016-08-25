@@ -1,8 +1,11 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.primitives.Doubles;
+import org.apache.commons.lang3.mutable.MutableDouble;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.commons.math3.distribution.ExponentialDistribution;
 import org.apache.commons.math3.distribution.GammaDistribution;
+import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
@@ -11,8 +14,6 @@ import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
 import org.broadinstitute.hellbender.utils.mcmc.SliceSampler;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -85,10 +86,28 @@ final class TumorHeterogeneitySamplers {
     }
 
     protected static final class PopulationFractionsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationFractions, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        public PopulationFractionsSampler() {
+        private static final double INITIAL_HIDDEN_POINT_STEP_SIZE = 0.01;
+        private static final double DEFAULT_OPTIMAL_ACCEPTANCE_RATE = 0.4;
+        private static final double DEFAULT_TIME_SCALE = 100;
+        private static final double DEFAULT_ADJUSTMENT_RATE = 1.;
+
+        private final List<Double> hiddenPoints;
+        private double hiddenPointStepSize;
+        private int iteration;
+
+        public PopulationFractionsSampler(final RandomGenerator rng, final int numPopulations) {
+            hiddenPoints = IntStream.range(0, numPopulations).boxed().map(i -> new ExponentialDistribution(rng, 1.).sample()).collect(Collectors.toList());
+            hiddenPointStepSize = INITIAL_HIDDEN_POINT_STEP_SIZE;
+            iteration = 0;
         }
 
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+            final List<MutableInt> populationCounts = sumPopulationCounts(state, dataCollection);
+            final List<Double> populationFractions = samplePopulationFractions(rng, state, populationCounts);
+            return new TumorHeterogeneityState.PopulationFractions(populationFractions);
+        }
+
+        private List<MutableInt> sumPopulationCounts(final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
             final int numPopulations = state.numPopulations();
             final List<MutableInt> populationCounts = IntStream.range(0, numPopulations).boxed().map(j -> new MutableInt(0)).collect(Collectors.toList());
             for (int dataIndex = 0; dataIndex < dataCollection.numPoints(); dataIndex++) {
@@ -99,10 +118,45 @@ final class TumorHeterogeneitySamplers {
                     }
                 }
             }
-            final List<Double> unnormalizedPopulationFractions = populationCounts.stream()
-                    .map(c -> new GammaDistribution(rng, state.concentration() + c.doubleValue(), 1.).sample()).collect(Collectors.toList());
-            final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(Doubles.toArray(unnormalizedPopulationFractions)));
-            return new TumorHeterogeneityState.PopulationFractions(populationFractions);
+            return populationCounts;
+        }
+
+        private List<Double> samplePopulationFractions(final RandomGenerator rng, final TumorHeterogeneityState state, final List<MutableInt> populationCounts) {
+            final double[] unnormalizedPopulationFractions = populationCounts.stream()
+                    .mapToDouble(c -> new GammaDistribution(rng, state.concentration() + c.doubleValue(), 1.).sample()).toArray();
+            return Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
+        }
+
+        private List<Double> samplePopulationFractionsMH(final RandomGenerator rng, final TumorHeterogeneityState state, final List<MutableInt> populationCounts) {
+            final int numPopulations = state.numPopulations();
+            final List<Double> currentPopulationFractions = IntStream.range(0, numPopulations).boxed().map(state::populationFraction).collect(Collectors.toList());
+            final MutableDouble sum = new MutableDouble(0.);
+            for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                final double currentPoint = hiddenPoints.get(populationIndex);
+                final double nextPoint = sampleHiddenPoint(rng, currentPoint, iteration);
+                hiddenPoints.set(populationIndex, nextPoint);
+                sum.add(nextPoint);
+            }
+            final List<Double> nextPopulationFractions = hiddenPoints.stream().map(p -> p / sum.doubleValue()).collect(Collectors.toList());
+            final double metropolisLogRatio = IntStream.range(0, numPopulations).boxed()
+                    .mapToDouble(j -> (state.concentration() - 1. + populationCounts.get(j).doubleValue()) *
+                            (Math.log(nextPopulationFractions.get(j) + EPSILON) - Math.log(currentPopulationFractions.get(j) + EPSILON)))
+                    .sum();
+            final double acceptanceProbability = Math.min(1., Math.exp(metropolisLogRatio));
+            iteration++;
+            return rng.nextDouble() < acceptanceProbability ? nextPopulationFractions : new ArrayList<>(currentPopulationFractions);
+        }
+
+        private double sampleHiddenPoint(final RandomGenerator rng, final double currentPoint, final int iteration) {
+            final double normalSample = new NormalDistribution(rng, 0., hiddenPointStepSize).sample();
+            final double nextPoint = currentPoint * Math.exp(normalSample);
+            final double metropolisLogRatio = -nextPoint + currentPoint;
+            final double hastingsLogRatio = Math.log(nextPoint + EPSILON) - Math.log(currentPoint + EPSILON);
+            final double acceptanceProbability = Math.min(1., Math.exp(metropolisLogRatio + hastingsLogRatio));
+            final double correctionFactor = (acceptanceProbability - DEFAULT_OPTIMAL_ACCEPTANCE_RATE) * DEFAULT_ADJUSTMENT_RATE *
+                    (DEFAULT_TIME_SCALE / (DEFAULT_TIME_SCALE + iteration));
+            hiddenPointStepSize *= Math.exp(correctionFactor);
+            return rng.nextDouble() < acceptanceProbability ? nextPoint : currentPoint;
         }
     }
 
@@ -144,14 +198,16 @@ final class TumorHeterogeneitySamplers {
             final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
             final int numPoints = dataCollection.numPoints();
             final double inverseDenominator = 1. / (2. * state.variance());
-            final double logPrefactor = 0.5 * Math.log(inverseDenominator / Math.PI);
+            final double log10Prefactor = 0.5 * Math.log10(inverseDenominator / Math.PI);
             for (int dataIndex = 0; dataIndex < numPoints; dataIndex++) {
-                final double point = dataCollection.getPoint(dataIndex);
-                final List<Double> unnormalizedPopulationLog10Probabilities = IntStream.range(0, numPopulations).boxed()
-                        .map(j -> Math.log(state.populationFraction(j) + EPSILON) + logPrefactor - (point - state.mean(j)) * (point - state.mean(j)) * inverseDenominator)
-                        .map(MathUtils::logToLog10)
-                        .collect(Collectors.toList());
-                final double[] normalizedPopulationProbabilities = MathUtils.normalizeFromLog10(Doubles.toArray(unnormalizedPopulationLog10Probabilities));
+                final double[] unnormalizedPopulationLog10Probabilities = new double[numPopulations];
+                for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                    final double meanDifference = dataCollection.getPoint(dataIndex) - state.mean(populationIndex);
+                    unnormalizedPopulationLog10Probabilities[populationIndex] =
+                            Math.log10(state.populationFraction(populationIndex) + EPSILON) + log10Prefactor
+                                    - meanDifference * meanDifference * inverseDenominator * MathUtils.LOG10_OF_E;
+                }
+                final double[] normalizedPopulationProbabilities = MathUtils.normalizeFromLog10(unnormalizedPopulationLog10Probabilities);
                 final Function<Integer, Double> probabilityFunction = j -> normalizedPopulationProbabilities[j];
                 final int populationIndex = GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng);
                 populationIndicators.add(populationIndex);

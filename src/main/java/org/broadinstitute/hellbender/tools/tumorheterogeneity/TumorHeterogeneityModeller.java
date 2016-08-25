@@ -16,12 +16,12 @@ import java.util.stream.IntStream;
 public final class TumorHeterogeneityModeller {
     private static final double EPSILON = 1E-10;
 
-    private static final double CONCENTRATION_INITIAL = 0.01;
+    private static final double CONCENTRATION_INITIAL = 0.1;
     private static final double CONCENTRATION_MIN = EPSILON;
     private static final double CONCENTRATION_MAX = 10.;
     private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 0.005;
     private static final double CONCENTRATION_PRIOR_ALPHA = 1.;
-    private static final double CONCENTRATION_PRIOR_BETA = 1000.;
+    private static final double CONCENTRATION_PRIOR_BETA = 100.;
 
     private static final double VARIANCE_INITIAL = 0.1;
     private static final double VARIANCE_MIN = EPSILON;
@@ -65,7 +65,7 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneitySamplers.VarianceSampler varianceSampler =
                 new TumorHeterogeneitySamplers.VarianceSampler(VARIANCE_MIN, VARIANCE_MAX, VARIANCE_SLICE_SAMPLING_WIDTH);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
-                new TumorHeterogeneitySamplers.PopulationFractionsSampler();
+                new TumorHeterogeneitySamplers.PopulationFractionsSampler(rng, numPopulations);
         final TumorHeterogeneitySamplers.MeansSampler meansSampler =
                 new TumorHeterogeneitySamplers.MeansSampler(MEAN_MIN, MEAN_MAX, MEAN_SLICE_SAMPLING_WIDTH);
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
@@ -74,10 +74,10 @@ public final class TumorHeterogeneityModeller {
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
-                .addParameterSampler(TumorHeterogeneityParameter.VARIANCE, varianceSampler, Double.class)
-                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
                 .addParameterSampler(TumorHeterogeneityParameter.MEANS, meansSampler, TumorHeterogeneityState.Means.class)
+                .addParameterSampler(TumorHeterogeneityParameter.VARIANCE, varianceSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
+                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
                 .build();
     }
 
