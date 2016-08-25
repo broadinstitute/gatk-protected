@@ -12,10 +12,12 @@ import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
+import org.broadinstitute.hellbender.utils.param.ParamUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -25,11 +27,15 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public class TumorHeterogeneityModellerUnitTest extends BaseTest {
-    private static final int NUM_POINTS = 1000;
-    private static final int NUM_POPULATIONS_TRUTH = 5;
+    private static final int NUM_POINTS = 500;
     private static final double VARIANCE_TRUTH = 0.04;
+    private static final int NUM_POPULATIONS_TRUTH = 5;
     private static final List<Double> MEANS_TRUTH = Arrays.asList(-5., -3., 1., 3., 5.);
     private static final List<Double> POPULATION_FRACTIONS_TRUTH = Arrays.asList(0.1, 0.2, 0.5, 0.1, 0.1);
+
+//    private static final int NUM_POPULATIONS_TRUTH = 2;
+//    private static final List<Double> MEANS_TRUTH = Arrays.asList(-1., 1.);
+//    private static final List<Double> POPULATION_FRACTIONS_TRUTH = Arrays.asList(0.7, 0.3);
 
     private static final int RANDOM_SEED = 13;
     private static final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
@@ -47,11 +53,11 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final List<Integer> randomPopulationIndices = IntStream.range(0, NUM_POINTS).boxed()
                 .map(i -> GATKProtectedMathUtils.randomSelect(populationIndices, POPULATION_FRACTIONS_TRUTH::get, rng)).collect(Collectors.toList());
         final List<Double> points = randomPopulationIndices.stream().map(i -> new NormalDistribution(rng, MEANS_TRUTH.get(i), Math.sqrt(VARIANCE_TRUTH)).sample()).collect(Collectors.toList());
-        System.out.println(points);
+        ParamUtils.writeValuesToFile(Doubles.toArray(points), new File("points.txt"));
 
         final int numPopulations = 10;
-        final int numSamples = 500;
-        final int numBurnIn = 200;
+        final int numSamples = 2000;
+        final int numBurnIn = 1000;
 
         //run MCMC
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(points, numPopulations, rng);
@@ -71,6 +77,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final double variancePosteriorCenter = variancePosteriorSummary.getCenter();
         final double variancePosteriorStandardDeviation = (variancePosteriorSummary.getUpper() - variancePosteriorSummary.getLower()) / 2;
         System.out.println("variance: " + variancePosteriorCenter + " " + variancePosteriorStandardDeviation);
+        ParamUtils.writeValuesToFile(Doubles.toArray(modeller.getVarianceSamples()), new File("variance.txt"));
         System.out.println();
 //        Assert.assertEquals(Math.abs(variancePosteriorCenter - VARIANCE_TRUTH),
 //                0., MULTIPLES_OF_SD_THRESHOLD * VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH);
@@ -83,11 +90,13 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
             final double meanMean = new Mean().evaluate(meanSamples);
             final double meanStandardDeviation = new StandardDeviation().evaluate(meanSamples);
             System.out.println("mean " + populationIndex + ": " + meanMean + " " + meanStandardDeviation);
+            ParamUtils.writeValuesToFile(meanSamples, new File("mean-" + j + ".txt"));
 
             final double[] populationFractionSamples = Doubles.toArray(modeller.getPopulationFractionsSamples().stream().map(s -> s.get(j)).collect(Collectors.toList()));
             final double populationFractionMean = new Mean().evaluate(populationFractionSamples);
             final double populationFractionStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
             System.out.println("fraction " + populationIndex + ": " + populationFractionMean + " " + populationFractionStandardDeviation);
+            ParamUtils.writeValuesToFile(populationFractionSamples, new File("fraction-" + j + ".txt"));
 
             System.out.println();
         }
