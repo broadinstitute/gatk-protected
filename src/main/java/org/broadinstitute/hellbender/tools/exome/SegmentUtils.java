@@ -560,10 +560,12 @@ public final class SegmentUtils {
                 dataLine.getDouble(SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_UPPER.toString()));
 
         final DecileCollection mafDecileCollection = new DecileCollection(
-                SegmentTableColumn.ACNV_MODELED_SEGMENT_MAF_DECILES_SUMMARY_COLUMNS.names().stream().map(dataLine::getDouble).collect(Collectors.toList()));
+                SegmentTableColumn.ACNV_MODELED_SEGMENT_MAF_DECILES_SUMMARY_COLUMNS.names().stream().map(dataLine::getDouble).collect(Collectors.toList()),
+                DecileCollection.ConstructionMode.DECILES);
 
         final DecileCollection segmentMeanDecileCollection = new DecileCollection(
-                SegmentTableColumn.ACNV_MODELED_SEGMENT_MEAN_DECILES_SUMMARY_COLUMNS.names().stream().map(dataLine::getDouble).collect(Collectors.toList()));
+                SegmentTableColumn.ACNV_MODELED_SEGMENT_MEAN_DECILES_SUMMARY_COLUMNS.names().stream().map(dataLine::getDouble).collect(Collectors.toList()),
+                DecileCollection.ConstructionMode.DECILES);
 
         minorAlleleFractionPosteriorSummary.setDeciles(mafDecileCollection);
         segmentMeanPosteriorSummary.setDeciles(segmentMeanDecileCollection);
