@@ -20,7 +20,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private final List<ACNVModeledSegment> segments;
     private final int numBinsCopyRatio;
     private final int numBinsMinorAlleleFraction;
-    private final List<ACNVSegmentPosterior> posteriors;
+    private final List<ACNVSegmentPosterior> segmentPosteriors;
 
     public TumorHeterogeneityData(final List<ACNVModeledSegment> segments,
                                   final int numBinsCopyRatio,
@@ -31,48 +31,57 @@ public final class TumorHeterogeneityData implements DataCollection {
         this.segments = new ArrayList<>(segments);
         this.numBinsCopyRatio = numBinsCopyRatio;
         this.numBinsMinorAlleleFraction = numBinsMinorAlleleFraction;
-        posteriors = segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList());
+        segmentPosteriors = segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList());
+    }
+
+    public double logProbability(final int segmentIndex, final double copyRatio, final double minorAlleleFraction) {
+        return segmentPosteriors.get(segmentIndex).logProbability(copyRatio, minorAlleleFraction);
     }
     
     private final class ACNVSegmentPosterior {
         private static final int NUM_BINS = (DecileCollection.NUM_DECILES - 1) * (DecileCollection.NUM_DECILES - 1);
         private static final double BIN_PROBABILITY = 1. / NUM_BINS;
-        private static final double EPSILON_BIN_SIZE = 1E-10;
+        private static final double EPSILON_BIN_AREA = 1E-10;
         private static final double EPSILON_LOG_POSTERIOR = -100;
-        
+
+        private final List<Double> copyRatioDecileValues;
+        private final List<Double> minorAlleleFractionDecileValues;
         private final Map<Pair, Double> binToLogPosteriorMap = new HashMap<>(NUM_BINS); //keys are (lower CR bin edge, lower MAF bin edge)
         
         ACNVSegmentPosterior(final ACNVModeledSegment segment) {
             final List<Double> log2CopyRatioDecileValues = segment.getSegmentMeanPosteriorSummary().getDeciles().getAll();
-            final List<Double> copyRatioDecileValues = log2CopyRatioDecileValues.stream().map(log2cr -> Math.pow(2, log2cr)).collect(Collectors.toList());
-            final DecileCollection copyRatioDeciles = new DecileCollection(copyRatioDecileValues, DecileCollection.ConstructionMode.DECILES);
-            final DecileCollection minorAlleleFractionDeciles = segment.getMinorAlleleFractionPosteriorSummary().getDeciles();
-            initializeBinToLogPosteriorMap(binToLogPosteriorMap, copyRatioDeciles, minorAlleleFractionDeciles);
+            copyRatioDecileValues = log2CopyRatioDecileValues.stream().map(log2cr -> Math.pow(2, log2cr)).collect(Collectors.toList());
+            minorAlleleFractionDecileValues = segment.getMinorAlleleFractionPosteriorSummary().getDeciles().getAll();
+            initializeBinToLogPosteriorMap(binToLogPosteriorMap, copyRatioDecileValues, minorAlleleFractionDecileValues);
+        }
+
+        double logProbability(final double copyRatio, final double minorAlleleFraction) {
+            final int crIndex = Collections.binarySearch(copyRatioDecileValues, copyRatio);
+            //take care of case where no hets separately
         }
         
         private void initializeBinToLogPosteriorMap(final Map<Pair, Double> binToLogPosteriorMap,
-                                                           final DecileCollection copyRatioDeciles,
-                                                           final DecileCollection minorAlleleFractionDeciles) {
-            final List<Double> copyRatioBinSizes = calculateBinSizesFromDeciles(copyRatioDeciles);
-            final List<Double> minorAlleleFractionBinSizes = calculateBinSizesFromDeciles(minorAlleleFractionDeciles);
-            final List<Double> copyRatioDecileValues = copyRatioDeciles.getAll();
-            final List<Double> minorAlleleFractionDecileValues = minorAlleleFractionDeciles.getAll();
+                                                    final List<Double> copyRatioDecileValues,
+                                                    final List<Double> minorAlleleFractionDecileValues) {
+            final List<Double> copyRatioBinSizes = calculateBinSizesFromDecileValues(copyRatioDecileValues);
+            final List<Double> minorAlleleFractionBinSizes = calculateBinSizesFromDecileValues(minorAlleleFractionDecileValues);
+            //take care of case where no hets separately
             for (int crIndex = 0; crIndex < DecileCollection.NUM_DECILES; crIndex++) {
                 for (int mafIndex = 0; mafIndex < DecileCollection.NUM_DECILES; mafIndex++) {
                     final double copyRatioDecile = copyRatioDecileValues.get(crIndex);
                     final double minorAlleleFractionDecile = minorAlleleFractionDecileValues.get(mafIndex);
                     final Pair bin = Pair.of(copyRatioDecile, minorAlleleFractionDecile);
                     final double binArea = copyRatioBinSizes.get(crIndex) * minorAlleleFractionBinSizes.get(mafIndex);
-                    final double binProbabilityDensity = BIN_PROBABILITY / binArea;
+                    final double binProbabilityDensity = BIN_PROBABILITY / (binArea + EPSILON_BIN_AREA);
                     final double logPosterior = Math.log(binProbabilityDensity);
                     binToLogPosteriorMap.put(bin, logPosterior);
                 }
             }
         }
         
-        private List<Double> calculateBinSizesFromDeciles(final DecileCollection deciles) {
+        private List<Double> calculateBinSizesFromDecileValues(final List<Double> decileValues) {
             return IntStream.range(1, DecileCollection.NUM_DECILES).boxed()
-                    .map(i -> deciles.get(Decile.values()[i]) - deciles.get(Decile.values()[i - 1]))
+                    .map(i -> decileValues.get(i) - decileValues.get(i - 1))
                     .collect(Collectors.toList());
         }
     }
