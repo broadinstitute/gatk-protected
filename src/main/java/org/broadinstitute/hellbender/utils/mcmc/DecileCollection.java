@@ -23,7 +23,7 @@ public final class DecileCollection implements Serializable {
 
     private static final long serialVersionUID = 145L;
 
-    static final int NUM_DECILES = 11;
+    public static final int NUM_DECILES = 11;
     private static final double EPSILON = 1E-10;
 
     private final Map<Decile, Double> deciles = new HashMap<>(NUM_DECILES);
