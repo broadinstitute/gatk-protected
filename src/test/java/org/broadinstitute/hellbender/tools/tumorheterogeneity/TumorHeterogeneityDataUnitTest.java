@@ -1,7 +1,5 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import static org.testng.Assert.*;
-
 /**
  * Unit tests for {@link TumorHeterogeneityData}.
  *
