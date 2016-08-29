@@ -533,7 +533,7 @@ public final class ReadCountCollectionUtils {
 
         // Determine kept and dropped column sets.
         final Set<String> columnsToKeep = new HashSet<>(readCounts.columnNames().size());
-        final int initialMapSize = ((int) (2. * extremeColumnMedianCountPercentileThreshold / 100.)) * readCounts.columnNames().size();
+        final int initialMapSize = ((int) (2.0 * extremeColumnMedianCountPercentileThreshold / 100.0)) * readCounts.columnNames().size();
         final Map<String, Double> columnsToDrop = new LinkedHashMap<>(initialMapSize);
         for (int i = 0; i < columnMedians.length; i++) {
             if (columnMedians[i] >= bottomExtremeThreshold && columnMedians[i] <= topExtremeThreshold) {
