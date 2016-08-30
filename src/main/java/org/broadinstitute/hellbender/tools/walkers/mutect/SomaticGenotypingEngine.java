@@ -31,6 +31,15 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
     private final String matchedNormalSampleName;
     private final String DEBUG_READ_NAME;
 
+    //TODO: move to GATKVCFConstants in gatk public
+    public static final String TLOD_FWD_KEY =                       "TLOD_FWD";
+    public static final String TLOD_REV_KEY =                       "TLOD_REV";
+    public static final String TUMOR_SB_POWER_FWD_KEY =             "TUMOR_SB_POWER_FWD";
+    public static final String TUMOR_SB_POWER_REV_KEY =             "TUMOR_SB_POWER_REV";
+    public static final String TRIALLELIC_SITE_FILTER_NAME =                  "triallelic_site"; //M2
+    public static final String STRAND_ARTIFACT_FILTER_NAME =                  "strand_artifact"; // M2
+    public static final String CLUSTERED_READ_POSITION_FILTER_NAME =          "clustered_read_position"; // M2
+
     //Mutect2 does not run in GGA mode
     private static final List<VariantContext> NO_GIVEN_ALLELES = Collections.EMPTY_LIST;
 
@@ -157,7 +166,9 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             // TODO: replace PRALM with ReadLikelihoods
             final PerReadAlleleLikelihoodMap tumorPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.indexOfSample(tumorSampleName));
             filterPRALMForOverlappingReads(tumorPRALM, mergedVC.getReference(), loc, false);
-            MuTect2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present in Tumor PRALM after filtering for overlapping reads");
+
+            //TODO: uncomment after porting Mutect2.java
+            //MuTect2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present in Tumor PRALM after filtering for overlapping reads");
             // extend to multiple samples
 
             // compute tumor LOD for each alternate allele
@@ -185,7 +196,9 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             if (hasNormal) {
                 normalPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.indexOfSample(matchedNormalSampleName));
                 filterPRALMForOverlappingReads(normalPRALM, mergedVC.getReference(), loc, true);
-                MuTect2.logReadInfo(DEBUG_READ_NAME, normalPRALM.getLikelihoodReadMap().keySet(), "Present after in Nomral PRALM filtering for overlapping reads");
+
+                //TODO: uncomment after porting Mutect2.java
+                //MuTect2.logReadInfo(DEBUG_READ_NAME, normalPRALM.getLikelihoodReadMap().keySet(), "Present after in Nomral PRALM filtering for overlapping reads");
 
                 final GenomeLoc eventGenomeLoc = genomeLocParser.createGenomeLoc(activeRegionWindow.getContig(), loc);
                 final Collection<VariantContext> cosmicVC = tracker.getValues(MTAC.cosmicRod, eventGenomeLoc);
@@ -247,9 +260,10 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 final PerReadAlleleLikelihoodMap reversePRALM = new PerReadAlleleLikelihoodMap();
                 splitPRALMintoForwardAndReverseReads(tumorPRALM, forwardPRALM, reversePRALM);
 
-                MuTect2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present in tumor PRALM after PRALM is split");
-                MuTect2.logReadInfo(DEBUG_READ_NAME, forwardPRALM.getLikelihoodReadMap().keySet(), "Present in forward PRALM after PRALM is split");
-                MuTect2.logReadInfo(DEBUG_READ_NAME, reversePRALM.getLikelihoodReadMap().keySet(), "Present in reverse PRALM after PRALM is split");
+                //TODO: uncomment after porting Mutect2.java
+                //MuTect2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present in tumor PRALM after PRALM is split");
+                //MuTect2.logReadInfo(DEBUG_READ_NAME, forwardPRALM.getLikelihoodReadMap().keySet(), "Present in forward PRALM after PRALM is split");
+                //MuTect2.logReadInfo(DEBUG_READ_NAME, reversePRALM.getLikelihoodReadMap().keySet(), "Present in reverse PRALM after PRALM is split");
 
                 // TODO: build a new type for probability, likelihood, and log_likelihood. e.g. f_fwd :: probability[], tumorGLs_fwd :: likelihood[]
                 // TODO: don't want to call getHetGenotypeLogLikelihoods on more than one alternate alelle. May need to overload it to take a scalar f_fwd.
@@ -266,19 +280,19 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 final double tumorSBpower_fwd = strandArtifactPowerCalculator.cachedPowerCalculation(forwardPRALM.size(), altAlleleFractions.getAlt(alleleWithHighestTumorLOD));
                 final double tumorSBpower_rev = strandArtifactPowerCalculator.cachedPowerCalculation(reversePRALM.size(), altAlleleFractions.getAlt(alleleWithHighestTumorLOD));
 
-                callVcb.attribute(GATKVCFConstants.TLOD_FWD_KEY, tumorLod_fwd);
-                callVcb.attribute(GATKVCFConstants.TLOD_REV_KEY, tumorLod_rev);
-                callVcb.attribute(GATKVCFConstants.TUMOR_SB_POWER_FWD_KEY, tumorSBpower_fwd);
-                callVcb.attribute(GATKVCFConstants.TUMOR_SB_POWER_REV_KEY, tumorSBpower_rev);
+                callVcb.attribute(TLOD_FWD_KEY, tumorLod_fwd);
+                callVcb.attribute(TLOD_REV_KEY, tumorLod_rev);
+                callVcb.attribute(TUMOR_SB_POWER_FWD_KEY, tumorSBpower_fwd);
+                callVcb.attribute(TUMOR_SB_POWER_REV_KEY, tumorSBpower_rev);
 
                 if ((tumorSBpower_fwd > MTAC.STRAND_ARTIFACT_POWER_THRESHOLD && tumorLod_fwd < MTAC.STRAND_ARTIFACT_LOD_THRESHOLD) ||
                         (tumorSBpower_rev > MTAC.STRAND_ARTIFACT_POWER_THRESHOLD && tumorLod_rev < MTAC.STRAND_ARTIFACT_LOD_THRESHOLD))
-                    callVcb.filter(GATKVCFConstants.STRAND_ARTIFACT_FILTER_NAME);
+                    callVcb.filter(STRAND_ARTIFACT_FILTER_NAME);
             }
 
             // TODO: this probably belongs in M2::calculateFilters()
             if (numPassingAlts > 1) {
-                callVcb.filter(GATKVCFConstants.TRIALLELIC_SITE_FILTER_NAME);
+                callVcb.filter(TRIALLELIC_SITE_FILTER_NAME);
             }
 
             // build genotypes TODO: this part needs review and refactor
@@ -532,8 +546,10 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
     private void splitPRALMintoForwardAndReverseReads(final PerReadAlleleLikelihoodMap originalPRALM, final PerReadAlleleLikelihoodMap forwardPRALM, final PerReadAlleleLikelihoodMap reversePRALM) {
         final Map<GATKRead, Map<Allele, Double>> origReadAlleleLikelihoodMap = originalPRALM.getLikelihoodReadMap();
         for (final GATKRead read : origReadAlleleLikelihoodMap.keySet()) {
-            if (read.isStrandless())
-                continue;
+
+            //TODO: does GATK4 have strandless reads?
+            //if (read.isStrandless())
+            //    continue;
 
             for (final Map.Entry<Allele, Double> alleleLikelihoodMap : origReadAlleleLikelihoodMap.get(read).entrySet()) {
                 final Allele allele = alleleLikelihoodMap.getKey();
