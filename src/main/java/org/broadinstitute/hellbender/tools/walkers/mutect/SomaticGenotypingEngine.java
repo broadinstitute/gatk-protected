@@ -5,15 +5,16 @@ import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
-import org.broadinstitute.hellbender.tools.walkers.annotator.SampleList;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc.AFCalculator;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerGenotypingEngine;
 import org.broadinstitute.hellbender.utils.GenomeLoc;
 import org.broadinstitute.hellbender.utils.GenomeLocParser;
+import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.genotyper.MostLikelyAllele;
 import org.broadinstitute.hellbender.utils.genotyper.PerReadAlleleLikelihoodMap;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
+import org.broadinstitute.hellbender.utils.genotyper.SampleList;
 import org.broadinstitute.hellbender.utils.haplotype.Haplotype;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
@@ -58,7 +59,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                                    final String tumorSampleName,
                                    final String matchedNormalSampleName,
                                    final String DEBUG_READ_NAME) {
-        super(configuration, samples, genomeLocParser, DUMMY_AF_CALCULATOR_PROVIDER, doPhysicalPhasing);
+        super(configuration, samples, DUMMY_AF_CALCULATOR_PROVIDER, doPhysicalPhasing);
         this.MTAC = MTAC;
         this.tumorSampleName = tumorSampleName;
         this.matchedNormalSampleName = matchedNormalSampleName;
@@ -89,8 +90,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             final Map<String, Integer> originalNormalReadQualities,
             final Map<String, List<GATKRead>> perSampleFilteredReadList,
             final byte[] ref,
-            final GenomeLoc refLoc,
-            final GenomeLoc activeRegionWindow,
+            final SimpleInterval refLoc,
+            final SimpleInterval activeRegionWindow,
             final RefMetaDataTracker tracker) {
         //TODO: in GATK4 use Utils.nonNull
         if (readLikelihoods == null || readLikelihoods.numberOfSamples() == 0) throw new IllegalArgumentException("readLikelihoods input should be non-empty and non-null, got "+readLikelihoods);
@@ -115,7 +116,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
         final List<VariantContext> returnCalls = new ArrayList<>();
 
         for( final int loc : startPosKeySet ) {
-            if( loc < activeRegionWindow.getStart() || loc > activeRegionWindow.getStop() ) {
+            if( loc < activeRegionWindow.getStart() || loc > activeRegionWindow.getEnd() ) {
                 continue;
             }
 
