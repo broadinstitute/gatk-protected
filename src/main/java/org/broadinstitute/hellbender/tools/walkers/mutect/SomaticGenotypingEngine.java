@@ -332,7 +332,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
             // how should we be making use of _perSampleFilteredReadList_?
             readAlleleLikelihoods = prepareReadAlleleLikelihoodsForAnnotation(readLikelihoods, perSampleFilteredReadList,
-                    genomeLocParser, false, alleleMapper, readAlleleLikelihoods, call);
+                    false, alleleMapper, readAlleleLikelihoods, call);
 
             final ReferenceContext referenceContext = new ReferenceContext(genomeLocParser, genomeLocParser.createGenomeLoc(mergedVC.getChr(), mergedVC.getStart(), mergedVC.getEnd()), refLoc, ref);
             VariantContext annotatedCall = annotationEngine.annotateContext(call, featureContext, referenceContext, readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(), a -> true);
