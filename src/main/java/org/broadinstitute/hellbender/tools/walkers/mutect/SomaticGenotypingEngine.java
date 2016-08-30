@@ -12,9 +12,9 @@ import org.broadinstitute.hellbender.engine.ReferenceMemorySource;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc.AFCalculator;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerGenotypingEngine;
-import org.broadinstitute.hellbender.utils.GenomeLoc;
 import org.broadinstitute.hellbender.utils.GenomeLocParser;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.genotyper.MostLikelyAllele;
 import org.broadinstitute.hellbender.utils.genotyper.PerReadAlleleLikelihoodMap;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
@@ -27,6 +27,7 @@ import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
@@ -101,33 +102,29 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             final SimpleInterval activeRegionWindow,
             final FeatureContext featureContext,
             final SAMFileHeader header) {
-        //TODO: in GATK4 use Utils.nonNull
-        if (readLikelihoods == null || readLikelihoods.numberOfSamples() == 0) throw new IllegalArgumentException("readLikelihoods input should be non-empty and non-null, got "+readLikelihoods);
-        if (ref == null || ref.length == 0 ) throw new IllegalArgumentException("ref bytes input should be non-empty and non-null, got "+ref);
-        if (refLoc == null || refLoc.size() != ref.length) throw new IllegalArgumentException(" refLoc must be non-null and length must match ref bytes, got "+refLoc);
-        if (activeRegionWindow == null ) throw new IllegalArgumentException("activeRegionWindow must be non-null, got "+activeRegionWindow);
+        Utils.nonNull(readLikelihoods, "likelihoods are null");
+        Utils.validateArg(readLikelihoods.numberOfSamples() > 0, "likelihoods have no samples");
+        Utils.nonNull(ref, "ref is null");
+        Utils.validateArg(ref.length > 0, "ref is empty");
+        Utils.nonNull(refLoc, "refLoc is null");
+        Utils.validateArg(refLoc.size() == ref.length, "refLoc length must match ref bases");
+        Utils.nonNull(activeRegionWindow, "activeRegionWindow is null");
 
         final List<Haplotype> haplotypes = readLikelihoods.alleles();
 
-        // Somatic Tumor/Normal Sample Handling
-        if (!readLikelihoods.samples().contains(tumorSampleName)) {
-            throw new IllegalArgumentException("readLikelihoods does not contain the tumor sample " + tumorSampleName);
-        }
+        Utils.validateArg(readLikelihoods.samples().contains(tumorSampleName), "readLikelihoods does not contain the tumor sample ");
         final boolean hasNormal = matchedNormalSampleName != null;
 
         // update the haplotypes so we're ready to call, getting the ordered list of positions on the reference
         // that carry events among the haplotypes
-        final TreeSet<Integer> startPosKeySet = decomposeHaplotypesIntoVariantContexts(haplotypes, ref, refLoc, NO_GIVEN_ALLELES);
+        final List<Integer> startPosKeySet = decomposeHaplotypesIntoVariantContexts(haplotypes, ref, refLoc, NO_GIVEN_ALLELES).stream()
+                .filter(loc -> activeRegionWindow.getStart() <= loc && loc <= activeRegionWindow.getEnd())
+                .collect(Collectors.toList());
 
-        // Walk along each position in the key set and create each event to be outputted
         final Set<Haplotype> calledHaplotypes = new HashSet<>();
         final List<VariantContext> returnCalls = new ArrayList<>();
 
         for( final int loc : startPosKeySet ) {
-            if( loc < activeRegionWindow.getStart() || loc > activeRegionWindow.getEnd() ) {
-                continue;
-            }
-
             final List<VariantContext> eventsAtThisLoc = getVCsAtThisLocation(haplotypes, loc, NO_GIVEN_ALLELES);
 
             if( eventsAtThisLoc.isEmpty() ) { continue; }
@@ -374,10 +371,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                                                                      final PerReadAlleleLikelihoodMap tumorPRALM,
                                                                      final Map<String, Integer> originalNormalMQs,
                                                                      final PerAlleleCollection<Double> alleleFractions) {
-        // make sure that alleles in alleleFraction are a subset of alleles in the variant context
-        if (! mergedVC.getAlternateAlleles().containsAll(alleleFractions.getAltAlleles()) ){
-            throw new IllegalArgumentException("alleleFractions has alleles that are not in the variant context");
-        }
+        Utils.validateArg(mergedVC.getAlternateAlleles().containsAll(alleleFractions.getAltAlleles()), "alleleFractions has alleles that are not in the variant context");
 
         final PerAlleleCollection<MutableDouble> genotypeLogLikelihoods = new PerAlleleCollection<>(PerAlleleCollection.Type.REF_AND_ALT);
         mergedVC.getAlleles().forEach(a -> genotypeLogLikelihoods.set(a, new MutableDouble(0)));
@@ -400,7 +394,6 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 );
                 genotypeLogLikelihoods.get(altAllele).add(adjustedReadAltLL);
             }
-
         }
 
         final PerAlleleCollection<Double> result = new PerAlleleCollection<>(PerAlleleCollection.Type.REF_AND_ALT);
