@@ -4,6 +4,7 @@ import htsjdk.variant.variantcontext.*;
 import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
+import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc.AFCalculator;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc.AFCalculatorProvider;
@@ -92,7 +93,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             final byte[] ref,
             final SimpleInterval refLoc,
             final SimpleInterval activeRegionWindow,
-            final RefMetaDataTracker tracker) {
+            final FeatureContext featureContext) {
         //TODO: in GATK4 use Utils.nonNull
         if (readLikelihoods == null || readLikelihoods.numberOfSamples() == 0) throw new IllegalArgumentException("readLikelihoods input should be non-empty and non-null, got "+readLikelihoods);
         if (ref == null || ref.length == 0 ) throw new IllegalArgumentException("ref bytes input should be non-empty and non-null, got "+ref);
@@ -201,9 +202,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 //TODO: uncomment after porting Mutect2.java
                 //MuTect2.logReadInfo(DEBUG_READ_NAME, normalPRALM.getLikelihoodReadMap().keySet(), "Present after in Nomral PRALM filtering for overlapping reads");
 
-                final GenomeLoc eventGenomeLoc = genomeLocParser.createGenomeLoc(activeRegionWindow.getContig(), loc);
-                final Collection<VariantContext> cosmicVC = tracker.getValues(MTAC.cosmicRod, eventGenomeLoc);
-                final Collection<VariantContext> dbsnpVC = tracker.getValues(MTAC.dbsnp.dbsnp, eventGenomeLoc);
+                final Collection<VariantContext> cosmicVC = featureContext.getValues(MTAC.cosmicFeatureInput, loc);
+                final Collection<VariantContext> dbsnpVC = featureContext.getValues(MTAC.dbsnp.dbsnp, loc);
                 final boolean germlineAtRisk = !dbsnpVC.isEmpty() && cosmicVC.isEmpty();
 
                 normalLodFilterThreshold = germlineAtRisk ? MTAC.NORMAL_DBSNP_LOD_THRESHOLD : MTAC.NORMAL_LOD_THRESHOLD;
@@ -335,7 +335,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                     genomeLocParser, false, alleleMapper, readAlleleLikelihoods, call);
 
             final ReferenceContext referenceContext = new ReferenceContext(genomeLocParser, genomeLocParser.createGenomeLoc(mergedVC.getChr(), mergedVC.getStart(), mergedVC.getEnd()), refLoc, ref);
-            VariantContext annotatedCall = annotationEngine.annotateContext(referenceContext, tracker, readAlleleLikelihoods, call, false);
+            VariantContext annotatedCall = annotationEngine.annotateContext(call, featureContext, referenceContext, readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(), a -> true);
 
             if( call.getAlleles().size() != mergedVC.getAlleles().size() )
                 annotatedCall = GATKVariantContextUtils.reverseTrimAlleles(annotatedCall);
