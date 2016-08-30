@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection {
+    private static final long serialVersionUID = 9341L;
 
     /***************************************/
     // Reference Metadata inputs
