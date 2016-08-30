@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.walkers.mutect;
 
+import htsjdk.samtools.SAMFileHeader;
 import htsjdk.variant.variantcontext.*;
 import org.apache.commons.lang.mutable.MutableDouble;
 import org.apache.commons.lang.mutable.MutableInt;
@@ -88,6 +89,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
      *
      * @return                                       A CalledHaplotypes object containing a list of VC's with genotyped events and called haplotypes
      *
+     * //TODO: do something about the enormous amount of code duplication between this method and
+     * //TODO: HaplotypeCallerGenotypingEngine::assignGenotypeLikelihoods
      */
     public CalledHaplotypes callMutations (
             final ReadLikelihoods<Haplotype> readLikelihoods,
@@ -96,7 +99,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             final byte[] ref,
             final SimpleInterval refLoc,
             final SimpleInterval activeRegionWindow,
-            final FeatureContext featureContext) {
+            final FeatureContext featureContext,
+            final SAMFileHeader header) {
         //TODO: in GATK4 use Utils.nonNull
         if (readLikelihoods == null || readLikelihoods.numberOfSamples() == 0) throw new IllegalArgumentException("readLikelihoods input should be non-empty and non-null, got "+readLikelihoods);
         if (ref == null || ref.length == 0 ) throw new IllegalArgumentException("ref bytes input should be non-empty and non-null, got "+ref);
