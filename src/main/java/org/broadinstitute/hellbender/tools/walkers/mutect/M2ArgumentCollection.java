@@ -1,14 +1,12 @@
 package org.broadinstitute.hellbender.tools.walkers.mutect;
 
 import htsjdk.variant.variantcontext.VariantContext;
-import org.broadinstitute.gatk.engine.arguments.DbsnpArgumentCollection;
-import org.broadinstitute.gatk.tools.walkers.haplotypecaller.AssemblyBasedCallerArgumentCollection;
-import org.broadinstitute.gatk.utils.commandline.*;
 import org.broadinstitute.hellbender.cmdline.Advanced;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.ArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.Hidden;
 import org.broadinstitute.hellbender.cmdline.argumentcollections.DbsnpArgumentCollection;
+import org.broadinstitute.hellbender.engine.FeatureInput;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.AssemblyBasedCallerArgumentCollection;
 
 import java.util.Collections;
@@ -24,14 +22,14 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
      * in the normal.  If a variant is present in dbSNP, but not in COSMIC, then more evidence is required from the normal
      * sample to prove the variant is not present in germline.
      */
-    @Input(fullName="cosmic", shortName = "cosmic", doc="VCF file of COSMIC sites", optional = true)
-    public List<RodBinding<VariantContext>> cosmicRod = Collections.emptyList();
+    @Argument(fullName="cosmic", shortName = "cosmic", doc="VCF file of COSMIC sites", optional = true)
+    public List<FeatureInput<VariantContext>> cosmicFeatureInput = Collections.emptyList();
 
     /**
      * A panel of normals can be a useful (optional) input to help filter out commonly seen sequencing noise that may appear as low allele-fraction somatic variants.
      */
-    @Input(fullName="normal_panel", shortName = "PON", doc="VCF file of sites observed in normal", optional = true)
-    public List<RodBinding<VariantContext>> normalPanelRod = Collections.emptyList();
+    @Argument(fullName="normal_panel", shortName = "PON", doc="VCF file of sites observed in normal", optional = true)
+    public List<FeatureInput<VariantContext>> normalPanelFeatureInput = Collections.emptyList();
 
 
     /**
