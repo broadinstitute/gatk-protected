@@ -157,8 +157,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             final Map<Allele, List<Haplotype>> alleleMapper = createAlleleMapper(mergeMap, eventMapper);
 
             // converting ReadLikelihoods<Haplotype> to ReadLikeliHoods<Allele>
-            ReadLikelihoods<Allele> readAlleleLikelihoods = readLikelihoods.marginalize(alleleMapper, genomeLocParser.createPaddedGenomeLoc(genomeLocParser.createGenomeLoc(mergedVC), ALLELE_EXTENSION));
-
+            ReadLikelihoods<Allele> readAlleleLikelihoods = readLikelihoods.marginalize(alleleMapper,
+                    new SimpleInterval(mergedVC).expandWithinContig(ALLELE_EXTENSION, header.getSequenceDictionary()));
             //LDG: do we want to do this before or after pulling out overlapping reads?
             if (MTAC.isSampleContaminationPresent()) {
                 readAlleleLikelihoods.contaminationDownsampling(MTAC.getSampleContamination());
