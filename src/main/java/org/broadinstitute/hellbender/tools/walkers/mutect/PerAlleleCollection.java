@@ -25,21 +25,15 @@ public class PerAlleleCollection<X> {
     private Optional<Allele> refAllele;
     private Optional<X> refValue;
     private Map<Allele, X> altAlleleValueMap;
-    private boolean altOnly;
+    private Type type;
 
-    private PerAlleleCollection(final boolean altOnly){
-        this.altOnly = altOnly;
+    public enum Type {ALT_ONLY, REF_AND_ALT}
+
+    public PerAlleleCollection(final Type type){
+        this.type = type;
         this.altAlleleValueMap = new HashMap<>();
         this.refAllele = Optional.empty();
 
-    }
-
-    public static PerAlleleCollection createPerAltAlleleCollection(){
-        return new PerAlleleCollection<>(true);
-    }
-
-    public static PerAlleleCollection createPerRefAndAltAlleleCollection(){
-        return new PerAlleleCollection<>(false);
     }
 
     /**
@@ -52,7 +46,7 @@ public class PerAlleleCollection<X> {
         if (allele == null || newValue == null){
             throw new IllegalArgumentException("allele or newValue is null");
         }
-        if (allele.isReference() && altOnly){
+        if (allele.isReference() && type == Type.ALT_ONLY){
             throw new IllegalArgumentException("Collection stores values for alternate alleles only");
         }
         if (allele.isReference()){
@@ -110,7 +104,7 @@ public class PerAlleleCollection<X> {
     }
 
     public X getRef(){
-        if (altOnly) {
+        if (type == Type.ALT_ONLY) {
             throw new IllegalStateException("Collection does not hold the REF allele");
         }
 

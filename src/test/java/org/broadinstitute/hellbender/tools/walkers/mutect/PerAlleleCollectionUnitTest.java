@@ -12,7 +12,7 @@ public class PerAlleleCollectionUnitTest {
 
     @Test
     public void testSet() throws Exception {
-        PerAlleleCollection<Integer> alleleCounts = PerAlleleCollection.createPerRefAndAltAlleleCollection();
+        PerAlleleCollection<Integer> alleleCounts = new PerAlleleCollection<>(PerAlleleCollection.Type.REF_AND_ALT);
         Allele refA = Allele.create("A", true);
         Allele altT = Allele.create("T", false);
         alleleCounts.set(refA, 40);
@@ -23,7 +23,7 @@ public class PerAlleleCollectionUnitTest {
 
     @Test
     public void testGet() throws Exception {
-        PerAlleleCollection<Integer> alleleCounts = PerAlleleCollection.createPerRefAndAltAlleleCollection();
+        PerAlleleCollection<Integer> alleleCounts = new PerAlleleCollection<>(PerAlleleCollection.Type.REF_AND_ALT);
         Allele refA = Allele.create("A", true);
         Allele altT = Allele.create("T", false);
         alleleCounts.set(refA, 40);
@@ -35,7 +35,7 @@ public class PerAlleleCollectionUnitTest {
 
     @Test
     public void testGetAltAlleles() throws Exception {
-        PerAlleleCollection<Integer> alleleCounts = PerAlleleCollection.createPerAltAlleleCollection();
+        PerAlleleCollection<Integer> alleleCounts = new PerAlleleCollection<>(PerAlleleCollection.Type.ALT_ONLY);
         Allele altA = Allele.create("A", false);
         Allele altC = Allele.create("C", false);
         Allele altG = Allele.create("G", false);
