@@ -15,6 +15,7 @@ import org.broadinstitute.hellbender.utils.genotyper.MostLikelyAllele;
 import org.broadinstitute.hellbender.utils.genotyper.PerReadAlleleLikelihoodMap;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
 import org.broadinstitute.hellbender.utils.haplotype.Haplotype;
+import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
@@ -77,7 +78,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
     public CalledHaplotypes callMutations (
             final ReadLikelihoods<Haplotype> readLikelihoods,
             final Map<String, Integer> originalNormalReadQualities,
-            final Map<String, List<GATKSAMRecord>> perSampleFilteredReadList,
+            final Map<String, List<GATKRead>> perSampleFilteredReadList,
             final byte[] ref,
             final GenomeLoc refLoc,
             final GenomeLoc activeRegionWindow,
@@ -356,7 +357,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
         mergedVC.getAlleles().forEach(a -> genotypeLogLikelihoods.set(a, new MutableDouble(0)));
 
         final Allele refAllele = mergedVC.getReference();
-        for(Map.Entry<GATKSAMRecord,Map<Allele, Double>> readAlleleLikelihoodMap : tumorPRALM.getLikelihoodReadMap().entrySet()) {
+        for(Map.Entry<GATKRead,Map<Allele, Double>> readAlleleLikelihoodMap : tumorPRALM.getLikelihoodReadMap().entrySet()) {
             final Map<Allele, Double> alleleLikelihoodMap = readAlleleLikelihoodMap.getValue();
             if (originalNormalMQs.get(readAlleleLikelihoodMap.getKey().getReadName()) == 0) {
                 continue;
@@ -435,8 +436,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
         final PerAlleleCollection<MutableInt> alleleCounts = new PerAlleleCollection<>(PerAlleleCollection.Type.REF_AND_ALT);
         vcAlleles.stream().forEach(a -> alleleCounts.set(a, new MutableInt(0)));
 
-        for (final Map.Entry<GATKSAMRecord, Map<Allele, Double>> readAlleleLikelihoodMap : pralm.getLikelihoodReadMap().entrySet()) {
-            final GATKSAMRecord read = readAlleleLikelihoodMap.getKey();
+        for (final Map.Entry<GATKRead, Map<Allele, Double>> readAlleleLikelihoodMap : pralm.getLikelihoodReadMap().entrySet()) {
+            final GATKRead read = readAlleleLikelihoodMap.getKey();
             final Map<Allele, Double> alleleLikelihoodMap = readAlleleLikelihoodMap.getValue();
             final MostLikelyAllele mostLikelyAllele = PerReadAlleleLikelihoodMap.getMostLikelyAllele(alleleLikelihoodMap, vcAlleles);
 
@@ -459,15 +460,15 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
     }
 
     private void filterPRALMForOverlappingReads(final PerReadAlleleLikelihoodMap pralm, final Allele ref, final int location, final boolean retainMismatches) {
-        final Map<GATKSAMRecord, Map<Allele, Double>> m = pralm.getLikelihoodReadMap();
+        final Map<GATKRead, Map<Allele, Double>> m = pralm.getLikelihoodReadMap();
 
         // iterate through the reads, if the name has been seen before we have overlapping (potentially) fragments, so handle them
-        final Map<String, GATKSAMRecord> nameToRead = new HashMap<>();
-        final Set<GATKSAMRecord> readsToKeep = new HashSet<>();
+        final Map<String, GATKRead> nameToRead = new HashMap<>();
+        final Set<GATKRead> readsToKeep = new HashSet<>();
 
-        for(final GATKSAMRecord rec : m.keySet()) {
+        for(final GATKRead rec : m.keySet()) {
             // if we haven't seen it... just record the name and add it to the list of reads to keep
-            final GATKSAMRecord existing = nameToRead.get(rec.getReadName());
+            final GATKRead existing = nameToRead.get(rec.getReadName());
             if (existing == null) {
                 nameToRead.put(rec.getReadName(), rec);
                 readsToKeep.add(rec);
@@ -518,9 +519,9 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
         }
 
         // perhaps moved into PRALM
-        final Iterator<Map.Entry<GATKSAMRecord, Map<Allele, Double>>> it = m.entrySet().iterator();
+        final Iterator<Map.Entry<GATKRead, Map<Allele, Double>>> it = m.entrySet().iterator();
         while ( it.hasNext() ) {
-            final Map.Entry<GATKSAMRecord, Map<Allele, Double>> record = it.next();
+            final Map.Entry<GATKRead, Map<Allele, Double>> record = it.next();
             if(!readsToKeep.contains(record.getKey())) {
                 it.remove();
                 logM2Debug("Dropping read " + record.getKey() + " due to overlapping read fragment rules");
@@ -529,8 +530,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
     }
 
     private void splitPRALMintoForwardAndReverseReads(final PerReadAlleleLikelihoodMap originalPRALM, final PerReadAlleleLikelihoodMap forwardPRALM, final PerReadAlleleLikelihoodMap reversePRALM) {
-        final Map<GATKSAMRecord, Map<Allele, Double>> origReadAlleleLikelihoodMap = originalPRALM.getLikelihoodReadMap();
-        for (final GATKSAMRecord read : origReadAlleleLikelihoodMap.keySet()) {
+        final Map<GATKRead, Map<Allele, Double>> origReadAlleleLikelihoodMap = originalPRALM.getLikelihoodReadMap();
+        for (final GATKRead read : origReadAlleleLikelihoodMap.keySet()) {
             if (read.isStrandless())
                 continue;
 
