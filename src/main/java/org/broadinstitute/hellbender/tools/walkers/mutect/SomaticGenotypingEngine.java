@@ -48,7 +48,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
     public static final String CLUSTERED_READ_POSITION_FILTER_NAME =          "clustered_read_position"; // M2
 
     //Mutect2 does not run in GGA mode
-    private static final List<VariantContext> NO_GIVEN_ALLELES = Collections.EMPTY_LIST;
+    private static final List<VariantContext> NO_GIVEN_ALLELES = Collections.emptyList();
 
     // {@link GenotypingEngine} requires a non-null {@link AFCalculatorProvider} but this class doesn't need it.  Thus we make a dummy
     private static AFCalculatorProvider DUMMY_AF_CALCULATOR_PROVIDER = new AFCalculatorProvider() {
