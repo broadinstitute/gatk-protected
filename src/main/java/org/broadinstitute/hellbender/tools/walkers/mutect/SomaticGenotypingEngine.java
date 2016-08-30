@@ -84,7 +84,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             final GenomeLoc activeRegionWindow,
             final RefMetaDataTracker tracker) {
         //TODO: in GATK4 use Utils.nonNull
-        if (readLikelihoods == null || readLikelihoods.sampleCount() == 0) throw new IllegalArgumentException("readLikelihoods input should be non-empty and non-null, got "+readLikelihoods);
+        if (readLikelihoods == null || readLikelihoods.numberOfSamples() == 0) throw new IllegalArgumentException("readLikelihoods input should be non-empty and non-null, got "+readLikelihoods);
         if (ref == null || ref.length == 0 ) throw new IllegalArgumentException("ref bytes input should be non-empty and non-null, got "+ref);
         if (refLoc == null || refLoc.size() != ref.length) throw new IllegalArgumentException(" refLoc must be non-null and length must match ref bytes, got "+refLoc);
         if (activeRegionWindow == null ) throw new IllegalArgumentException("activeRegionWindow must be non-null, got "+activeRegionWindow);
@@ -155,7 +155,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
             // TODO: this is a good break point for a new method
             // TODO: replace PRALM with ReadLikelihoods
-            final PerReadAlleleLikelihoodMap tumorPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.sampleIndex(tumorSampleName));
+            final PerReadAlleleLikelihoodMap tumorPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.indexOfSample(tumorSampleName));
             filterPRALMForOverlappingReads(tumorPRALM, mergedVC.getReference(), loc, false);
             MuTect2.logReadInfo(DEBUG_READ_NAME, tumorPRALM.getLikelihoodReadMap().keySet(), "Present in Tumor PRALM after filtering for overlapping reads");
             // extend to multiple samples
@@ -183,7 +183,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             // TODO: this if statement should be a standalone method for computing normal LOD
             // TODO: then we can do something like normalLodThreshold = hasNormal ? thisMethod() : Optional.empty()
             if (hasNormal) {
-                normalPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.sampleIndex(matchedNormalSampleName));
+                normalPRALM = readAlleleLikelihoods.toPerReadAlleleLikelihoodMap(readAlleleLikelihoods.indexOfSample(matchedNormalSampleName));
                 filterPRALMForOverlappingReads(normalPRALM, mergedVC.getReference(), loc, true);
                 MuTect2.logReadInfo(DEBUG_READ_NAME, normalPRALM.getLikelihoodReadMap().keySet(), "Present after in Nomral PRALM filtering for overlapping reads");
 
@@ -263,8 +263,8 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                 final double tumorLod_rev = tumorGenotypeLLReverse.getAlt(alleleWithHighestTumorLOD) - tumorGenotypeLLReverse.getRef();
 
                 // Note that we use the observed combined (+ and -) allele fraction for power calculation in either direction
-                final double tumorSBpower_fwd = strandArtifactPowerCalculator.cachedPowerCalculation(forwardPRALM.getNumberOfStoredElements(), altAlleleFractions.getAlt(alleleWithHighestTumorLOD));
-                final double tumorSBpower_rev = strandArtifactPowerCalculator.cachedPowerCalculation(reversePRALM.getNumberOfStoredElements(), altAlleleFractions.getAlt(alleleWithHighestTumorLOD));
+                final double tumorSBpower_fwd = strandArtifactPowerCalculator.cachedPowerCalculation(forwardPRALM.size(), altAlleleFractions.getAlt(alleleWithHighestTumorLOD));
+                final double tumorSBpower_rev = strandArtifactPowerCalculator.cachedPowerCalculation(reversePRALM.size(), altAlleleFractions.getAlt(alleleWithHighestTumorLOD));
 
                 callVcb.attribute(GATKVCFConstants.TLOD_FWD_KEY, tumorLod_fwd);
                 callVcb.attribute(GATKVCFConstants.TLOD_REV_KEY, tumorLod_rev);
@@ -320,7 +320,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                     genomeLocParser, false, alleleMapper, readAlleleLikelihoods, call);
 
             final ReferenceContext referenceContext = new ReferenceContext(genomeLocParser, genomeLocParser.createGenomeLoc(mergedVC.getChr(), mergedVC.getStart(), mergedVC.getEnd()), refLoc, ref);
-            VariantContext annotatedCall = annotationEngine.annotateContextForActiveRegion(referenceContext, tracker, readAlleleLikelihoods, call, false);
+            VariantContext annotatedCall = annotationEngine.annotateContext(referenceContext, tracker, readAlleleLikelihoods, call, false);
 
             if( call.getAlleles().size() != mergedVC.getAlleles().size() )
                 annotatedCall = GATKVariantContextUtils.reverseTrimAlleles(annotatedCall);
@@ -359,7 +359,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
         final Allele refAllele = mergedVC.getReference();
         for(Map.Entry<GATKRead,Map<Allele, Double>> readAlleleLikelihoodMap : tumorPRALM.getLikelihoodReadMap().entrySet()) {
             final Map<Allele, Double> alleleLikelihoodMap = readAlleleLikelihoodMap.getValue();
-            if (originalNormalMQs.get(readAlleleLikelihoodMap.getKey().getReadName()) == 0) {
+            if (originalNormalMQs.get(readAlleleLikelihoodMap.getKey().getName()) == 0) {
                 continue;
             }
 
@@ -468,12 +468,12 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
 
         for(final GATKRead rec : m.keySet()) {
             // if we haven't seen it... just record the name and add it to the list of reads to keep
-            final GATKRead existing = nameToRead.get(rec.getReadName());
+            final GATKRead existing = nameToRead.get(rec.getName());
             if (existing == null) {
-                nameToRead.put(rec.getReadName(), rec);
+                nameToRead.put(rec.getName(), rec);
                 readsToKeep.add(rec);
             } else {
-                logM2Debug("Found a paired read for " + rec.getReadName());
+                logM2Debug("Found a paired read for " + rec.getName());
 
                 // NOTE: Can we use FragmentUtils to do all of this processing (to find overlapping pairs?)
                 // seems like maybe, but it has some requirements about the order of the reads supplied which may be painful to meet
@@ -490,20 +490,20 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
                     if (!existingAllele.equals(recAllele)) {
                         //... and we're not retaining mismatches, throw them both out
                         if (!retainMismatches) {
-                            logM2Debug("Discarding read-pair due to disagreement" + rec.getReadName() + " and allele " + existingAllele);
+                            logM2Debug("Discarding read-pair due to disagreement" + rec.getName() + " and allele " + existingAllele);
                             readsToKeep.remove(existing);
 
                             //... and we are retaining mismatches, keep the mismatching one
                         } else {
                             if (existingAllele.equals(ref)) {
-                                logM2Debug("Discarding read to keep mismatching " + rec.getReadName() + " and allele " + existingAllele);
+                                logM2Debug("Discarding read to keep mismatching " + rec.getName() + " and allele " + existingAllele);
                                 readsToKeep.remove(existing);
                                 readsToKeep.add(rec);
                             }
                         }
                         // Otherwise, keep the element with the higher quality score
                     } else {
-                        logM2Debug("Discarding lower quality read of overlapping pair " + rec.getReadName() + " and allele " + existingAllele);
+                        logM2Debug("Discarding lower quality read of overlapping pair " + rec.getName() + " and allele " + existingAllele);
                         if (existingMLA.getLog10LikelihoodOfMostLikely() < recMLA.getLog10LikelihoodOfMostLikely()) {
                             readsToKeep.remove(existing);
                             readsToKeep.add(rec);
@@ -538,7 +538,7 @@ public class SomaticGenotypingEngine extends HaplotypeCallerGenotypingEngine {
             for (final Map.Entry<Allele, Double> alleleLikelihoodMap : origReadAlleleLikelihoodMap.get(read).entrySet()) {
                 final Allele allele = alleleLikelihoodMap.getKey();
                 final Double likelihood = alleleLikelihoodMap.getValue();
-                if (read.getReadNegativeStrandFlag())
+                if (read.isReverseStrand())
                     reversePRALM.add(read, allele, likelihood);
                 else
                     forwardPRALM.add(read, allele, likelihood);

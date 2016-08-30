@@ -739,7 +739,7 @@ public final class HaplotypeCallerGenotypingEngine extends GenotypingEngine<Asse
         return false;
     }
 
-    private static final class Event {
+    protected static final class Event {
         public VariantContext vc;
 
         public Event( final VariantContext vc ) {
