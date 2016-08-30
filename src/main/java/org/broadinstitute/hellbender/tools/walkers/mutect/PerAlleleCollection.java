@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.walkers.mutect;
 
 import htsjdk.variant.variantcontext.Allele;
+import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.*;
 
@@ -31,56 +32,41 @@ public class PerAlleleCollection<X> {
 
     public PerAlleleCollection(final Type type){
         this.type = type;
-        this.altAlleleValueMap = new HashMap<>();
-        this.refAllele = Optional.empty();
-
+        altAlleleValueMap = new HashMap<>();
+        refAllele = Optional.empty();
     }
 
     /**
      * Take an allele, REF or ALT, and update its value appropriately
      *
      * @param allele : REF or ALT allele
-     * @param newValue :
+     * @param value :
      */
-    public void set(Allele allele, X newValue){
-        if (allele == null || newValue == null){
-            throw new IllegalArgumentException("allele or newValue is null");
-        }
-        if (allele.isReference() && type == Type.ALT_ONLY){
-            throw new IllegalArgumentException("Collection stores values for alternate alleles only");
-        }
+    public void set(Allele allele, X value){
+        Utils.nonNull(allele, "allele is null");
+        Utils.nonNull(value, "value is null");
+        Utils.validateArg(type == Type.REF_AND_ALT || allele.isNonReference(), "Collection stores values for alternate alleles only");
         if (allele.isReference()){
-            this.setRef(allele, newValue);
+            setRef(allele, value);
         } else {
-            this.setAlt(allele, newValue);
+            setAlt(allele, value);
         }
     }
 
-    public void setRef(Allele refAllele, X newValue){
-        if (refAllele == null || newValue == null){
-            throw new IllegalArgumentException("refAllele or newValue is null");
-        }
-        if (refAllele.isNonReference()){
-            throw new IllegalArgumentException("Setting Non-reference allele as reference");
-        }
-
-        if (this.refAllele.isPresent()){
-            throw new IllegalArgumentException("Resetting the reference allele not permitted");
-        }
-
-        this.refAllele = Optional.of(refAllele);
-        this.refValue = Optional.of(newValue);
+    public void setRef(Allele allele, X value){
+        Utils.nonNull(allele, "ref allele is null");
+        Utils.nonNull(value, "value is null");
+        Utils.validateArg(allele.isReference(), "setting non-reference allele as reference");
+        Utils.validateArg(!refAllele.isPresent(), "Resetting the reference allele not permitted");
+        refAllele = Optional.of(allele);
+        refValue = Optional.of(value);
     }
 
-    public void setAlt(Allele altAllele, X newValue){
-        if (altAllele == null || newValue == null){
-            throw new IllegalArgumentException("altAllele or newValue is null");
-        }
-        if (altAllele.isReference()){
-            throw new IllegalArgumentException("Setting reference allele as alt");
-        }
-
-        altAlleleValueMap.put(altAllele, newValue);
+    public void setAlt(Allele allele, X value){
+        Utils.nonNull(allele, "ref allele is null");
+        Utils.nonNull(value, "value is null");
+        Utils.validateArg(allele.isNonReference(), "Setting reference allele as alt");
+        altAlleleValueMap.put(allele, value);
     }
 
     /**
@@ -88,18 +74,12 @@ public class PerAlleleCollection<X> {
      * @param allele
      */
     public X get(Allele allele){
-        if (allele == null){
-            throw new IllegalArgumentException("allele is null");
-        }
-
+        Utils.nonNull(allele, "allele is null");
         if (allele.isReference()){
-            if (allele.equals(this.refAllele.get())){
-                return(getRef());
-            } else {
-                throw new IllegalArgumentException("Requested ref allele does not match the stored ref allele");
-            }
+            Utils.validateArg(allele.equals(refAllele.get()), "Requested ref allele does not match the stored ref allele");
+            return getRef();
         } else {
-            return(getAlt(allele));
+            return getAlt(allele);
         }
     }
 
@@ -109,30 +89,20 @@ public class PerAlleleCollection<X> {
         }
 
         if (this.refAllele.isPresent()){
-            return(refValue.get());
+            return refValue.get();
         } else {
             throw new IllegalStateException("Collection's ref allele has not been set yet");
         }
     }
 
     public X getAlt(Allele allele){
-        if (allele == null){
-            throw new IllegalArgumentException("allele is null");
-        }
-        if (allele.isReference()){
-            throw new IllegalArgumentException("allele is not an alt allele");
-        }
-
-        if (altAlleleValueMap.containsKey(allele)) {
-            return(altAlleleValueMap.get(allele));
-        } else {
-            throw new IllegalArgumentException("Requested alt allele is not in the collection");
-        }
-
+        Utils.nonNull(allele, "allele is null");
+        Utils.validateArg(allele.isNonReference(), "allele is not an alt allele");
+        Utils.validateArg(altAlleleValueMap.containsKey(allele), "Requested alt allele is not in the collection");
+        return altAlleleValueMap.get(allele);
     }
-
-
+    
     public Set<Allele> getAltAlleles(){
-        return(altAlleleValueMap.keySet());
+        return altAlleleValueMap.keySet();
     }
 }
