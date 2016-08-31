@@ -13,6 +13,8 @@ env:
 
   - secure: Da9Brv5WKCE3z0bp5u52X1Rqul5C/r7idGj/yLhHnlEvHXPDQHaGXEQw4fNhRkB586lx6xilO8sra2FHoLDMKsqwE0h2+NKsrHQepTSFOR/fp/otoA/kiBue23ZfhsAEFn/uliVU36xLkt+LsyVqSKa+9JKDA5z1hXSemXGGVGw=
 before_install:
+- which hdfview
+- ls /usr/lib/jni
 # Added from hellbender public
 - sudo mkdir -p /usr/local/lib/R/
 - sudo mkdir -p site-library
