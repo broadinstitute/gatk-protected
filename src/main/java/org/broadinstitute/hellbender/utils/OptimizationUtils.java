@@ -15,7 +15,7 @@ public final class OptimizationUtils {
     protected static final MaxEval DEFAULT_MAX_EVAL = new MaxEval(1000);
     private static final double DEFAULT_RELATIVE_TOLERANCE = 0.001;
     private static final double DEFAULT_ABSOLUTE_TOLERANCE = 0.001;
-    protected static final BrentOptimizer DEFAULT_OPTIMIZER = new BrentOptimizer(DEFAULT_RELATIVE_TOLERANCE, DEFAULT_ABSOLUTE_TOLERANCE);;
+    protected static final BrentOptimizer DEFAULT_OPTIMIZER = new BrentOptimizer(DEFAULT_RELATIVE_TOLERANCE, DEFAULT_ABSOLUTE_TOLERANCE);
 
     private static final double DEFAULT_EPSILON_FOR_NUMERIC_DERIVATIVES = 1.0e-5;
     private static final double DEFAULT_DERIVATIVE_THRESHOLD = 1.0e-8;

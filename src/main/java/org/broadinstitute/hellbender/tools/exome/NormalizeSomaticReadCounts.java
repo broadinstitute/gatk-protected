@@ -24,8 +24,8 @@ import java.util.List;
  * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        summary = "Normalize PCOV read counts using a panel of normals",
-        oneLineSummary = "Normalize proportional coverage (PCOV) read counts using a panel of normals",
+        summary = "Normalize proportional-coverage (PCOV) read counts using a panel of normals",
+        oneLineSummary = "Normalize proportional-coverage (PCOV) read counts using a panel of normals",
         programGroup = CopyNumberProgramGroup.class
 )
 public final class NormalizeSomaticReadCounts extends CommandLineProgram {
@@ -40,7 +40,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     public static final String FACTOR_NORMALIZED_COUNTS_SHORT_NAME = "FNO";
 
     @Argument(
-            doc = "read counts input file.  This can only contain one sample.",
+            doc = "Input proportional-coverage (PCOV) file.  This can only contain one sample.",
             shortName = READ_COUNTS_FILE_SHORT_NAME,
             fullName = READ_COUNTS_FILE_FULL_NAME,
             optional = false
@@ -48,7 +48,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File readCountsFile;
 
     @Argument(
-            doc = "target file -- not a BED file.  Should be formatted as a tsv with at least the following header columns: contig, start, stop, name.",
+            doc = "Target file -- not a BED file.  Should be formatted as a tsv with at least the following header columns: contig, start, stop, name.",
             shortName = ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME,
             fullName = ExomeStandardArgumentDefinitions.TARGET_FILE_LONG_NAME,
             optional = true
@@ -56,7 +56,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File targetFile;
 
     @Argument(
-            doc = "panel of normals HDF5 file",
+            doc = "Panel-of-normals HDF5 file.",
             shortName = ExomeStandardArgumentDefinitions.PON_FILE_SHORT_NAME,
             fullName = ExomeStandardArgumentDefinitions.PON_FILE_LONG_NAME,
             optional = false
@@ -64,7 +64,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File ponFile;
 
     @Argument(
-            doc = "Tangent normalized counts output",
+            doc = "Output file for tangent-normalized profile.",
             shortName = ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_FILE_SHORT_NAME,
             fullName = ExomeStandardArgumentDefinitions.TANGENT_NORMALIZED_COUNTS_FILE_LONG_NAME,
             optional = false
@@ -72,7 +72,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File tangentNormalizationOutFile;
 
     @Argument(
-            doc = "Pre-tangent normalization counts",
+            doc = "Output file for pre-tangent-normalized profile.",
             shortName = ExomeStandardArgumentDefinitions.PRE_TANGENT_NORMALIZED_COUNTS_FILE_SHORT_NAME,
             fullName = ExomeStandardArgumentDefinitions.PRE_TANGENT_NORMALIZED_COUNTS_FILE_LONG_NAME,
             optional = true
@@ -80,7 +80,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File preTangentNormalizationOutFile;
 
     @Argument(
-            doc = "Tangent normalization Beta Hats output file",
+            doc = "Output file for tangent-normalization beta hats.",
             shortName = TANGENT_BETA_HATS_SHORT_NAME,
             fullName = TANGENT_BETA_HATS_LONG_NAME,
             optional = true
@@ -88,7 +88,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
     protected File betaHatsOutFile;
 
     @Argument(
-            doc = "Factor normalized counts output",
+            doc = "Output file for factor-normalized profile.",
             shortName = FACTOR_NORMALIZED_COUNTS_SHORT_NAME,
             fullName = FACTOR_NORMALIZED_COUNTS_LONG_NAME,
             optional = true
@@ -106,7 +106,7 @@ public final class NormalizeSomaticReadCounts extends CommandLineProgram {
             final PCACoveragePoN pon = new HDF5PCACoveragePoN(hdf5PoNFile, logger);
             final TargetCollection<Target> targetCollection = readTargetCollection(targetFile);
             final ReadCountCollection proportionalCoverageProfile = readInputReadCounts(readCountsFile, targetCollection);
-            final PCATangentNormalizationResult tangentNormalizationResult = pon.normalize(proportionalCoverageProfile);;
+            final PCATangentNormalizationResult tangentNormalizationResult = pon.normalize(proportionalCoverageProfile);
             tangentNormalizationResult.write(getCommandLine(), tangentNormalizationOutFile, preTangentNormalizationOutFile, betaHatsOutFile, fntOutFile);
             return "SUCCESS";
         }

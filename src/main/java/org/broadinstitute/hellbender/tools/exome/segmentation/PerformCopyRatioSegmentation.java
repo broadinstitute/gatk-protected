@@ -66,7 +66,7 @@ public final class PerformCopyRatioSegmentation extends CommandLineProgram {
         final CopyRatioSegmenter segmenter = new CopyRatioSegmenter(initialNumStates, intervals, coverage);
         final List<ModeledSegment> segmentsWithLog2Means = segmenter.findSegments();
         final List<ModeledSegment> segments = segmentsWithLog2Means.stream().map(segment ->
-                new ModeledSegment(segment.getSimpleInterval(), segment.getTargetCount(), segment.getSegmentMeanInCRSpace())).collect(Collectors.toList());;
+                new ModeledSegment(segment.getSimpleInterval(), segment.getTargetCount(), segment.getSegmentMeanInCRSpace())).collect(Collectors.toList());
         SegmentUtils.writeModeledSegmentFile(outputSegmentsFile, segments, sampleName, true);
 
         return "SUCCESS";
