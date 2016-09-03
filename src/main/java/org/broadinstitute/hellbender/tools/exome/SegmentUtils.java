@@ -25,6 +25,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.broadinstitute.hellbender.tools.exome.ACNVModeller.ACNV_DOUBLE_FORMAT;
+import static org.broadinstitute.hellbender.tools.exome.ACNVModeller.logger;
 
 /**
  * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
@@ -69,6 +70,8 @@ public final class SegmentUtils {
         final List<SimpleInterval> targetSegmentsFixed = new ArrayList<>();
         for (final SimpleInterval segment : targetSegments) {
             try {
+                logger.info("Segment:" + segment.getContig() + ":" + segment.getStart() + "-" + segment.getEnd());
+                logger.info("Number of overlapping targets: " + targets.targets(segment).size());
                 final Locatable firstTarget = targets.targets(segment).get(0);
                 if (firstTarget.getEnd() == segment.getStart() || firstTarget.getStart() == segment.getStart()) {
                     targetSegmentsFixed.add(
