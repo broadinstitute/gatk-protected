@@ -67,10 +67,14 @@ public final class SegmentUtils {
         Utils.nonNull(targetSegments, "The list of target segments cannot be null.");
         Utils.nonNull(targets, "The collection of targets cannot be null.");
 
+        logger.info("Number of targets: " + targets.targetCount());
+        for (final Locatable target : targets.targets()) {
+            logger.info("Target: " + target.getContig() + ":" + target.getStart() + "-" + target.getEnd());
+        }
         final List<SimpleInterval> targetSegmentsFixed = new ArrayList<>();
         for (final SimpleInterval segment : targetSegments) {
             try {
-                logger.info("Segment:" + segment.getContig() + ":" + segment.getStart() + "-" + segment.getEnd());
+                logger.info("Segment: " + segment.getContig() + ":" + segment.getStart() + "-" + segment.getEnd());
                 logger.info("Number of overlapping targets: " + targets.targets(segment).size());
                 final Locatable firstTarget = targets.targets(segment).get(0);
                 if (firstTarget.getEnd() == segment.getStart() || firstTarget.getStart() == segment.getStart()) {
