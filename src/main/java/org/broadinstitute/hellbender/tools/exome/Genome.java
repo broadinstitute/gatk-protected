@@ -1,5 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
@@ -17,6 +19,9 @@ import java.util.stream.Collectors;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class Genome {
+
+    private final Logger logger = LogManager.getLogger(Genome.class);
+
     private final TargetCollection<ReadCountRecord.SingleSampleRecord> targets;
     private final TargetCollection<AllelicCount> snps;
     private final String sampleName;
@@ -40,10 +45,14 @@ public final class Genome {
      * @param snpFile       SNP-allele-count file
      */
     public Genome(final File tangentNormalizedCoverageFile, final File snpFile) {
+        logger.info("Constructing genome...");
         sampleName = ReadCountCollectionUtils.getSampleNameForCLIsFromReadCountsFile(tangentNormalizedCoverageFile);
         try {
-            targets = new HashedListTargetCollection<>(ReadCountCollectionUtils.parse(tangentNormalizedCoverageFile).records()
+            final ReadCountCollection rcc = ReadCountCollectionUtils.parse(tangentNormalizedCoverageFile);
+            logger.info("Target counts from read count collection: " + rcc.targets().size());
+            targets = new HashedListTargetCollection<>(rcc.records()
                     .stream().map(ReadCountRecord::asSingleSampleRecord).collect(Collectors.toList()));
+            logger.info("Target counts from hashed list: " + targets.targets().size());
             snps = new HashedListTargetCollection<>(new AllelicCountCollection(snpFile).getCounts());
         } catch (final IOException e) {
             throw new UserException.BadInput("Could not read normalized coverage file");
