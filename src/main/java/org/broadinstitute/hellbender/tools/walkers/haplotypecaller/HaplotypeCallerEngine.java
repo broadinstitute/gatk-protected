@@ -321,14 +321,14 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         Utils.nonNull(hcArgs);
         Utils.nonNull(header);
 
-        return new CountingReadFilter("MAPPING_QUALITY", new MappingQualityReadFilter(hcArgs.MIN_MAPPING_QUALITY_SCORE))
-                .and(new CountingReadFilter("MAPPING_QUALITY_AVAILABLE", ReadFilterLibrary.MAPPING_QUALITY_AVAILABLE))
-                .and(new CountingReadFilter("MAPPED", ReadFilterLibrary.MAPPED))
-                .and(new CountingReadFilter("PRIMARY_ALIGNMENT", ReadFilterLibrary.PRIMARY_ALIGNMENT))
-                .and(new CountingReadFilter("NOT_DUPLICATE", ReadFilterLibrary.NOT_DUPLICATE))
-                .and(new CountingReadFilter("PASSES_VENDOR_QUALITY_CHECK", ReadFilterLibrary.PASSES_VENDOR_QUALITY_CHECK))
-                .and(new CountingReadFilter("GOOD_CIGAR", ReadFilterLibrary.GOOD_CIGAR))
-                .and(new CountingReadFilter("WELLFORMED", new WellformedReadFilter(header)));
+        return new CountingReadFilter(new MappingQualityReadFilter(hcArgs.MIN_MAPPING_QUALITY_SCORE))
+                .and(new CountingReadFilter(ReadFilterLibrary.MAPPING_QUALITY_AVAILABLE))
+                .and(new CountingReadFilter(ReadFilterLibrary.MAPPED))
+                .and(new CountingReadFilter(ReadFilterLibrary.PRIMARY_ALIGNMENT))
+                .and(new CountingReadFilter(ReadFilterLibrary.NOT_DUPLICATE))
+                .and(new CountingReadFilter(ReadFilterLibrary.PASSES_VENDOR_QUALITY_CHECK))
+                .and(new CountingReadFilter(ReadFilterLibrary.GOOD_CIGAR))
+                .and(new CountingReadFilter(new WellformedReadFilter(header)));
 
     }
 

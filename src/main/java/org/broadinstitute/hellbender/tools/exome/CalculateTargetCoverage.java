@@ -12,7 +12,9 @@ import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReadWalker;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
+import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
+import org.broadinstitute.hellbender.engine.filters.WellformedReadFilter;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.MathUtils;
@@ -24,13 +26,12 @@ import org.broadinstitute.hellbender.utils.read.GATKRead;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static htsjdk.samtools.util.SequenceUtil.n;
 
 /**
  * Calculate read-counts across targets given their reference coordinates.
@@ -79,7 +80,6 @@ public final class CalculateTargetCoverage extends ReadWalker {
     protected static final String TARGET_FILE_SHORT_NAME = "T";
     protected static final String TARGET_OUT_INFO_FULL_NAME = "targetInformationColumns";
     protected static final String TARGET_OUT_INFO_SHORT_NAME = "targetInfo";
-    protected static final String KEEP_DUPLICATE_READS_FULL_NAME = "keepduplicatereads";
     protected static final String KEEP_DUPLICATE_READS_SHORT_NAME = "keepdups";
 
     private static final String PCOV_OUTPUT_DOUBLE_FORMAT = "%.4g";
@@ -145,14 +145,6 @@ public final class CalculateTargetCoverage extends ReadWalker {
     )
     protected TargetOutInfo targetOutInfo = TargetOutInfo.COORDS;
 
-    @Argument(
-            doc = "Flag to retain duplicate reads",
-            shortName = KEEP_DUPLICATE_READS_SHORT_NAME,
-            fullName = KEEP_DUPLICATE_READS_FULL_NAME,
-            optional = true
-    )
-    protected boolean keepDuplicateReads = false;
-
     /**
      * Writer to the main output file indicated by {@link #output}.
      */
@@ -194,14 +186,13 @@ public final class CalculateTargetCoverage extends ReadWalker {
     private int[][] counts;
 
     @Override
-    public CountingReadFilter makeReadFilter() {
-        CountingReadFilter mapped = super.makeReadFilter()
-                .and(new CountingReadFilter("Mapped", ReadFilterLibrary.MAPPED))
-                .and(new CountingReadFilter("Non_Zero_Reference_Length", ReadFilterLibrary.NON_ZERO_REFERENCE_LENGTH_ALIGNMENT));
-        if(!keepDuplicateReads) {
-            mapped = mapped.and(new CountingReadFilter("Not_Duplicate", ReadFilterLibrary.NOT_DUPLICATE));
-        }
-        return mapped;
+    public List<ReadFilter> getDefaultReadFilters() {
+        final List<ReadFilter> filters = new ArrayList<>();
+        filters.add(ReadFilterLibrary.MAPPED);
+        filters.add(new WellformedReadFilter());
+        filters.add(ReadFilterLibrary.NON_ZERO_REFERENCE_LENGTH_ALIGNMENT);
+        filters.add(ReadFilterLibrary.NOT_DUPLICATE);
+        return filters;
     }
 
     @Override

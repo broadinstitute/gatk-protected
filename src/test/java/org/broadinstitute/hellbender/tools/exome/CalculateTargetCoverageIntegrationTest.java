@@ -278,7 +278,7 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
                 CalculateTargetCoverage.Transform.RAW,
                 CalculateTargetCoverage.TargetOutInfo.FULL,
                 new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED_DUPS.getAbsolutePath(),
-                        "-" + CalculateTargetCoverage.KEEP_DUPLICATE_READS_SHORT_NAME},
+                        "--" + StandardArgumentDefinitions.DISABLE_READ_FILTER_LONG_NAME, "NotDuplicateReadFilter"},
         }
         };
     }
