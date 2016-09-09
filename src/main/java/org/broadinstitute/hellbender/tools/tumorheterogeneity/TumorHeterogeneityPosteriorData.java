@@ -1,7 +1,26 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import akka.actor.FSM;
+import breeze.stats.MeanAndVariance;
+import com.google.cloud.dataflow.sdk.repackaged.com.google.common.primitives.Doubles;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.math3.analysis.MultivariateFunction;
+import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.NormalDistribution;
+import org.apache.commons.math3.optim.InitialGuess;
+import org.apache.commons.math3.optim.MaxEval;
+import org.apache.commons.math3.optim.PointValuePair;
+import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
+import org.apache.commons.math3.optim.nonlinear.scalar.MultivariateOptimizer;
+import org.apache.commons.math3.optim.nonlinear.scalar.ObjectiveFunction;
+import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.NelderMeadSimplex;
+import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.SimplexOptimizer;
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
+import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
+import org.broadinstitute.hellbender.utils.OptimizationUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.DataCollection;
 import org.broadinstitute.hellbender.utils.mcmc.DecileCollection;
@@ -22,6 +41,13 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityPosteriorData implements DataCollection {
+    private static final double INV_LN2 = GATKProtectedMathUtils.INV_LN2;
+    private static final double REL_TOLERANCE = 1E-5;
+    private static final double ABS_TOLERANCE = 1E-10;
+    private static final int NUM_MAX_EVAL = 100;
+    private static final double DEFAULT_SIMPLEX_STEP = 0.2;
+    final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
+
     private final List<ACNVSegmentPosterior> segmentPosteriors;
 
     public TumorHeterogeneityPosteriorData(final List<ACNVModeledSegment> segments) {
@@ -37,53 +63,48 @@ public final class TumorHeterogeneityPosteriorData implements DataCollection {
     }
     
     private final class ACNVSegmentPosterior {
-        private static final int NUM_BINS_1D = DecileCollection.NUM_DECILES - 1;
-        private static final int NUM_BINS = NUM_BINS_1D * NUM_BINS_1D;
-        private static final double BIN_PROBABILITY = 1. / NUM_BINS;
-        private static final double EPSILON_BIN_AREA = 1E-10;
-        private static final double EPSILON_LOG_POSTERIOR = -100;
+        private final NormalDistribution log2CopyRatioPosterior;
+        private final BetaDistribution minorAlleleFractionPosterior;
 
-        private final boolean isMinorAlleleFractionNaN;
-        private final List<Double> copyRatioDecileValues;
-        private final List<Double> minorAlleleFractionDecileValues;
-        private final Map<Pair<Integer, Integer>, Double> binToLogPosteriorMap = new HashMap<>(NUM_BINS); //keys are (lower CR bin edge, lower MAF bin edge)
-        
         ACNVSegmentPosterior(final ACNVModeledSegment segment) {
-            final List<Double> log2CopyRatioDecileValues = segment.getSegmentMeanPosteriorSummary().getDeciles().getAll();
-            copyRatioDecileValues = log2CopyRatioDecileValues.stream().map(log2cr -> Math.pow(2, log2cr)).collect(Collectors.toList());
-            minorAlleleFractionDecileValues = segment.getMinorAlleleFractionPosteriorSummary().getDeciles().getAll();
-            isMinorAlleleFractionNaN = Double.isNaN(segment.getMinorAlleleFractionPosteriorSummary().getCenter());
-            initializeBinToLogPosteriorMap(binToLogPosteriorMap, copyRatioDecileValues, minorAlleleFractionDecileValues, isMinorAlleleFractionNaN);
+            final double[] log2CopyRatioInnerDeciles = Doubles.toArray(segment.getSegmentMeanPosteriorSummary().getDeciles().getInner());
+            final double[] minorAlleleFractionInnerDeciles = Doubles.toArray(segment.getMinorAlleleFractionPosteriorSummary().getDeciles().getInner());
+            log2CopyRatioPosterior = fitNormalDistributionToInnerDeciles(log2CopyRatioInnerDeciles);
+            minorAlleleFractionPosterior = fitBetaDistributionToInnerDeciles(minorAlleleFractionInnerDeciles);
         }
 
         double logProbability(final double copyRatio, final double minorAlleleFraction) {
-            final int crIndex = Collections.binarySearch(copyRatioDecileValues, copyRatio);
-            final int mafIndex = Collections.binarySearch(minorAlleleFractionDecileValues, minorAlleleFraction);
-            return binToLogPosteriorMap.getOrDefault(Pair.of(crIndex, mafIndex), EPSILON_LOG_POSTERIOR);
+            final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
+            final double copyRatioPosteriorProbabilityDensity = log2CopyRatioPosterior.probability(log2CopyRatio) * INV_LN2 / copyRatio; //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            final double minorAlleleFractionPosteriorProbabilityDensity = minorAlleleFractionPosterior.probability(minorAlleleFraction);
+            return copyRatioPosteriorProbabilityDensity * minorAlleleFractionPosteriorProbabilityDensity;
         }
-        
-        private void initializeBinToLogPosteriorMap(final Map<Pair<Integer, Integer>, Double> binToLogPosteriorMap,
-                                                    final List<Double> copyRatioDecileValues,
-                                                    final List<Double> minorAlleleFractionDecileValues,
-                                                    final boolean isMinorAlleleFractionNaN) {
-            final List<Double> copyRatioBinSizes = calculateBinSizesFromDecileValues(copyRatioDecileValues);
-            final List<Double> minorAlleleFractionBinSizes = isMinorAlleleFractionNaN ?
-                    Collections.nCopies(NUM_BINS_1D, 0.5 / NUM_BINS_1D) : calculateBinSizesFromDecileValues(minorAlleleFractionDecileValues);
-            for (int crIndex = 0; crIndex < DecileCollection.NUM_DECILES; crIndex++) {
-                for (int mafIndex = 0; mafIndex < DecileCollection.NUM_DECILES; mafIndex++) {
-                    final Pair<Integer, Integer> bin = Pair.of(crIndex, mafIndex);
-                    final double binArea = copyRatioBinSizes.get(crIndex) * minorAlleleFractionBinSizes.get(mafIndex);
-                    final double binProbabilityDensity = BIN_PROBABILITY / (binArea + EPSILON_BIN_AREA);
-                    final double logPosterior = Math.log(binProbabilityDensity);
-                    binToLogPosteriorMap.put(bin, logPosterior);
-                }
-            }
+
+        private NormalDistribution fitNormalDistributionToInnerDeciles(final double[] innerDeciles) {
+            final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
+                final double mean = point[0];
+                final double standardDeviation = point[1];
+                final NormalDistribution normalDistribution = new NormalDistribution(mean, standardDeviation);
+                final List<Double> normalInnerDeciles = IntStream.range(1, DecileCollection.NUM_DECILES - 1).boxed()
+                        .map(d -> normalDistribution.inverseCumulativeProbability(d / 10.)).collect(Collectors.toList());
+                return IntStream.range(0, DecileCollection.NUM_DECILES - 2)
+                        .mapToDouble(i -> FastMath.pow(innerDeciles[i] - normalInnerDeciles.get(i), 2)).sum();
+            });
+            final double meanInitial = new Mean().evaluate(innerDeciles);
+            final double standarDeviationInitial = new StandardDeviation().evaluate(innerDeciles);
+            final PointValuePair optimum = optimizer.optimize(
+                            new MaxEval(NUM_MAX_EVAL),
+                            innerDecilesL2LossFunction,
+                            GoalType.MINIMIZE,
+                            new InitialGuess(new double[]{meanInitial, standarDeviationInitial}),
+                            new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
+            final double mean = optimum.getPoint()[0];
+            final double standardDeviation = optimum.getPoint()[1];
+            return new NormalDistribution(mean, standardDeviation);
         }
-        
-        private List<Double> calculateBinSizesFromDecileValues(final List<Double> decileValues) {
-            return IntStream.range(1, DecileCollection.NUM_DECILES).boxed()
-                    .map(i -> decileValues.get(i) - decileValues.get(i - 1))
-                    .collect(Collectors.toList());
+
+        private BetaDistribution fitBetaDistributionToInnerDeciles(final double[] innerDeciles) {
+            return new BetaDistribution(1., 1.);
         }
     }
 }
