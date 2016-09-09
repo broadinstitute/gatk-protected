@@ -77,4 +77,10 @@ public final class DecileCollectionUnitTest {
         final DecileCollection result = new DecileCollection(testSamples, DecileCollection.ConstructionMode.SAMPLES);
         Assert.assertEquals(result.getAll(), Arrays.asList(1., 10., 20., 30., 40., 50., 60., 70., 80., 90., 99.));
     }
+
+    @Test
+    public void testGetInner() {
+        final DecileCollection result = new DecileCollection(testSamples, DecileCollection.ConstructionMode.SAMPLES);
+        Assert.assertEquals(result.getInner(), Arrays.asList(10., 20., 30., 40., 50., 60., 70., 80., 90.));
+    }
 }
