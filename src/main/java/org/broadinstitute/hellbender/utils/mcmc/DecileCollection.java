@@ -69,4 +69,11 @@ public final class DecileCollection implements Serializable {
     public List<Double> getAll() {
         return Collections.unmodifiableList(Stream.of(Decile.values()).map(deciles::get).collect(Collectors.toList()));
     }
+
+    /**
+     * Gets a list of deciles, excluding first and last.
+     */
+    public List<Double> getInner() {
+        return Collections.unmodifiableList(Stream.of(Decile.values()).map(deciles::get).collect(Collectors.toList()).subList(1, NUM_DECILES - 1));
+    }
 }
