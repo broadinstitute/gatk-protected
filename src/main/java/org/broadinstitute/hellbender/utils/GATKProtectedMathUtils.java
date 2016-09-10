@@ -23,7 +23,8 @@ public class GATKProtectedMathUtils {
     private GATKProtectedMathUtils() {
     }
 
-    public static final double INV_LN2 = 1.0 / Math.log(2.0);
+    public static final double LN2 = Math.log(2.0);
+    public static final double INV_LN2 = 1.0 / LN2;
 
     /**
      * Computes $\log(\sum_i e^{a_i})$ trying to avoid underflow issues by using the log-sum-exp trick.
