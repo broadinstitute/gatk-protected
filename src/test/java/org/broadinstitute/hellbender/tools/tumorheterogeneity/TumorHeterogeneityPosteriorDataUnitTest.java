@@ -124,9 +124,7 @@ public class TumorHeterogeneityPosteriorDataUnitTest {
         final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
         final double expectedLogDensity =
                 Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / copyRatio) +
-                Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruth.logDensity(2. * minorAlleleFraction));
-
-        System.out.println(resultLogDensity + " " + expectedLogDensity);
+                Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruth.density(2. * minorAlleleFraction));
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
     }
 
