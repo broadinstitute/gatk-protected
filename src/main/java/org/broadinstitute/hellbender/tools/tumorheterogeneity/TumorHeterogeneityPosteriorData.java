@@ -108,15 +108,12 @@ public final class TumorHeterogeneityPosteriorData implements DataCollection {
 
         private Function<Double, Double> fitBetaLogPDFToInnerDeciles(final double[] innerDeciles) {
             //scale minor-allele fraction deciles to [0, 1] and fit a beta distribution
-            logger.info("Fitting: " + Doubles.asList(innerDeciles));
             final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
                 final double alpha = Math.abs(point[0]);
                 final double beta = Math.abs(point[1]);
                 final BetaDistribution betaDistribution = new BetaDistribution(alpha, beta);
                 final List<Double> betaInnerDeciles = IntStream.range(1, DecileCollection.NUM_DECILES - 1).boxed()
                         .map(i -> betaDistribution.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
-                logger.info(betaInnerDeciles);
-                logger.info(alpha + " " + beta);
                 return IntStream.range(0, DecileCollection.NUM_DECILES - 2)
                         .mapToDouble(i -> FastMath.pow(2 * innerDeciles[i] - betaInnerDeciles.get(i), 2)).sum();
             });
@@ -134,7 +131,6 @@ public final class TumorHeterogeneityPosteriorData implements DataCollection {
                     new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
             final double alpha = Math.abs(optimum.getPoint()[0]);
             final double beta = Math.abs(optimum.getPoint()[1]);
-            logger.info("Fit alpha beta: " + alpha + " " + beta);
             return maf -> new BetaDistribution(alpha, beta).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
         }
     }
