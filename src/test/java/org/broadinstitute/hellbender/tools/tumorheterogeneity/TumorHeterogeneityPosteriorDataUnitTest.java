@@ -40,9 +40,12 @@ public class TumorHeterogeneityPosteriorDataUnitTest {
         //mean and standard deviation
         return new Object[][]{
                 {1., 1.},
-                {5., 2.},
+                {5., 1.},
+                {-5., 1.},
                 {2., 0.1},
-                {-2., 0.1}
+                {-2., 0.1},
+                {10., 10.},
+                {-10., 10.}
         };
     }
 
@@ -51,9 +54,14 @@ public class TumorHeterogeneityPosteriorDataUnitTest {
         //alpha and beta
         return new Object[][]{
                 {0.1, 0.1},
+                {0.5, 0.1},
+                {0.1, 0.5},
+                {1., 1.},
                 {5., 1.},
                 {1., 5.},
-                {10., 10.}
+                {10., 10.},
+                {50., 10.},
+                {10., 50.}
         };
     }
 
@@ -68,7 +76,7 @@ public class TumorHeterogeneityPosteriorDataUnitTest {
 
         //construct TumorHeterogeneityPosteriorData from ACNVModeledSegment with true copy-ratio posterior deciles and NaN minor-allele fraction posterior
         final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(
-                meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used
+                meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used in fit
         segmentMeanPosteriorSummary.setDeciles(new DecileCollection(decilesTruth, DecileCollection.ConstructionMode.DECILES));
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
         final TumorHeterogeneityPosteriorData data = new TumorHeterogeneityPosteriorData(Collections.singletonList(segment));
@@ -106,9 +114,9 @@ public class TumorHeterogeneityPosteriorDataUnitTest {
 
         //construct TumorHeterogeneityPosteriorData from ACNVModeledSegment with true posterior deciles
         final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(
-                meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used
+                meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used in fit
         segmentMeanPosteriorSummary.setDeciles(new DecileCollection(log2CopyRatioDecilesTruth, DecileCollection.ConstructionMode.DECILES));
-        final PosteriorSummary minorAlleleFractionPosteriorSummary = new PosteriorSummary(0.25, 0., 0.5);   //credible interval is not used
+        final PosteriorSummary minorAlleleFractionPosteriorSummary = new PosteriorSummary(0.25, 0., 0.5);   //credible interval is not used in fit
         minorAlleleFractionPosteriorSummary.setDeciles(new DecileCollection(minorAlleleFractionDecilesTruth, DecileCollection.ConstructionMode.DECILES));
 
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, minorAlleleFractionPosteriorSummary);

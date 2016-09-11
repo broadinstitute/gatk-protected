@@ -1,6 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import com.google.cloud.dataflow.sdk.repackaged.com.google.common.primitives.Doubles;
+import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.optim.InitialGuess;
@@ -30,7 +30,8 @@ import java.util.stream.IntStream;
 
 /**
  * {@link DataCollection} for the tumor-heterogeneity model that allows the calculation of log posterior probabilities
- * for (copy ratio, minor-allele fraction) for each {@link ACNVModeledSegment}.
+ * for (copy ratio, minor-allele fraction) for each {@link ACNVModeledSegment}.  Fits a normal distribution to
+ * the log_2 copy-ratio posterior deciles and a scaled beta distribution to the minor-allele fraction posterior deciles.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -40,7 +41,7 @@ public final class TumorHeterogeneityPosteriorData implements DataCollection {
     private static final double LN_LN2 = Math.log(LN2);
     private static final double REL_TOLERANCE = 1E-5;
     private static final double ABS_TOLERANCE = 1E-10;
-    private static final int NUM_MAX_EVAL = 100;
+    private static final int NUM_MAX_EVAL = 1000;
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityPosteriorData.class);
