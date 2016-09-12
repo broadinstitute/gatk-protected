@@ -10,10 +10,10 @@ import org.broadinstitute.hellbender.utils.mcmc.ParameterEnum;
  */
 public enum TumorHeterogeneityParameter implements ParameterEnum {
     CONCENTRATION("TH_concentration"),
-    VARIANCE("TH_variance"),
     POPULATION_FRACTIONS("TH_population_fractions"),
-    MEANS("TH_means"),
-    POPULATION_INDICATORS("TH_population_indicators");
+    POPULATION_INDICATORS("TH_population_indicators"),
+    VARIANT_FRACTION_HYPERPARAMETERS("TH_variant_fraction_hyperparameters"),
+    POPULATION_STATES("TH_population_states");
 
     public final String name;
 
