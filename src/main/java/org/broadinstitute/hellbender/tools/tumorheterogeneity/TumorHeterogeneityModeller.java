@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
@@ -42,9 +43,8 @@ public final class TumorHeterogeneityModeller {
 
     /**
      */
-    public TumorHeterogeneityModeller(final List<Double> points, final int numPopulations, final RandomGenerator rng) {
-        final int numPoints = points.size();
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(points);
+    public TumorHeterogeneityModeller(final List<ACNVModeledSegment> segments, final int numPopulations, final RandomGenerator rng) {
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
 
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
