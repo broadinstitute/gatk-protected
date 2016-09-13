@@ -51,12 +51,18 @@ public final class TumorHeterogeneityData implements DataCollection {
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
 
+    private final int numSegments;
     private final List<ACNVSegmentPosterior> segmentPosteriors;
 
     public TumorHeterogeneityData(final List<ACNVModeledSegment> segments) {
         Utils.nonNull(segments);
-        Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
+        numSegments = segments.size();
+        Utils.validateArg(numSegments > 0, "Number of segments must be positive.");
         segmentPosteriors = segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList());
+    }
+
+    public int numSegments() {
+        return numSegments;
     }
 
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction) {

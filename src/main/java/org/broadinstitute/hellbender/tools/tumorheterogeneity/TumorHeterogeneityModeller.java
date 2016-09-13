@@ -4,6 +4,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
 import java.util.*;
@@ -17,67 +18,71 @@ import java.util.stream.IntStream;
 public final class TumorHeterogeneityModeller {
     private static final double EPSILON = 1E-10;
 
-    private static final double CONCENTRATION_INITIAL = 0.1;
     private static final double CONCENTRATION_MIN = EPSILON;
     private static final double CONCENTRATION_MAX = 10.;
     private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 0.005;
-    private static final double CONCENTRATION_PRIOR_ALPHA = 1.;
-    private static final double CONCENTRATION_PRIOR_BETA = 100.;
-
-    private static final double VARIANCE_INITIAL = 0.1;
-    private static final double VARIANCE_MIN = EPSILON;
-    private static final double VARIANCE_MAX = 10.;
-    private static final double VARIANCE_SLICE_SAMPLING_WIDTH = 0.01;
-
-    private static final double MEAN_MIN = -10.;
-    private static final double MEAN_MAX = 10.;
-    private static final double MEAN_SLICE_SAMPLING_WIDTH = 0.01;
 
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
-    private final List<Double> varianceSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
-    private final List<TumorHeterogeneityState.Means> meansSamples = new ArrayList<>();
-    private final List<TumorHeterogeneityState.PopulationIndicators> populationIndicatorsSamples = new ArrayList<>();
+    private final List<TumorHeterogeneityState.PopulationStates> populationStatesSamples = new ArrayList<>();
 
     /**
      */
-    public TumorHeterogeneityModeller(final List<ACNVModeledSegment> segments, final int numPopulations, final RandomGenerator rng) {
+    public TumorHeterogeneityModeller(final List<ACNVModeledSegment> segments,
+                                      final int numPopulations,
+                                      final int numCells,
+                                      final double concentrationPriorAlpha,
+                                      final double concentrationPriorBeta,
+                                      final double variantSegmentFractionPriorAlpha,
+                                      final double variantSegmentFractionPriorBeta,
+                                      final RandomGenerator rng) {
+        Utils.nonNull(segments);
+        Utils.validateArg(numPopulations > 0, "Maximum number of populations must be positive.");
+        Utils.validateArg(numCells > 0, "Number of auxiliary cells must be positive.");
+
+        //create TumorHeterogeneityData from ACNV segments
         final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
 
+        //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
-        final TumorHeterogeneityState.Means initialMeans =
-                new TumorHeterogeneityState.Means(IntStream.range(0, numPopulations).boxed().map(i -> (i + 0.5) * (MEAN_MAX - MEAN_MIN) / numPopulations + MEAN_MIN).collect(Collectors.toList()));
-        final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
-        final Function<Integer, Double> probabilityFunction = j -> 1. / numPopulations;
+        //randomly initialize population indicators for each cell
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numPoints).boxed()
-                        .map(p -> GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng)).collect(Collectors.toList()));
+                initializePopulationIndicators(numPopulations, numCells, rng);
+        //initialize population states to non-variant
+        final TumorHeterogeneityState.PopulationStates initialPopulationStates =
+                initializePopulationStates(numPopulations, data.numSegments());
 
+        //initialize TumorHeterogeneityState
+        final double initialConcentration = concentrationPriorAlpha / concentrationPriorBeta;
+        final TumorHeterogeneityState.HyperparameterValues initialVariantSegmentFractionHyperparameters =
+                new TumorHeterogeneityState.HyperparameterValues(variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
-                CONCENTRATION_INITIAL, VARIANCE_INITIAL, initialPopulationFractions, initialMeans, initialPopulationIndicators);
+                initialConcentration, initialPopulationFractions, initialPopulationIndicators,
+                initialVariantSegmentFractionHyperparameters, initialPopulationStates);
 
+        //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
-                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, CONCENTRATION_SLICE_SAMPLING_WIDTH,
-                        CONCENTRATION_PRIOR_ALPHA, CONCENTRATION_PRIOR_BETA);
-        final TumorHeterogeneitySamplers.VarianceSampler varianceSampler =
-                new TumorHeterogeneitySamplers.VarianceSampler(VARIANCE_MIN, VARIANCE_MAX, VARIANCE_SLICE_SAMPLING_WIDTH);
+                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX,
+                        CONCENTRATION_SLICE_SAMPLING_WIDTH, concentrationPriorAlpha, concentrationPriorBeta);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
-                new TumorHeterogeneitySamplers.PopulationFractionsSampler(rng, numPopulations);
-        final TumorHeterogeneitySamplers.MeansSampler meansSampler =
-                new TumorHeterogeneitySamplers.MeansSampler(MEAN_MIN, MEAN_MAX, MEAN_SLICE_SAMPLING_WIDTH);
+                new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
                 new TumorHeterogeneitySamplers.PopulationIndicatorsSampler();
+        final TumorHeterogeneitySamplers.VariantSegmentFractionHyperparametersSampler variantSegmentFractionHyperparametersSampler =
+                new TumorHeterogeneitySamplers.VariantSegmentFractionHyperparametersSampler();
+        final TumorHeterogeneitySamplers.PopulationStatesSampler populationStatesSampler =
+                new TumorHeterogeneitySamplers.PopulationStatesSampler();
 
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
-                .addParameterSampler(TumorHeterogeneityParameter.MEANS, meansSampler, TumorHeterogeneityState.Means.class)
-                .addParameterSampler(TumorHeterogeneityParameter.VARIANCE, varianceSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
+                .addParameterSampler(TumorHeterogeneityParameter.VARIANT_SEGMENT_FRACTION_HYPERPARAMETERS, variantSegmentFractionHyperparametersSampler, TumorHeterogeneityState.HyperparameterValues.class)
+                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_STATES, populationStatesSampler, TumorHeterogeneityState.PopulationStates.class)
                 .build();
     }
 
@@ -96,14 +101,10 @@ public final class TumorHeterogeneityModeller {
         //update posterior samples
         concentrationSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.CONCENTRATION,
                 Double.class, numBurnIn));
-        varianceSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.VARIANCE,
-                Double.class, numBurnIn));
         populationFractionsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_FRACTIONS,
                 TumorHeterogeneityState.PopulationFractions.class, numBurnIn));
-        meansSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.MEANS,
-                TumorHeterogeneityState.Means.class, numBurnIn));
-        populationIndicatorsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_INDICATORS,
-                TumorHeterogeneityState.PopulationIndicators.class, numBurnIn));
+        populationStatesSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_STATES,
+                TumorHeterogeneityState.PopulationStates.class, numBurnIn));
     }
 
     /**
@@ -112,14 +113,6 @@ public final class TumorHeterogeneityModeller {
      */
     public List<Double> getConcentrationSamples() {
         return Collections.unmodifiableList(concentrationSamples);
-    }
-
-    /**
-     * Returns an unmodifiable view of the list of samples of the variance posterior.
-     * @return  unmodifiable view of the list of samples of the variance posterior
-     */
-    public List<Double> getVarianceSamples() {
-        return Collections.unmodifiableList(varianceSamples);
     }
 
     /**
@@ -132,21 +125,12 @@ public final class TumorHeterogeneityModeller {
     }
 
     /**
-     * Returns an unmodifiable view of the list of samples of the means posterior, represented as a list of
-     * {@link TumorHeterogeneityState.Means} objects.
-     * @return  unmodifiable view of the list of samples of the means posterior
+     * Returns an unmodifiable view of the list of samples of the population-states posterior, represented as a list of
+     * {@link TumorHeterogeneityState.PopulationFractions} objects.
+     * @return  unmodifiable view of the list of samples of the population-states posterior
      */
-    public List<TumorHeterogeneityState.Means> getMeansSamples() {
-        return Collections.unmodifiableList(meansSamples);
-    }
-
-    /**
-     * Returns an unmodifiable view of the list of samples of the population-indicators posterior, represented as a list of
-     * {@link TumorHeterogeneityState.PopulationIndicators} objects.
-     * @return  unmodifiable view of the list of samples of the population-indicators posterior
-     */
-    public List<TumorHeterogeneityState.PopulationIndicators> getPopulationIndicatorsSamples() {
-        return Collections.unmodifiableList(populationIndicatorsSamples);
+    public List<TumorHeterogeneityState.PopulationStates> getPopulationStatesSamples() {
+        return Collections.unmodifiableList(populationStatesSamples);
     }
 
     /**
@@ -159,7 +143,30 @@ public final class TumorHeterogeneityModeller {
     public Map<TumorHeterogeneityParameter, PosteriorSummary> getGlobalParameterPosteriorSummaries(final double credibleIntervalAlpha, final JavaSparkContext ctx) {
         final Map<TumorHeterogeneityParameter, PosteriorSummary> posteriorSummaries = new LinkedHashMap<>();
         posteriorSummaries.put(TumorHeterogeneityParameter.CONCENTRATION, PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(concentrationSamples, credibleIntervalAlpha, ctx));
-        posteriorSummaries.put(TumorHeterogeneityParameter.VARIANCE, PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(varianceSamples, credibleIntervalAlpha, ctx));
         return posteriorSummaries;
+    }
+
+    private TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numPopulations,
+                                                                                        final int numCells,
+                                                                                        final RandomGenerator rng) {
+        final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
+        final Function<Integer, Double> probabilityFunction = j -> 1. / numPopulations;
+        return new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numCells).boxed()
+                .map(p -> GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng))
+                .collect(Collectors.toList()));
+    }
+
+    private TumorHeterogeneityState.PopulationStates initializePopulationStates(final int numPopulations,
+                                                                                final int numSegments) {
+        return new TumorHeterogeneityState.PopulationStates(Collections.nCopies(numPopulations, initializePopulationState(numSegments)));
+    }
+
+    private TumorHeterogeneityState.PopulationState initializePopulationState(final int numSegments) {
+        final double variantSegmentFraction = 0.;
+        final TumorHeterogeneityState.PopulationState.VariantIndicators variantIndicators =
+                new TumorHeterogeneityState.PopulationState.VariantIndicators(Collections.nCopies(numSegments, false));
+        final TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators variantPloidyStateIndicators =
+                new TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
+        return new TumorHeterogeneityState.PopulationState(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
     }
 }
