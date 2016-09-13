@@ -12,7 +12,7 @@ public enum TumorHeterogeneityParameter implements ParameterEnum {
     CONCENTRATION("TH_concentration"),
     POPULATION_FRACTIONS("TH_population_fractions"),
     POPULATION_INDICATORS("TH_population_indicators"),
-    VARIANT_FRACTION_HYPERPARAMETERS("TH_variant_fraction_hyperparameters"),
+    VARIANT_SEGMENT_FRACTION_HYPERPARAMETERS("TH_variant_segment_fraction_hyperparameters"),
     POPULATION_STATES("TH_population_states");
 
     public final String name;
