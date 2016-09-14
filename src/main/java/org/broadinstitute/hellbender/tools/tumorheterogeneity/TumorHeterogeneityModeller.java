@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.VariantPloidyStatePrior;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
@@ -35,8 +36,9 @@ public final class TumorHeterogeneityModeller {
                                       final int numCells,
                                       final double concentrationPriorAlpha,
                                       final double concentrationPriorBeta,
-                                      final double variantSegmentFractionPriorAlpha,
-                                      final double variantSegmentFractionPriorBeta,
+                                      final VariantPloidyStatePrior variantPloidyStatePrior,
+                                      final double initialVariantSegmentFractionAlpha,
+                                      final double initialVariantSegmentFractionBeta,
                                       final RandomGenerator rng) {
         Utils.nonNull(segments);
         Utils.validateArg(numPopulations > 0, "Maximum number of populations must be positive.");
@@ -58,7 +60,7 @@ public final class TumorHeterogeneityModeller {
         //initialize TumorHeterogeneityState
         final double initialConcentration = concentrationPriorAlpha / concentrationPriorBeta;
         final TumorHeterogeneityState.HyperparameterValues initialVariantSegmentFractionHyperparameters =
-                new TumorHeterogeneityState.HyperparameterValues(variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+                new TumorHeterogeneityState.HyperparameterValues(initialVariantSegmentFractionAlpha, initialVariantSegmentFractionBeta);
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
                 initialConcentration, initialPopulationFractions, initialPopulationIndicators,
                 initialVariantSegmentFractionHyperparameters, initialPopulationStates);
@@ -74,7 +76,7 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneitySamplers.VariantSegmentFractionHyperparametersSampler variantSegmentFractionHyperparametersSampler =
                 new TumorHeterogeneitySamplers.VariantSegmentFractionHyperparametersSampler();
         final TumorHeterogeneitySamplers.PopulationStatesSampler populationStatesSampler =
-                new TumorHeterogeneitySamplers.PopulationStatesSampler();
+                new TumorHeterogeneitySamplers.PopulationStatesSampler(variantPloidyStatePrior);
 
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
