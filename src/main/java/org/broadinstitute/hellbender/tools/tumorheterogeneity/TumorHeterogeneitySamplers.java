@@ -8,6 +8,7 @@ import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.VariantPloidyStatePrior;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
@@ -60,17 +61,17 @@ final class TumorHeterogeneitySamplers {
         }
 
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
-            final List<MutableInt> populationCounts = sumPopulationCounts(state, dataCollection);
+            final List<MutableInt> populationCounts = sumPopulationCounts(state);
             final List<Double> populationFractions = samplePopulationFractions(rng, state, populationCounts);
             return new TumorHeterogeneityState.PopulationFractions(populationFractions);
         }
 
-        private List<MutableInt> sumPopulationCounts(final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+        private List<MutableInt> sumPopulationCounts(final TumorHeterogeneityState state) {
             final int numPopulations = state.numPopulations();
             final List<MutableInt> populationCounts = IntStream.range(0, numPopulations).boxed().map(j -> new MutableInt(0)).collect(Collectors.toList());
-            for (int dataIndex = 0; dataIndex < dataCollection.numPoints(); dataIndex++) {
+            for (int cellIndex = 0; cellIndex < state.numCells(); cellIndex++) {
                 for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
-                    if (state.isInPopulation(dataIndex, populationIndex)) {
+                    if (state.isInPopulation(cellIndex, populationIndex)) {
                         populationCounts.get(populationIndex).increment();
                         break;
                     }
@@ -80,6 +81,7 @@ final class TumorHeterogeneitySamplers {
         }
 
         private List<Double> samplePopulationFractions(final RandomGenerator rng, final TumorHeterogeneityState state, final List<MutableInt> populationCounts) {
+            //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
             final double[] unnormalizedPopulationFractions = populationCounts.stream()
                     .mapToDouble(c -> new GammaDistribution(rng, state.concentration() + c.doubleValue(), 1.).sample()).toArray();
             return Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
@@ -122,7 +124,11 @@ final class TumorHeterogeneitySamplers {
     }
 
     protected static final class PopulationStatesSampler implements ParameterSampler<TumorHeterogeneityState.PopulationStates, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        public PopulationStatesSampler() {}
+        private final VariantPloidyStatePrior variantPloidyStatePrior;
+
+        public PopulationStatesSampler(final VariantPloidyStatePrior variantPloidyStatePrior) {
+            this.variantPloidyStatePrior = variantPloidyStatePrior;
+        }
 
         public TumorHeterogeneityState.PopulationStates sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
             return new TumorHeterogeneityState.PopulationStates();

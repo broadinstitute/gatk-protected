@@ -16,6 +16,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     private static final double POPULATION_FRACTION_NORMALIZATION_EPSILON = 1E-3;
 
     private final int numPopulations;
+    private final int numCells;
 
     public static final class PopulationFractions extends ArrayList<Double> {
         //list of doubles, size = number of populations, i-th element = fraction of population i by cell number
@@ -64,10 +65,15 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         Utils.validateArg(Collections.max(populationIndicators) <= populationFractions.size(),
                 "Number of populations must be same for population fractions and indicators.");
         numPopulations = populationStates.size();
+        numCells = populationIndicators.size();
     }
 
     public int numPopulations() {
         return numPopulations;
+    }
+
+    public int numCells() {
+        return numCells;
     }
 
     public double concentration() {
@@ -78,7 +84,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class).get(populationIndex);
     }
 
-    public boolean isInPopulation(final int populationIndex, final int cellIndex) {
+    public boolean isInPopulation(final int cellIndex, final int populationIndex) {
         return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex).equals(populationIndex);
     }
 
