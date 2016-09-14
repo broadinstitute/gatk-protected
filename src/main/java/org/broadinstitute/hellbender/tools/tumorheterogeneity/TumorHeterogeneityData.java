@@ -18,6 +18,7 @@ import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.VariantPloidyStatePrior;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.DataCollection;
@@ -56,8 +57,8 @@ public final class TumorHeterogeneityData implements DataCollection {
 
     public TumorHeterogeneityData(final List<ACNVModeledSegment> segments) {
         Utils.nonNull(segments);
+        Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
         numSegments = segments.size();
-        Utils.validateArg(numSegments > 0, "Number of segments must be positive.");
         segmentPosteriors = segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList());
     }
 
