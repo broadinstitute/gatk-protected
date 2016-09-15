@@ -3,7 +3,8 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
-import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.VariantPloidyStatePrior;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
@@ -27,7 +28,7 @@ public final class TumorHeterogeneityModeller {
 
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
-    private final List<TumorHeterogeneityState.PopulationStates> populationStatesSamples = new ArrayList<>();
+    private final List<TumorHeterogeneityState.PopulationCollection> populationCollectionSamples = new ArrayList<>();
 
     /**
      */
@@ -36,16 +37,22 @@ public final class TumorHeterogeneityModeller {
                                       final int numCells,
                                       final double concentrationPriorAlpha,
                                       final double concentrationPriorBeta,
-                                      final VariantPloidyStatePrior variantPloidyStatePrior,
-                                      final double initialVariantSegmentFractionAlpha,
-                                      final double initialVariantSegmentFractionBeta,
+                                      final PloidyState normalPloidyState,
+                                      final PloidyStatePrior variantPloidyStatePrior,
+                                      final double initialVariantSegmentFractionPriorAlpha,
+                                      final double initialVariantSegmentFractionPriorBeta,
                                       final RandomGenerator rng) {
         Utils.nonNull(segments);
+        Utils.nonNull(normalPloidyState);
+        Utils.nonNull(variantPloidyStatePrior);
+        Utils.nonNull(rng);
         Utils.validateArg(numPopulations > 0, "Maximum number of populations must be positive.");
         Utils.validateArg(numCells > 0, "Number of auxiliary cells must be positive.");
+        Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
+                "Variant-ploidy state prior should not be specified for normal ploidy state.");
 
         //create TumorHeterogeneityData from ACNV segments
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, variantPloidyStatePrior);
 
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
@@ -54,16 +61,16 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
                 initializePopulationIndicators(numPopulations, numCells, rng);
         //initialize population states to non-variant
-        final TumorHeterogeneityState.PopulationStates initialPopulationStates =
+        final TumorHeterogeneityState.PopulationCollection initialPopulationCollection =
                 initializePopulationStates(numPopulations, data.numSegments());
 
         //initialize TumorHeterogeneityState
         final double initialConcentration = concentrationPriorAlpha / concentrationPriorBeta;
-        final TumorHeterogeneityState.HyperparameterValues initialVariantSegmentFractionHyperparameters =
-                new TumorHeterogeneityState.HyperparameterValues(initialVariantSegmentFractionAlpha, initialVariantSegmentFractionBeta);
+        final TumorHeterogeneityState.HyperparameterValues initialVariantSegmentFractionPriorHyperparameters =
+                new TumorHeterogeneityState.HyperparameterValues(initialVariantSegmentFractionPriorAlpha, initialVariantSegmentFractionPriorBeta);
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
                 initialConcentration, initialPopulationFractions, initialPopulationIndicators,
-                initialVariantSegmentFractionHyperparameters, initialPopulationStates);
+                initialVariantSegmentFractionPriorHyperparameters, initialPopulationCollection);
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
@@ -75,16 +82,15 @@ public final class TumorHeterogeneityModeller {
                 new TumorHeterogeneitySamplers.PopulationIndicatorsSampler();
         final TumorHeterogeneitySamplers.VariantSegmentFractionHyperparametersSampler variantSegmentFractionHyperparametersSampler =
                 new TumorHeterogeneitySamplers.VariantSegmentFractionHyperparametersSampler();
-        final TumorHeterogeneitySamplers.PopulationStatesSampler populationStatesSampler =
-                new TumorHeterogeneitySamplers.PopulationStatesSampler(variantPloidyStatePrior);
-
+        final TumorHeterogeneitySamplers.PopulationCollectionSampler populationCollectionSampler =
+                new TumorHeterogeneitySamplers.PopulationCollectionSampler(numPopulations);
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
                 .addParameterSampler(TumorHeterogeneityParameter.VARIANT_SEGMENT_FRACTION_HYPERPARAMETERS, variantSegmentFractionHyperparametersSampler, TumorHeterogeneityState.HyperparameterValues.class)
-                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_STATES, populationStatesSampler, TumorHeterogeneityState.PopulationStates.class)
+                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_STATES, populationCollectionSampler, TumorHeterogeneityState.PopulationCollection.class)
                 .build();
     }
 
@@ -96,6 +102,9 @@ public final class TumorHeterogeneityModeller {
      * @param numBurnIn     number of burn-in samples to discard
      */
     public void fitMCMC(final int numSamples, final int numBurnIn) {
+        Utils.validateArg(numSamples > 0, "Total number of samples must be positive.");
+        Utils.validateArg(0 <= numBurnIn && numBurnIn < numSamples,
+                "Number of burn-in samples to discard must be non-negative and strictly less than total number of samples.");
         //run MCMC
         final GibbsSampler<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> gibbsSampler
                 = new GibbsSampler<>(numSamples, model);
@@ -105,8 +114,8 @@ public final class TumorHeterogeneityModeller {
                 Double.class, numBurnIn));
         populationFractionsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_FRACTIONS,
                 TumorHeterogeneityState.PopulationFractions.class, numBurnIn));
-        populationStatesSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_STATES,
-                TumorHeterogeneityState.PopulationStates.class, numBurnIn));
+        populationCollectionSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_STATES,
+                TumorHeterogeneityState.PopulationCollection.class, numBurnIn));
     }
 
     /**
@@ -131,8 +140,8 @@ public final class TumorHeterogeneityModeller {
      * {@link TumorHeterogeneityState.PopulationFractions} objects.
      * @return  unmodifiable view of the list of samples of the population-states posterior
      */
-    public List<TumorHeterogeneityState.PopulationStates> getPopulationStatesSamples() {
-        return Collections.unmodifiableList(populationStatesSamples);
+    public List<TumorHeterogeneityState.PopulationCollection> getPopulationCollectionSamples() {
+        return Collections.unmodifiableList(populationCollectionSamples);
     }
 
     /**
@@ -142,7 +151,10 @@ public final class TumorHeterogeneityModeller {
      * @param ctx                   {@link JavaSparkContext} used for mllib kernel density estimation
      * @return                      list of {@link PosteriorSummary} elements summarizing the global parameters
      */
-    public Map<TumorHeterogeneityParameter, PosteriorSummary> getGlobalParameterPosteriorSummaries(final double credibleIntervalAlpha, final JavaSparkContext ctx) {
+    public Map<TumorHeterogeneityParameter, PosteriorSummary> getGlobalParameterPosteriorSummaries(final double credibleIntervalAlpha,
+                                                                                                   final JavaSparkContext ctx) {
+        Utils.validateArg(0. <= credibleIntervalAlpha && credibleIntervalAlpha <= 1., "Credible-interval alpha must be in [0, 1].");
+        Utils.nonNull(ctx);
         final Map<TumorHeterogeneityParameter, PosteriorSummary> posteriorSummaries = new LinkedHashMap<>();
         posteriorSummaries.put(TumorHeterogeneityParameter.CONCENTRATION, PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(concentrationSamples, credibleIntervalAlpha, ctx));
         return posteriorSummaries;
@@ -158,9 +170,9 @@ public final class TumorHeterogeneityModeller {
                 .collect(Collectors.toList()));
     }
 
-    private TumorHeterogeneityState.PopulationStates initializePopulationStates(final int numPopulations,
+    private TumorHeterogeneityState.PopulationCollection initializePopulationStates(final int numPopulations,
                                                                                 final int numSegments) {
-        return new TumorHeterogeneityState.PopulationStates(Collections.nCopies(numPopulations, initializePopulationState(numSegments)));
+        return new TumorHeterogeneityState.PopulationCollection(Collections.nCopies(numPopulations, initializePopulationState(numSegments)));
     }
 
     private TumorHeterogeneityState.PopulationState initializePopulationState(final int numSegments) {
