@@ -5,12 +5,12 @@ import org.broadinstitute.hellbender.utils.Utils;
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
-public final class VariantPloidyState {
+public final class PloidyState {
     private final int m;
     private final int n;
     private final int total;
 
-    public VariantPloidyState(final int m, final int n) {
+    public PloidyState(final int m, final int n) {
         Utils.validateArg(m >= 0, "Number of major-allele copies must be non-negative.");
         Utils.validateArg(n >= 0, "Number of minor-allele copies must be non-negative.");
         Utils.validateArg(m >= n, "Number of major-allele copies must be greater than or equal to number of minor-allele copies.");
@@ -40,7 +40,7 @@ public final class VariantPloidyState {
             return false;
         }
 
-        final VariantPloidyState that = (VariantPloidyState) o;
+        final PloidyState that = (PloidyState) o;
 
         return m == that.m && n == that.n;
 
