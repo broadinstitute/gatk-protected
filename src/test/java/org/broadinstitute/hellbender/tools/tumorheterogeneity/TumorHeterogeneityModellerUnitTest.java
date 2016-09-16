@@ -44,62 +44,62 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     @Test
     public void testRunMCMC() throws IOException {
-        final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
-        LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
-
-        rng.setSeed(RANDOM_SEED);
-
-        final List<Integer> populationIndices = IntStream.range(0, NUM_POPULATIONS_TRUTH).boxed().collect(Collectors.toList());
-        final List<Integer> randomPopulationIndices = IntStream.range(0, NUM_POINTS).boxed()
-                .map(i -> GATKProtectedMathUtils.randomSelect(populationIndices, POPULATION_FRACTIONS_TRUTH::get, rng)).collect(Collectors.toList());
-        final List<Double> points = randomPopulationIndices.stream().map(i -> new NormalDistribution(rng, MEANS_TRUTH.get(i), Math.sqrt(VARIANCE_TRUTH)).sample()).collect(Collectors.toList());
-        ParamUtils.writeValuesToFile(Doubles.toArray(points), new File("points.txt"));
-
-        final int numPopulations = 10;
-        final int numSamples = 2000;
-        final int numBurnIn = 1000;
-
-        //run MCMC
-        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(points, numPopulations, rng);
-        modeller.fitMCMC(numSamples, numBurnIn);
-        
-        //check statistics of global-parameter posterior samples (i.e., posterior mode and standard deviation)
-        final Map<TumorHeterogeneityParameter, PosteriorSummary> globalParameterPosteriorSummaries =
-                modeller.getGlobalParameterPosteriorSummaries(CREDIBLE_INTERVAL_ALPHA, ctx);
-
-        final PosteriorSummary concentrationPosteriorSummary = globalParameterPosteriorSummaries.get(TumorHeterogeneityParameter.CONCENTRATION);
-        final double concentrationPosteriorCenter = concentrationPosteriorSummary.getCenter();
-        final double concentrationPosteriorStandardDeviation = (concentrationPosteriorSummary.getUpper() - concentrationPosteriorSummary.getLower()) / 2;
-        System.out.println("concentration: " + concentrationPosteriorCenter + " " + concentrationPosteriorStandardDeviation);
-        System.out.println();
-
-        final PosteriorSummary variancePosteriorSummary = globalParameterPosteriorSummaries.get(TumorHeterogeneityParameter.VARIANCE);
-        final double variancePosteriorCenter = variancePosteriorSummary.getCenter();
-        final double variancePosteriorStandardDeviation = (variancePosteriorSummary.getUpper() - variancePosteriorSummary.getLower()) / 2;
-        System.out.println("variance: " + variancePosteriorCenter + " " + variancePosteriorStandardDeviation);
-        ParamUtils.writeValuesToFile(Doubles.toArray(modeller.getVarianceSamples()), new File("variance.txt"));
-        System.out.println();
-//        Assert.assertEquals(Math.abs(variancePosteriorCenter - VARIANCE_TRUTH),
-//                0., MULTIPLES_OF_SD_THRESHOLD * VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH);
-//        Assert.assertEquals(relativeError(variancePosteriorStandardDeviation, VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH),
-//                0., RELATIVE_ERROR_THRESHOLD);
-
-        for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
-            final int j = populationIndex;
-            final double[] meanSamples = Doubles.toArray(modeller.getMeansSamples().stream().map(s -> s.get(j)).collect(Collectors.toList()));
-            final double meanMean = new Mean().evaluate(meanSamples);
-            final double meanStandardDeviation = new StandardDeviation().evaluate(meanSamples);
-            System.out.println("mean " + populationIndex + ": " + meanMean + " " + meanStandardDeviation);
-            ParamUtils.writeValuesToFile(meanSamples, new File("mean-" + j + ".txt"));
-
-            final double[] populationFractionSamples = Doubles.toArray(modeller.getPopulationFractionsSamples().stream().map(s -> s.get(j)).collect(Collectors.toList()));
-            final double populationFractionMean = new Mean().evaluate(populationFractionSamples);
-            final double populationFractionStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
-            System.out.println("fraction " + populationIndex + ": " + populationFractionMean + " " + populationFractionStandardDeviation);
-            ParamUtils.writeValuesToFile(populationFractionSamples, new File("fraction-" + j + ".txt"));
-
-            System.out.println();
-        }
+//        final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
+//        LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
+//
+//        rng.setSeed(RANDOM_SEED);
+//
+//        final List<Integer> populationIndices = IntStream.range(0, NUM_POPULATIONS_TRUTH).boxed().collect(Collectors.toList());
+//        final List<Integer> randomPopulationIndices = IntStream.range(0, NUM_POINTS).boxed()
+//                .map(i -> GATKProtectedMathUtils.randomSelect(populationIndices, POPULATION_FRACTIONS_TRUTH::get, rng)).collect(Collectors.toList());
+//        final List<Double> points = randomPopulationIndices.stream().map(i -> new NormalDistribution(rng, MEANS_TRUTH.get(i), Math.sqrt(VARIANCE_TRUTH)).sample()).collect(Collectors.toList());
+//        ParamUtils.writeValuesToFile(Doubles.toArray(points), new File("points.txt"));
+//
+//        final int numPopulations = 10;
+//        final int numSamples = 2000;
+//        final int numBurnIn = 1000;
+//
+//        //run MCMC
+//        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(points, numPopulations, rng);
+//        modeller.fitMCMC(numSamples, numBurnIn);
+//
+//        //check statistics of global-parameter posterior samples (i.e., posterior mode and standard deviation)
+//        final Map<TumorHeterogeneityParameter, PosteriorSummary> globalParameterPosteriorSummaries =
+//                modeller.getGlobalParameterPosteriorSummaries(CREDIBLE_INTERVAL_ALPHA, ctx);
+//
+//        final PosteriorSummary concentrationPosteriorSummary = globalParameterPosteriorSummaries.get(TumorHeterogeneityParameter.CONCENTRATION);
+//        final double concentrationPosteriorCenter = concentrationPosteriorSummary.getCenter();
+//        final double concentrationPosteriorStandardDeviation = (concentrationPosteriorSummary.getUpper() - concentrationPosteriorSummary.getLower()) / 2;
+//        System.out.println("concentration: " + concentrationPosteriorCenter + " " + concentrationPosteriorStandardDeviation);
+//        System.out.println();
+//
+//        final PosteriorSummary variancePosteriorSummary = globalParameterPosteriorSummaries.get(TumorHeterogeneityParameter.VARIANCE);
+//        final double variancePosteriorCenter = variancePosteriorSummary.getCenter();
+//        final double variancePosteriorStandardDeviation = (variancePosteriorSummary.getUpper() - variancePosteriorSummary.getLower()) / 2;
+//        System.out.println("variance: " + variancePosteriorCenter + " " + variancePosteriorStandardDeviation);
+//        ParamUtils.writeValuesToFile(Doubles.toArray(modeller.getVarianceSamples()), new File("variance.txt"));
+//        System.out.println();
+////        Assert.assertEquals(Math.abs(variancePosteriorCenter - VARIANCE_TRUTH),
+////                0., MULTIPLES_OF_SD_THRESHOLD * VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH);
+////        Assert.assertEquals(relativeError(variancePosteriorStandardDeviation, VARIANCE_POSTERIOR_STANDARD_DEVIATION_TRUTH),
+////                0., RELATIVE_ERROR_THRESHOLD);
+//
+//        for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+//            final int j = populationIndex;
+//            final double[] meanSamples = Doubles.toArray(modeller.getMeansSamples().stream().map(s -> s.get(j)).collect(Collectors.toList()));
+//            final double meanMean = new Mean().evaluate(meanSamples);
+//            final double meanStandardDeviation = new StandardDeviation().evaluate(meanSamples);
+//            System.out.println("mean " + populationIndex + ": " + meanMean + " " + meanStandardDeviation);
+//            ParamUtils.writeValuesToFile(meanSamples, new File("mean-" + j + ".txt"));
+//
+//            final double[] populationFractionSamples = Doubles.toArray(modeller.getPopulationFractionsSamples().stream().map(s -> s.get(j)).collect(Collectors.toList()));
+//            final double populationFractionMean = new Mean().evaluate(populationFractionSamples);
+//            final double populationFractionStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
+//            System.out.println("fraction " + populationIndex + ": " + populationFractionMean + " " + populationFractionStandardDeviation);
+//            ParamUtils.writeValuesToFile(populationFractionSamples, new File("fraction-" + j + ".txt"));
+//
+//            System.out.println();
+//        }
 
 //        //check statistics of segment-mean posterior samples (i.e., posterior means and standard deviations)
 //        int numMeansOutsideOneSigma = 0;
