@@ -1,6 +1,9 @@
 package org.broadinstitute.hellbender.tools.walkers.haplotypecaller;
 
+import htsjdk.samtools.SAMFileHeader;
 import org.broadinstitute.hellbender.engine.*;
+import org.broadinstitute.hellbender.engine.filters.ReadFilter;
+import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.activityprofile.ActivityProfileState;
 import org.broadinstitute.hellbender.utils.downsampling.DownsamplingMethod;
@@ -44,7 +47,7 @@ public class HaplotypeCallerEngineUnitTest extends BaseTest {
               final ReferenceDataSource ref = new ReferenceFileSource(reference) ) {
 
             final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgs, reads.getHeader(), reference.getAbsolutePath());
-            final Iterator<GATKRead> readIter = new ReadFilteringIterator(reads.query(paddedShardInterval), HaplotypeCallerEngine.makeStandardHCReadFilter(hcArgs, reads.getHeader()));
+            final Iterator<GATKRead> readIter = new ReadFilteringIterator(reads.query(paddedShardInterval), mergeFilters(HaplotypeCallerEngine.makeStandardHCReadFilters(), reads.getHeader()));
             final LocusIteratorByState libs = new LocusIteratorByState(readIter, DownsamplingMethod.NONE, false, false, ReadUtils.getSamplesFromHeader(reads.getHeader()), reads.getHeader());
 
             for ( final AlignmentContext pileup : libs ) {
@@ -56,6 +59,21 @@ public class HaplotypeCallerEngineUnitTest extends BaseTest {
                 final double expectedIsActiveValue = expectedActiveSites.contains(pileupInterval) ? 1.0 : 0.0;
                 Assert.assertEquals(isActiveResult.isActiveProb(), expectedIsActiveValue, "Wrong isActive probability for site " + pileupInterval);
             }
+        }
+    }
+
+    private static ReadFilter mergeFilters(List<ReadFilter> filters, SAMFileHeader header){
+        // Reducing will leave an unnecessary identity filter (ALLOW_ALL_READS) at the start, so
+        // iterate instead
+        if (filters == null || filters.isEmpty()) {
+            return ReadFilterLibrary.ALLOW_ALL_READS;
+        } else {
+            ReadFilter mergedFilter = filters.get(0);
+            filters.forEach(f -> f.setHeader(header));
+            for (int i = 1; i < filters.size(); i++) {
+                mergedFilter = mergedFilter.and(filters.get(i));
+            }
+            return mergedFilter;
         }
     }
 }

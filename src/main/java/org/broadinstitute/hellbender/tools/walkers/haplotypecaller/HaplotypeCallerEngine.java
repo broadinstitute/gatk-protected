@@ -12,10 +12,7 @@ import htsjdk.variant.vcf.VCFStandardHeaderLines;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.engine.*;
-import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
-import org.broadinstitute.hellbender.engine.filters.MappingQualityReadFilter;
-import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
-import org.broadinstitute.hellbender.engine.filters.WellformedReadFilter;
+import org.broadinstitute.hellbender.engine.filters.*;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.*;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.*;
@@ -45,6 +42,8 @@ import org.broadinstitute.hellbender.utils.variant.writers.GVCFWriter;
 import java.io.File;
 import java.util.*;
 
+import static com.sun.tools.doclets.formats.html.markup.HtmlStyle.header;
+
 /**
  * The core engine for the HaplotypeCaller that does all of the actual work of the tool.
  *
@@ -61,6 +60,8 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
     private static final Logger logger = LogManager.getLogger(HaplotypeCallerEngine.class);
 
     private final HaplotypeCallerArgumentCollection hcArgs;
+
+    public static final int DEFAULT_MIN_MAPPING_QUALITY_SCORE = 20;
 
     private final SAMFileHeader readsHeader;
 
@@ -311,25 +312,21 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
 
 
     /**
-     * Create the default read filter for use with the HaplotypeCaller
+     * Create a list with the default read filters for use with the HaplotypeCaller
      *
-     * @param hcArgs HaplotypeCaller arguments
-     * @param header reads header
      * @return the default read filter for use with the HaplotypeCaller
      */
-    public static CountingReadFilter makeStandardHCReadFilter( final HaplotypeCallerArgumentCollection hcArgs, final SAMFileHeader header ) {
-        Utils.nonNull(hcArgs);
-        Utils.nonNull(header);
-
-        return new CountingReadFilter(new MappingQualityReadFilter(hcArgs.MIN_MAPPING_QUALITY_SCORE))
-                .and(new CountingReadFilter(ReadFilterLibrary.MAPPING_QUALITY_AVAILABLE))
-                .and(new CountingReadFilter(ReadFilterLibrary.MAPPED))
-                .and(new CountingReadFilter(ReadFilterLibrary.PRIMARY_ALIGNMENT))
-                .and(new CountingReadFilter(ReadFilterLibrary.NOT_DUPLICATE))
-                .and(new CountingReadFilter(ReadFilterLibrary.PASSES_VENDOR_QUALITY_CHECK))
-                .and(new CountingReadFilter(ReadFilterLibrary.GOOD_CIGAR))
-                .and(new CountingReadFilter(new WellformedReadFilter(header)));
-
+    public static List<ReadFilter> makeStandardHCReadFilters() {
+        List<ReadFilter> filters = new ArrayList<>();
+        filters.add(new MappingQualityReadFilter(DEFAULT_MIN_MAPPING_QUALITY_SCORE));
+        filters.add(ReadFilterLibrary.MAPPING_QUALITY_AVAILABLE);
+        filters.add(ReadFilterLibrary.MAPPED);
+        filters.add(ReadFilterLibrary.PRIMARY_ALIGNMENT);
+        filters.add(ReadFilterLibrary.NOT_DUPLICATE);
+        filters.add(ReadFilterLibrary.PASSES_VENDOR_QUALITY_CHECK);
+        filters.add(ReadFilterLibrary.GOOD_CIGAR);
+        filters.add(new WellformedReadFilter());;
+        return filters;
     }
 
     /**

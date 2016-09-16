@@ -72,6 +72,18 @@ public class HaplotypeCallerArgumentCollection extends AssemblyBasedCallerArgume
     public int indelSizeToEliminateInRefModel = 10;
 
 
+    /**
+     * Bases with a quality below this threshold will not be used for calling.
+     */
+    @Argument(fullName = "min_base_quality_score", shortName = "mbq", doc = "Minimum base quality required to consider a base for calling", optional = true)
+    public byte MIN_BASE_QUALTY_SCORE = 10;
+
+    /**
+     * Bases with a quality below this threshold will reduced too the minimum usable qualiy score (6).
+     */
+    @Argument(fullName = "base_quality_score_threshold", shortName = "bqst", doc = "Base qualities below this threshold will be reduced to the minimum (" + QualityUtils.MIN_USABLE_Q_SCORE + ")", optional = true)
+    public byte BASE_QUALITY_SCORE_THRESHOLD = PairHMM.BASE_QUALITY_SCORE_THRESHOLD;
+
     @Advanced
     @Argument(fullName = "useAllelesTrigger", shortName = "allelesTrigger", doc = "Use additional trigger on variants found in an external alleles file", optional = true)
     public boolean USE_ALLELES_TRIGGER = false;

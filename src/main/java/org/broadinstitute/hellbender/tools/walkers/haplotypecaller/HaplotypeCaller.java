@@ -8,14 +8,11 @@ import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
 import org.broadinstitute.hellbender.engine.*;
-import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerEngine.makeStandardHCReadFilter;
 
 
 /**
@@ -195,7 +192,7 @@ public final class HaplotypeCaller extends AssemblyRegionWalker {
     @Override
     public List<ReadFilter> getDefaultReadFilters() {
         final List<ReadFilter> filters = new ArrayList<>();
-        filters.add(HaplotypeCallerEngine.makeStandardHCReadFilter(hcArgs, getHeaderForReads()));
+        filters.addAll(HaplotypeCallerEngine.makeStandardHCReadFilters());
         return filters;
     }
 
