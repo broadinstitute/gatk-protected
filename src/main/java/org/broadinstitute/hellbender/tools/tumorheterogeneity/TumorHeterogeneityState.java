@@ -4,10 +4,8 @@ import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Parameter;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterizedState;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -26,11 +24,13 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         }
     }
 
-    public static final class PopulationCollection extends ArrayList<PopulationState> {
+    public static final class PopulationStateCollection extends ArrayList<PopulationState> {
         //list of PopulationStates, size = number of populations, i-th element = PopulationState for population i
         private static final long serialVersionUID = 76498L;
-        public PopulationCollection(final List<PopulationState> populationCollection) {
-            super(populationCollection);
+        public PopulationStateCollection(final List<PopulationState> populationStates) {
+            super(populationStates);
+            final Set<Integer> numSegmentsSet = populationStates.stream().map(s -> s.numSegments).collect(Collectors.toSet());
+            Utils.validateArg(numSegmentsSet.size() == 1, "Population states must all have the same number of segments.");
         }
     }
 
@@ -45,14 +45,12 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     public TumorHeterogeneityState(final double concentration,
                                    final PopulationFractions populationFractions,
                                    final PopulationIndicators populationIndicators,
-                                   final HyperparameterValues variantSegmentFractionHyperparameters,
-                                   final PopulationCollection populationCollection) {
+                                   final PopulationStateCollection populationStateCollection) {
         super(Arrays.asList(
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractions),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicators),
-                new Parameter<>(TumorHeterogeneityParameter.VARIANT_SEGMENT_FRACTION_HYPERPARAMETERS, variantSegmentFractionHyperparameters),
-                new Parameter<>(TumorHeterogeneityParameter.POPULATION_STATES, populationCollection)));
+                new Parameter<>(TumorHeterogeneityParameter.POPULATION_STATE_COLLECTION, populationStateCollection)));
         Utils.validateArg(populationFractions.size() > 0,
                 "Number of populations must be positive.");
         final double populationFractionNormalization = populationFractions.stream().mapToDouble(Double::doubleValue).sum();
@@ -60,11 +58,11 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 "Population fractions must sum to unity.");
         Utils.validateArg(populationIndicators.size() > 0,
                 "Number of cells must be positive.");
-        Utils.validateArg(populationFractions.size() == populationCollection.size(),
-                "Number of populations must be same for fractions and states.");
+        Utils.validateArg(populationFractions.size() == populationStateCollection.size(),
+                "Number of populations must be same for population fractions and states.");
         Utils.validateArg(Collections.max(populationIndicators) <= populationFractions.size(),
                 "Number of populations must be same for population fractions and indicators.");
-        numPopulations = populationCollection.size();
+        numPopulations = populationStateCollection.size();
         numCells = populationIndicators.size();
     }
 
@@ -88,36 +86,16 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex);
     }
 
-    public double variantSegmentFractionPriorAlpha() {
-        return get(TumorHeterogeneityParameter.VARIANT_SEGMENT_FRACTION_HYPERPARAMETERS, HyperparameterValues.class).alpha;
-    }
-
-    public double variantSegmentFractionPriorBeta() {
-        return get(TumorHeterogeneityParameter.VARIANT_SEGMENT_FRACTION_HYPERPARAMETERS, HyperparameterValues.class).beta;
-    }
-
     public double variantSegmentFraction(final int populationIndex) {
-        return get(TumorHeterogeneityParameter.POPULATION_STATES, PopulationCollection.class).get(populationIndex).variantFraction;
+        return get(TumorHeterogeneityParameter.POPULATION_STATE_COLLECTION, PopulationStateCollection.class).get(populationIndex).variantSegmentFraction;
     }
 
     public boolean isVariant(final int populationIndex, final int segmentIndex) {
-        return get(TumorHeterogeneityParameter.POPULATION_STATES, PopulationCollection.class).get(populationIndex).variantIndicators.get(segmentIndex);
+        return get(TumorHeterogeneityParameter.POPULATION_STATE_COLLECTION, PopulationStateCollection.class).get(populationIndex).variantIndicators.get(segmentIndex);
     }
 
     public int variantPloidyStateIndex(final int populationIndex, final int segmentIndex) {
-        return get(TumorHeterogeneityParameter.POPULATION_STATES, PopulationCollection.class).get(populationIndex).variantPloidyStateIndicators.get(segmentIndex);
-    }
-
-    static class HyperparameterValues {
-        private final double alpha;
-        private final double beta;
-
-        HyperparameterValues(final double alpha, final double beta) {
-            Utils.validateArg(alpha > 0, "Hyperparameter alpha must be positive.");
-            Utils.validateArg(beta > 0, "Hyperparameter beta must be positive.");
-            this.alpha = alpha;
-            this.beta = beta;
-        }
+        return get(TumorHeterogeneityParameter.POPULATION_STATE_COLLECTION, PopulationStateCollection.class).get(populationIndex).variantPloidyStateIndicators.get(segmentIndex);
     }
 
     /**
@@ -140,7 +118,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             }
         }
 
-        private final double variantFraction;   //fraction of segments that are variant in this population
+        private final int numSegments;
+        private final double variantSegmentFraction;
         private final VariantIndicators variantIndicators;
         private final VariantPloidyStateIndicators variantPloidyStateIndicators;
 
@@ -151,7 +130,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                     "Variant-segment fraction must be in [0, 1].");
             Utils.validateArg(variantIndicators.size() == variantPloidyStateIndicators.size(),
                     "Number of segments must be same for variant and ploidy-state indicators.");
-            this.variantFraction = variantSegmentFraction;
+            numSegments = variantIndicators.size();
+            this.variantSegmentFraction = variantSegmentFraction;
             this.variantIndicators = variantIndicators;
             this.variantPloidyStateIndicators = variantPloidyStateIndicators;
         }
