@@ -11,17 +11,23 @@ import java.util.stream.IntStream;
  */
 public final class PloidyStatePrior {
     private final int numPloidyStates;
+    private final List<PloidyState> ploidyStates;
     private final Map<PloidyState, Double> logProbabilityMassFunctionMap;
 
     public PloidyStatePrior(final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap) {
         Utils.nonNull(unnormalizedLogProbabilityMassFunctionMap);
         Utils.validateArg(!unnormalizedLogProbabilityMassFunctionMap.isEmpty(), "Number of variant ploidy states must be positive.");
         numPloidyStates = unnormalizedLogProbabilityMassFunctionMap.size();
+        ploidyStates = Collections.unmodifiableList(new ArrayList<>(unnormalizedLogProbabilityMassFunctionMap.keySet()));
         this.logProbabilityMassFunctionMap = normalize(new LinkedHashMap<>(unnormalizedLogProbabilityMassFunctionMap));
     }
 
     public int numPloidyStates() {
         return numPloidyStates;
+    }
+
+    public List<PloidyState> ploidyStates() {
+        return ploidyStates;
     }
 
     public double logProbability(final PloidyState variantPloidyState) {
