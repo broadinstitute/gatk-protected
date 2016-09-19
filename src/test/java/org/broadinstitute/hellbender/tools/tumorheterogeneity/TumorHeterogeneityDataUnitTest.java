@@ -37,6 +37,7 @@ public class TumorHeterogeneityDataUnitTest {
             new DecileCollection(Collections.singletonList(Double.NaN), DecileCollection.ConstructionMode.SAMPLES);
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
     private static final PloidyStatePrior DUMMY_VARIANT_PLOIDY_STATE_PRIOR;
+    private static final double DUMMY_HYPERPARAMETER = 1.;
 
     static {
         DUMMY_POSTERIOR_SUMMARY.setDeciles(DUMMY_DECILE_COLLECTION);
@@ -89,7 +90,9 @@ public class TumorHeterogeneityDataUnitTest {
                 meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used in fit
         segmentMeanPosteriorSummary.setDeciles(new DecileCollection(decilesTruth, DecileCollection.ConstructionMode.DECILES));
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(Collections.singletonList(segment), NORMAL_PLOIDY_STATE, DUMMY_VARIANT_PLOIDY_STATE_PRIOR);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(
+                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, DUMMY_VARIANT_PLOIDY_STATE_PRIOR,
+                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
 
         //test log density at a point
         final int segmentIndex = 0;
@@ -130,7 +133,9 @@ public class TumorHeterogeneityDataUnitTest {
         minorAlleleFractionPosteriorSummary.setDeciles(new DecileCollection(minorAlleleFractionDecilesTruth, DecileCollection.ConstructionMode.DECILES));
 
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, minorAlleleFractionPosteriorSummary);
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(Collections.singletonList(segment), NORMAL_PLOIDY_STATE, DUMMY_VARIANT_PLOIDY_STATE_PRIOR);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(
+                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, DUMMY_VARIANT_PLOIDY_STATE_PRIOR,
+                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
 
         //test log density at a point
         final int segmentIndex = 0;

@@ -28,7 +28,7 @@ public final class TumorHeterogeneityModeller {
 
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
-    private final List<TumorHeterogeneityState.PopulationStateCollection> populationStateCollectionSamples = new ArrayList<>();
+    private final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = new ArrayList<>();
 
     /**
      */
@@ -53,7 +53,7 @@ public final class TumorHeterogeneityModeller {
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(variantSegmentFractionPriorAlpha > 0, "Hyperparameter for variant-segment fraction must be positive.");
         Utils.validateArg(variantSegmentFractionPriorBeta > 0, "Hyperparameter for variant-segment fraction must be positive.");
-        Utils.validateArg(numPopulations > 0, "Maximum number of populations must be positive.");
+        Utils.validateArg(numPopulations > 1, "Maximum number of populations must be strictly greater than 1.");
         Utils.validateArg(numCells > 0, "Number of auxiliary cells must be positive.");
 
         //create TumorHeterogeneityData from ACNV segments
@@ -63,17 +63,18 @@ public final class TumorHeterogeneityModeller {
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
-        //randomly initialize population indicators for each cell
+        //randomly initialize variant population indicators for each cell
+        final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                initializePopulationIndicators(numPopulations, numCells, rng);
-        //initialize population states to non-variant
-        final TumorHeterogeneityState.PopulationStateCollection initialPopulationStateCollection =
-                initializePopulationStates(numPopulations, data.numSegments());
+                initializePopulationIndicators(numVariantPopulations, numCells, rng);
+        //initialize variant profiles to normal
+        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
+                initializeProfiles(numVariantPopulations, data.numSegments());
 
         //initialize TumorHeterogeneityState
         final double initialConcentration = concentrationPriorAlpha / concentrationPriorBeta;
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
-                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialPopulationStateCollection);
+                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection);
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
@@ -82,14 +83,14 @@ public final class TumorHeterogeneityModeller {
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
                 new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numPopulations);
-        final TumorHeterogeneitySamplers.PopulationStateCollectionSampler populationStateCollectionSampler =
-                new TumorHeterogeneitySamplers.PopulationStateCollectionSampler(numPopulations);
+        final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
+                new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations);
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
-                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_STATE_COLLECTION, populationStateCollectionSampler, TumorHeterogeneityState.PopulationStateCollection.class)
+                .addParameterSampler(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollectionSampler, TumorHeterogeneityState.VariantProfileCollection.class)
                 .build();
     }
 
@@ -113,8 +114,8 @@ public final class TumorHeterogeneityModeller {
                 Double.class, numBurnIn));
         populationFractionsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_FRACTIONS,
                 TumorHeterogeneityState.PopulationFractions.class, numBurnIn));
-        populationStateCollectionSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_STATE_COLLECTION,
-                TumorHeterogeneityState.PopulationStateCollection.class, numBurnIn));
+        variantProfileCollectionSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.VARIANT_PROFILES,
+                TumorHeterogeneityState.VariantProfileCollection.class, numBurnIn));
     }
 
     /**
@@ -135,12 +136,12 @@ public final class TumorHeterogeneityModeller {
     }
 
     /**
-     * Returns an unmodifiable view of the list of samples of the population-states posterior, represented as a list of
+     * Returns an unmodifiable view of the list of samples of the variant-profile-collection posterior, represented as a list of
      * {@link TumorHeterogeneityState.PopulationFractions} objects.
-     * @return  unmodifiable view of the list of samples of the population-states posterior
+     * @return  unmodifiable view of the list of samples of the variant-profile-collection posterior
      */
-    public List<TumorHeterogeneityState.PopulationStateCollection> getPopulationStateCollectionSamples() {
-        return Collections.unmodifiableList(populationStateCollectionSamples);
+    public List<TumorHeterogeneityState.VariantProfileCollection> getVariantProfileCollectionSamples() {
+        return Collections.unmodifiableList(variantProfileCollectionSamples);
     }
 
     /**
@@ -169,17 +170,17 @@ public final class TumorHeterogeneityModeller {
                 .collect(Collectors.toList()));
     }
 
-    private TumorHeterogeneityState.PopulationStateCollection initializePopulationStates(final int numPopulations,
+    private TumorHeterogeneityState.VariantProfileCollection initializeProfiles(final int numVariantPopulations,
                                                                                 final int numSegments) {
-        return new TumorHeterogeneityState.PopulationStateCollection(Collections.nCopies(numPopulations, initializePopulationState(numSegments)));
+        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeProfile(numSegments)));
     }
 
-    private TumorHeterogeneityState.PopulationState initializePopulationState(final int numSegments) {
+    private TumorHeterogeneityState.VariantProfile initializeProfile(final int numSegments) {
         final double variantSegmentFraction = 0.;
-        final TumorHeterogeneityState.PopulationState.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.PopulationState.VariantIndicators(Collections.nCopies(numSegments, false));
-        final TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators variantPloidyStateIndicators =
-                new TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
-        return new TumorHeterogeneityState.PopulationState(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
+        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
+        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
+                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
+        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
     }
 }

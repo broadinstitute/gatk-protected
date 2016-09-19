@@ -103,22 +103,6 @@ public final class TumorHeterogeneityData implements DataCollection {
         return numSegments;
     }
 
-    public List<Integer> segmentLengths() {
-        return segmentLengths;
-    }
-
-    public long totalLength() {
-        return totalLength;
-    }
-
-    public PloidyState normalPloidyState() {
-        return normalPloidyState;
-    }
-
-    public PloidyStatePrior variantPloidyStatePrior() {
-        return variantPloidyStatePrior;
-    }
-
     public double concentrationPriorAlpha() {
         return concentrationPriorAlpha;
     }
@@ -140,6 +124,29 @@ public final class TumorHeterogeneityData implements DataCollection {
         Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
         Utils.validateArg(0 <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
         return segmentPosteriors.get(segmentIndex).logDensity(copyRatio, minorAlleleFraction);
+    }
+
+    public double calculateAveragePloidy(final TumorHeterogeneityState state) {
+        Utils.nonNull(state);
+        Utils.validateArg(state.numSegments() == numSegments,
+                "Tumor-heterogeneity state and data collection must have same number of segments.");
+
+        final List<Double> cellPopulationFractions = state.sumPopulationCounts().stream()
+                .map(c -> c.doubleValue() / state.numCells()).collect(Collectors.toList());
+        final double inverseTotalLength = 1. / totalLength;
+        double averagePloidy = 0.;
+        final int normalPloidy = normalPloidyState.total();
+        final List<PloidyState> variantPloidyStates = variantPloidyStatePrior.ploidyStates();
+        for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+            double ploidyInSegment = 0.;
+            for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
+                ploidyInSegment += state.isVariant(populationIndex, segmentIndex) ?
+                        cellPopulationFractions.get(populationIndex) * variantPloidyStates.get(state.variantPloidyStateIndex(populationIndex, segmentIndex)).total() :
+                        cellPopulationFractions.get(populationIndex) * normalPloidy;
+            }
+            averagePloidy += ploidyInSegment * segmentLengths.get(segmentIndex) * inverseTotalLength;
+        }
+        return averagePloidy;
     }
     
     private final class ACNVSegmentPosterior {
