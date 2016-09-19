@@ -149,36 +149,6 @@ public class TumorHeterogeneityDataUnitTest {
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
     }
 
-    @Test
-    public void testCalculateAveragePloidy() {
-        //fail if number of segments is not the same for all variants
-        final double concentration = 1.;
-        final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
-        final TumorHeterogeneityState.PopulationIndicators populationIndicators =
-                new TumorHeterogeneityState.PopulationIndicators(Arrays.asList(0, 1, 1, 2, 2, 2, 2, 2, 2, 2));
-        final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(0, 1)));
-        final TumorHeterogeneityState.VariantProfile variantProfile2 = new TumorHeterogeneityState.VariantProfile(
-                0.3,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, false)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(2, 0)));
-        final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Arrays.asList(variantProfile1, variantProfile2));
-        final TumorHeterogeneityState state = new TumorHeterogeneityState(concentration, populationFractions, populationIndicators, variantProfiles);
-
-        //need valid segment-mean posterior summary to construct TumorHeterogeneityData, but it is not used in this test
-        final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(0., -0.1, 0.1);
-        segmentMeanPosteriorSummary.setDeciles(new DecileCollection(Arrays.asList(0., -0.1, 0.1), DecileCollection.ConstructionMode.SAMPLES));
-        final ACNVModeledSegment segment1 = new ACNVModeledSegment(new SimpleInterval("1", 1, 25), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
-        final ACNVModeledSegment segment2 = new ACNVModeledSegment(new SimpleInterval("1", 26, 100), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(Arrays.asList(segment1, segment2), NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
-                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
-
-        final double averagePloidy = data.calculateAveragePloidy(state);
-        Assert.assertEquals(averagePloidy, 1.925);
-    }
-
     private static double relativeError(final double x, final double xTrue) {
         return Math.abs((x - xTrue) / xTrue);
     }
