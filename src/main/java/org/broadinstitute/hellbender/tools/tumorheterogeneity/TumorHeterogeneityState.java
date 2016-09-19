@@ -68,10 +68,13 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     private final int numSegments;
     private final List<Integer> populationCounts;
 
+    private final TumorHeterogeneityPriorCollection priors;
+
     public TumorHeterogeneityState(final double concentration,
                                    final PopulationFractions populationFractions,
                                    final PopulationIndicators populationIndicators,
-                                   final VariantProfileCollection variantProfileCollection) {
+                                   final VariantProfileCollection variantProfileCollection,
+                                   final TumorHeterogeneityPriorCollection priors) {
         super(Arrays.asList(
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractions),
@@ -81,10 +84,12 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 "Number of populations must be equal to number of variant populations + 1.");
         Utils.validateArg(Collections.max(populationIndicators) < populationFractions.numPopulations,
                 "Population indicators must be consistent with number of populations.");
+        Utils.nonNull(priors);
         numPopulations = populationFractions.numPopulations;
         numCells = populationIndicators.numCells;
         numSegments = variantProfileCollection.numSegments;
         populationCounts = Collections.unmodifiableList(sumPopulationCounts());
+        this.priors = priors;
     }
 
     public int numPopulations() {
@@ -137,6 +142,9 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantPloidyStateIndicators.get(segmentIndex);
     }
 
+    public TumorHeterogeneityPriorCollection priors() {
+        return priors;
+    }
 
     public double calculateAveragePloidy(final TumorHeterogeneityData data) {
         Utils.nonNull(data);
@@ -144,8 +152,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 "Tumor-heterogeneity state and data collection must have same number of segments.");
 
         double numCopiesWeightedByGenomicLength = 0.;
-        final List<PloidyState> variantPloidyStates = data.variantPloidyStatePrior().ploidyStates();
-        final int normalPloidy = data.normalPloidyState().total();
+        final List<PloidyState> variantPloidyStates = priors.variantPloidyStatePrior().ploidyStates();
+        final int normalPloidy = priors.normalPloidyState().total();
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
             double numCopiesInSegment = 0.;
             for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {

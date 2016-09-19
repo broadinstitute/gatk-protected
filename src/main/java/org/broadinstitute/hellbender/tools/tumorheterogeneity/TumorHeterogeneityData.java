@@ -18,8 +18,6 @@ import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
-import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
-import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.DataCollection;
@@ -59,44 +57,14 @@ public final class TumorHeterogeneityData implements DataCollection {
     private final List<Integer> segmentLengths;
     private final long totalLength;
 
-    private final PloidyState normalPloidyState;
-    private final PloidyStatePrior variantPloidyStatePrior;
-
-    private final double concentrationPriorAlpha;
-    private final double concentrationPriorBeta;
-    private final double variantSegmentFractionPriorAlpha;
-    private final double variantSegmentFractionPriorBeta;
-
-    public TumorHeterogeneityData(final List<ACNVModeledSegment> segments,
-                                  final PloidyState normalPloidyState,
-                                  final PloidyStatePrior variantPloidyStatePrior,
-                                  final double concentrationPriorAlpha,
-                                  final double concentrationPriorBeta,
-                                  final double variantSegmentFractionPriorAlpha,
-                                  final double variantSegmentFractionPriorBeta) {
+    public TumorHeterogeneityData(final List<ACNVModeledSegment> segments) {
         Utils.nonNull(segments);
-        Utils.nonNull(normalPloidyState);
-        Utils.nonNull(variantPloidyStatePrior);
         Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
-        Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
-                "Variant-ploidy state prior should not be specified for normal ploidy state.");
-        Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
-        Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
-        Utils.validateArg(variantSegmentFractionPriorAlpha > 0, "Hyperparameter for variant-segment fraction must be positive.");
-        Utils.validateArg(variantSegmentFractionPriorBeta > 0, "Hyperparameter for variant-segment fraction must be positive.");
 
         numSegments = segments.size();
         segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
         segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getEnd() - s.getStart() + 1).collect(Collectors.toList()));
         totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
-
-        this.normalPloidyState = normalPloidyState;
-        this.variantPloidyStatePrior = variantPloidyStatePrior;
-
-        this.concentrationPriorAlpha = concentrationPriorAlpha;
-        this.concentrationPriorBeta = concentrationPriorBeta;
-        this.variantSegmentFractionPriorAlpha = variantSegmentFractionPriorAlpha;
-        this.variantSegmentFractionPriorBeta = variantSegmentFractionPriorBeta;
     }
 
     public int numSegments() {
@@ -109,30 +77,6 @@ public final class TumorHeterogeneityData implements DataCollection {
 
     public long totalLength() {
         return totalLength;
-    }
-
-    public PloidyState normalPloidyState() {
-        return normalPloidyState;
-    }
-
-    public PloidyStatePrior variantPloidyStatePrior() {
-        return variantPloidyStatePrior;
-    }
-
-    public double concentrationPriorAlpha() {
-        return concentrationPriorAlpha;
-    }
-
-    public double concentrationPriorBeta() {
-        return concentrationPriorBeta;
-    }
-
-    public double variantSegmentFractionPriorAlpha() {
-        return variantSegmentFractionPriorAlpha;
-    }
-
-    public double variantSegmentFractionPriorBeta() {
-        return variantSegmentFractionPriorBeta;
     }
 
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction) {

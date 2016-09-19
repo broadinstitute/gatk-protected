@@ -57,8 +57,7 @@ public final class TumorHeterogeneityModeller {
         Utils.validateArg(numCells > 0, "Number of auxiliary cells must be positive.");
 
         //create TumorHeterogeneityData from ACNV segments
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, normalPloidyState, variantPloidyStatePrior,
-                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
 
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
@@ -73,8 +72,10 @@ public final class TumorHeterogeneityModeller {
 
         //initialize TumorHeterogeneityState
         final double initialConcentration = concentrationPriorAlpha / concentrationPriorBeta;
+        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(normalPloidyState, variantPloidyStatePrior,
+                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
-                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection);
+                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
