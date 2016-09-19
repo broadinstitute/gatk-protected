@@ -1,7 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.primitives.Doubles;
-import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
@@ -56,27 +55,12 @@ final class TumorHeterogeneitySamplers {
 
         @Override
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
-            final List<MutableInt> populationCounts = sumPopulationCounts(state);
-            final List<Double> populationFractions = samplePopulationFractions(rng, state, populationCounts);
-            return new TumorHeterogeneityState.PopulationFractions(populationFractions);
-        }
-
-        private List<MutableInt> sumPopulationCounts(final TumorHeterogeneityState state) {
-            final int numPopulations = state.numPopulations();
-            final List<MutableInt> populationCounts = IntStream.range(0, numPopulations).boxed()
-                    .map(j -> new MutableInt(0)).collect(Collectors.toList());
-            for (int cellIndex = 0; cellIndex < state.numCells(); cellIndex++) {
-                final int populationIndex = state.populationIndex(cellIndex);
-                populationCounts.get(populationIndex).increment();
-            }
-            return populationCounts;
-        }
-
-        private List<Double> samplePopulationFractions(final RandomGenerator rng, final TumorHeterogeneityState state, final List<MutableInt> populationCounts) {
+            final List<Integer> populationCounts = state.sumPopulationCounts();
             //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
             final double[] unnormalizedPopulationFractions = populationCounts.stream()
                     .mapToDouble(c -> new GammaDistribution(rng, state.concentration() + c.doubleValue(), 1.).sample()).toArray();
-            return Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
+            final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
+            return new TumorHeterogeneityState.PopulationFractions(populationFractions);
         }
     }
 
@@ -97,37 +81,37 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
-    protected static final class PopulationStateCollectionSampler implements ParameterSampler<TumorHeterogeneityState.PopulationStateCollection, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        private final List<PopulationStateSampler> populationStateSamplers;
+    protected static final class VariantProfileCollectionSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfileCollection, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        private final List<VariantProfileSampler> variantProfileSamplers;
 
-        public PopulationStateCollectionSampler(final int numPopulations) {
-            populationStateSamplers = IntStream.range(0, numPopulations).boxed().map(PopulationStateSampler::new).collect(Collectors.toList());
+        public VariantProfileCollectionSampler(final int numVariantPopulations) {
+            variantProfileSamplers = IntStream.range(0, numVariantPopulations).boxed().map(VariantProfileSampler::new).collect(Collectors.toList());
         }
 
-        public TumorHeterogeneityState.PopulationStateCollection sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
-            final List<TumorHeterogeneityState.PopulationState> populationStates = populationStateSamplers.stream().map(sampler -> sampler.sample(rng, state, dataCollection)).collect(Collectors.toList());
-            return new TumorHeterogeneityState.PopulationStateCollection(populationStates);
+        public TumorHeterogeneityState.VariantProfileCollection sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+            final List<TumorHeterogeneityState.VariantProfile> variantProfiles = variantProfileSamplers.stream().map(sampler -> sampler.sample(rng, state, dataCollection)).collect(Collectors.toList());
+            return new TumorHeterogeneityState.VariantProfileCollection(variantProfiles);
         }
     }
 
-    protected static final class PopulationStateSampler implements ParameterSampler<TumorHeterogeneityState.PopulationState, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+    protected static final class VariantProfileSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private int populationIndex;
         private final VariantSegmentFractionSampler variantSegmentFractionSampler;
         private final VariantIndicatorsSampler variantIndicatorsSampler;
         private final VariantPloidyStateIndicatorsSampler variantPloidyStateIndicatorsSampler;
 
-        public PopulationStateSampler(final int populationIndex) {
+        public VariantProfileSampler(final int populationIndex) {
             this.populationIndex = populationIndex;
             variantSegmentFractionSampler = new VariantSegmentFractionSampler();
             variantIndicatorsSampler = new VariantIndicatorsSampler();
             variantPloidyStateIndicatorsSampler = new VariantPloidyStateIndicatorsSampler();
         }
 
-        public TumorHeterogeneityState.PopulationState sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+        public TumorHeterogeneityState.VariantProfile sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
             final double variantSegmentFraction = variantSegmentFractionSampler.sample(rng, state, dataCollection);
-            final TumorHeterogeneityState.PopulationState.VariantIndicators variantIndicators = variantIndicatorsSampler.sample(rng, state, dataCollection);
-            final TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators variantPloidyStateIndicators = variantPloidyStateIndicatorsSampler.sample(rng, state, dataCollection);
-            return new TumorHeterogeneityState.PopulationState(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
+            final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators = variantIndicatorsSampler.sample(rng, state, dataCollection);
+            final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators = variantPloidyStateIndicatorsSampler.sample(rng, state, dataCollection);
+            return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
         }
 
         private final class VariantSegmentFractionSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
@@ -142,23 +126,23 @@ final class TumorHeterogeneitySamplers {
             }
         }
 
-        private final class VariantIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationState.VariantIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        private final class VariantIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile.VariantIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
             private VariantIndicatorsSampler() {}
 
             @Override
-            public TumorHeterogeneityState.PopulationState.VariantIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+            public TumorHeterogeneityState.VariantProfile.VariantIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
                 //TODO
-                return new TumorHeterogeneityState.PopulationState.VariantIndicators(new ArrayList<>());
+                return new TumorHeterogeneityState.VariantProfile.VariantIndicators(new ArrayList<>());
             }
         }
 
-        private final class VariantPloidyStateIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        private final class VariantPloidyStateIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
             private VariantPloidyStateIndicatorsSampler() {}
 
             @Override
-            public TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
+            public TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
                 //TODO
-                return new TumorHeterogeneityState.PopulationState.VariantPloidyStateIndicators(new ArrayList<>());
+                return new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(new ArrayList<>());
             }
         }
     }
