@@ -176,7 +176,7 @@ public class TumorHeterogeneityStateUnitTest {
         final ACNVModeledSegment segment2 = new ACNVModeledSegment(new SimpleInterval("1", 26, 100), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
         final TumorHeterogeneityData data = new TumorHeterogeneityData(Arrays.asList(segment1, segment2));
 
-        final double averagePloidy = state.calculateAveragePloidy(data);
+        final double averagePloidy = state.calculatePopulationWeightedGenomicAveragedPloidy(data);
         Assert.assertEquals(averagePloidy, 1.925);
     }
 }

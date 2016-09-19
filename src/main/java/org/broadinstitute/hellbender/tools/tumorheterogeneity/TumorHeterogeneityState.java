@@ -146,7 +146,42 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return priors;
     }
 
-    public double calculateAveragePloidy(final TumorHeterogeneityData data) {
+    public double calculatePopulationWeightedCopyNumber(final TumorHeterogeneityData data, final int segmentIndex) {
+        Utils.nonNull(data);
+        Utils.validateArg(data.numSegments() == numSegments,
+                "Tumor-heterogeneity state and data collection must have same number of segments.");
+
+        double numCopiesInSegment = 0.;
+        final List<PloidyState> variantPloidyStates = priors.variantPloidyStatePrior().ploidyStates();
+        final int normalPloidy = priors.normalPloidyState().total();
+        for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+            numCopiesInSegment += isVariant(populationIndex, segmentIndex) ?
+                    populationCount(populationIndex) * variantPloidyStates.get(variantPloidyStateIndex(populationIndex, segmentIndex)).total() :
+                    populationCount(populationIndex) * normalPloidy;
+        }
+        return numCopiesInSegment / numCells;
+    }
+
+    public double calculateMinorAlleleFraction(final TumorHeterogeneityData data, final int segmentIndex) {
+        Utils.nonNull(data);
+        Utils.validateArg(data.numSegments() == numSegments,
+                "Tumor-heterogeneity state and data collection must have same number of segments.");
+
+        double numCopiesOfFirstAlleleInSegment = 0.;
+        double numCopiesOfSecondAlleleInSegment = 0.;
+        final List<PloidyState> variantPloidyStates = priors.variantPloidyStatePrior().ploidyStates();
+        for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+            numCopiesOfFirstAlleleInSegment += isVariant(populationIndex, segmentIndex) ?
+                    populationCount(populationIndex) * variantPloidyStates.get(variantPloidyStateIndex(populationIndex, segmentIndex)).m() :
+                    populationCount(populationIndex) * priors.normalPloidyState().m();
+            numCopiesOfSecondAlleleInSegment += isVariant(populationIndex, segmentIndex) ?
+                    populationCount(populationIndex) * variantPloidyStates.get(variantPloidyStateIndex(populationIndex, segmentIndex)).n() :
+                    populationCount(populationIndex) * priors.normalPloidyState().n();
+        }
+        return Math.min(numCopiesOfFirstAlleleInSegment, numCopiesOfSecondAlleleInSegment) / (numCopiesOfFirstAlleleInSegment + numCopiesOfSecondAlleleInSegment);
+    }
+
+    public double calculatePopulationWeightedGenomicAveragedPloidy(final TumorHeterogeneityData data) {
         Utils.nonNull(data);
         Utils.validateArg(data.numSegments() == numSegments,
                 "Tumor-heterogeneity state and data collection must have same number of segments.");
