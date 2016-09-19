@@ -11,9 +11,8 @@ public final class PloidyState {
     private final int total;
 
     public PloidyState(final int m, final int n) {
-        Utils.validateArg(m >= 0, "Number of major-allele copies must be non-negative.");
-        Utils.validateArg(n >= 0, "Number of minor-allele copies must be non-negative.");
-        Utils.validateArg(m >= n, "Number of major-allele copies must be greater than or equal to number of minor-allele copies.");
+        Utils.validateArg(m >= 0, "Number of allele copies must be non-negative.");
+        Utils.validateArg(n >= 0, "Number of allele copies must be non-negative.");
         this.m = m;
         this.n = n;
         total = m + n;

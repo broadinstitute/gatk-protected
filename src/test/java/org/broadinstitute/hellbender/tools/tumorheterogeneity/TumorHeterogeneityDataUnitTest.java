@@ -10,14 +10,10 @@ import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.mcmc.DecileCollection;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
 import org.testng.Assert;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -36,14 +32,16 @@ public class TumorHeterogeneityDataUnitTest {
     private static final DecileCollection DUMMY_DECILE_COLLECTION =
             new DecileCollection(Collections.singletonList(Double.NaN), DecileCollection.ConstructionMode.SAMPLES);
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
-    private static final PloidyStatePrior DUMMY_VARIANT_PLOIDY_STATE_PRIOR;
+    private static final PloidyStatePrior VARIANT_PLOIDY_STATE_PRIOR;
     private static final double DUMMY_HYPERPARAMETER = 1.;
 
     static {
         DUMMY_POSTERIOR_SUMMARY.setDeciles(DUMMY_DECILE_COLLECTION);
-        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new HashMap<>();
+        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 0), 0.);
-        DUMMY_VARIANT_PLOIDY_STATE_PRIOR = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 1), 0.);
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 2), 0.);
+        VARIANT_PLOIDY_STATE_PRIOR = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
     }
 
     @DataProvider(name = "dataNormal")
@@ -91,7 +89,7 @@ public class TumorHeterogeneityDataUnitTest {
         segmentMeanPosteriorSummary.setDeciles(new DecileCollection(decilesTruth, DecileCollection.ConstructionMode.DECILES));
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
         final TumorHeterogeneityData data = new TumorHeterogeneityData(
-                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, DUMMY_VARIANT_PLOIDY_STATE_PRIOR,
+                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
                 DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
 
         //test log density at a point
@@ -134,7 +132,7 @@ public class TumorHeterogeneityDataUnitTest {
 
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, minorAlleleFractionPosteriorSummary);
         final TumorHeterogeneityData data = new TumorHeterogeneityData(
-                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, DUMMY_VARIANT_PLOIDY_STATE_PRIOR,
+                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
                 DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
 
         //test log density at a point
@@ -149,6 +147,36 @@ public class TumorHeterogeneityDataUnitTest {
                 Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / copyRatio) +
                 Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruth.density(2. * minorAlleleFraction));
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
+    }
+
+    @Test
+    public void testCalculateAveragePloidy() {
+        //fail if number of segments is not the same for all variants
+        final double concentration = 1.;
+        final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
+        final TumorHeterogeneityState.PopulationIndicators populationIndicators =
+                new TumorHeterogeneityState.PopulationIndicators(Arrays.asList(0, 1, 1, 2, 2, 2, 2, 2, 2, 2));
+        final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
+                0.1,
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, true)),
+                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(0, 1)));
+        final TumorHeterogeneityState.VariantProfile variantProfile2 = new TumorHeterogeneityState.VariantProfile(
+                0.3,
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, false)),
+                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(2, 0)));
+        final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Arrays.asList(variantProfile1, variantProfile2));
+        final TumorHeterogeneityState state = new TumorHeterogeneityState(concentration, populationFractions, populationIndicators, variantProfiles);
+
+        //need valid segment-mean posterior summary to construct TumorHeterogeneityData, but it is not used in this test
+        final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(0., -0.1, 0.1);
+        segmentMeanPosteriorSummary.setDeciles(new DecileCollection(Arrays.asList(0., -0.1, 0.1), DecileCollection.ConstructionMode.SAMPLES));
+        final ACNVModeledSegment segment1 = new ACNVModeledSegment(new SimpleInterval("1", 1, 25), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
+        final ACNVModeledSegment segment2 = new ACNVModeledSegment(new SimpleInterval("1", 26, 100), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(Arrays.asList(segment1, segment2), NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
+                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
+
+        final double averagePloidy = data.calculateAveragePloidy(state);
+        Assert.assertEquals(averagePloidy, 1.925);
     }
 
     private static double relativeError(final double x, final double xTrue) {

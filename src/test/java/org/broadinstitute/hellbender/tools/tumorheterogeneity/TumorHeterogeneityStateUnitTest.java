@@ -97,7 +97,7 @@ public class TumorHeterogeneityStateUnitTest {
     public void testDifferentNumberOfSegmentsAcrossVariants() {
         //fail if number of segments is not the same for all variants
         final double concentration = 1.;
-        final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
+        final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
         final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(0));
         final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
                 0.1,
