@@ -103,6 +103,22 @@ public final class TumorHeterogeneityData implements DataCollection {
         return numSegments;
     }
 
+    public int segmentLength(final int segmentIndex) {
+        return segmentLengths.get(segmentIndex);
+    }
+
+    public long totalLength() {
+        return totalLength;
+    }
+
+    public PloidyState normalPloidyState() {
+        return normalPloidyState;
+    }
+
+    public PloidyStatePrior variantPloidyStatePrior() {
+        return variantPloidyStatePrior;
+    }
+
     public double concentrationPriorAlpha() {
         return concentrationPriorAlpha;
     }
@@ -124,26 +140,6 @@ public final class TumorHeterogeneityData implements DataCollection {
         Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
         Utils.validateArg(0 <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
         return segmentPosteriors.get(segmentIndex).logDensity(copyRatio, minorAlleleFraction);
-    }
-
-    public double calculateAveragePloidy(final TumorHeterogeneityState state) {
-        Utils.nonNull(state);
-        Utils.validateArg(state.numSegments() == numSegments,
-                "Tumor-heterogeneity state and data collection must have same number of segments.");
-
-        double numCopiesWeightedByGenomicLength = 0.;
-        final int normalPloidy = normalPloidyState.total();
-        final List<PloidyState> variantPloidyStates = variantPloidyStatePrior.ploidyStates();
-        for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
-            double numCopiesInSegment = 0.;
-            for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
-                numCopiesInSegment += state.isVariant(populationIndex, segmentIndex) ?
-                        state.populationCount(populationIndex) * variantPloidyStates.get(state.variantPloidyStateIndex(populationIndex, segmentIndex)).total() :
-                        state.populationCount(populationIndex) * normalPloidy;
-            }
-            numCopiesWeightedByGenomicLength += numCopiesInSegment * segmentLengths.get(segmentIndex);
-        }
-        return numCopiesWeightedByGenomicLength / (state.numCells() * totalLength);
     }
 
     private final class ACNVSegmentPosterior {
