@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Parameter;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterizedState;
@@ -65,6 +66,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     private final int numPopulations;   //variant populations + normal population
     private final int numCells;
     private final int numSegments;
+    private final List<Integer> populationCounts;
 
     public TumorHeterogeneityState(final double concentration,
                                    final PopulationFractions populationFractions,
@@ -82,6 +84,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         numPopulations = populationFractions.numPopulations;
         numCells = populationIndicators.numCells;
         numSegments = variantProfileCollection.numSegments;
+        populationCounts = Collections.unmodifiableList(sumPopulationCounts());
     }
 
     public int numPopulations() {
@@ -102,6 +105,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     public double populationFraction(final int populationIndex) {
         return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class).get(populationIndex);
+    }
+
+    public int populationCount(final int populationIndex) {
+        return populationCounts.get(populationIndex);
     }
 
     public int populationIndex(final int cellIndex) {
@@ -128,16 +135,6 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             throw new IllegalStateException("Attempted to get variant-ploidy-state index for normal population.");
         }
         return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantPloidyStateIndicators.get(segmentIndex);
-    }
-
-    public List<Integer> sumPopulationCounts() {
-        final List<MutableInt> populationCounts = IntStream.range(0, numPopulations).boxed()
-                .map(j -> new MutableInt(0)).collect(Collectors.toList());
-        for (int cellIndex = 0; cellIndex < numCells; cellIndex++) {
-            final int populationIndex = populationIndex(cellIndex);
-            populationCounts.get(populationIndex).increment();
-        }
-        return populationCounts.stream().map(MutableInt::intValue).collect(Collectors.toList());
     }
 
     /**
@@ -183,5 +180,15 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             this.variantIndicators = variantIndicators;
             this.variantPloidyStateIndicators = variantPloidyStateIndicators;
         }
+    }
+
+    private List<Integer> sumPopulationCounts() {
+        final List<MutableInt> populationCounts = IntStream.range(0, numPopulations).boxed()
+                .map(j -> new MutableInt(0)).collect(Collectors.toList());
+        for (int cellIndex = 0; cellIndex < numCells; cellIndex++) {
+            final int populationIndex = populationIndex(cellIndex);
+            populationCounts.get(populationIndex).increment();
+        }
+        return populationCounts.stream().map(MutableInt::intValue).collect(Collectors.toList());
     }
 }
