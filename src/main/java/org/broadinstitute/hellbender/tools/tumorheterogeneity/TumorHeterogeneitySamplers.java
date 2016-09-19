@@ -42,7 +42,7 @@ final class TumorHeterogeneitySamplers {
             final Function<Double, Double> logConditionalPDF = newConcentration -> {
                 final double populationFractionsTerm = IntStream.range(0, numPopulations)
                         .mapToDouble(i -> (newConcentration - 1) * Math.log(state.populationFraction(i) + EPSILON)).sum();
-                return (dataCollection.concentrationPriorAlpha() - 1.) * Math.log(newConcentration) - dataCollection.concentrationPriorBeta() * newConcentration +
+                return (state.priors().concentrationPriorAlpha() - 1.) * Math.log(newConcentration) - state.priors().concentrationPriorBeta() * newConcentration +
                         Gamma.logGamma(newConcentration * numPopulations) - numPopulations * Gamma.logGamma(newConcentration) + populationFractionsTerm;
             };
             return new SliceSampler(rng, logConditionalPDF, concentrationMin, concentrationMax, concentrationSliceSamplingWidth).sample(state.concentration());
@@ -121,8 +121,8 @@ final class TumorHeterogeneitySamplers {
             public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
                 final int numSegmentsVariant = (int) IntStream.range(0, dataCollection.numSegments()).filter(i -> state.isVariant(populationIndex, i)).count();
                 return new BetaDistribution(rng,
-                        dataCollection.variantSegmentFractionPriorAlpha() + numSegmentsVariant,
-                        dataCollection.variantSegmentFractionPriorBeta() + dataCollection.numSegments() - numSegmentsVariant).sample();
+                        state.priors().variantSegmentFractionPriorAlpha() + numSegmentsVariant,
+                        state.priors().variantSegmentFractionPriorBeta() + dataCollection.numSegments() - numSegmentsVariant).sample();
             }
         }
 
