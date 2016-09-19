@@ -137,6 +137,27 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantPloidyStateIndicators.get(segmentIndex);
     }
 
+
+    public double calculateAveragePloidy(final TumorHeterogeneityData data) {
+        Utils.nonNull(data);
+        Utils.validateArg(data.numSegments() == numSegments,
+                "Tumor-heterogeneity state and data collection must have same number of segments.");
+
+        double numCopiesWeightedByGenomicLength = 0.;
+        final List<PloidyState> variantPloidyStates = data.variantPloidyStatePrior().ploidyStates();
+        final int normalPloidy = data.normalPloidyState().total();
+        for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+            double numCopiesInSegment = 0.;
+            for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                numCopiesInSegment += isVariant(populationIndex, segmentIndex) ?
+                        populationCount(populationIndex) * variantPloidyStates.get(variantPloidyStateIndex(populationIndex, segmentIndex)).total() :
+                        populationCount(populationIndex) * normalPloidy;
+            }
+            numCopiesWeightedByGenomicLength += numCopiesInSegment * data.segmentLength(segmentIndex);
+        }
+        return numCopiesWeightedByGenomicLength / (numCells * data.totalLength());
+    }
+
     /**
      * For each variant population, represents variant-segment fraction and per-segment variant and ploidy indicators.
      */
