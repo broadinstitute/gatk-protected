@@ -119,7 +119,7 @@ final class TumorHeterogeneitySamplers {
 
             @Override
             public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
-                final int numSegmentsVariant = (int) IntStream.range(0, dataCollection.numSegments()).filter(i -> state.isVariant(populationIndex, i)).count();
+                final int numSegmentsVariant = (int) IntStream.range(0, state.numSegments()).filter(i -> state.isVariant(populationIndex, i)).count();
                 return new BetaDistribution(rng,
                         state.priors().variantSegmentFractionPriorAlpha() + numSegmentsVariant,
                         state.priors().variantSegmentFractionPriorBeta() + dataCollection.numSegments() - numSegmentsVariant).sample();
