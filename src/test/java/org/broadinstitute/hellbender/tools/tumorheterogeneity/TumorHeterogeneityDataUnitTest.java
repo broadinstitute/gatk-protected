@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.mcmc.DecileCollection;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -31,17 +32,10 @@ public class TumorHeterogeneityDataUnitTest {
     private static final PosteriorSummary DUMMY_POSTERIOR_SUMMARY = new PosteriorSummary(Double.NaN, Double.NaN, Double.NaN);
     private static final DecileCollection DUMMY_DECILE_COLLECTION =
             new DecileCollection(Collections.singletonList(Double.NaN), DecileCollection.ConstructionMode.SAMPLES);
-    private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
-    private static final PloidyStatePrior VARIANT_PLOIDY_STATE_PRIOR;
-    private static final double DUMMY_HYPERPARAMETER = 1.;
 
-    static {
+    @BeforeTest
+    public void setDeciles() {
         DUMMY_POSTERIOR_SUMMARY.setDeciles(DUMMY_DECILE_COLLECTION);
-        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 0), 0.);
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 1), 0.);
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 2), 0.);
-        VARIANT_PLOIDY_STATE_PRIOR = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
     }
 
     @DataProvider(name = "dataNormal")
@@ -88,9 +82,7 @@ public class TumorHeterogeneityDataUnitTest {
                 meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used in fit
         segmentMeanPosteriorSummary.setDeciles(new DecileCollection(decilesTruth, DecileCollection.ConstructionMode.DECILES));
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(
-                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
-                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(Collections.singletonList(segment));
 
         //test log density at a point
         final int segmentIndex = 0;
@@ -131,9 +123,7 @@ public class TumorHeterogeneityDataUnitTest {
         minorAlleleFractionPosteriorSummary.setDeciles(new DecileCollection(minorAlleleFractionDecilesTruth, DecileCollection.ConstructionMode.DECILES));
 
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, minorAlleleFractionPosteriorSummary);
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(
-                Collections.singletonList(segment), NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
-                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(Collections.singletonList(segment));
 
         //test log density at a point
         final int segmentIndex = 0;
