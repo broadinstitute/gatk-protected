@@ -154,6 +154,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         private final Function<Double, Double> minorAlleleFractionPosteriorLogPDF;
 
         ACNVSegmentPosterior(final ACNVModeledSegment segment) {
+            logger.info("Fitting segment: " + segment.getInterval());
             final List<Double> log2CopyRatioInnerDecilesList = segment.getSegmentMeanPosteriorSummary().getDeciles().getInner();
             final double[] log2CopyRatioInnerDeciles = Doubles.toArray(log2CopyRatioInnerDecilesList);
             logger.info("Fitting normal distribution to inner deciles:\n" + log2CopyRatioInnerDecilesList);
