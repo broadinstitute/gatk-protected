@@ -16,12 +16,6 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityState extends ParameterizedState<TumorHeterogeneityParameter> {
-    private static final double POPULATION_FRACTION_NORMALIZATION_EPSILON = 1E-3;
-
-    private final int numPopulations;   //variant populations + normal population
-    private final int numCells;
-    private final int numSegments;
-
     public static final class PopulationFractions extends ArrayList<Double> {
         //list of doubles, size = number of populations (including normal), i-th element = fraction of population i by cell number
         //normal population is last element
@@ -34,6 +28,18 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             Utils.validateArg(Math.abs(1. - populationFractionNormalization) <= POPULATION_FRACTION_NORMALIZATION_EPSILON,
                     "Population fractions must sum to unity.");
             numPopulations = populationFractions.size();
+        }
+    }
+
+    public static final class PopulationIndicators extends ArrayList<Integer> {
+        //list of integers, size = number of cells, i-th element = population index for cell i
+        private static final long serialVersionUID = 81915L;
+        private final int numCells;
+        public PopulationIndicators(final List<Integer> populationIndicators) {
+            super(populationIndicators);
+            Utils.validateArg(populationIndicators.size() > 0, "Number of cells must be positive.");
+            Utils.validateArg(populationIndicators.stream().allMatch(i -> i >= 0), "Population indicators must be non-negative.");
+            numCells = populationIndicators.size();
         }
     }
 
@@ -54,16 +60,11 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         }
     }
 
-    public static final class PopulationIndicators extends ArrayList<Integer> {
-        //list of integers, size = number of cells, i-th element = population index for cell i
-        private static final long serialVersionUID = 81915L;
-        private final int numCells;
-        public PopulationIndicators(final List<Integer> populationIndicators) {
-            super(populationIndicators);
-            Utils.validateArg(populationIndicators.size() > 0, "Number of cells must be positive.");
-            numCells = populationIndicators.size();
-        }
-    }
+    private static final double POPULATION_FRACTION_NORMALIZATION_EPSILON = 1E-3;
+
+    private final int numPopulations;   //variant populations + normal population
+    private final int numCells;
+    private final int numSegments;
 
     public TumorHeterogeneityState(final double concentration,
                                    final PopulationFractions populationFractions,
@@ -75,9 +76,9 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicators),
                 new Parameter<>(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollection)));
         Utils.validateArg(populationFractions.numPopulations == variantProfileCollection.numVariantPopulations + 1,
-                "Number of populations must be consistent for population fractions and variant population states.");
-        Utils.validateArg(Collections.max(populationIndicators) <= populationFractions.numPopulations,
-                "Number of populations must be same for population fractions and indicators.");
+                "Number of populations must be equal to number of variant populations + 1.");
+        Utils.validateArg(Collections.max(populationIndicators) < populationFractions.numPopulations,
+                "Population indicators must be consistent with number of populations.");
         numPopulations = populationFractions.numPopulations;
         numCells = populationIndicators.numCells;
         numSegments = variantProfileCollection.numSegments;
