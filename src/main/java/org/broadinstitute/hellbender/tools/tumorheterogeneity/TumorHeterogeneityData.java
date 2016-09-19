@@ -131,24 +131,21 @@ public final class TumorHeterogeneityData implements DataCollection {
         Utils.validateArg(state.numSegments() == numSegments,
                 "Tumor-heterogeneity state and data collection must have same number of segments.");
 
-        final List<Double> cellPopulationFractions = state.sumPopulationCounts().stream()
-                .map(c -> c.doubleValue() / state.numCells()).collect(Collectors.toList());
-        final double inverseTotalLength = 1. / totalLength;
-        double averagePloidy = 0.;
+        double numCopiesWeightedByGenomicLength = 0.;
         final int normalPloidy = normalPloidyState.total();
         final List<PloidyState> variantPloidyStates = variantPloidyStatePrior.ploidyStates();
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
-            double ploidyInSegment = 0.;
+            double numCopiesInSegment = 0.;
             for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
-                ploidyInSegment += state.isVariant(populationIndex, segmentIndex) ?
-                        cellPopulationFractions.get(populationIndex) * variantPloidyStates.get(state.variantPloidyStateIndex(populationIndex, segmentIndex)).total() :
-                        cellPopulationFractions.get(populationIndex) * normalPloidy;
+                numCopiesInSegment += state.isVariant(populationIndex, segmentIndex) ?
+                        state.populationCount(populationIndex) * variantPloidyStates.get(state.variantPloidyStateIndex(populationIndex, segmentIndex)).total() :
+                        state.populationCount(populationIndex) * normalPloidy;
             }
-            averagePloidy += ploidyInSegment * segmentLengths.get(segmentIndex) * inverseTotalLength;
+            numCopiesWeightedByGenomicLength += numCopiesInSegment * segmentLengths.get(segmentIndex);
         }
-        return averagePloidy;
+        return numCopiesWeightedByGenomicLength / (state.numCells() * totalLength);
     }
-    
+
     private final class ACNVSegmentPosterior {
         private final Function<Double, Double> log2CopyRatioPosteriorLogPDF;
         private final Function<Double, Double> minorAlleleFractionPosteriorLogPDF;
