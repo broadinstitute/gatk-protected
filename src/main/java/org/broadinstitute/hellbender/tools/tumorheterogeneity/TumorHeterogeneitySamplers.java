@@ -5,6 +5,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
@@ -81,6 +82,9 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
+    /**
+     * Samples genomic profiles for a collection of variant populations.
+     */
     protected static final class VariantProfileCollectionSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfileCollection, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private final List<VariantProfileSampler> variantProfileSamplers;
 
@@ -94,6 +98,9 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
+    /**
+     * Samples a genomic profile for a single variant population.
+     */
     protected static final class VariantProfileSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private int populationIndex;
         private final VariantSegmentFractionSampler variantSegmentFractionSampler;
@@ -114,6 +121,9 @@ final class TumorHeterogeneitySamplers {
             return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
         }
 
+        /**
+         * Samples variant-segment fraction for this variant population.
+         */
         private final class VariantSegmentFractionSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
             private VariantSegmentFractionSampler() {}
 
@@ -126,16 +136,49 @@ final class TumorHeterogeneitySamplers {
             }
         }
 
+        /**
+         * Samples per-segment variant indicators for this variant population (these indicate whether or not population is variant in each segment).
+         * Updates the variant indicators held by the {@link TumorHeterogeneityState}.
+         */
         private final class VariantIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile.VariantIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
             private VariantIndicatorsSampler() {}
 
             @Override
             public TumorHeterogeneityState.VariantProfile.VariantIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData dataCollection) {
-                //TODO
-                return new TumorHeterogeneityState.VariantProfile.VariantIndicators(new ArrayList<>());
+                final List<Boolean> variantIndicators = new ArrayList<>(state.numSegments());
+                for (int segmentIndex = 0; segmentIndex < state.numSegments(); segmentIndex++) {
+                    final double segmentFractionalLength = state.calculateFractionalLength(dataCollection, segmentIndex);
+                    final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);
+                    final double invariantPloidyTerm = calculatePopulationAndGenomicAveragedPloidyWithExclusion(state, dataCollection, segmentIndex, populationIndex);
+                    final double invariantMAlleleCopyNumberTerm = calculatePopulationAveragedMAlleleCopyNumberWithExclusion(state, dataCollection, segmentIndex, populationIndex);
+                    final double invariantNAlleleCopyNumberTerm = calculatePopulationAveragedNAlleleCopyNumberWithExclusion(state, dataCollection, segmentIndex, populationIndex);
+
+                    //approximation: ignore coupling of copy-ratio posteriors in different segments due to ploidy term
+
+                    //calculate unnormalized probability for isVariant = false
+                    final double logDensityNormal = logDensity(
+                            dataCollection, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                            segmentIndex, segmentFractionalLength, populationFraction, state.priors().normalPloidyState());
+                    //calculate unnormalized probability for isVariant = true
+                    final double logDensityVariant = logDensity(
+                            dataCollection, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                            segmentIndex, segmentFractionalLength, populationFraction, state.variantPloidyState(populationIndex, segmentIndex));
+
+                    final double variantSegmentFraction = state.variantSegmentFraction(populationIndex);
+                    final double isVariantProbability = variantSegmentFraction * Math.exp(logDensityVariant) /
+                            (variantSegmentFraction * Math.exp(logDensityNormal) + (1. - variantSegmentFraction) * Math.exp(logDensityVariant));
+                    final boolean isVariant = rng.nextDouble() < isVariantProbability;
+                    variantIndicators.add(isVariant);
+
+                }
+                return new TumorHeterogeneityState.VariantProfile.VariantIndicators(variantIndicators);
             }
         }
 
+        /**
+         * Samples per-segment variant-ploidy-state indicators for this variant population (these indicate the ploidy state if the population is variant in a segment).
+         * Updates the variant-ploidy-state indicators held by the {@link TumorHeterogeneityState}.
+         */
         private final class VariantPloidyStateIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
             private VariantPloidyStateIndicatorsSampler() {}
 
@@ -144,6 +187,39 @@ final class TumorHeterogeneitySamplers {
                 //TODO
                 return new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(new ArrayList<>());
             }
+        }
+
+        private static double calculatePopulationAndGenomicAveragedPloidyWithExclusion(final TumorHeterogeneityState state, final TumorHeterogeneityData data, final int segmentIndexToExclude, final int populationIndexToExclude) {
+            return state.calculatePopulationAndGenomicAveragedPloidy(data)
+                    - state.calculatePopulationAveragedCopyNumberFunction(data, segmentIndexToExclude, populationIndexToExclude, PloidyState::total, true);
+        }
+
+        private static double calculatePopulationAveragedMAlleleCopyNumberWithExclusion(final TumorHeterogeneityState state, final TumorHeterogeneityData data, final int segmentIndex, final int populationIndexToExclude) {
+            return state.calculatePopulationAveragedCopyNumberFunction(data, segmentIndex, populationIndexToExclude, PloidyState::m, false);
+        }
+
+        private static double calculatePopulationAveragedNAlleleCopyNumberWithExclusion(final TumorHeterogeneityState state, final TumorHeterogeneityData data, final int segmentIndex, final int populationIndexToExclude) {
+            return state.calculatePopulationAveragedCopyNumberFunction(data, segmentIndex, populationIndexToExclude, PloidyState::n, false);
+        }
+
+        private static double calculateMinorAlleleFraction(final double m, final double n) {
+            return Math.min(m, n) / (m + n + EPSILON);
+        }
+
+        private static double logDensity(final TumorHeterogeneityData dataCollection,
+                                         final double invariantPloidyTerm,
+                                         final double invariantMAlleleCopyNumberTerm,
+                                         final double invariantNAlleleCopyNumberTerm,
+                                         final int segmentIndex,
+                                         final double segmentFractionalLength,
+                                         final double populationFraction,
+                                         final PloidyState ploidyState) {
+            final double ploidy = invariantPloidyTerm + populationFraction * segmentFractionalLength * ploidyState.total();
+            final double copyRatio = (invariantMAlleleCopyNumberTerm + invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.total()) / ploidy;
+            final double minorAlleleFraction = calculateMinorAlleleFraction(
+                    invariantMAlleleCopyNumberTerm + populationFraction * ploidyState.m(),
+                    invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.n());
+            return dataCollection.logDensity(segmentIndex, copyRatio, minorAlleleFraction);
         }
     }
 }
