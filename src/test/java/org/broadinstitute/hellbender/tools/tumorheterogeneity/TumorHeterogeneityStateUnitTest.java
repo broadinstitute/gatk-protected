@@ -151,6 +151,20 @@ public class TumorHeterogeneityStateUnitTest {
         new TumorHeterogeneityState(concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testInconsistentVariantPloidyStateIndicators() {
+        //fail if variant ploidy-state indicators are inconsistent with total number of states in prior
+        final double concentration = 1.;
+        final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
+        final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(1));
+        final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
+                0.1,
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
+                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.singletonList(3)));
+        final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
+        new TumorHeterogeneityState(concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
+    }
+
     @Test
     public void testCalculateAveragePloidy() {
         //fail if number of segments is not the same for all variants

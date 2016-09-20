@@ -91,15 +91,15 @@ public final class TumorHeterogeneityData implements DataCollection {
         private final Function<Double, Double> minorAlleleFractionPosteriorLogPDF;
 
         ACNVSegmentPosterior(final ACNVModeledSegment segment) {
-            logger.info("Fitting segment: " + segment.getInterval());
+            logger.debug("Fitting segment: " + segment.getInterval());
             final List<Double> log2CopyRatioInnerDecilesList = segment.getSegmentMeanPosteriorSummary().getDeciles().getInner();
             final double[] log2CopyRatioInnerDeciles = Doubles.toArray(log2CopyRatioInnerDecilesList);
-            logger.info("Fitting normal distribution to inner deciles:\n" + log2CopyRatioInnerDecilesList);
+            logger.debug("Fitting normal distribution to inner deciles:\n" + log2CopyRatioInnerDecilesList);
             log2CopyRatioPosteriorLogPDF = fitNormalLogPDFToInnerDeciles(log2CopyRatioInnerDeciles);
 
             final List<Double> minorAlleleFractionInnerDecilesList = segment.getMinorAlleleFractionPosteriorSummary().getDeciles().getInner();
             final double[] minorAlleleFractionInnerDeciles = Doubles.toArray(minorAlleleFractionInnerDecilesList);
-            logger.info("Fitting scaled beta distribution to inner deciles:\n" + minorAlleleFractionInnerDecilesList);
+            logger.debug("Fitting scaled beta distribution to inner deciles:\n" + minorAlleleFractionInnerDecilesList);
             final boolean isMinorAlleleFractionNaN = Double.isNaN(segment.getMinorAlleleFractionPosteriorSummary().getCenter());
             minorAlleleFractionPosteriorLogPDF = isMinorAlleleFractionNaN ?
                     f -> LN2 :       //flat over minor-allele fraction if NaN (i.e., no hets in segment) = log(1. / 0.5)
@@ -128,7 +128,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             });
             final double meanInitial = new Mean().evaluate(innerDeciles);
             final double standardDeviationInitial = new StandardDeviation().evaluate(innerDeciles);
-            logger.info(String.format("Initial (mean, standard deviation) for normal distribution: (%f, %f)", meanInitial, standardDeviationInitial));
+            logger.debug(String.format("Initial (mean, standard deviation) for normal distribution: (%f, %f)", meanInitial, standardDeviationInitial));
             final PointValuePair optimum = optimizer.optimize(
                             new MaxEval(NUM_MAX_EVAL),
                             innerDecilesL2LossFunction,
@@ -137,7 +137,7 @@ public final class TumorHeterogeneityData implements DataCollection {
                             new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
             final double mean = optimum.getPoint()[0];
             final double standardDeviation = Math.abs(optimum.getPoint()[1]);
-            logger.info(String.format("Final (mean, standard deviation) for normal distribution: (%f, %f)", mean, standardDeviation));
+            logger.debug(String.format("Final (mean, standard deviation) for normal distribution: (%f, %f)", mean, standardDeviation));
             return log2cr -> new NormalDistribution(mean, standardDeviation).logDensity(log2cr);
         }
 
@@ -161,7 +161,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double commonFactor = Math.abs((meanInitial - meanInitial * meanInitial) / varianceInitial - 1.);
             final double alphaInitial = meanInitial * commonFactor;
             final double betaInitial = (1. - meanInitial) * commonFactor;
-            logger.info(String.format("Initial (alpha, beta) for scaled beta distribution: (%f, %f)", alphaInitial, betaInitial));
+            logger.debug(String.format("Initial (alpha, beta) for scaled beta distribution: (%f, %f)", alphaInitial, betaInitial));
             final PointValuePair optimum = optimizer.optimize(
                     new MaxEval(NUM_MAX_EVAL),
                     innerDecilesL2LossFunction,
@@ -170,7 +170,7 @@ public final class TumorHeterogeneityData implements DataCollection {
                     new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
             final double alpha = Math.abs(optimum.getPoint()[0]);
             final double beta = Math.abs(optimum.getPoint()[1]);
-            logger.info(String.format("Final (alpha, beta) for scaled beta distribution: (%f, %f)", alpha, beta));
+            logger.debug(String.format("Final (alpha, beta) for scaled beta distribution: (%f, %f)", alpha, beta));
             return maf -> new BetaDistribution(alpha, beta).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
         }
     }
