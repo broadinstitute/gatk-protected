@@ -221,7 +221,7 @@ final class TumorHeterogeneitySamplers {
 
                     final double variantSegmentFraction = state.variantSegmentFraction(populationIndex);
                     final double isVariantProbability = variantSegmentFraction * Math.exp(logDensityVariant) /
-                            (variantSegmentFraction * Math.exp(logDensityNormal) + (1. - variantSegmentFraction) * Math.exp(logDensityVariant));
+                            ((1. - variantSegmentFraction) * Math.exp(logDensityNormal) + variantSegmentFraction * Math.exp(logDensityVariant));
                     final boolean isVariant = rng.nextDouble() < isVariantProbability;
                     variantIndicators.add(isVariant);
 
@@ -305,11 +305,11 @@ final class TumorHeterogeneitySamplers {
                                                                 final double populationFraction,
                                                                 final PloidyState ploidyState) {
         final double ploidy = invariantPloidyTerm + populationFraction * segmentFractionalLength * ploidyState.total();
-        final double copyRatio = (invariantMAlleleCopyNumberTerm + invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.total()) / ploidy;
+        final double copyRatio = (invariantMAlleleCopyNumberTerm + invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.total()) / (ploidy + EPSILON);
         final double minorAlleleFraction = calculateMinorAlleleFraction(
                 invariantMAlleleCopyNumberTerm + populationFraction * ploidyState.m(),
                 invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.n());
-        return data.logDensity(segmentIndex, copyRatio, minorAlleleFraction);
+        return data.logDensity(segmentIndex, copyRatio + EPSILON, minorAlleleFraction);
     }
 
     private static double calculateMinorAlleleFraction(final double m, final double n) {
