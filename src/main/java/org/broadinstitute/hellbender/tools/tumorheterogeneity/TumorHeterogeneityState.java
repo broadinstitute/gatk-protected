@@ -75,50 +75,50 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     }
 
     public double populationFraction(final int populationIndex) {
-        validatePopulationIndex(populationIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
         return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class).get(populationIndex);
     }
 
     public int populationCount(final int populationIndex) {
-        validatePopulationIndex(populationIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
         return populationCounts.get(populationIndex).intValue();
     }
 
     public int populationIndex(final int cellIndex) {
-        validateCellIndex(cellIndex);
+        validateCellIndex(cellIndex, numCells);
         return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex);
     }
 
     public double variantSegmentFraction(final int populationIndex) {
-        validatePopulationIndex(populationIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
         if (populationIndex == numPopulations - 1) {
             throw new IllegalStateException("Attempted to get variant-segment fraction for normal population.");
         }
-        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantSegmentFraction;
+        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantSegmentFraction();
     }
 
     public boolean isVariant(final int populationIndex, final int segmentIndex) {
-        validatePopulationIndex(populationIndex);
-        validateSegmentIndex(segmentIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
+        validateSegmentIndex(segmentIndex, numSegments);
         if (populationIndex == numPopulations - 1) {
             //last population is normal
             return false;
         }
-        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantIndicators.get(segmentIndex);
+        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).isVariant(segmentIndex);
     }
 
     public int variantPloidyStateIndex(final int populationIndex, final int segmentIndex) {
-        validatePopulationIndex(populationIndex);
-        validateSegmentIndex(segmentIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
+        validateSegmentIndex(segmentIndex, numSegments);
         if (populationIndex == numPopulations - 1) {
             throw new IllegalStateException("Attempted to get variant-ploidy-state index for normal population.");
         }
-        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantPloidyStateIndicators.get(segmentIndex);
+        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantPloidyStateIndex(segmentIndex);
     }
 
     public PloidyState variantPloidyState(final int populationIndex, final int segmentIndex) {
-        validatePopulationIndex(populationIndex);
-        validateSegmentIndex(segmentIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
+        validateSegmentIndex(segmentIndex, numSegments);
         return priors.variantPloidyStatePrior().ploidyStates().get(variantPloidyStateIndex(populationIndex, segmentIndex));
     }
 
@@ -133,21 +133,21 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     public int calculateCopyNumberFunction(final int segmentIndex,
                                            final Integer populationIndex,
                                            final Function<PloidyState, Integer> copyNumberFunction) {
-        validateSegmentIndex(segmentIndex);
-        validatePopulationIndex(populationIndex);
+        validateSegmentIndex(segmentIndex, numSegments);
+        validatePopulationIndex(populationIndex, numPopulations);
         return isVariant(populationIndex, segmentIndex) ?
                                 copyNumberFunction.apply(variantPloidyState(populationIndex, segmentIndex)) :
                                 copyNumberFunction.apply(priors.normalPloidyState());
     }
 
     public double calculateFractionalLength(final TumorHeterogeneityData data, final int segmentIndex) {
-        validateData(data);
-        validateSegmentIndex(segmentIndex);
+        validateData(data, numSegments);
+        validateSegmentIndex(segmentIndex, numSegments);
         return (double) data.segmentLength(segmentIndex) / data.totalLength();
     }
 
     public double calculatePopulationFractionFromCounts(final int populationIndex) {
-        validatePopulationIndex(populationIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
         return (double) populationCount(populationIndex) / numCells;
     }
 
@@ -164,7 +164,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     }
 
     public double calculatePopulationAndGenomicAveragedPloidy(final TumorHeterogeneityData data) {
-        validateData(data);
+        validateData(data, numSegments);
         return IntStream.range(0, numSegments).mapToDouble(i -> calculatePopulationAveragedCopyNumberFunction(data, i, null, PloidyState::total, true)).sum();
     }
 
@@ -173,13 +173,13 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                                                          final Integer populationIndexToExclude,
                                                          final Function<PloidyState, Integer> copyNumberFunction,
                                                          final boolean isWeightedByFractionalLength) {
-        validateData(data);
-        validateSegmentIndex(segmentIndex);
+        validateData(data, numSegments);
+        validateSegmentIndex(segmentIndex, numSegments);
         final int populationIndexToExcludeValue;
         if (populationIndexToExclude == null) {
             populationIndexToExcludeValue = -1;
         } else {
-            validatePopulationIndex(populationIndexToExclude);
+            validatePopulationIndex(populationIndexToExclude, numPopulations);
             populationIndexToExcludeValue = populationIndexToExclude;
         }
 
@@ -197,8 +197,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
      *===============================================================================================================*/
 
     void setPopulationIndex(final int cellIndex, final int populationIndex) {
-        validateCellIndex(cellIndex);
-        validatePopulationIndex(populationIndex);
+        validateCellIndex(cellIndex, numCells);
+        validatePopulationIndex(populationIndex, numPopulations);
         final int oldPopulationIndex = get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex);
         populationCounts.get(oldPopulationIndex).decrement();
         populationCounts.get(populationIndex).increment();
@@ -206,8 +206,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     }
 
     void setIsVariant(final int populationIndex, final int segmentIndex, final boolean isVariant) {
-        validatePopulationIndex(populationIndex);
-        validateSegmentIndex(segmentIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
+        validateSegmentIndex(segmentIndex, numSegments);
         if (populationIndex == numPopulations - 1) {
             throw new IllegalStateException("Attempted to set variant-segment fraction for normal population.");
         }
@@ -215,9 +215,9 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     }
 
     void setVariantPloidyStateIndex(final int populationIndex, final int segmentIndex, final int variantPloidyStateIndex) {
-        validatePopulationIndex(populationIndex);
-        validateSegmentIndex(segmentIndex);
-        validateVariantPloidyStateIndex(variantPloidyStateIndex);
+        validatePopulationIndex(populationIndex, numPopulations);
+        validateSegmentIndex(segmentIndex, numSegments);
+        validateVariantPloidyStateIndex(variantPloidyStateIndex, numVariantPloidyStates);
         if (populationIndex == numPopulations - 1) {
             throw new IllegalStateException("Attempted to set variant-ploidy-state index for normal population.");
         }
@@ -318,29 +318,44 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             this.variantIndicators = variantIndicators;
             this.variantPloidyStateIndicators = variantPloidyStateIndicators;
         }
+
+
+        public double variantSegmentFraction() {
+            return variantSegmentFraction;
+        }
+
+        public boolean isVariant(final int segmentIndex) {
+            validateSegmentIndex(segmentIndex, numSegments);
+            return variantIndicators.get(segmentIndex);
+        }
+
+        public int variantPloidyStateIndex(final int segmentIndex) {
+            validateSegmentIndex(segmentIndex, numSegments);
+            return variantPloidyStateIndicators.get(segmentIndex);
+        }
     }
 
     /*===============================================================================================================*
      * OTHER PRIVATE METHODS                                                                                         *
      *===============================================================================================================*/
 
-    private void validatePopulationIndex(final int populationIndex) {
+    private static void validatePopulationIndex(final int populationIndex, final int numPopulations) {
         Utils.validateArg(0 <= populationIndex && populationIndex < numPopulations, "Population index out of range.");
     }
 
-    private void validateCellIndex(final int cellIndex) {
+    private static void validateCellIndex(final int cellIndex, final int numCells) {
         Utils.validateArg(0 <= cellIndex && cellIndex < numCells, "Cell index out of range.");
     }
 
-    private void validateSegmentIndex(int segmentIndex) {
+    private static void validateSegmentIndex(int segmentIndex, final int numSegments) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index out of range.");
     }
 
-    private void validateVariantPloidyStateIndex(final int variantPloidyStateIndex) {
+    private static void validateVariantPloidyStateIndex(final int variantPloidyStateIndex, final int numVariantPloidyStates) {
         Utils.validateArg(0 <= variantPloidyStateIndex && variantPloidyStateIndex < numVariantPloidyStates, "Variant-ploidy-state index out of range.");
     }
 
-    private void validateData(final TumorHeterogeneityData data) {
+    private static void validateData(final TumorHeterogeneityData data, final int numSegments) {
         Utils.nonNull(data);
         Utils.validateArg(data.numSegments() == numSegments,
                 "Tumor-heterogeneity state and data collection must have same number of segments.");

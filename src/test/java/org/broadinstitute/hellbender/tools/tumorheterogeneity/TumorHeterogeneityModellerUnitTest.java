@@ -33,8 +33,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-    private static final String TEST_DIR = "src/test/resources/org/broadinstitute/hellbender/tools/exome/cnlohcaller/";
-    private static final File ACNV_SEG_FILE = new File(TEST_DIR, "cell_line-sim-final.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
     
     @Test
     public void testRunMCMC() throws IOException {
@@ -47,6 +46,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
         final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0)) / Math.pow(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()), 3));
+//        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 0), ploidyPDF.apply(new PloidyState(0, 0)));
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 1), ploidyPDF.apply(new PloidyState(0, 1)));
@@ -58,14 +58,14 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 2), ploidyPDF.apply(new PloidyState(2, 2)));
         final PloidyStatePrior variantPloidyStatePrior = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
 
-        final int numPopulations = 5;
-        final int numCells = 10;
+        final int numPopulations = 2;
+        final int numCells = 100;
 
-        final int numSamples = 250;
+        final int numSamples = 200;
         final int numBurnIn = 100;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 100.;
+        final double concentrationPriorBeta = 1000.;
         final double variantSegmentFractionPriorAlpha = 3.;
         final double variantSegmentFractionPriorBeta = 10.;
 
@@ -87,12 +87,32 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         System.out.println();
 
         final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = modeller.getPopulationFractionsSamples();
+        final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = modeller.getVariantProfileCollectionSamples();
         for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
             final int pi = populationIndex;
             final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
             final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
             final double populationFractionPosteriorStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
             System.out.println("population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
+
+            if (populationIndex != numPopulations - 1) {
+                for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
+                    final int si = segmentIndex;
+                    final double isVariantPosteriorProbability = (double) variantProfileCollectionSamples.stream()
+                            .filter(vpc -> vpc.get(pi).isVariant(si))
+                            .count() / (numSamples - numBurnIn);
+                    System.out.println("segment " + segmentIndex + " isVariant: " + isVariantPosteriorProbability);
+
+                    for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < variantPloidyStatePrior.numPloidyStates(); variantPloidyStateIndex++) {
+                        final int vpsi = variantPloidyStateIndex;
+                        final PloidyState variantPloidyState = variantPloidyStatePrior.ploidyStates().get(variantPloidyStateIndex);
+                        final double variantPloidyStateProbability = (double) variantProfileCollectionSamples.stream()
+                                .filter(vpc -> vpc.get(pi).variantPloidyStateIndex(si) == vpsi)
+                                .count() / (numSamples - numBurnIn);
+                        System.out.println(variantPloidyState + ": " + variantPloidyStateProbability);
+                    }
+                }
+            }
         }
     }
 }
