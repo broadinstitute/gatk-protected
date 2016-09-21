@@ -185,7 +185,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
         final double populationWeightedCopyNumberInSegment = IntStream.range(0, numPopulations)
                 .filter(populationIndex -> populationIndex != populationIndexToExcludeValue)
-                .mapToDouble(populationIndex -> calculateCopyNumberFunction(segmentIndex, populationIndex, copyNumberFunction) * calculatePopulationFractionFromCounts(populationIndex))
+                .mapToDouble(populationIndex -> calculatePopulationFractionFromCounts(populationIndex) * calculateCopyNumberFunction(segmentIndex, populationIndex, copyNumberFunction))
                 .sum();
         return isWeightedByFractionalLength ?
                 populationWeightedCopyNumberInSegment * calculateFractionalLength(data, segmentIndex) :
