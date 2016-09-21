@@ -33,7 +33,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-1.0_total_segments.acnv.seg");
     
     @Test
     public void testRunMCMC() throws IOException {
@@ -61,11 +61,11 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final int numPopulations = 2;
         final int numCells = 100;
 
-        final int numSamples = 200;
-        final int numBurnIn = 100;
+        final int numSamples = 100;
+        final int numBurnIn = 50;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 1000.;
+        final double concentrationPriorBeta = 10000.;
         final double variantSegmentFractionPriorAlpha = 3.;
         final double variantSegmentFractionPriorBeta = 10.;
 
@@ -101,7 +101,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                     final double isVariantPosteriorProbability = (double) variantProfileCollectionSamples.stream()
                             .filter(vpc -> vpc.get(pi).isVariant(si))
                             .count() / (numSamples - numBurnIn);
-                    System.out.println("segment " + segmentIndex + " isVariant: " + isVariantPosteriorProbability);
+                    System.out.println("segment " + segmentIndex + " " + segments.get(segmentIndex).getInterval() + " isVariant: " + isVariantPosteriorProbability);
 
                     for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < variantPloidyStatePrior.numPloidyStates(); variantPloidyStateIndex++) {
                         final int vpsi = variantPloidyStateIndex;
