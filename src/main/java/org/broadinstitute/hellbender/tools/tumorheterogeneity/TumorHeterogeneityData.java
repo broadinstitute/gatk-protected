@@ -60,7 +60,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     public TumorHeterogeneityData(final List<ACNVModeledSegment> segments) {
         Utils.nonNull(segments);
         Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
-
+        logger.info("Fitting copy-ratio and minor-allele-fraction posteriors to deciles...");
         numSegments = segments.size();
         segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
         segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getEnd() - s.getStart() + 1).collect(Collectors.toList()));
