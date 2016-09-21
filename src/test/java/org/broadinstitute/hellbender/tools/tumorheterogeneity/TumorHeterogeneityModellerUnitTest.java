@@ -39,7 +39,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     @Test
     public void testRunMCMC() throws IOException {
         final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
-        LoggingUtils.setLoggingLevel(Log.LogLevel.DEBUG);
+        LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
 
         rng.setSeed(RANDOM_SEED);
 
@@ -61,8 +61,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final int numPopulations = 5;
         final int numCells = 10;
 
-        final int numSamples = 100;
-        final int numBurnIn = 20;
+        final int numSamples = 250;
+        final int numBurnIn = 100;
 
         final double concentrationPriorAlpha = 1.;
         final double concentrationPriorBeta = 100.;
