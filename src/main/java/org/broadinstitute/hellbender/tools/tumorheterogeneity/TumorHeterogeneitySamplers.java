@@ -43,8 +43,8 @@ final class TumorHeterogeneitySamplers {
 
         @Override
         public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+            logger.debug(String.format("Ploidy of current state: %.6f", state.calculatePopulationAndGenomicAveragedPloidy(data)));
             logger.debug("Sampling concentration.");
-            System.out.println(state.calculatePopulationAndGenomicAveragedPloidy(data));
             final int numPopulations = state.numPopulations();
             final Function<Double, Double> logConditionalPDF = newConcentration -> {
                 final double populationFractionsTerm = IntStream.range(0, numPopulations)
@@ -63,7 +63,6 @@ final class TumorHeterogeneitySamplers {
         @Override
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             logger.debug("Sampling population fractions.");
-            System.out.println(state.calculatePopulationAndGenomicAveragedPloidy(data));
             //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
             final double[] unnormalizedPopulationFractions = IntStream.range(0, state.numPopulations()).boxed()
                     .map(state::populationCount)
@@ -86,7 +85,6 @@ final class TumorHeterogeneitySamplers {
         @Override
         public TumorHeterogeneityState.PopulationIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             logger.debug("Sampling population indicators.");
-            System.out.println(state.calculatePopulationAndGenomicAveragedPloidy(data));
             final List<Integer> populationIndicators = new ArrayList<>(state.numCells());
             for (int cellIndex = 0; cellIndex < state.numCells(); cellIndex++) {
                 final int currentPopulationIndex = state.populationIndex(cellIndex);
@@ -171,7 +169,6 @@ final class TumorHeterogeneitySamplers {
 
         public TumorHeterogeneityState.VariantProfile sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             logger.debug("Sampling variant profile for population " + populationIndex);
-            System.out.println(state.calculatePopulationAndGenomicAveragedPloidy(data));
             final double variantSegmentFraction = variantSegmentFractionSampler.sample(rng, state, data);
             final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators = variantIndicatorsSampler.sample(rng, state, data);
             final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators = variantPloidyStateIndicatorsSampler.sample(rng, state, data);
