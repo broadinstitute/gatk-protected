@@ -112,7 +112,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double log2CopyRatio = Math.log(copyRatio + EPSILON) * INV_LN2;
             final double copyRatioPosteriorLogDensity =
                     log2CopyRatioPosteriorLogPDF.apply(log2CopyRatio) - LN_LN2 - Math.log(copyRatio + EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
-            final double minorAlleleFractionBounded = Math.max(Math.min(0.5, minorAlleleFraction), EPSILON);
+            final double minorAlleleFractionBounded = Math.max(Math.min(0.5 - EPSILON, minorAlleleFraction), EPSILON);
             final double minorAlleleFractionPosteriorLogDensity = minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFractionBounded);
             return copyRatioPosteriorLogDensity + minorAlleleFractionPosteriorLogDensity;
         }
