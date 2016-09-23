@@ -40,8 +40,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.5_total_segments.acnv.seg");
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P4M-sim-final-edit.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.3_total_segments.acnv.seg");
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P4M-sim-final-edit.seg");
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P3M-sim-final-edit.seg");
     
     @Test
@@ -109,8 +109,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final double concentrationPriorAlpha = 1.;
         final double concentrationPriorBeta = 10000.;
-        final double variantSegmentFractionPriorAlpha = 2.;
-        final double variantSegmentFractionPriorBeta = 2.;
+        final double variantSegmentFractionPriorAlpha = 4.;
+        final double variantSegmentFractionPriorBeta = 4.;
 
         //run MCMC
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(
@@ -145,6 +145,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
             final int pi = populationIndex;
             if (populationIndex != numPopulations - 1) {
+                System.out.println("population " + populationIndex + " ==================================================");
                 for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
                     final int si = segmentIndex;
                     final double isVariantPosteriorProbability = (double) variantProfileCollectionSamples.stream()
@@ -172,7 +173,14 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
             final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
             final double populationFractionPosteriorStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
 
-            System.out.println("population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
+            if (populationIndex != numPopulations - 1) {
+                final double variantSegmentFraction = (double) IntStream.range(0, segments.size()).filter(i ->
+                        (double) variantProfileCollectionSamples.stream().filter(vpc -> vpc.get(pi).isVariant(i)).count() / (numSamples - numBurnIn) > 0.9)
+                        .count() / segments.size();
+                System.out.println("population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation + " " + variantSegmentFraction);
+            } else {
+                System.out.println("population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
+            }
         }
     }
 }

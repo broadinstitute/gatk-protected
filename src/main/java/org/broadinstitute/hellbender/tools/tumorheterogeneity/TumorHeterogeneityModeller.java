@@ -88,7 +88,7 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
                 new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations);
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
-                new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, numVariantPloidyStates);
+                new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, variantPloidyStatePrior);
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
@@ -180,7 +180,7 @@ public final class TumorHeterogeneityModeller {
                                                                                         final int numCells,
                                                                                         final RandomGenerator rng) {
         final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
-        final Function<Integer, Double> probabilityFunction = i -> 1. / numPopulations;
+        final Function<Integer, Double> probabilityFunction = i -> i == numPopulations - 1 ? 1. : 0.;
         return new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numCells).boxed()
                 .map(p -> GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng))
                 .collect(Collectors.toList()));
@@ -194,7 +194,7 @@ public final class TumorHeterogeneityModeller {
     private TumorHeterogeneityState.VariantProfile initializeProfile(final int numSegments) {
         final double variantSegmentFraction = 0.;
         final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, true));
         final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
                 new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
         return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
