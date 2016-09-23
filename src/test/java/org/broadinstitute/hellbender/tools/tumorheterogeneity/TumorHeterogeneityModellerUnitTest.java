@@ -36,16 +36,17 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-3_trunc-frac-0.5_segments-1000_length-20/purity-0.5_total_segments.acnv.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.4_total_segments.acnv.seg");
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P4M-sim-final-edit.seg");
     
     @Test
     public void testRunMCMC() throws IOException {
         final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
-        LoggingUtils.setLoggingLevel(Log.LogLevel.DEBUG);
+        LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
 
         rng.setSeed(RANDOM_SEED);
 
-        final List<ACNVModeledSegment> segments = SegmentUtils.readACNVModeledSegmentFile(ACNV_SEG_FILE);
+        final List<ACNVModeledSegment> segments = SegmentUtils.readACNVModeledSegmentFile(ACNV_SEG_FILE);//.stream().filter(s -> s.getInterval().size() > 100000).collect(Collectors.toList());
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
         final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0)) / Math.pow(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()), 3));
@@ -59,16 +60,32 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 4), ploidyPDF.apply(new PloidyState(0, 4)));
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 3), ploidyPDF.apply(new PloidyState(1, 3)));
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 2), ploidyPDF.apply(new PloidyState(2, 2)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 5), ploidyPDF.apply(new PloidyState(0, 5)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 4), ploidyPDF.apply(new PloidyState(1, 4)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 3), ploidyPDF.apply(new PloidyState(2, 3)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 6), ploidyPDF.apply(new PloidyState(0, 6)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 5), ploidyPDF.apply(new PloidyState(1, 5)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 4), ploidyPDF.apply(new PloidyState(2, 4)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 3), ploidyPDF.apply(new PloidyState(3, 3)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 7), ploidyPDF.apply(new PloidyState(0, 7)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 6), ploidyPDF.apply(new PloidyState(1, 6)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 5), ploidyPDF.apply(new PloidyState(2, 5)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 4), ploidyPDF.apply(new PloidyState(3, 4)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 8), ploidyPDF.apply(new PloidyState(0, 8)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 7), ploidyPDF.apply(new PloidyState(1, 7)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 6), ploidyPDF.apply(new PloidyState(2, 6)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 5), ploidyPDF.apply(new PloidyState(3, 5)));
+//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(4, 4), ploidyPDF.apply(new PloidyState(4, 4)));
         final PloidyStatePrior variantPloidyStatePrior = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
 
-        final int numPopulations = 4;
+        final int numPopulations = 3;
         final int numCells = 200;
 
-        final int numSamples = 300;
-        final int numBurnIn = 150;
+        final int numSamples = 200;
+        final int numBurnIn = 100;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 50000.;
+        final double concentrationPriorBeta = 10000.;
         final double variantSegmentFractionPriorAlpha = 2.;
         final double variantSegmentFractionPriorBeta = 2.;
 
@@ -104,16 +121,6 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
             final int pi = populationIndex;
-            final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
-            final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
-            final double populationFractionPosteriorStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
-
-            System.out.println("population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
-        }
-        System.out.println();
-
-        for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
-            final int pi = populationIndex;
             if (populationIndex != numPopulations - 1) {
                 for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
                     final int si = segmentIndex;
@@ -133,6 +140,16 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                 }
                 System.out.println();
             }
+        }
+        System.out.println();
+
+        for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+            final int pi = populationIndex;
+            final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
+            final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
+            final double populationFractionPosteriorStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
+
+            System.out.println("population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
         }
     }
 }

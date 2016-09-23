@@ -49,6 +49,8 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final int NUM_MAX_EVAL = 1000;
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
+    private static final double EPSILON = 1E-10;
+
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
 
@@ -109,8 +111,9 @@ public final class TumorHeterogeneityData implements DataCollection {
         double logDensity(final double copyRatio, final double minorAlleleFraction) {
             final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
             final double copyRatioPosteriorLogDensity =
-                    log2CopyRatioPosteriorLogPDF.apply(log2CopyRatio) - LN_LN2 - Math.log(copyRatio);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
-            final double minorAlleleFractionPosteriorLogDensity = minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFraction);
+                    log2CopyRatioPosteriorLogPDF.apply(log2CopyRatio) - LN_LN2 - Math.log(copyRatio + EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            final double minorAlleleFractionBounded = Math.max(Math.min(0.5, minorAlleleFraction), EPSILON);
+            final double minorAlleleFractionPosteriorLogDensity = minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFractionBounded);
             return copyRatioPosteriorLogDensity + minorAlleleFractionPosteriorLogDensity;
         }
 
@@ -138,7 +141,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double mean = optimum.getPoint()[0];
             final double standardDeviation = Math.abs(optimum.getPoint()[1]);
             logger.info(String.format("Final (mean, standard deviation) for normal distribution: (%f, %f)", mean, standardDeviation));
-            return log2cr -> new NormalDistribution(mean, standardDeviation).logDensity(log2cr);
+            return log2cr -> new NormalDistribution(null, mean, standardDeviation).logDensity(log2cr);
         }
 
         //fit a beta distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares
@@ -171,7 +174,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double alpha = Math.abs(optimum.getPoint()[0]);
             final double beta = Math.abs(optimum.getPoint()[1]);
             logger.info(String.format("Final (alpha, beta) for scaled beta distribution: (%f, %f)", alpha, beta));
-            return maf -> new BetaDistribution(alpha, beta).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
+            return maf -> new BetaDistribution(null, alpha, beta).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
         }
     }
 }
