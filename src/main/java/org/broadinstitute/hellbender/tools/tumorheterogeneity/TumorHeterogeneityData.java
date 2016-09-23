@@ -65,7 +65,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         logger.info("Fitting copy-ratio and minor-allele-fraction posteriors to deciles...");
         numSegments = segments.size();
         segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
-        segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getEnd() - s.getStart() + 1).collect(Collectors.toList()));
+        segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList()));
         totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
     }
 
@@ -109,7 +109,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         }
 
         double logDensity(final double copyRatio, final double minorAlleleFraction) {
-            final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
+            final double log2CopyRatio = Math.log(copyRatio + EPSILON) * INV_LN2;
             final double copyRatioPosteriorLogDensity =
                     log2CopyRatioPosteriorLogPDF.apply(log2CopyRatio) - LN_LN2 - Math.log(copyRatio + EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
             final double minorAlleleFractionBounded = Math.max(Math.min(0.5, minorAlleleFraction), EPSILON);
