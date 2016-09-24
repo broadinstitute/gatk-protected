@@ -50,6 +50,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = 1E-10;
+    private static final double COPY_RATIO_THRESHOLD = 5E-3; //below this, do not use minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
@@ -112,6 +113,9 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double log2CopyRatio = Math.log(copyRatio + EPSILON) * INV_LN2;
             final double copyRatioPosteriorLogDensity =
                     log2CopyRatioPosteriorLogPDF.apply(log2CopyRatio) - LN_LN2 - Math.log(copyRatio + EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            if (copyRatio < COPY_RATIO_THRESHOLD) {
+                return copyRatioPosteriorLogDensity;
+            }
             final double minorAlleleFractionBounded = Math.max(Math.min(0.5 - EPSILON, minorAlleleFraction), EPSILON);
             final double minorAlleleFractionPosteriorLogDensity = minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFractionBounded);
             return copyRatioPosteriorLogDensity + minorAlleleFractionPosteriorLogDensity;
