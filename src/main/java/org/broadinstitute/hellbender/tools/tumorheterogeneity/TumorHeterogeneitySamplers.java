@@ -221,18 +221,21 @@ final class TumorHeterogeneitySamplers {
 
                     //approximation: ignore coupling of copy-ratio posteriors in different segments due to ploidy term
 
-                    //calculate unnormalized probability for isVariant = false
-                    final double logDensityNormal = calculateLogDensityFromInvariantTerms(
-                            data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
-                            segmentIndex, populationFraction, segmentFractionalLength, state.priors().normalPloidyState());
-                    //calculate unnormalized probability for isVariant = true
-                    final double logDensityVariant = calculateLogDensityFromInvariantTerms(
-                            data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
-                            segmentIndex, populationFraction, segmentFractionalLength, state.variantPloidyState(populationIndex, segmentIndex));
+                    final double variantSegmentFraction = Math.max(EPSILON, Math.min(state.variantSegmentFraction(populationIndex), 1. - EPSILON));
 
-                    final double variantSegmentFraction = state.variantSegmentFraction(populationIndex);
-                    final double isVariantProbability = variantSegmentFraction * Math.exp(logDensityVariant) /
-                            ((1. - variantSegmentFraction) * Math.exp(logDensityNormal) + variantSegmentFraction * Math.exp(logDensityVariant));
+                    //calculate unnormalized probability for isVariant = true
+                    final double logDensityVariant = Math.log(variantSegmentFraction) +
+                            calculateLogDensityFromInvariantTerms(
+                                    data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                                    segmentIndex, populationFraction, segmentFractionalLength, state.variantPloidyState(populationIndex, segmentIndex));
+                    //calculate unnormalized probability for isVariant = false
+                    final double logDensityNormal = Math.log(1. - variantSegmentFraction) +
+                            calculateLogDensityFromInvariantTerms(
+                                    data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                                    segmentIndex, populationFraction, segmentFractionalLength, state.priors().normalPloidyState());
+
+                    final double[] log10Probabilities = new double[]{MathUtils.logToLog10(logDensityVariant), MathUtils.logToLog10(logDensityNormal)};
+                    final double isVariantProbability = MathUtils.normalizeFromLog10(log10Probabilities)[0];
                     final boolean isVariant = rng.nextDouble() < isVariantProbability;
                     variantIndicators.set(segmentIndex, isVariant);
 
@@ -287,7 +290,6 @@ final class TumorHeterogeneitySamplers {
                                                     si, populationFraction, segmentFractionalLength, variantPloidyStates.get(i))))
                                     .toArray() :
                             variantPloidyStatePriorLog10Probabilities;
-                            ;
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
                     final int variantPloidyStateIndex = GATKProtectedMathUtils.randomSelect(variantPloidyStateIndices, i -> probabilities[i], rng);
                     variantPloidyStateIndicators.set(segmentIndex, variantPloidyStateIndex);
