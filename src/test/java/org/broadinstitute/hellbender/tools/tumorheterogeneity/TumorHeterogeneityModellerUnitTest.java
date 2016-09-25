@@ -38,7 +38,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-3_trunc-frac-0.5_segments-1000_length-20/purity-0.5_total_segments.acnv.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-3_trunc-frac-0.5_segments-1000_length-20/purity-0.3_total_segments.acnv.seg");
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P4M-sim-final-edit.seg");
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P3M-sim-final-edit.seg");
     
@@ -109,7 +109,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final int numBurnIn = 100;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 1E3;
+        final double concentrationPriorBeta = 1E2;
         final double variantSegmentFractionPriorAlpha = 4.;
         final double variantSegmentFractionPriorBeta = 4.;
 
@@ -126,32 +126,24 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions = new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
-        final TumorHeterogeneityState.PopulationIndicators clonalPopulationIndicators = Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples());
+        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples());
+        IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, numPopulations - 1));
         final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
         final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
         initialVariantProfiles.addAll(clonalVariantProfileCollection);
-        initialVariantProfiles.add(initializeProfile(segments.size()));
-        initialVariantProfiles.add(initializeProfile(segments.size()));
+        initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
+        initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(
-                clonalConcentration, initialPopulationFractions, clonalPopulationIndicators, initialVariantProfileCollection,
-                segments, normalPloidyState, variantPloidyStatePrior,
+                clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection,
+                data, normalPloidyState, variantPloidyStatePrior,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
                 numPopulations, numCells, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
         System.out.println();
 
         outputModeller(ctx, segments, variantPloidyStatePrior, numPopulations, numCells, numSamples, numBurnIn, modeller);
-    }
-
-    private TumorHeterogeneityState.VariantProfile initializeProfile(final int numSegments) {
-        final double variantSegmentFraction = 0.;
-        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
-        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
-        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
     }
 
     private void outputModeller(final JavaSparkContext ctx,
