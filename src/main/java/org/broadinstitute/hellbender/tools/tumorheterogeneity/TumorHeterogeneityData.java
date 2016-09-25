@@ -135,7 +135,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             });
             final double meanInitial = new Mean().evaluate(innerDeciles);
             final double standardDeviationInitial = new StandardDeviation().evaluate(innerDeciles);
-            logger.info(String.format("Initial (mean, standard deviation) for normal distribution: (%f, %f)", meanInitial, standardDeviationInitial));
+            logger.debug(String.format("Initial (mean, standard deviation) for normal distribution: (%f, %f)", meanInitial, standardDeviationInitial));
             final PointValuePair optimum = optimizer.optimize(
                             new MaxEval(NUM_MAX_EVAL),
                             innerDecilesL2LossFunction,
@@ -168,7 +168,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double commonFactor = Math.abs((meanInitial - meanInitial * meanInitial) / varianceInitial - 1.);
             final double alphaInitial = meanInitial * commonFactor;
             final double betaInitial = (1. - meanInitial) * commonFactor;
-            logger.info(String.format("Initial (alpha, beta) for scaled beta distribution: (%f, %f)", alphaInitial, betaInitial));
+            logger.debug(String.format("Initial (alpha, beta) for scaled beta distribution: (%f, %f)", alphaInitial, betaInitial));
             final PointValuePair optimum = optimizer.optimize(
                     new MaxEval(NUM_MAX_EVAL),
                     innerDecilesL2LossFunction,

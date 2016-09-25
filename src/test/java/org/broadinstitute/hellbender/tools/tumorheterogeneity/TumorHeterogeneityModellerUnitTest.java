@@ -2,12 +2,11 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.collect.Iterables;
 import htsjdk.samtools.util.Log;
-import org.apache.commons.collections4.MultiSet;
-import org.apache.commons.collections4.multiset.HashMultiSet;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
 import org.broadinstitute.hellbender.exceptions.GATKException;
@@ -16,6 +15,7 @@ import org.broadinstitute.hellbender.tools.exome.SegmentUtils;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
+import org.broadinstitute.hellbender.utils.mcmc.Decile;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.annotations.Test;
@@ -38,10 +38,16 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-3_trunc-frac-0.5_segments-1000_length-20/purity-0.3_total_segments.acnv.seg");
-//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P4M-sim-final-edit.seg");
-//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P3M-sim-final-edit.seg");
-    
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-1.0_total_segments.acnv.seg");
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-SM-74P2T-sim-final-edit.seg"); //100
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/2-SM-74P35-sim-final-edit.seg"); //30 + 35 + 35? (3, 3)
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/3-SM-74P3J-sim-final-edit.seg"); //50 + 20 + 30?
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/4-SM-74P3M-sim-final-edit.seg"); //60
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/5-SM-74P3K-sim-final-edit.seg"); //65
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/6-SM-74P51-sim-final-edit.seg"); //70
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/7-SM-74P56-sim-final-edit.seg"); //90
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-SM-74P4M-sim-final-edit.seg"); //100
+
     @Test
     public void testRunMCMC() throws IOException {
         final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
@@ -49,7 +55,10 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         rng.setSeed(RANDOM_SEED);
 
-        final List<ACNVModeledSegment> segments = SegmentUtils.readACNVModeledSegmentFile(ACNV_SEG_FILE);//.stream().filter(s -> s.getInterval().size() > 100000).collect(Collectors.toList());
+        final List<ACNVModeledSegment> allSegments = SegmentUtils.readACNVModeledSegmentFile(ACNV_SEG_FILE);
+        System.out.println("All segments: " + allSegments.size());
+        final List<ACNVModeledSegment> segments = filterSegments(allSegments);
+        System.out.println("After filtering: " + segments.size());
 
         final File mafCrFile = new File("/home/slee/working/ipython/purity-ploidy/maf-cr/maf-cr.tsv");
         mafCrFile.createNewFile();
@@ -69,59 +78,56 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         System.out.println();
 
-        final PloidyState normalPloidyState = new PloidyState(1, 1);
-        final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0)) / Math.pow(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()), 3));
-//        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
-        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 0), ploidyPDF.apply(new PloidyState(0, 0)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 1), ploidyPDF.apply(new PloidyState(0, 1)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 2), ploidyPDF.apply(new PloidyState(0, 2)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 3), ploidyPDF.apply(new PloidyState(0, 3)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 2), ploidyPDF.apply(new PloidyState(1, 2)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 4), ploidyPDF.apply(new PloidyState(0, 4)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 3), ploidyPDF.apply(new PloidyState(1, 3)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 2), ploidyPDF.apply(new PloidyState(2, 2)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 5), ploidyPDF.apply(new PloidyState(0, 5)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 4), ploidyPDF.apply(new PloidyState(1, 4)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 3), ploidyPDF.apply(new PloidyState(2, 3)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 6), ploidyPDF.apply(new PloidyState(0, 6)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 5), ploidyPDF.apply(new PloidyState(1, 5)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 4), ploidyPDF.apply(new PloidyState(2, 4)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 3), ploidyPDF.apply(new PloidyState(3, 3)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 7), ploidyPDF.apply(new PloidyState(0, 7)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 6), ploidyPDF.apply(new PloidyState(1, 6)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 5), ploidyPDF.apply(new PloidyState(2, 5)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 4), ploidyPDF.apply(new PloidyState(3, 4)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 8), ploidyPDF.apply(new PloidyState(0, 8)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 7), ploidyPDF.apply(new PloidyState(1, 7)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 6), ploidyPDF.apply(new PloidyState(2, 6)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 5), ploidyPDF.apply(new PloidyState(3, 5)));
-        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(4, 4), ploidyPDF.apply(new PloidyState(4, 4)));
-        final PloidyStatePrior variantPloidyStatePrior = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
+        final int nMaxClonal = 3;
+        final int nMax = 5;
 
         final int numPopulationsClonal = 2;
         final int numPopulations = 4;
         final int numCells = 200;
 
-        final int numSamplesClonal = 100;
-        final int numBurnInClonal = 50;
-        final int numSamples = 200;
-        final int numBurnIn = 100;
+        final int numSamplesClonal = 50;
+        final int numBurnInClonal = 25;
+        final int numSamples = 50;
+        final int numBurnIn = 25;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 1E2;
+        final double concentrationPriorBeta = 1E4;
         final double variantSegmentFractionPriorAlpha = 4.;
         final double variantSegmentFractionPriorBeta = 4.;
 
+        final PloidyState normalPloidyState = new PloidyState(1, 1);
+        final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0)) / Math.pow(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()), 5));
+//        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
+
+        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMapClonal = new LinkedHashMap<>();
+        for (int n = 0; n <= nMaxClonal; n++) {
+            for (int m = 0; m <= n; m++) {
+                if (m != 1 && n != 1) {
+                    unnormalizedLogProbabilityMassFunctionMapClonal.put(new PloidyState(m, n), ploidyPDF.apply(new PloidyState(m, n)));
+                }
+            }
+        }
+        final PloidyStatePrior variantPloidyStatePriorClonal = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMapClonal);
+
+        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
+        for (int n = 0; n <= nMax; n++) {
+            for (int m = 0; m <= n; m++) {
+                if (m != 1 && n != 1) {
+                    unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyPDF.apply(new PloidyState(m, n)));
+                }
+            }
+        }
+        final PloidyStatePrior variantPloidyStatePrior = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
+
         //run MCMC
         final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(
-                segments, normalPloidyState, variantPloidyStatePrior,
+                segments, normalPloidyState, variantPloidyStatePriorClonal,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
                 numPopulationsClonal, numCells, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
         System.out.println();
 
-        outputModeller(ctx, segments, variantPloidyStatePrior, numPopulationsClonal, numCells, numSamplesClonal, numBurnInClonal, clonalModeller);
+        outputModeller(ctx, segments, variantPloidyStatePriorClonal, numPopulationsClonal, numCells, numSamplesClonal, numBurnInClonal, clonalModeller);
         System.out.println();
 
         final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
@@ -144,6 +150,44 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         System.out.println();
 
         outputModeller(ctx, segments, variantPloidyStatePrior, numPopulations, numCells, numSamples, numBurnIn, modeller);
+    }
+
+    private List<ACNVModeledSegment> filterSegments(final List<ACNVModeledSegment> allSegments) {
+        final double lengthPercentile = 0.1;
+        final double credibleIntervalPercentile = 95.;
+
+        final Percentile percentile = new Percentile();
+
+        final double[] lengths = allSegments.stream().mapToDouble(s -> (double) s.getInterval().size()).toArray();
+        final int lengthThreshold = (int) percentile.evaluate(lengths, lengthPercentile);
+        System.out.println("Length threshold: " + lengthThreshold);
+
+//        final double[] log2crCredibleIntervalSizes = allSegments.stream()
+//                .mapToDouble(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10))
+//                .toArray();
+//        final double log2crCredibleIntervalThreshold = percentile.evaluate(log2crCredibleIntervalSizes, credibleIntervalPercentile);
+//        System.out.println("Log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
+
+        final double[] mafCredibleIntervalSizes = allSegments.stream()
+                .filter(s -> !Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()))
+                .mapToDouble(s -> s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10))
+                .toArray();
+        final double mafCredibleIntervalThreshold = percentile.evaluate(mafCredibleIntervalSizes, credibleIntervalPercentile);
+        System.out.println("MAF credible-interval threshold: " + mafCredibleIntervalThreshold);
+
+        final List<ACNVModeledSegment> segments = allSegments.stream()
+                .filter(s -> s.getInterval().size() > lengthThreshold)
+//                .filter(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10) < log2crCredibleIntervalThreshold)
+                .filter(s -> Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()) || s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10) < mafCredibleIntervalThreshold)
+                        .collect(Collectors.toList());
+
+        System.out.println("Filtered segments:");
+        allSegments.stream().filter(s -> !segments.contains(s))
+                .forEach(s -> System.out.println(s.getInterval() + " " +
+                        s.getSegmentMeanPosteriorSummary().getCenter() + " " + s.getSegmentMeanPosteriorSummary().getLower() + " " + s.getSegmentMeanPosteriorSummary().getUpper() + " " +
+                        s.getMinorAlleleFractionPosteriorSummary().getCenter() + " " + s.getMinorAlleleFractionPosteriorSummary().getLower() + " " + s.getMinorAlleleFractionPosteriorSummary().getUpper()));
+
+        return segments;
     }
 
     private void outputModeller(final JavaSparkContext ctx,
@@ -177,7 +221,10 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
             final int pi = populationIndex;
-            if (populationIndex != numPopulations - 1) {
+            final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
+            final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
+
+            if (populationIndex != numPopulations - 1 && populationFractionPosteriorMean >= 0.01) {
                 System.out.println("population " + populationIndex + " ==================================================");
                 for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
                     final int si = segmentIndex;
@@ -192,7 +239,9 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                         final double variantPloidyStateProbability = (double) variantProfileCollectionSamples.stream()
                                 .filter(vpc -> vpc.get(pi).variantPloidyStateIndex(si) == vpsi)
                                 .count() / (numSamples - numBurnIn);
-                        System.out.println(variantPloidyState + ": " + variantPloidyStateProbability);
+                        if (isVariantPosteriorProbability > 0.25 && variantPloidyStateProbability > 0.1) {
+                            System.out.println(variantPloidyState + ": " + variantPloidyStateProbability);
+                        }
                     }
                 }
                 System.out.println();
