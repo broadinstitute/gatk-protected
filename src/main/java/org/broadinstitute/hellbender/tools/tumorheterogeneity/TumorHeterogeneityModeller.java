@@ -22,7 +22,7 @@ public final class TumorHeterogeneityModeller {
 
     private static final double CONCENTRATION_MIN = EPSILON;
     private static final double CONCENTRATION_MAX = 10.;
-    private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 0.005;
+    private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 1E-3;
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 10;
 
@@ -89,6 +89,63 @@ public final class TumorHeterogeneityModeller {
                 new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations);
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
                 new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, variantPloidyStatePrior);
+
+        model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
+                .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
+                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
+                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
+                .addParameterSampler(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollectionSampler, TumorHeterogeneityState.VariantProfileCollection.class)
+                .build();
+    }
+
+    public TumorHeterogeneityModeller(final double initialConcentration,
+                                      final TumorHeterogeneityState.PopulationFractions initialPopulationFractions,
+                                      final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators,
+                                      final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection,
+                                      final List<ACNVModeledSegment> segments,
+                                      final PloidyState normalPloidyState,
+                                      final PloidyStatePrior variantPloidyStatePrior,
+                                      final double concentrationPriorAlpha,
+                                      final double concentrationPriorBeta,
+                                      final double variantSegmentFractionPriorAlpha,
+                                      final double variantSegmentFractionPriorBeta,
+                                      final int numPopulations,
+                                      final int numCells,
+                                      final RandomGenerator rng) {
+        //TODO validate
+        Utils.nonNull(segments);
+        Utils.nonNull(normalPloidyState);
+        Utils.nonNull(variantPloidyStatePrior);
+        Utils.nonNull(rng);
+        Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
+        Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
+                "Variant-ploidy state prior should not be specified for normal ploidy state.");
+        Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
+        Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
+        Utils.validateArg(variantSegmentFractionPriorAlpha > 0, "Hyperparameter for variant-segment fraction must be positive.");
+        Utils.validateArg(variantSegmentFractionPriorBeta > 0, "Hyperparameter for variant-segment fraction must be positive.");
+        Utils.validateArg(numPopulations > 1, "Maximum number of populations must be strictly greater than 1.");
+        Utils.validateArg(numCells > 0, "Number of auxiliary cells must be positive.");
+
+        final int numVariantPopulations = numPopulations - 1;
+
+        //create TumorHeterogeneityData from ACNV segments
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
+
+        //define samplers
+        final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
+                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, CONCENTRATION_SLICE_SAMPLING_WIDTH);
+        final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
+                new TumorHeterogeneitySamplers.PopulationFractionsSampler();
+        final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
+                new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations);
+        final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
+                new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, variantPloidyStatePrior);
+
+        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(normalPloidyState, variantPloidyStatePrior,
+                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+        final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
+                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
