@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import com.google.common.collect.Iterables;
 import htsjdk.samtools.util.Log;
 import org.apache.commons.collections4.MultiSet;
 import org.apache.commons.collections4.multiset.HashMultiSet;
@@ -15,7 +16,6 @@ import org.broadinstitute.hellbender.tools.exome.SegmentUtils;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
-import org.broadinstitute.hellbender.utils.io.IOUtils;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.annotations.Test;
@@ -23,10 +23,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -41,7 +38,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.6_total_segments.acnv.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-3_trunc-frac-0.5_segments-1000_length-20/purity-0.5_total_segments.acnv.seg");
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P4M-sim-final-edit.seg");
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/SM-74P3M-sim-final-edit.seg");
     
@@ -84,44 +81,87 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 4), ploidyPDF.apply(new PloidyState(0, 4)));
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 3), ploidyPDF.apply(new PloidyState(1, 3)));
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 2), ploidyPDF.apply(new PloidyState(2, 2)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 5), ploidyPDF.apply(new PloidyState(0, 5)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 4), ploidyPDF.apply(new PloidyState(1, 4)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 3), ploidyPDF.apply(new PloidyState(2, 3)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 6), ploidyPDF.apply(new PloidyState(0, 6)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 5), ploidyPDF.apply(new PloidyState(1, 5)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 4), ploidyPDF.apply(new PloidyState(2, 4)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 3), ploidyPDF.apply(new PloidyState(3, 3)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 7), ploidyPDF.apply(new PloidyState(0, 7)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 6), ploidyPDF.apply(new PloidyState(1, 6)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 5), ploidyPDF.apply(new PloidyState(2, 5)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 4), ploidyPDF.apply(new PloidyState(3, 4)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 8), ploidyPDF.apply(new PloidyState(0, 8)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 7), ploidyPDF.apply(new PloidyState(1, 7)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 6), ploidyPDF.apply(new PloidyState(2, 6)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 5), ploidyPDF.apply(new PloidyState(3, 5)));
-//        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(4, 4), ploidyPDF.apply(new PloidyState(4, 4)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 5), ploidyPDF.apply(new PloidyState(0, 5)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 4), ploidyPDF.apply(new PloidyState(1, 4)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 3), ploidyPDF.apply(new PloidyState(2, 3)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 6), ploidyPDF.apply(new PloidyState(0, 6)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 5), ploidyPDF.apply(new PloidyState(1, 5)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 4), ploidyPDF.apply(new PloidyState(2, 4)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 3), ploidyPDF.apply(new PloidyState(3, 3)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 7), ploidyPDF.apply(new PloidyState(0, 7)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 6), ploidyPDF.apply(new PloidyState(1, 6)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 5), ploidyPDF.apply(new PloidyState(2, 5)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 4), ploidyPDF.apply(new PloidyState(3, 4)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 8), ploidyPDF.apply(new PloidyState(0, 8)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 7), ploidyPDF.apply(new PloidyState(1, 7)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(2, 6), ploidyPDF.apply(new PloidyState(2, 6)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(3, 5), ploidyPDF.apply(new PloidyState(3, 5)));
+        unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(4, 4), ploidyPDF.apply(new PloidyState(4, 4)));
         final PloidyStatePrior variantPloidyStatePrior = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
 
-        final int numPopulations = 3;
+        final int numPopulationsClonal = 2;
+        final int numPopulations = 4;
         final int numCells = 200;
 
-        final int numSamples = 100;
-        final int numBurnIn = 50;
+        final int numSamplesClonal = 100;
+        final int numBurnInClonal = 50;
+        final int numSamples = 200;
+        final int numBurnIn = 100;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 10000.;
+        final double concentrationPriorBeta = 1E3;
         final double variantSegmentFractionPriorAlpha = 4.;
         final double variantSegmentFractionPriorBeta = 4.;
 
         //run MCMC
+        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(
+                segments, normalPloidyState, variantPloidyStatePrior,
+                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
+                numPopulationsClonal, numCells, rng);
+        clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
+        System.out.println();
+
+        outputModeller(ctx, segments, variantPloidyStatePrior, numPopulationsClonal, numCells, numSamplesClonal, numBurnInClonal, clonalModeller);
+        System.out.println();
+
+        final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
+        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions = new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
+        final TumorHeterogeneityState.PopulationIndicators clonalPopulationIndicators = Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples());
+        final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
+        final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
+        initialVariantProfiles.addAll(clonalVariantProfileCollection);
+        initialVariantProfiles.add(initializeProfile(segments.size()));
+        initialVariantProfiles.add(initializeProfile(segments.size()));
+        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
+                new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(
+                clonalConcentration, initialPopulationFractions, clonalPopulationIndicators, initialVariantProfileCollection,
                 segments, normalPloidyState, variantPloidyStatePrior,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
                 numPopulations, numCells, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
-
         System.out.println();
 
+        outputModeller(ctx, segments, variantPloidyStatePrior, numPopulations, numCells, numSamples, numBurnIn, modeller);
+    }
+
+    private TumorHeterogeneityState.VariantProfile initializeProfile(final int numSegments) {
+        final double variantSegmentFraction = 0.;
+        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
+        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
+                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
+        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
+    }
+
+    private void outputModeller(final JavaSparkContext ctx,
+                                final List<ACNVModeledSegment> segments,
+                                final PloidyStatePrior variantPloidyStatePrior,
+                                final int numPopulations,
+                                final int numCells,
+                                final int numSamples,
+                                final int numBurnIn,
+                                final TumorHeterogeneityModeller modeller) {
         //check statistics of global-parameter posterior samples (i.e., posterior mode and standard deviation)
         final Map<TumorHeterogeneityParameter, PosteriorSummary> globalParameterPosteriorSummaries =
                 modeller.getGlobalParameterPosteriorSummaries(CREDIBLE_INTERVAL_ALPHA, ctx);
@@ -136,12 +176,12 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = modeller.getPopulationFractionsSamples();
         final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = modeller.getVariantProfileCollectionSamples();
 
-        for (int cellIndex = 0; cellIndex < numCells; cellIndex++) {
-            final int ci = cellIndex;
-            final MultiSet<Integer> populationCounts = new HashMultiSet<>(populationIndicatorsSamples.stream().map(s -> s.get(ci)).collect(Collectors.toList()));
-            System.out.println("cell " + cellIndex + ": " + populationCounts);
-        }
-        System.out.println();
+//        for (int cellIndex = 0; cellIndex < numCells; cellIndex++) {
+//            final int ci = cellIndex;
+//            final MultiSet<Integer> populationCounts = new HashMultiSet<>(populationIndicatorsSamples.stream().map(s -> s.get(ci)).collect(Collectors.toList()));
+//            System.out.println("cell " + cellIndex + ": " + populationCounts);
+//        }
+//        System.out.println();
 
         for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
             final int pi = populationIndex;
