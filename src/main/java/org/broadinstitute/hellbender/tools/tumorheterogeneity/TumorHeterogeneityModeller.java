@@ -102,7 +102,7 @@ public final class TumorHeterogeneityModeller {
                                       final TumorHeterogeneityState.PopulationFractions initialPopulationFractions,
                                       final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators,
                                       final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection,
-                                      final List<ACNVModeledSegment> segments,
+                                      final TumorHeterogeneityData data,
                                       final PloidyState normalPloidyState,
                                       final PloidyStatePrior variantPloidyStatePrior,
                                       final double concentrationPriorAlpha,
@@ -113,11 +113,9 @@ public final class TumorHeterogeneityModeller {
                                       final int numCells,
                                       final RandomGenerator rng) {
         //TODO validate
-        Utils.nonNull(segments);
         Utils.nonNull(normalPloidyState);
         Utils.nonNull(variantPloidyStatePrior);
         Utils.nonNull(rng);
-        Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
         Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
                 "Variant-ploidy state prior should not be specified for normal ploidy state.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
@@ -128,9 +126,6 @@ public final class TumorHeterogeneityModeller {
         Utils.validateArg(numCells > 0, "Number of auxiliary cells must be positive.");
 
         final int numVariantPopulations = numPopulations - 1;
-
-        //create TumorHeterogeneityData from ACNV segments
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
@@ -233,9 +228,9 @@ public final class TumorHeterogeneityModeller {
         return posteriorSummaries;
     }
 
-    private TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numPopulations,
-                                                                                        final int numCells,
-                                                                                        final RandomGenerator rng) {
+    static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numPopulations,
+                                                                                       final int numCells,
+                                                                                       final RandomGenerator rng) {
         final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
         final Function<Integer, Double> probabilityFunction = i -> 1. / numPopulations;
         return new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numCells).boxed()
@@ -248,7 +243,7 @@ public final class TumorHeterogeneityModeller {
         return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeProfile(numSegments)));
     }
 
-    private TumorHeterogeneityState.VariantProfile initializeProfile(final int numSegments) {
+    static TumorHeterogeneityState.VariantProfile initializeProfile(final int numSegments) {
         final double variantSegmentFraction = 0.;
         final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
                 new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
