@@ -33,7 +33,7 @@ public final class TumorHeterogeneityModeller {
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = new ArrayList<>();
 
-    public TumorHeterogeneityModeller(final List<ACNVModeledSegment> segments,
+    public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
                                       final PloidyState normalPloidyState,
                                       final PloidyStatePrior variantPloidyStatePrior,
                                       final double concentrationPriorAlpha,
@@ -43,11 +43,10 @@ public final class TumorHeterogeneityModeller {
                                       final int numPopulations,
                                       final int numCells,
                                       final RandomGenerator rng) {
-        Utils.nonNull(segments);
+        Utils.nonNull(data);
         Utils.nonNull(normalPloidyState);
         Utils.nonNull(variantPloidyStatePrior);
         Utils.nonNull(rng);
-        Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
         Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
                 "Variant-ploidy state prior should not be specified for normal ploidy state.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
@@ -59,9 +58,6 @@ public final class TumorHeterogeneityModeller {
 
         final int numVariantPopulations = numPopulations - 1;
         final int numVariantPloidyStates = variantPloidyStatePrior.numPloidyStates();
-
-        //create TumorHeterogeneityData from ACNV segments
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
 
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =

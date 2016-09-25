@@ -39,6 +39,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-1.0_total_segments.acnv.seg");
+    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-SM-74NEG-sim-final-edit.seg"); //100
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-SM-74P2T-sim-final-edit.seg"); //100
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/2-SM-74P35-sim-final-edit.seg"); //30 + 35 + 35? (3, 3)
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/3-SM-74P3J-sim-final-edit.seg"); //50 + 20 + 30?
@@ -46,7 +47,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/5-SM-74P3K-sim-final-edit.seg"); //65
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/6-SM-74P51-sim-final-edit.seg"); //70
 //    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/7-SM-74P56-sim-final-edit.seg"); //90
-    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-SM-74P4M-sim-final-edit.seg"); //100
+//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-SM-74P4M-sim-final-edit.seg"); //100
 
     @Test
     public void testRunMCMC() throws IOException {
@@ -75,10 +76,9 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         } catch (final IOException ioe) {
             throw new GATKException("Cannot write to file.", ioe);
         }
-
         System.out.println();
 
-        final int nMaxClonal = 3;
+        final int nMaxClonal = 5;
         final int nMax = 5;
 
         final int numPopulationsClonal = 2;
@@ -96,7 +96,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final double variantSegmentFractionPriorBeta = 4.;
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
-        final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0)) / Math.pow(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()), 5));
+        final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 1000. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
 //        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
 
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMapClonal = new LinkedHashMap<>();
@@ -121,7 +121,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         //run MCMC
         final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(
-                segments, normalPloidyState, variantPloidyStatePriorClonal,
+                data, normalPloidyState, variantPloidyStatePriorClonal,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
                 numPopulationsClonal, numCells, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
