@@ -184,6 +184,20 @@ public final class BayesianHetPulldownCalculator {
     }
 
     /**
+     * Checks of a given base is in BASES
+     * @param base a nucleotide
+     * @return boolean
+     */
+    private boolean isProperBase(final Nucleotide base) {
+        for (final Nucleotide properBase : BASES) {
+            if (base.equals(properBase)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns map of base-pair to error probabilities at a given locus. All reads are considered (not just ACTG)
      * @param locus locus
      * @return map of base-pair to error probabilities
@@ -196,7 +210,9 @@ public final class BayesianHetPulldownCalculator {
                                 errorProbabilityAdjustmentFactor * QualityUtils.qualToErrorProb(rp.getBaseQuality()),
                                 errorProbabilityAdjustmentFactor * QualityUtils.qualToErrorProb(rp.getRecord().getMappingQuality())
                         )
-                )).collect(Collectors.groupingBy(
+                ))
+                .filter(rp -> isProperBase(rp.getLeft()))
+                .collect(Collectors.groupingBy(
                         ImmutablePair::getLeft,
                         Collectors.mapping(ImmutablePair::getRight, Collectors.toList()))
                 );
@@ -275,7 +291,7 @@ public final class BayesianHetPulldownCalculator {
      * @return a SamLocusIterator object
      */
     private SamLocusIterator getSamLocusIteratorWithDefaultFilters(final SamReader samReader) {
-        final SamLocusIterator locusIterator = new SamLocusIterator(samReader, snpIntervals, true);
+        final SamLocusIterator locusIterator = new SamLocusIterator(samReader, snpIntervals, false);
 
         /* set read and locus filters */
         final List<SamRecordFilter> samFilters = Arrays.asList(new NotPrimaryAlignmentFilter(),
@@ -333,10 +349,13 @@ public final class BayesianHetPulldownCalculator {
                 if (totalReadCount <= readDepthThreshold) {
                     continue;
                 }
-
-                final Map<Nucleotide, List<BaseQuality>> baseQualities = getPileupBaseQualities(locus);
                 final Nucleotide refBase = Nucleotide.valueOf(refWalker.get(locus.getSequenceIndex())
                         .getBases()[locus.getPosition() - 1]);
+                if (!isProperBase(refBase)) {
+                    continue;
+                }
+
+                final Map<Nucleotide, List<BaseQuality>> baseQualities = getPileupBaseQualities(locus);
                 final Nucleotide altBase = inferAltFromPileup(baseQualities, refBase);
 
                 /* calculate Het log odds */
