@@ -27,6 +27,8 @@ public final class TumorHeterogeneityModeller {
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 10;
 
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
+    private final TumorHeterogeneityData data;
+    private final TumorHeterogeneityPriorCollection priors;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationIndicators> populationIndicatorsSamples = new ArrayList<>();
@@ -86,6 +88,8 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
                 new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, variantPloidyStatePrior);
 
+        this.data = data;
+        this.priors = priors;
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
@@ -138,6 +142,8 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
                 initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
 
+        this.data = data;
+        this.priors = priors;
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
@@ -206,6 +212,20 @@ public final class TumorHeterogeneityModeller {
      */
     public List<TumorHeterogeneityState.VariantProfileCollection> getVariantProfileCollectionSamples() {
         return Collections.unmodifiableList(variantProfileCollectionSamples);
+    }
+
+    public List<Double> getPloidySamples() {
+        final int numSamples = concentrationSamples.size();
+        final List<Double> ploidySamples = new ArrayList<>(numSamples);
+        for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+            final double concentration = concentrationSamples.get(sampleIndex);
+            final TumorHeterogeneityState.PopulationFractions populationFractions = populationFractionsSamples.get(sampleIndex);
+            final TumorHeterogeneityState.PopulationIndicators populationIndicators = populationIndicatorsSamples.get(sampleIndex);
+            final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = variantProfileCollectionSamples.get(sampleIndex);
+            final TumorHeterogeneityState state = new TumorHeterogeneityState(concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
+            ploidySamples.add(state.calculatePopulationAndGenomicAveragedPloidy(data));
+        }
+        return ploidySamples;
     }
 
     /**
