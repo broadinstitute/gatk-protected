@@ -81,7 +81,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMapClonal = new LinkedHashMap<>();
         for (int n = 0; n <= nMaxClonal; n++) {
             for (int m = 0; m <= n; m++) {
-                if (m != 1 && n != 1) {
+                if (!(m == 1 && n == 1)) {
                     unnormalizedLogProbabilityMassFunctionMapClonal.put(new PloidyState(m, n), ploidyPDF.apply(new PloidyState(m, n)));
                 }
             }
@@ -91,7 +91,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         for (int n = 0; n <= nMax; n++) {
             for (int m = 0; m <= n; m++) {
-                if (m != 1 && n != 1) {
+                if (!(m == 1 && n == 1)) {
                     unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyPDF.apply(new PloidyState(m, n)));
                 }
             }
@@ -171,8 +171,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     }
 
     private List<ACNVModeledSegment> filterSegments(final List<ACNVModeledSegment> allSegments, final FileWriter writer, final Logger logger) {
-        final double lengthPercentile = 0.1;
-        final double credibleIntervalPercentile = 95.;
+        final double lengthPercentile = 5.;
+        final double credibleIntervalPercentile = 90.;
 
         final Percentile percentile = new Percentile();
 
@@ -181,11 +181,12 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         output(writer, logger, "#length threshold: " + lengthThreshold);
         output(writer, logger, System.getProperty("line.separator"));
 
-//        final double[] log2crCredibleIntervalSizes = allSegments.stream()
-//                .mapToDouble(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10))
-//                .toArray();
-//        final double log2crCredibleIntervalThreshold = percentile.evaluate(log2crCredibleIntervalSizes, credibleIntervalPercentile);
-//        System.out.println("Log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
+        final double[] log2crCredibleIntervalSizes = allSegments.stream()
+                .mapToDouble(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10))
+                .toArray();
+        final double log2crCredibleIntervalThreshold = percentile.evaluate(log2crCredibleIntervalSizes, credibleIntervalPercentile);
+        output(writer, logger, "Log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
+        output(writer, logger, System.getProperty("line.separator"));
 
         final double[] mafCredibleIntervalSizes = allSegments.stream()
                 .filter(s -> !Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()))
@@ -199,7 +200,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                 .filter(s -> !s.getContig().equals("2"))
                 .filter(s -> !s.getContig().equals("6"))
                 .filter(s -> s.getInterval().size() > lengthThreshold)
-//                .filter(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10) < log2crCredibleIntervalThreshold)
+                .filter(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10) < log2crCredibleIntervalThreshold)
                 .filter(s -> Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()) || s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10) < mafCredibleIntervalThreshold)
                         .collect(Collectors.toList());
 
@@ -270,10 +271,12 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         //headers
         output(writer, logger, "POPULATION_INDEX\tSEGMENT_INDEX\tSEGMENT_INTERVAL\tIS_VARIANT_PROB\t");
-        for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < variantPloidyStatePrior.numPloidyStates(); variantPloidyStateIndex++) {
+        for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < variantPloidyStatePrior.numPloidyStates() - 1; variantPloidyStateIndex++) {
             final PloidyState variantPloidyState = variantPloidyStatePrior.ploidyStates().get(variantPloidyStateIndex);
             output(writer, logger, variantPloidyState.m() + "-" + variantPloidyState.n() + "\t");
         }
+        final PloidyState variantPloidyState = variantPloidyStatePrior.ploidyStates().get(variantPloidyStatePrior.numPloidyStates() - 1);
+        output(writer, logger, variantPloidyState.m() + "-" + variantPloidyState.n());
         output(writer, logger, System.getProperty("line.separator"));
         
         for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
@@ -299,7 +302,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                             output(writer, logger, "\t");
                         }
                     }
-                    if (segmentIndex != segments.size() - 1) {
+                    if (!(segmentIndex == segments.size() - 1 && populationIndex == numPopulations - 2)) {
                         output(writer, logger, System.getProperty("line.separator"));
                     }
                 }
