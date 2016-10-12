@@ -39,18 +39,38 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg");
-//    private static final File ACNV_SEG_FILE = new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-1.0_total_segments.acnv.seg");
+//    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.1_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.2_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.3_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.4_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.5_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.6_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.8_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.9_total_segments.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-1.0_total_segments.acnv.seg"));
     private static final List<File> ACNV_SEG_FILES = Arrays.asList(
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-SM-74NEG-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-SM-74P2T-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/2-SM-74P35-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/3-SM-74P3J-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/4-SM-74P3M-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/5-SM-74P3K-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/6-SM-74P51-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/7-SM-74P56-sim-final-edit.seg"), 
-            new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-SM-74P4M-sim-final-edit.seg"));
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.1_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.2_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.3_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.4_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.5_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.6_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.7_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.8_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.9_total_segments.acnv.seg"),
+        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-1.0_total_segments.acnv.seg"));
+//    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-0-SM-74NEG-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-10-SM-74P2T-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/2-30-SM-74P35-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/3-40-SM-74P3J-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/4-60-SM-74P3M-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/5-70-SM-74P3K-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/6-80-SM-74P51-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/7-90-SM-74P56-sim-final-edit.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-100-SM-74P4M-sim-final-edit.seg"));
 
     @Test
     public void testRunMCMC() throws IOException {
@@ -75,14 +95,14 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final double variantSegmentFractionPriorBeta = 4.;
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
-        final Function<PloidyState, Double> ploidyPDF = ps -> Math.log(Math.pow(0.75, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 1000. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
+        final Function<PloidyState, Double> ploidyLogPDF = ps -> Math.log(Math.pow(0.5, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 100. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
 //        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
 
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMapClonal = new LinkedHashMap<>();
         for (int n = 0; n <= nMaxClonal; n++) {
             for (int m = 0; m <= n; m++) {
                 if (!(m == 1 && n == 1)) {
-                    unnormalizedLogProbabilityMassFunctionMapClonal.put(new PloidyState(m, n), ploidyPDF.apply(new PloidyState(m, n)));
+                    unnormalizedLogProbabilityMassFunctionMapClonal.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
                 }
             }
         }
@@ -92,7 +112,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         for (int n = 0; n <= nMax; n++) {
             for (int m = 0; m <= n; m++) {
                 if (!(m == 1 && n == 1)) {
-                    unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyPDF.apply(new PloidyState(m, n)));
+                    unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
                 }
             }
         }
@@ -109,7 +129,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
             try (final FileWriter writerClonal = new FileWriter(resultClonalFile)) {
                 output(writerClonal, logger, "#num segments all: " + allSegments.size());
                 output(writerClonal, logger, System.getProperty("line.separator"));
-                final List<ACNVModeledSegment> segments = filterSegments(allSegments, writerClonal, logger);
+//                final List<ACNVModeledSegment> segments = filterSegments(allSegments, writerClonal, logger);
+                final List<ACNVModeledSegment> segments = allSegments;
                 output(writerClonal, logger, "#num segments after filtering: " + segments.size());
                 output(writerClonal, logger, System.getProperty("line.separator"));
 
@@ -164,15 +185,15 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     private void output(final FileWriter writer, final Logger logger, final String output) {
         try {
             writer.write(output);
-            logger.info(output);
+//            logger.info(output);
         } catch(final IOException e) {
             throw new GATKException("Cannot output.");
         }
     }
 
     private List<ACNVModeledSegment> filterSegments(final List<ACNVModeledSegment> allSegments, final FileWriter writer, final Logger logger) {
-        final double lengthPercentile = 5.;
-        final double credibleIntervalPercentile = 90.;
+        final double lengthPercentile = 15.;
+        final double credibleIntervalPercentile = 85.;
 
         final Percentile percentile = new Percentile();
 
@@ -185,7 +206,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                 .mapToDouble(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10))
                 .toArray();
         final double log2crCredibleIntervalThreshold = percentile.evaluate(log2crCredibleIntervalSizes, credibleIntervalPercentile);
-        output(writer, logger, "Log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
+        output(writer, logger, "#log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
         output(writer, logger, System.getProperty("line.separator"));
 
         final double[] mafCredibleIntervalSizes = allSegments.stream()
