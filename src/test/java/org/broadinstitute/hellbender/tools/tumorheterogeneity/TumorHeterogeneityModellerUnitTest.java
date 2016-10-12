@@ -39,28 +39,21 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-//    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.1_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.2_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.3_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.4_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.5_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.6_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.7_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.8_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-0.9_total_segments.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-1.0_segments-1000_length-20/purity-1.0_total_segments.acnv.seg"));
+    private static final boolean DO_FILTERING = false;
+
+    private static final String CLONE_PATH = "/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/";
+
     private static final List<File> ACNV_SEG_FILES = Arrays.asList(
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.1_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.2_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.3_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.4_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.5_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.6_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.7_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.8_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-0.9_total_segments.acnv.seg"),
-        new File("/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/purity-1.0_total_segments.acnv.seg"));
+        new File(CLONE_PATH + "purity-0.1_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.2_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.3_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.4_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.5_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.6_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.7_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.8_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-0.9_total_segments.acnv.seg"),
+        new File(CLONE_PATH + "purity-1.0_total_segments.acnv.seg"));
 //    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
 //            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-0-SM-74NEG-sim-final-edit.seg"),
 //            new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-10-SM-74P2T-sim-final-edit.seg"),
@@ -77,8 +70,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final JavaSparkContext ctx = SparkContextFactory.getTestSparkContext();
         LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
 
-        final int nMaxClonal = 6;
-        final int nMax = 6;
+        final int nMaxClonal = 5;
+        final int nMax = 5;
 
         final int numPopulationsClonal = 2;
         final int numPopulations = 4;
@@ -90,7 +83,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final int numBurnIn = 50;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 1E6;
+        final double concentrationPriorBeta = 1E3;
         final double variantSegmentFractionPriorAlpha = 4.;
         final double variantSegmentFractionPriorBeta = 4.;
 
@@ -129,8 +122,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
             try (final FileWriter writerClonal = new FileWriter(resultClonalFile)) {
                 output(writerClonal, logger, "#num segments all: " + allSegments.size());
                 output(writerClonal, logger, System.getProperty("line.separator"));
-//                final List<ACNVModeledSegment> segments = filterSegments(allSegments, writerClonal, logger);
-                final List<ACNVModeledSegment> segments = allSegments;
+                final List<ACNVModeledSegment> segments = DO_FILTERING ? filterSegments(allSegments, writerClonal, logger) : allSegments;
                 output(writerClonal, logger, "#num segments after filtering: " + segments.size());
                 output(writerClonal, logger, System.getProperty("line.separator"));
 
@@ -160,14 +152,22 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                 resultFile.createNewFile();
                 try (final FileWriter writer = new FileWriter(resultFile)) {
                     final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
-                    final TumorHeterogeneityState.PopulationFractions initialPopulationFractions = new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
-                    final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples());
+                    final List<Double> clonalFractions = Iterables.getLast(clonalModeller.getPopulationFractionsSamples());
+                    final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
                     IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, numPopulations - 1));
                     final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
+                    final List<Double> initialFractions = new ArrayList<>();
+                    initialFractions.addAll(clonalFractions.subList(0, numPopulationsClonal - 1));
                     final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
                     initialVariantProfiles.addAll(clonalVariantProfileCollection);
-                    initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
-                    initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
+                    for (int i = 0; i < numPopulations - numPopulationsClonal; i++) {
+                        initialFractions.add(1, 0.);
+                        initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
+                    }
+                    initialFractions.add(Iterables.getLast(clonalFractions));
+                    final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
+                            new TumorHeterogeneityState.PopulationFractions(initialFractions);
+//                    final TumorHeterogeneityState.PopulationFractions initialPopulationFractions = new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
                     final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                             new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
                     final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(

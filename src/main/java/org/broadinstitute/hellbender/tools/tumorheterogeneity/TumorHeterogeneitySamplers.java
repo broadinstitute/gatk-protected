@@ -68,8 +68,7 @@ final class TumorHeterogeneitySamplers {
             logger.debug("Sampling population fractions.");
             //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
             final double[] unnormalizedPopulationFractions = IntStream.range(0, state.numPopulations()).boxed()
-                    .map(state::populationCount)
-                    .mapToDouble(c -> new GammaDistribution(rng, state.concentration() + c.doubleValue(), 1.).sample()).toArray();
+                    .mapToDouble(i -> new GammaDistribution(rng, (i == state.numPopulations() - 1 ? 1000. : 1.) * state.concentration() + state.populationCount(i), 1.).sample()).toArray();
             final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
             return new TumorHeterogeneityState.PopulationFractions(populationFractions);
         }
