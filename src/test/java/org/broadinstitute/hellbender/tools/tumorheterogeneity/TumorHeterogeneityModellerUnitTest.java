@@ -75,12 +75,12 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final int numPopulationsClonal = 2;
         final int numPopulations = 4;
-        final int numCells = 50;
+        final int numCells = 25;
 
         final int numSamplesClonal = 50;
         final int numBurnInClonal = 25;
-        final int numSamples = 500;
-        final int numBurnIn = 400;
+        final int numSamples = 1000;
+        final int numBurnIn = 800;
 
         final double concentrationPriorAlpha = 1.;
         final double concentrationPriorBeta = 1E10;
