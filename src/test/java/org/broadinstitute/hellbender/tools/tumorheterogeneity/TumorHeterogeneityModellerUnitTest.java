@@ -41,7 +41,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final boolean DO_FILTERING = false;
 
-    private static final String CLONE_PATH = "/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-5_trunc-frac-0.5_segments-1000_length-20/";
+    private static final String CLONE_PATH = "/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-2_trunc-frac-0.5_segments-1000_length-20/";
 
     private static final List<File> ACNV_SEG_FILES = Arrays.asList(
         new File(CLONE_PATH + "purity-0.1_total_segments.acnv.seg"),
@@ -75,17 +75,17 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final int numPopulationsClonal = 2;
         final int numPopulations = 4;
-        final int numCells = 400;
+        final int numCells = 50;
 
         final int numSamplesClonal = 50;
         final int numBurnInClonal = 25;
-        final int numSamples = 100;
-        final int numBurnIn = 50;
+        final int numSamples = 500;
+        final int numBurnIn = 400;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 1E3;
-        final double variantSegmentFractionPriorAlpha = 4.;
-        final double variantSegmentFractionPriorBeta = 4.;
+        final double concentrationPriorBeta = 1E10;
+        final double variantSegmentFractionPriorAlpha = 5.;
+        final double variantSegmentFractionPriorBeta = 5.;
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
         final Function<PloidyState, Double> ploidyLogPDF = ps -> Math.log(Math.pow(0.5, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 100. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
@@ -152,24 +152,29 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
                 resultFile.createNewFile();
                 try (final FileWriter writer = new FileWriter(resultFile)) {
                     final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
-                    final List<Double> clonalFractions = Iterables.getLast(clonalModeller.getPopulationFractionsSamples());
+                    final double clonalNormalFraction = Iterables.getLast(Iterables.getLast(clonalModeller.getPopulationFractionsSamples()));
                     final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
                     IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, numPopulations - 1));
                     final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
                     final List<Double> initialFractions = new ArrayList<>();
-                    initialFractions.addAll(clonalFractions.subList(0, numPopulationsClonal - 1));
+//                    initialFractions.add((1. - clonalNormalFraction) / (numPopulations - 1));
+                    initialFractions.add(1. - clonalNormalFraction);
                     final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
                     initialVariantProfiles.addAll(clonalVariantProfileCollection);
                     for (int i = 0; i < numPopulations - numPopulationsClonal; i++) {
+//                        initialFractions.add(1, (1. - clonalNormalFraction) / (numPopulations - 1));
                         initialFractions.add(1, 0.);
                         initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
                     }
-                    initialFractions.add(Iterables.getLast(clonalFractions));
+                    initialFractions.add(clonalNormalFraction);
                     final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                             new TumorHeterogeneityState.PopulationFractions(initialFractions);
-//                    final TumorHeterogeneityState.PopulationFractions initialPopulationFractions = new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
+//                    final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
+//                            new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
                     final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                             new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
+//                    final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
+//                            TumorHeterogeneityModeller.initializeProfiles(numPopulations - 1, segments.size());
                     final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(
                             clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection,
                             data, normalPloidyState, variantPloidyStatePrior,
