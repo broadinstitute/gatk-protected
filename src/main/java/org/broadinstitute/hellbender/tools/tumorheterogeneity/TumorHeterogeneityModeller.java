@@ -22,7 +22,6 @@ public final class TumorHeterogeneityModeller {
 
     private static final double CONCENTRATION_MIN = EPSILON;
     private static final double CONCENTRATION_MAX = 10.;
-    private static final double CONCENTRATION_SLICE_SAMPLING_WIDTH = 1E-3;
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 10;
 
@@ -73,6 +72,7 @@ public final class TumorHeterogeneityModeller {
 
         //initialize TumorHeterogeneityState
         final double initialConcentration = concentrationPriorAlpha / concentrationPriorBeta;
+        final double concentrationSliceSamplingWidth = initialConcentration;
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(normalPloidyState, variantPloidyStatePrior,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
         final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
@@ -80,7 +80,7 @@ public final class TumorHeterogeneityModeller {
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
-                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, CONCENTRATION_SLICE_SAMPLING_WIDTH);
+                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
@@ -127,9 +127,10 @@ public final class TumorHeterogeneityModeller {
 
         final int numVariantPopulations = numPopulations - 1;
 
+        final double concentrationSliceSamplingWidth = initialConcentration;
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
-                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, CONCENTRATION_SLICE_SAMPLING_WIDTH);
+                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
@@ -254,8 +255,8 @@ public final class TumorHeterogeneityModeller {
                 .collect(Collectors.toList()));
     }
 
-    private TumorHeterogeneityState.VariantProfileCollection initializeProfiles(final int numVariantPopulations,
-                                                                                final int numSegments) {
+    static TumorHeterogeneityState.VariantProfileCollection initializeProfiles(final int numVariantPopulations,
+                                                                               final int numSegments) {
         return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeProfile(numSegments)));
     }
 
