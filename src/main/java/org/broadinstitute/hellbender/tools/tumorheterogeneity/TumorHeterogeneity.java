@@ -273,10 +273,10 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     )
     protected double ploidyStatePriorChangePenalty = 1E-3;
 
-
-
     @Override
     protected void runPipeline(final JavaSparkContext ctx) {
+        validateArguments();
+
         final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
 
         final File filteredSegmentsFile = new File(outputPrefix + FILTERED_SEGMENTS_FILE_SUFFIX);
@@ -317,6 +317,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 new TumorHeterogeneityState.PopulationFractions(initialFractions);
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
+
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(
                 clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection,
                 data, NORMAL_PLOIDY_STATE, variantPloidyStatePrior,
@@ -324,6 +325,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 maxNumPopulations, numCells, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
         outputModeller(ctx, segments, variantPloidyStatePrior, maxNumPopulations, modeller, resultFile, logger);
+
+        logger.info("SUCCESS: Tumor heterogeneity run complete and result output to " + resultFile + ".");
     }
 
     private static void output(final FileWriter writer, final Logger logger, final String output) {
