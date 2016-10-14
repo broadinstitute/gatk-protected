@@ -39,7 +39,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
 
-    private static final boolean DO_FILTERING = false;
+    private static final boolean DO_FILTERING = true;
 
     private static final String CLONE_PATH = "/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-0.5_segments-1000_length-20/";
 
@@ -79,8 +79,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final int numSamplesClonal = 50;
         final int numBurnInClonal = 25;
-        final int numSamples = 500;
-        final int numBurnIn = 400;
+        final int numSamples = 250;
+        final int numBurnIn = 150;
 
         final double concentrationPriorAlpha = 1.;
         final double concentrationPriorBeta = 1E8;
@@ -88,7 +88,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
         final double variantSegmentFractionPriorBeta = 5.;
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
-        final Function<PloidyState, Double> ploidyLogPDF = ps -> Math.log(Math.pow(0.5, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 5. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
+        final Function<PloidyState, Double> ploidyLogPDF = ps -> Math.log(Math.pow(0.001, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 1000. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
 //        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
 
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMapClonal = new LinkedHashMap<>();
@@ -197,8 +197,8 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
     }
 
     private List<ACNVModeledSegment> filterSegments(final List<ACNVModeledSegment> allSegments, final FileWriter writer, final Logger logger) {
-        final double lengthPercentile = 15.;
-        final double credibleIntervalPercentile = 85.;
+        final double lengthPercentile = 25.;
+        final double credibleIntervalPercentile = 75.;
 
         final Percentile percentile = new Percentile();
 
