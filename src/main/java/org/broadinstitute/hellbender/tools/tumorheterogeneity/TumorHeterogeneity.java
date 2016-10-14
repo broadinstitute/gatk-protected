@@ -277,7 +277,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     @Override
     protected void runPipeline(final JavaSparkContext ctx) {
-        LoggingUtils.setLoggingLevel(Log.LogLevel.INFO);
         final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
 
         final File filteredSegmentsFile = new File(outputPrefix + FILTERED_SEGMENTS_FILE_SUFFIX);
