@@ -20,8 +20,8 @@ import java.util.stream.IntStream;
 public final class TumorHeterogeneityModeller {
     private static final double EPSILON = 1E-12;
 
-    private static final double CONCENTRATION_MIN = EPSILON;
-    private static final double CONCENTRATION_MAX = 10.;
+    protected static final double CONCENTRATION_MIN = EPSILON;
+    protected static final double CONCENTRATION_MAX = 10.;
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 10;
 
