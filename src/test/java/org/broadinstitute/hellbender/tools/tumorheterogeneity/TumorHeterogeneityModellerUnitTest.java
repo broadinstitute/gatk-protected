@@ -41,29 +41,29 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
     private static final boolean DO_FILTERING = false;
 
-    private static final String CLONE_PATH = "/home/slee/working/ipython/purity-ploidy/2_clones_test_data/seed-2_trunc-frac-0.5_segments-1000_length-20/";
+    private static final String CLONE_PATH = "/home/slee/working/ipython/purity-ploidy/clonal_test_data/seed-1_trunc-frac-0.5_segments-1000_length-20/";
 
-    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
-        new File(CLONE_PATH + "purity-0.1_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.2_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.3_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.4_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.5_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.6_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.7_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.8_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-0.9_total_segments.acnv.seg"),
-        new File(CLONE_PATH + "purity-1.0_total_segments.acnv.seg"));
 //    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-0-SM-74NEG-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-10-SM-74P2T-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/2-30-SM-74P35-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/3-40-SM-74P3J-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/4-60-SM-74P3M-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/5-70-SM-74P3K-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/6-80-SM-74P51-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/7-90-SM-74P56-sim-final-edit.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-100-SM-74P4M-sim-final-edit.seg"));
+//        new File(CLONE_PATH + "purity-0.1_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.2_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.3_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.4_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.5_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.6_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.7_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.8_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-0.9_total_segments.acnv.seg"),
+//        new File(CLONE_PATH + "purity-1.0_total_segments.acnv.seg"));
+    private static final List<File> ACNV_SEG_FILES = Arrays.asList(
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-0-SM-74NEG-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-10-SM-74P2T-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/2-30-SM-74P35-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/3-40-SM-74P3J-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/4-60-SM-74P3M-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/5-70-SM-74P3K-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/6-80-SM-74P51-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/7-90-SM-74P56-sim-final-edit.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/purity-series/8-100-SM-74P4M-sim-final-edit.seg"));
 
     @Test
     public void testRunMCMC() throws IOException {
@@ -75,20 +75,20 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 
         final int numPopulationsClonal = 2;
         final int numPopulations = 4;
-        final int numCells = 25;
+        final int numCells = 50;
 
         final int numSamplesClonal = 50;
         final int numBurnInClonal = 25;
-        final int numSamples = 1000;
-        final int numBurnIn = 800;
+        final int numSamples = 500;
+        final int numBurnIn = 400;
 
         final double concentrationPriorAlpha = 1.;
-        final double concentrationPriorBeta = 1E10;
+        final double concentrationPriorBeta = 1E8;
         final double variantSegmentFractionPriorAlpha = 5.;
         final double variantSegmentFractionPriorBeta = 5.;
 
         final PloidyState normalPloidyState = new PloidyState(1, 1);
-        final Function<PloidyState, Double> ploidyLogPDF = ps -> Math.log(Math.pow(0.5, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 100. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
+        final Function<PloidyState, Double> ploidyLogPDF = ps -> Math.log(Math.pow(0.5, (ps.m() == 0 ? 1 : 0) + (ps.n() == 0 ? 1 : 0))) - 5. * Math.log(Math.abs(normalPloidyState.m() - ps.m()) + Math.abs(normalPloidyState.n() - ps.n()));
 //        final Function<PloidyState, Double> ploidyPDF = ps -> 0.;
 
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMapClonal = new LinkedHashMap<>();

@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityModeller {
-    private static final double EPSILON = 1E-10;
+    private static final double EPSILON = 1E-12;
 
     private static final double CONCENTRATION_MIN = EPSILON;
     private static final double CONCENTRATION_MAX = 10.;
