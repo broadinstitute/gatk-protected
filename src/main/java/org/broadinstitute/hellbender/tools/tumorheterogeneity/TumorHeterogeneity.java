@@ -186,7 +186,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int numCells = 50;
 
     @Argument(
-            doc = "Maximum number of population for full model.",
+            doc = "Maximum number of populations for full model.",
             fullName = MAX_NUM_POPULATIONS_LONG_NAME,
             shortName = MAX_NUM_POPULATIONS_SHORT_NAME,
             optional = true
