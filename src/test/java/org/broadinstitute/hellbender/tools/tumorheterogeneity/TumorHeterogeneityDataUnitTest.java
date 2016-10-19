@@ -24,6 +24,7 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public class TumorHeterogeneityDataUnitTest {
+    private static final double LN2 = GATKProtectedMathUtils.LN2;
     private static final double INV_LN2 = GATKProtectedMathUtils.INV_LN2;
 
     private static final double REL_ERROR_THRESHOLD = 1E-4;
@@ -93,7 +94,7 @@ public class TumorHeterogeneityDataUnitTest {
         //calculate expected log density from true distribution at point
         final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
         final double expectedLogDensity =
-                Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / copyRatio) + Math.log(2.);
+                Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / copyRatio) + LN2;
 
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
     }

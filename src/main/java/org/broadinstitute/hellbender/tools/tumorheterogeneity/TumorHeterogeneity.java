@@ -54,6 +54,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String CLONAL_RESULT_FILE_SUFFIX = ".th.clonal.tsv";
     protected static final String RESULT_FILE_SUFFIX = ".th.tsv";
     protected static final String FILTERED_SEGMENTS_FILE_SUFFIX = ".filtered.seg";
+    protected static final String MAF_CR_FILE_SUFFIX = ".maf-cr.tsv";
 
     //CLI arguments
     protected static final String OUTPUT_PREFIX_LONG_NAME = "outputPrefix";
@@ -286,6 +287,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 allSegments;
 
         final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
+        final File mafCrFile = new File(outputPrefix + MAF_CR_FILE_SUFFIX);
+        outputMafCrFile(mafCrFile, data);
         
         final File resultClonalFile = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
@@ -335,6 +338,23 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             logger.debug(output);
         } catch(final IOException e) {
             throw new GATKException("Cannot output.");
+        }
+    }
+
+    private static void outputMafCrFile(final File mafCrFile,
+                                        final TumorHeterogeneityData data) {
+        try (final FileWriter mafCrWriter = new FileWriter(mafCrFile)) {
+            mafCrFile.createNewFile();
+            for (double f = 0.; f <= 0.5; f += 0.01) {
+                for (double c = 1E-10; c <= 5; c += 0.05) {
+                    final double maf = f;
+                    final double cr = c;
+                    final double density = IntStream.range(0, data.numSegments()).mapToDouble(i -> Math.exp(data.logDensity(i, cr, maf))).sum();
+                    mafCrWriter.write(maf + "\t" + cr + "\t" + density + System.getProperty("line.separator"));
+                }
+            }
+        } catch (final IOException e) {
+            throw new GATKException("Error writing MAF-CR file.");
         }
     }
 
