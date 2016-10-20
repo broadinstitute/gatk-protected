@@ -301,7 +301,7 @@ final class TumorHeterogeneitySamplers {
         }
 
         private static double calculatePopulationAndGenomicAveragedPloidyWithExclusion(final TumorHeterogeneityState state, final TumorHeterogeneityData data, final int segmentIndexToExclude, final int populationIndexToExclude) {
-            final double excludedPloidy = state.populationFraction(populationIndexToExclude) * state.calculateFractionalLength(data, segmentIndexToExclude) * state.calculateCopyNumberFunction(segmentIndexToExclude, populationIndexToExclude, PloidyState::total);
+            final double excludedPloidy = state.calculatePopulationFractionFromCounts(populationIndexToExclude) * state.calculateFractionalLength(data, segmentIndexToExclude) * state.calculateCopyNumberFunction(segmentIndexToExclude, populationIndexToExclude, PloidyState::total);
             return state.calculatePopulationAndGenomicAveragedPloidy(data) - excludedPloidy;
         }
 
