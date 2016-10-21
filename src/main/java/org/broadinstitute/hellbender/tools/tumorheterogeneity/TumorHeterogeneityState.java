@@ -54,6 +54,15 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         this.priors = priors;
     }
 
+    public TumorHeterogeneityState(final TumorHeterogeneityState state) {
+        this(
+                state.get(TumorHeterogeneityParameter.CONCENTRATION, Double.class),
+                new TumorHeterogeneityState.PopulationFractions(state.populationFractions()),
+                new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators()),
+                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles()),
+                state.priors());
+    }
+
     /*===============================================================================================================*
      * GETTERS                                                                                                       *
      *===============================================================================================================*/
@@ -79,6 +88,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class).get(populationIndex);
     }
 
+    protected TumorHeterogeneityState.PopulationFractions populationFractions() {
+        return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class);
+    }
+
     public int populationCount(final int populationIndex) {
         validatePopulationIndex(populationIndex, numPopulations);
         return populationCounts.get(populationIndex).intValue();
@@ -87,6 +100,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     public int populationIndex(final int cellIndex) {
         validateCellIndex(cellIndex, numCells);
         return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex);
+    }
+
+    protected TumorHeterogeneityState.PopulationIndicators populationIndicators() {
+        return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class);
     }
 
     public double variantSegmentFraction(final int populationIndex) {
@@ -120,6 +137,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         validatePopulationIndex(populationIndex, numPopulations);
         validateSegmentIndex(segmentIndex, numSegments);
         return priors.variantPloidyStatePrior().ploidyStates().get(variantPloidyStateIndex(populationIndex, segmentIndex));
+    }
+
+    protected TumorHeterogeneityState.VariantProfileCollection variantProfiles() {
+        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class);
     }
 
     public TumorHeterogeneityPriorCollection priors() {
