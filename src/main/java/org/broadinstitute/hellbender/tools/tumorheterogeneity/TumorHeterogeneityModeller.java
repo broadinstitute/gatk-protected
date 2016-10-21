@@ -212,7 +212,7 @@ public final class TumorHeterogeneityModeller {
     static TumorHeterogeneityState.VariantProfile initializeNormalProfile(final int numSegments) {
         final double variantSegmentFraction = 0.;
         final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, true));
         final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
                 new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
         return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);

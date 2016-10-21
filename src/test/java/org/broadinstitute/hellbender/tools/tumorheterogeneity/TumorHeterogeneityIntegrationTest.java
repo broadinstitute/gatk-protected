@@ -15,7 +15,7 @@ import static org.testng.Assert.*;
  */
 public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramTest {
 //    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-0.6/total_segments-log2cr_sd-0.05-maf_sd-0.005.acnv.seg");
-    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg");
+    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg");
     private static final String OUTPUT_PREFIX = ACNV_SEGMENT_FILE.getAbsolutePath().replace(".acnv.seg", "");
 
     @Test
@@ -23,11 +23,11 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
         final String[] arguments = {
                 "--" + ExomeStandardArgumentDefinitions.SEGMENT_FILE_LONG_NAME, ACNV_SEGMENT_FILE.getAbsolutePath(),
                 "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
-                "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "200",
-                "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "150",
-                "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "500",
-                "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "400",
-                "--" + TumorHeterogeneity.NUM_CELLS_LONG_NAME, "50",
+                "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "20",
+                "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "15",
+                "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "5",
+                "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "4",
+                "--" + TumorHeterogeneity.NUM_CELLS_LONG_NAME, "20",
                 "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_LONG_NAME, "1E10",
                 "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-3",
                 "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-3",
