@@ -14,10 +14,7 @@ import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
 import org.broadinstitute.hellbender.utils.mcmc.SliceSampler;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -67,6 +64,8 @@ final class TumorHeterogeneitySamplers {
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             logger.debug("Sampling population fractions.");
             //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
+            logger.info(IntStream.range(0, state.numPopulations()).boxed()
+                    .map(i -> state.concentration() + state.populationCount(i)).collect(Collectors.toList()));
             final double[] unnormalizedPopulationFractions = IntStream.range(0, state.numPopulations()).boxed()
                     .mapToDouble(i -> new GammaDistribution(rng, state.concentration() + state.populationCount(i), 1.).sample()).toArray();
             final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
@@ -93,21 +92,25 @@ final class TumorHeterogeneitySamplers {
         }
 
         private TumorHeterogeneityState.PopulationIndicators sampleMetropolisSwapStep(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+            logger.info("PROPOSING SWAP=====================================");
             final double currentLogPosterior = calculateLogPosterior(data, state);
             final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(state);
             swapPopulationIndices(proposedState);
             final double proposedLogPosterior = calculateLogPosterior(data, proposedState);
-            final double acceptanceProbability = Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior));
-            return rng.nextDouble() < acceptanceProbability ?
-                    new TumorHeterogeneityState.PopulationIndicators(proposedState.populationIndicators()) :
-                    new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators());
+            final double acceptanceProbability = 1.; //Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior));
+            if (rng.nextDouble() < acceptanceProbability) {
+                logger.info("Sampled population indicators: " + proposedState.populationIndicators());
+                return new TumorHeterogeneityState.PopulationIndicators(proposedState.populationIndicators());
+            }
+            logger.info("Sampled population indicators: " + state.populationIndicators());
+            return new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators());
         }
 
         private void swapPopulationIndices(final TumorHeterogeneityState state) {
             final List<Integer> shuffledPopulationIndices = new ArrayList<>(populationIndices);
             Collections.shuffle(shuffledPopulationIndices, rnd);
-            IntStream.range(0, state.numCells()).forEach(i -> state.setPopulationIndex(i, shuffledPopulationIndices.get(state.populationIndex(i))));
-            state.resetPopulationCounts();
+            IntStream.range(0, state.numCells()).forEach(i -> state.setPopulationIndexAndIncrementCounts(i, shuffledPopulationIndices.get(state.populationIndex(i))));
+//            state.updatePopulationCounts();
         }
 
         private TumorHeterogeneityState.PopulationIndicators sampleGibbsStep(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
@@ -119,6 +122,7 @@ final class TumorHeterogeneitySamplers {
                 final int currentPopulationIndex = state.populationIndex(cellIndex);
 
                 final double invariantPloidyTerm = calculatePopulationAndGenomicAveragedPloidyWithExclusion(state, data, currentPopulationIndex, singleCellPopulationFraction);
+                logger.info(invariantPloidyTerm);
 
                 final double[] log10Probabilities = new double[state.numPopulations()];
                 for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
@@ -140,7 +144,7 @@ final class TumorHeterogeneitySamplers {
                 populationIndicators.set(cellIndex, populationIndex);
 
                 //update the state as a side effect
-                state.setPopulationIndex(cellIndex, populationIndex);
+                state.setPopulationIndexAndIncrementCounts(cellIndex, populationIndex);
             }
             logger.info("Sampled population indicators: " + populationIndicators);
             return new TumorHeterogeneityState.PopulationIndicators(populationIndicators);
@@ -296,6 +300,7 @@ final class TumorHeterogeneitySamplers {
                 final List<Integer> variantPloidyStateIndicators = new ArrayList<>(Collections.nCopies(state.numSegments(), 0));
                 final List<Integer> shuffledSegmentIndices = IntStream.range(0, state.numSegments()).boxed().collect(Collectors.toList());
                 Collections.shuffle(shuffledSegmentIndices, rnd);
+                final List<PloidyState> variantPloidyStates = state.priors().variantPloidyStatePrior().ploidyStates();
                 for (int segmentIndex : shuffledSegmentIndices) {
                     final boolean isVariant = state.isVariant(populationIndex, segmentIndex);
                     final double segmentFractionalLength = state.calculateFractionalLength(data, segmentIndex);
@@ -307,7 +312,6 @@ final class TumorHeterogeneitySamplers {
                     //approximation: ignore coupling of copy-ratio posteriors in different segments due to ploidy term
 
                     //calculate unnormalized probabilities for all variant ploidy states
-                    final List<PloidyState> variantPloidyStates = state.priors().variantPloidyStatePrior().ploidyStates();
                     final int si = segmentIndex;
                     final double[] log10Probabilities = isVariant ?
                             variantPloidyStateIndices.stream()
@@ -318,12 +322,14 @@ final class TumorHeterogeneitySamplers {
                                     .toArray() :
                             variantPloidyStatePriorLog10Probabilities;
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
+                    logger.info(Doubles.asList(probabilities));
                     final int variantPloidyStateIndex = GATKProtectedMathUtils.randomSelect(variantPloidyStateIndices, i -> probabilities[i], rng);
                     variantPloidyStateIndicators.set(segmentIndex, variantPloidyStateIndex);
 
                     //update the state as a side effect
                     state.setVariantPloidyStateIndex(populationIndex, segmentIndex, variantPloidyStateIndex);
                 }
+                logger.info("Sampled variant-ploidy states for population " + populationIndex + ": " + variantPloidyStateIndicators.stream().map(i -> variantPloidyStates.get(i).toString()).collect(Collectors.joining(" ")));
                 return new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(variantPloidyStateIndicators);
             }
         }
