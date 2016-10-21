@@ -164,7 +164,7 @@ public class TumorHeterogeneityModellerUnitTest extends BaseTest {
 //                    for (int i = 0; i < numPopulations - numPopulationsClonal; i++) {
 ////                        initialFractions.add(1, (1. - clonalNormalFraction) / (numPopulations - 1));
 //                        initialFractions.add(1, 0.);
-//                        initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
+//                        initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeNormalProfile(segments.size()));
 //                    }
 //                    initialFractions.add(clonalNormalFraction);
 //                    final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =

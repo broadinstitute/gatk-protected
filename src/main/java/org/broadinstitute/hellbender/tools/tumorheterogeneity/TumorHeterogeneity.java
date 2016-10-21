@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Doubles;
-import htsjdk.samtools.util.Log;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
@@ -19,7 +18,6 @@ import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.exome.*;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
-import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Decile;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
@@ -43,7 +41,7 @@ import java.util.stream.IntStream;
         programGroup = CopyNumberProgramGroup.class
 )
 public class TumorHeterogeneity extends SparkCommandLineProgram {
-    private static final long serialVersionUID = 1l;
+    private static final long serialVersionUID = 19738246L;
 
     private static final long RANDOM_SEED = 13;
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
@@ -83,7 +81,13 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     protected static final String NUM_CELLS_LONG_NAME = "numCells";
     protected static final String NUM_CELLS_SHORT_NAME = "numCells";
-    
+
+    protected static final String SWAP_ITERATION_DIVISOR_CLONAL_LONG_NAME = "swapIterationDivisorClonal";
+    protected static final String SWAP_ITERATION_DIVISOR_CLONAL_SHORT_NAME = "swapIterDivisorClonal";
+
+    protected static final String SWAP_ITERATION_DIVISOR_LONG_NAME = "swapIterationDivisor";
+    protected static final String SWAP_ITERATION_DIVISOR_SHORT_NAME = "swapIterDivisor";
+
     protected static final String NUM_SAMPLES_CLONAL_LONG_NAME = "numSamplesClonal";
     protected static final String NUM_SAMPLES_CLONAL_SHORT_NAME = "numSampClonal";
 
@@ -185,6 +189,22 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             optional = true
     )
     protected int numCells = 50;
+
+    @Argument(
+            doc = "Swap step for clonal model will be proposed if randomly-generated integer is divisible by this number.",
+            fullName = SWAP_ITERATION_DIVISOR_CLONAL_LONG_NAME,
+            shortName = SWAP_ITERATION_DIVISOR_CLONAL_SHORT_NAME,
+            optional = true
+    )
+    protected int swapIterationDivisorClonal = 25;
+
+    @Argument(
+            doc = "Swap step for full model will be proposed if randomly-generated integer is divisible by this number.",
+            fullName = SWAP_ITERATION_DIVISOR_LONG_NAME,
+            shortName = SWAP_ITERATION_DIVISOR_SHORT_NAME,
+            optional = true
+    )
+    protected int swapIterationDivisor = 25;
 
     @Argument(
             doc = "Maximum number of populations for full model.",
@@ -295,37 +315,16 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final PloidyStatePrior variantPloidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
         final PloidyStatePrior variantPloidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
 
-        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(
-                data, NORMAL_PLOIDY_STATE, variantPloidyStatePriorClonal,
-                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
-                NUM_POPULATIONS_CLONAL, numCells, rng);
+        final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(NORMAL_PLOIDY_STATE, variantPloidyStatePriorClonal,
+                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, numCells, swapIterationDivisorClonal, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
         outputModeller(ctx, segments, variantPloidyStatePriorClonal, NUM_POPULATIONS_CLONAL, clonalModeller, resultClonalFile, logger);
 
-        final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
-        final double clonalNormalFraction = Iterables.getLast(Iterables.getLast(clonalModeller.getPopulationFractionsSamples()));
-        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
-        IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, maxNumPopulations - 1));
-        final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
-        final List<Double> initialFractions = new ArrayList<>();
-        initialFractions.add(1. - clonalNormalFraction);
-        final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
-        initialVariantProfiles.addAll(clonalVariantProfileCollection);
-        for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
-            initialFractions.add(1, 0.);
-            initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeProfile(segments.size()));
-        }
-        initialFractions.add(clonalNormalFraction);
-        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
-                new TumorHeterogeneityState.PopulationFractions(initialFractions);
-        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
-                new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
-
-        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(
-                clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection,
-                data, NORMAL_PLOIDY_STATE, variantPloidyStatePrior,
-                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta,
-                maxNumPopulations, numCells, rng);
+        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(NORMAL_PLOIDY_STATE, variantPloidyStatePrior,
+                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+        final TumorHeterogeneityState initialState = initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
+        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, swapIterationDivisor, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
         outputModeller(ctx, segments, variantPloidyStatePrior, maxNumPopulations, modeller, resultFile, logger);
 
@@ -335,7 +334,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     private static void output(final FileWriter writer, final Logger logger, final String output) {
         try {
             writer.write(output);
-            logger.debug(output);
+//            logger.debug(output);
         } catch(final IOException e) {
             throw new GATKException("Cannot output.");
         }
@@ -426,6 +425,32 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         } catch (final IOException e) {
             throw new GATKException("Error writing filtered segments.");
         }
+    }
+
+    private static TumorHeterogeneityState initializeStateFromClonalResult(final TumorHeterogeneityData data,
+                                                                           final TumorHeterogeneityPriorCollection priors,
+                                                                           final TumorHeterogeneityModeller clonalModeller,
+                                                                           final int maxNumPopulations,
+                                                                           final int numCells) {
+        final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
+        final double clonalNormalFraction = Iterables.getLast(Iterables.getLast(clonalModeller.getPopulationFractionsSamples()));
+        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
+        IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, maxNumPopulations - 1));
+        final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
+        final List<Double> initialFractions = new ArrayList<>();
+        initialFractions.add(1. - clonalNormalFraction);
+        final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
+        initialVariantProfiles.addAll(clonalVariantProfileCollection);
+        for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
+            initialFractions.add(1, 0.);
+            initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeNormalProfile(data.numSegments()));
+        }
+        initialFractions.add(clonalNormalFraction);
+        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
+                new TumorHeterogeneityState.PopulationFractions(initialFractions);
+        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
+                new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
+        return new TumorHeterogeneityState(clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
     }
 
     private static void outputModeller(final JavaSparkContext ctx,
@@ -530,6 +555,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");
         Utils.validateArg(numCells > 0, NUM_CELLS_LONG_NAME + " must be positive.");
+        Utils.validateArg(swapIterationDivisorClonal > 0, SWAP_ITERATION_DIVISOR_CLONAL_LONG_NAME + " must be positive.");
+        Utils.validateArg(swapIterationDivisor > 0, SWAP_ITERATION_DIVISOR_LONG_NAME + " must be positive.");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(numBurnInClonal > 0 && numBurnInClonal <= numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be positive and less than or equal to " + NUM_SAMPLES_CLONAL_LONG_NAME);
         Utils.validateArg(numSamples > 0, NUM_SAMPLES_LONG_NAME + " must be positive.");
