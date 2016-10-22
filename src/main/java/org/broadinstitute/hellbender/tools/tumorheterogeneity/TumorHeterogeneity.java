@@ -1,11 +1,8 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
-import org.apache.commons.math3.stat.descriptive.moment.Mean;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -20,7 +17,6 @@ import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.Ploidy
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Decile;
-import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -323,7 +319,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
         clonalModeller.output(resultClonalFile, CREDIBLE_INTERVAL_ALPHA, ctx);
 
-        final TumorHeterogeneityState initialState = initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
+        final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, swapIterationDivisor, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
@@ -426,32 +422,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         } catch (final IOException e) {
             throw new GATKException("Error writing filtered segments.");
         }
-    }
-
-    private static TumorHeterogeneityState initializeStateFromClonalResult(final TumorHeterogeneityData data,
-                                                                           final TumorHeterogeneityPriorCollection priors,
-                                                                           final TumorHeterogeneityModeller clonalModeller,
-                                                                           final int maxNumPopulations,
-                                                                           final int numCells) {
-        final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
-        final double clonalNormalFraction = Iterables.getLast(Iterables.getLast(clonalModeller.getPopulationFractionsSamples()));
-        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
-        IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, maxNumPopulations - 1));
-        final TumorHeterogeneityState.VariantProfileCollection clonalVariantProfileCollection = Iterables.getLast(clonalModeller.getVariantProfileCollectionSamples());
-        final List<Double> initialFractions = new ArrayList<>();
-        initialFractions.add(1. - clonalNormalFraction);
-        final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
-        initialVariantProfiles.addAll(clonalVariantProfileCollection);
-        for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
-            initialFractions.add(1, 0.);
-            initialVariantProfiles.add(1, TumorHeterogeneityModeller.initializeNormalProfile(data.numSegments()));
-        }
-        initialFractions.add(clonalNormalFraction);
-        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
-                new TumorHeterogeneityState.PopulationFractions(initialFractions);
-        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
-                new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
-        return new TumorHeterogeneityState(clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
     }
 
     //validate CLI arguments
