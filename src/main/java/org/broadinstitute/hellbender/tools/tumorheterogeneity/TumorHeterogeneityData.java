@@ -23,6 +23,7 @@ import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.DataCollection;
 import org.broadinstitute.hellbender.utils.mcmc.DecileCollection;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -56,22 +57,28 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
 
     private final int numSegments;
-    private final List<ACNVSegmentPosterior> segmentPosteriors;
+    private final List<ACNVModeledSegment> segments;
     private final List<Integer> segmentLengths;
     private final long totalLength;
+    private final List<ACNVSegmentPosterior> segmentPosteriors;
 
     public TumorHeterogeneityData(final List<ACNVModeledSegment> segments) {
         Utils.nonNull(segments);
         Utils.validateArg(segments.size() > 0, "Number of segments must be positive.");
         logger.info("Fitting copy-ratio and minor-allele-fraction posteriors to deciles...");
         numSegments = segments.size();
-        segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
+        this.segments = Collections.unmodifiableList(new ArrayList<>(segments));
         segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList()));
         totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
+        segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
     }
 
     public int numSegments() {
         return numSegments;
+    }
+
+    public List<ACNVModeledSegment> segments() {
+        return segments;
     }
 
     public int segmentLength(final int segmentIndex) {

@@ -1,13 +1,22 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.broadinstitute.hellbender.exceptions.GATKException;
+import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -169,15 +178,105 @@ public final class TumorHeterogeneityModeller {
         return posteriorSummaries;
     }
 
+    public void output(final File outputFile,
+                       final double credibleIntervalAlpha,
+                       final JavaSparkContext ctx) {
+        if (concentrationSamples.size() == 0) {
+            throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
+        }
+        try (final FileWriter writer = new FileWriter(outputFile)) {
+            outputFile.createNewFile();
+
+            //comments
+            final double[] ploidySamples = Doubles.toArray(getPloidySamples());
+            final double ploidyPosteriorMean = new Mean().evaluate(ploidySamples);
+            final double ploidyPosteriorStandardDeviation = new StandardDeviation().evaluate(ploidySamples);
+            writer.write("#ploidy: " + ploidyPosteriorMean + " " + ploidyPosteriorStandardDeviation);
+            writer.write(System.getProperty("line.separator"));
+
+            final PosteriorSummary concentrationPosteriorSummary = getGlobalParameterPosteriorSummaries(credibleIntervalAlpha, ctx).get(TumorHeterogeneityParameter.CONCENTRATION);
+            final double concentrationPosteriorCenter = concentrationPosteriorSummary.getCenter();
+            final double concentrationPosteriorStandardDeviation = (concentrationPosteriorSummary.getUpper() - concentrationPosteriorSummary.getLower()) / 2;
+            writer.write("#concentration: " + concentrationPosteriorCenter + " " + concentrationPosteriorStandardDeviation);
+            writer.write(System.getProperty("line.separator"));
+
+            final int numPopulations = populationFractionsSamples.get(0).size();
+            for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                final int pi = populationIndex;
+                final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
+                final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
+                final double populationFractionPosteriorStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
+
+                if (populationIndex != numPopulations - 1) {
+                    final double[] variantSegmentFractionSamples = variantProfileCollectionSamples.stream()
+                            .mapToDouble(vpc -> vpc.get(pi).variantSegmentFraction()).toArray();
+                    final double variantSegmentFractionPosteriorMean = new Mean().evaluate(variantSegmentFractionSamples);
+                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation + " " +
+                            variantSegmentFractionPosteriorMean);
+                    writer.write(System.getProperty("line.separator"));
+                } else {
+                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
+                    writer.write(System.getProperty("line.separator"));
+                }
+            }
+
+            //column headers
+            writer.write("POPULATION_INDEX\tSEGMENT_INDEX\tSEGMENT_INTERVAL\tIS_VARIANT_PROB\t");
+            final List<PloidyState> variantPloidyStates = priors.variantPloidyStatePrior().ploidyStates();
+            final int numVariantPloidyStates = variantPloidyStates.size();
+            for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < numVariantPloidyStates - 1; variantPloidyStateIndex++) {
+                final PloidyState variantPloidyState = variantPloidyStates.get(variantPloidyStateIndex);
+                writer.write(variantPloidyState.m() + "-" + variantPloidyState.n() + "\t");
+            }
+            final PloidyState variantPloidyState = variantPloidyStates.get(numVariantPloidyStates - 1);
+            writer.write(variantPloidyState.m() + "-" + variantPloidyState.n());
+            writer.write(System.getProperty("line.separator"));
+
+            //rows
+            for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                final int pi = populationIndex;
+                final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
+                final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
+
+                if (populationIndex != numPopulations - 1 && populationFractionPosteriorMean >= 0.01) {
+                    for (int segmentIndex = 0; segmentIndex < data.numSegments(); segmentIndex++) {
+                        final int si = segmentIndex;
+                        final double[] isVariantSamples = variantProfileCollectionSamples.stream()
+                                .mapToDouble(vpc -> vpc.get(pi).isVariant(si) ? 1. : 0.)
+                                .toArray();
+                        final double isVariantPosteriorMean = new Mean().evaluate(isVariantSamples);
+                        writer.write(populationIndex + "\t" + segmentIndex + "\t" + data.segments().get(segmentIndex).getInterval() + "\t" + isVariantPosteriorMean + "\t");
+
+                        for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < numVariantPloidyStates; variantPloidyStateIndex++) {
+                            final int vpsi = variantPloidyStateIndex;
+                            final double[] isVariantPloidyStateSamples = variantProfileCollectionSamples.stream()
+                                    .mapToDouble(vpc -> vpc.get(pi).variantPloidyStateIndex(si) == vpsi ? 1. : 0)
+                                    .toArray();
+                            final double variantPloidyStatePosteriorMean = new Mean().evaluate(isVariantPloidyStateSamples);
+                            writer.write(String.format("%.3f", variantPloidyStatePosteriorMean));
+                            if (variantPloidyStateIndex != numVariantPloidyStates - 1) {
+                                writer.write("\t");
+                            }
+                        }
+                        if (!(segmentIndex == data.numSegments() - 1 && populationIndex == numPopulations - 2)) {
+                            writer.write(System.getProperty("line.separator"));
+                        }
+                    }
+                }
+            }
+        } catch (final IOException e) {
+            throw new GATKException("Error writing modeller result.");
+        }
+    }
+
     static TumorHeterogeneityState initializeState(final double initialConcentration,
                                                    final TumorHeterogeneityPriorCollection priors,
                                                    final int numSegments,
                                                    final int numPopulations,
                                                    final int numCells,
                                                    final RandomGenerator rng) {
-        //initialize population fractions to 100% normal for clonal case, evenly distributed otherwise
-        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions = numPopulations == 2 ?
-                new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0., 1.)) :
+        //initialize population fractions to be evenly distributed
+        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
         //randomly initialize population indicators for each cell
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
@@ -205,14 +304,14 @@ public final class TumorHeterogeneityModeller {
                                                                                final int numSegments,
                                                                                final PloidyStatePrior variantPloidyStatePrior,
                                                                                final RandomGenerator rng) {
-        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeNormalProfile(numSegments)));
-//        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeRandomProfile(numSegments, variantPloidyStatePrior, rng)));
+//        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeNormalProfile(numSegments)));
+        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeRandomProfile(numSegments, variantPloidyStatePrior, rng)));
     }
 
     static TumorHeterogeneityState.VariantProfile initializeNormalProfile(final int numSegments) {
         final double variantSegmentFraction = 0.;
         final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, true));
+                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
         final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
                 new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
         return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);

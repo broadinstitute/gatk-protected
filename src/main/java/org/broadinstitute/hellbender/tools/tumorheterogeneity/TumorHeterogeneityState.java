@@ -21,7 +21,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     private final int numCells;
     private final int numSegments;
     private final int numVariantPloidyStates;
-//    private final List<MutableInt> populationCounts;
+    private final List<MutableInt> populationCounts;
 
     private final TumorHeterogeneityPriorCollection priors;
 
@@ -50,8 +50,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         numCells = populationIndicators.numCells;
         numSegments = variantProfileCollection.numSegments;
         numVariantPloidyStates = priors.variantPloidyStatePrior().numPloidyStates();
-//        populationCounts = IntStream.range(0, numPopulations).boxed().map(j -> new MutableInt(0)).collect(Collectors.toList());
-//        updatePopulationCounts();
+        populationCounts = IntStream.range(0, numPopulations).boxed().map(j -> new MutableInt(0)).collect(Collectors.toList());
+        updatePopulationCounts();
         this.priors = priors;
     }
 
@@ -221,16 +221,16 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     void setPopulationIndexAndIncrementCounts(final int cellIndex, final int populationIndex) {
         validateCellIndex(cellIndex, numCells);
         validatePopulationIndex(populationIndex, numPopulations);
-//        final int oldPopulationIndex = get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex);
-//        populationCounts.get(oldPopulationIndex).decrement();
-//        populationCounts.get(populationIndex).increment();
+        final int oldPopulationIndex = get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).get(cellIndex);
+        populationCounts.get(oldPopulationIndex).decrement();
+        populationCounts.get(populationIndex).increment();
         get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).set(cellIndex, populationIndex);
     }
 
-//    void updatePopulationCounts() {
-//        IntStream.range(0, numPopulations).boxed().forEach(i -> populationCounts.get(i).setValue(0));
-//        IntStream.range(0, numCells).boxed().forEach(i -> populationCounts.get(populationIndex(i)).increment());
-//    }
+    void updatePopulationCounts() {
+        IntStream.range(0, numPopulations).boxed().forEach(i -> populationCounts.get(i).setValue(0));
+        IntStream.range(0, numCells).boxed().forEach(i -> populationCounts.get(populationIndex(i)).increment());
+    }
 
     void setIsVariant(final int populationIndex, final int segmentIndex, final boolean isVariant) {
         validatePopulationIndex(populationIndex, numPopulations);
