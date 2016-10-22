@@ -4,13 +4,9 @@ import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
-import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
-import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
-import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
-import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.*;
 
@@ -18,9 +14,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -48,7 +41,7 @@ public final class TumorHeterogeneityModeller {
                                       final int numCells,
                                       final int swapIterationDivisor,
                                       final RandomGenerator rng) {
-        this(data, initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations, numCells, rng), swapIterationDivisor, rng);
+        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations, numCells, rng), swapIterationDivisor, rng);
     }
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
@@ -267,69 +260,5 @@ public final class TumorHeterogeneityModeller {
         } catch (final IOException e) {
             throw new GATKException("Error writing modeller result.");
         }
-    }
-
-    static TumorHeterogeneityState initializeState(final double initialConcentration,
-                                                   final TumorHeterogeneityPriorCollection priors,
-                                                   final int numSegments,
-                                                   final int numPopulations,
-                                                   final int numCells,
-                                                   final RandomGenerator rng) {
-        //initialize population fractions to be evenly distributed
-        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
-                new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
-        //randomly initialize population indicators for each cell
-        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                initializePopulationIndicators(initialPopulationFractions, numPopulations, numCells, rng);
-        //initialize variant profiles
-        final int numVariantPopulations = numPopulations - 1;
-        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
-                initializeProfiles(numVariantPopulations, numSegments, priors.variantPloidyStatePrior(), rng);
-        return new TumorHeterogeneityState(
-                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
-    }
-
-    static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final TumorHeterogeneityState.PopulationFractions initialPopulationFractions,
-                                                                                       final int numPopulations,
-                                                                                       final int numCells,
-                                                                                       final RandomGenerator rng) {
-        final List<Integer> populationIndices = IntStream.range(0, numPopulations).boxed().collect(Collectors.toList());
-        final Function<Integer, Double> probabilityFunction = initialPopulationFractions::get;
-        return new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numCells).boxed()
-                .map(p -> GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng))
-                .collect(Collectors.toList()));
-    }
-
-    static TumorHeterogeneityState.VariantProfileCollection initializeProfiles(final int numVariantPopulations,
-                                                                               final int numSegments,
-                                                                               final PloidyStatePrior variantPloidyStatePrior,
-                                                                               final RandomGenerator rng) {
-//        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeNormalProfile(numSegments)));
-        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeRandomProfile(numSegments, variantPloidyStatePrior, rng)));
-    }
-
-    static TumorHeterogeneityState.VariantProfile initializeNormalProfile(final int numSegments) {
-        final double variantSegmentFraction = 0.;
-        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
-        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
-        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
-    }
-
-    static TumorHeterogeneityState.VariantProfile initializeRandomProfile(final int numSegments,
-                                                                          final PloidyStatePrior variantPloidyStatePrior,
-                                                                          final RandomGenerator rng) {
-        final double variantSegmentFraction = 1.;
-        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, true));
-        final List<Integer> variantPloidyStateIndices = IntStream.range(0, variantPloidyStatePrior.numPloidyStates()).boxed().collect(Collectors.toList());
-        final List<Double> variantPloidyStateProbabilities = variantPloidyStatePrior.ploidyStates().stream().map(vps -> Math.exp(variantPloidyStatePrior.logProbability(vps))).collect(Collectors.toList());
-        final Function<Integer, Double> probabilityFunction = variantPloidyStateProbabilities::get;
-        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(IntStream.range(0, numSegments).boxed()
-                        .map(p -> GATKProtectedMathUtils.randomSelect(variantPloidyStateIndices, probabilityFunction, rng))
-                        .collect(Collectors.toList()));
-        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
     }
 }
