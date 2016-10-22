@@ -64,12 +64,12 @@ final class TumorHeterogeneitySamplers {
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             logger.debug("Sampling population fractions.");
             //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
-            logger.info(IntStream.range(0, state.numPopulations()).boxed()
-                    .map(i -> state.concentration() + state.populationCount(i)).collect(Collectors.toList()));
+            logger.debug("Current population counts: " + IntStream.range(0, state.numPopulations()).boxed()
+                    .map(state::populationCount).collect(Collectors.toList()));
             final double[] unnormalizedPopulationFractions = IntStream.range(0, state.numPopulations()).boxed()
                     .mapToDouble(i -> new GammaDistribution(rng, state.concentration() + state.populationCount(i), 1.).sample()).toArray();
             final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-            logger.info("Sampled population fractions: " + populationFractions);
+            logger.debug("Sampled population fractions: " + populationFractions);
             return new TumorHeterogeneityState.PopulationFractions(populationFractions);
         }
     }
@@ -92,17 +92,19 @@ final class TumorHeterogeneitySamplers {
         }
 
         private TumorHeterogeneityState.PopulationIndicators sampleMetropolisSwapStep(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
-            logger.info("PROPOSING SWAP=====================================");
+            logger.debug("Proposing swap.");
             final double currentLogPosterior = calculateLogPosterior(data, state);
             final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(state);
             swapPopulationIndices(proposedState);
             final double proposedLogPosterior = calculateLogPosterior(data, proposedState);
-            final double acceptanceProbability = 1.; //Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior));
+            logger.info(currentLogPosterior + " " + proposedLogPosterior);
+            final double acceptanceProbability = Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior));
             if (rng.nextDouble() < acceptanceProbability) {
-                logger.info("Sampled population indicators: " + proposedState.populationIndicators());
+                logger.debug("Swap accepted.");
+                logger.debug("Sampled population indicators: " + proposedState.populationIndicators());
                 return new TumorHeterogeneityState.PopulationIndicators(proposedState.populationIndicators());
             }
-            logger.info("Sampled population indicators: " + state.populationIndicators());
+            logger.debug("Sampled population indicators: " + state.populationIndicators());
             return new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators());
         }
 
@@ -110,7 +112,7 @@ final class TumorHeterogeneitySamplers {
             final List<Integer> shuffledPopulationIndices = new ArrayList<>(populationIndices);
             Collections.shuffle(shuffledPopulationIndices, rnd);
             IntStream.range(0, state.numCells()).forEach(i -> state.setPopulationIndexAndIncrementCounts(i, shuffledPopulationIndices.get(state.populationIndex(i))));
-//            state.updatePopulationCounts();
+            state.updatePopulationCounts();
         }
 
         private TumorHeterogeneityState.PopulationIndicators sampleGibbsStep(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
@@ -122,7 +124,6 @@ final class TumorHeterogeneitySamplers {
                 final int currentPopulationIndex = state.populationIndex(cellIndex);
 
                 final double invariantPloidyTerm = calculatePopulationAndGenomicAveragedPloidyWithExclusion(state, data, currentPopulationIndex, singleCellPopulationFraction);
-                logger.info(invariantPloidyTerm);
 
                 final double[] log10Probabilities = new double[state.numPopulations()];
                 for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
@@ -134,7 +135,7 @@ final class TumorHeterogeneitySamplers {
 
                         final boolean isVariant = state.isVariant(populationIndex, segmentIndex);
                         final PloidyState ploidyState = isVariant ? state.variantPloidyState(populationIndex, segmentIndex) : state.priors().normalPloidyState();
-                        logDensity += calculateLogLikelihoodFromInvariantTerms(data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                        logDensity += calculateSegmentLogLikelihoodFromInvariantTerms(data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                 segmentIndex, singleCellPopulationFraction, segmentFractionalLength, ploidyState);
                     }
                     log10Probabilities[populationIndex] = MathUtils.logToLog10(logDensity);
@@ -146,7 +147,7 @@ final class TumorHeterogeneitySamplers {
                 //update the state as a side effect
                 state.setPopulationIndexAndIncrementCounts(cellIndex, populationIndex);
             }
-            logger.info("Sampled population indicators: " + populationIndicators);
+            logger.debug("Sampled population indicators: " + populationIndicators);
             return new TumorHeterogeneityState.PopulationIndicators(populationIndicators);
         }
 
@@ -222,9 +223,11 @@ final class TumorHeterogeneitySamplers {
             public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
                 logger.debug("Sampling variant-segment fraction for population " + populationIndex);
                 final int numSegmentsVariant = (int) IntStream.range(0, state.numSegments()).filter(i -> state.isVariant(populationIndex, i)).count();
-                return new BetaDistribution(rng,
+                final double variantSegmentFraction = new BetaDistribution(rng,
                         state.priors().variantSegmentFractionPriorAlpha() + numSegmentsVariant,
                         state.priors().variantSegmentFractionPriorBeta() + data.numSegments() - numSegmentsVariant).sample();
+                logger.debug("Sampled variant-segment fraction for population " + populationIndex + ": " + variantSegmentFraction);
+                return variantSegmentFraction;
             }
         }
 
@@ -256,12 +259,12 @@ final class TumorHeterogeneitySamplers {
 
                     //calculate unnormalized probability for isVariant = true
                     final double logDensityVariant = Math.log(variantSegmentFraction) +
-                            calculateLogLikelihoodFromInvariantTerms(
+                            calculateSegmentLogLikelihoodFromInvariantTerms(
                                     data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                     segmentIndex, populationFraction, segmentFractionalLength, state.variantPloidyState(populationIndex, segmentIndex));
                     //calculate unnormalized probability for isVariant = false
                     final double logDensityNormal = Math.log(1. - variantSegmentFraction) +
-                            calculateLogLikelihoodFromInvariantTerms(
+                            calculateSegmentLogLikelihoodFromInvariantTerms(
                                     data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                     segmentIndex, populationFraction, segmentFractionalLength, state.priors().normalPloidyState());
 
@@ -316,20 +319,22 @@ final class TumorHeterogeneitySamplers {
                     final double[] log10Probabilities = isVariant ?
                             variantPloidyStateIndices.stream()
                                     .mapToDouble(i -> variantPloidyStatePriorLog10Probabilities[i] +
-                                            MathUtils.logToLog10(calculateLogLikelihoodFromInvariantTerms(
+                                            MathUtils.logToLog10(calculateSegmentLogLikelihoodFromInvariantTerms(
                                                     data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                                     si, populationFraction, segmentFractionalLength, variantPloidyStates.get(i))))
                                     .toArray() :
                             variantPloidyStatePriorLog10Probabilities;
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
-                    logger.info(Doubles.asList(probabilities));
+                    if (isVariant) {
+                        logger.debug("Population " + populationIndex + " segment " + segmentIndex + ": " + Doubles.asList(probabilities));
+                    }
                     final int variantPloidyStateIndex = GATKProtectedMathUtils.randomSelect(variantPloidyStateIndices, i -> probabilities[i], rng);
                     variantPloidyStateIndicators.set(segmentIndex, variantPloidyStateIndex);
 
                     //update the state as a side effect
                     state.setVariantPloidyStateIndex(populationIndex, segmentIndex, variantPloidyStateIndex);
                 }
-                logger.info("Sampled variant-ploidy states for population " + populationIndex + ": " + variantPloidyStateIndicators.stream().map(i -> variantPloidyStates.get(i).toString()).collect(Collectors.joining(" ")));
+                logger.debug("Sampled variant-ploidy states for population " + populationIndex + ": " + variantPloidyStateIndicators.stream().map(i -> variantPloidyStates.get(i).toString()).collect(Collectors.joining(" ")));
                 return new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(variantPloidyStateIndicators);
             }
         }
@@ -351,14 +356,14 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
-    private static double calculateLogLikelihoodFromInvariantTerms(final TumorHeterogeneityData data,
-                                                                   final double invariantPloidyTerm,
-                                                                   final double invariantMAlleleCopyNumberTerm,
-                                                                   final double invariantNAlleleCopyNumberTerm,
-                                                                   final int segmentIndex,
-                                                                   final double populationFraction,
-                                                                   final double segmentFractionalLength,
-                                                                   final PloidyState ploidyState) {
+    private static double calculateSegmentLogLikelihoodFromInvariantTerms(final TumorHeterogeneityData data,
+                                                                          final double invariantPloidyTerm,
+                                                                          final double invariantMAlleleCopyNumberTerm,
+                                                                          final double invariantNAlleleCopyNumberTerm,
+                                                                          final int segmentIndex,
+                                                                          final double populationFraction,
+                                                                          final double segmentFractionalLength,
+                                                                          final PloidyState ploidyState) {
         final double ploidy = invariantPloidyTerm + populationFraction * segmentFractionalLength * ploidyState.total();
         final double copyRatio = (invariantMAlleleCopyNumberTerm + invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.total()) / (ploidy + EPSILON);
         final double minorAlleleFraction = calculateMinorAlleleFraction(
@@ -369,7 +374,82 @@ final class TumorHeterogeneitySamplers {
 
     private static double calculateLogPosterior(final TumorHeterogeneityData data,
                                                 final TumorHeterogeneityState state) {
-        return 1.;
+        final int numPopulations = state.numPopulations();
+        final int numSegments = data.numSegments();
+
+        //concentration prior
+        final double concentrationPriorAlpha = state.priors().concentrationPriorAlpha();
+        final double concentrationPriorBeta = state.priors().concentrationPriorBeta();
+        final double concentration = state.concentration();
+        final double logPriorConcentration =
+                concentrationPriorAlpha * Math.log(concentrationPriorBeta + EPSILON)
+                        + (concentrationPriorAlpha - 1.) * Math.log(concentration)
+                        - concentrationPriorBeta * concentration
+                        - Gamma.logGamma(concentrationPriorAlpha);
+
+        //population-fractions prior
+        final double logPriorPopulationFractionsSum = IntStream.range(0, numPopulations)
+                .mapToDouble(i -> (concentration - 1.) * Math.log(state.populationFraction(i) + EPSILON))
+                .sum();
+        final double logPriorPopulationFractions =
+                Gamma.logGamma(concentration * numPopulations)
+                        - numPopulations * Gamma.logGamma(concentration)
+                        + logPriorPopulationFractionsSum;
+        //population-fractions likelihood
+        final double logLikelihoodPopulationFractions = IntStream.range(0, numPopulations)
+                .mapToDouble(i -> state.populationCount(i) * Math.log(state.populationFraction(i) + EPSILON))
+                .sum();
+
+        //variant-segment-fraction prior
+        final double variantSegmentFractionPriorAlpha = state.priors().variantSegmentFractionPriorAlpha();
+        final double variantSegmentFractionPriorBeta = state.priors().variantSegmentFractionPriorBeta();
+        final double logPriorVariantSegmentFractionPopulationSum = IntStream.range(0, numPopulations - 1)
+                .mapToDouble(i -> (variantSegmentFractionPriorAlpha - 1.) * Math.log(state.variantSegmentFraction(i) + EPSILON) +
+                        (variantSegmentFractionPriorBeta - 1.) * Math.log(1. - state.variantSegmentFraction(i) + EPSILON))
+                .sum();
+        final double logPriorVariantSegmentFraction =
+                Gamma.logGamma(variantSegmentFractionPriorAlpha + variantSegmentFractionPriorBeta)
+                        - Gamma.logGamma(variantSegmentFractionPriorAlpha) - Gamma.logGamma(variantSegmentFractionPriorBeta)
+                        + logPriorVariantSegmentFractionPopulationSum;
+        //variant-segment-fraction likelihood
+        double logLikelihoodVariantSegmentFraction = 0.;
+        for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
+            for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+                final boolean isVariant = state.isVariant(populationIndex, segmentIndex);
+                logLikelihoodVariantSegmentFraction +=
+                        isVariant ?
+                        state.variantSegmentFraction(populationIndex) :
+                        1. - state.variantSegmentFraction(populationIndex);
+            }
+        }
+
+        //variant-profiles prior
+        double logPriorVariantProfiles = 0.;
+        for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
+            for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+                final int variantPloidyStateIndex = state.variantPloidyStateIndex(populationIndex, segmentIndex);
+                final PloidyState variantPloidyState = state.priors().variantPloidyStatePrior().ploidyStates().get(variantPloidyStateIndex);
+                logPriorVariantProfiles += state.priors().variantPloidyStatePrior().logProbability(variantPloidyState);
+            }
+        }
+
+        //copy-ratio--minor-allele-fraction likelihood
+        double logLikelihoodSegments = 0.;
+        final double ploidy = state.calculatePopulationAndGenomicAveragedPloidy(data);
+        for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+            final double totalCopyNumber = state.calculatePopulationAveragedTotalCopyNumber(data, segmentIndex);
+            final double mAlleleCopyNumber = state.calculatePopulationAveragedMAlleleCopyNumber(data, segmentIndex);
+            final double nAlleleCopyNumber = state.calculatePopulationAveragedNAlleleCopyNumber(data, segmentIndex);
+            final double copyRatio = totalCopyNumber / (ploidy + EPSILON);
+            final double minorAlleleFraction = calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);
+            logLikelihoodSegments += data.logDensity(segmentIndex, copyRatio, minorAlleleFraction);
+        }
+
+        return logPriorConcentration +
+                logPriorPopulationFractions + logLikelihoodPopulationFractions +
+                logPriorVariantSegmentFraction + logLikelihoodVariantSegmentFraction +
+                logPriorVariantProfiles +
+                logLikelihoodSegments;
     }
 
     private static double calculateMinorAlleleFraction(final double m, final double n) {
