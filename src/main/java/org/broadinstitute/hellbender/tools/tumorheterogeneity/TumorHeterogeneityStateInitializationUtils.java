@@ -21,6 +21,8 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                    final int numPopulations,
                                                    final int numCells,
                                                    final RandomGenerator rng) {
+        //start with Gibbs step
+        final boolean doMetropolisStep = false;
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
@@ -32,7 +34,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 initializeProfiles(numVariantPopulations, numSegments, priors.variantPloidyStatePrior(), rng);
         return new TumorHeterogeneityState(
-                initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
+                doMetropolisStep, initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
     }
 
     private static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final TumorHeterogeneityState.PopulationFractions initialPopulationFractions,
@@ -84,6 +86,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                                    final TumorHeterogeneityModeller clonalModeller,
                                                                    final int maxNumPopulations,
                                                                    final int numCells) {
+        final boolean doMetropolisStep = false;
         final double clonalConcentration = Iterables.getLast(clonalModeller.getConcentrationSamples());
         final double clonalNormalFraction = Iterables.getLast(Iterables.getLast(clonalModeller.getPopulationFractionsSamples()));
         final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators = new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
@@ -102,6 +105,6 @@ final class TumorHeterogeneityStateInitializationUtils {
                 new TumorHeterogeneityState.PopulationFractions(initialFractions);
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
-        return new TumorHeterogeneityState(clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
+        return new TumorHeterogeneityState(doMetropolisStep, clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
     }
 }

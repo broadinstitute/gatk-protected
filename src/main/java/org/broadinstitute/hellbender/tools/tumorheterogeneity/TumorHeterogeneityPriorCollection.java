@@ -8,6 +8,7 @@ import org.broadinstitute.hellbender.utils.Utils;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityPriorCollection {
+    private final double metropolisIterationFraction;
     private final PloidyState normalPloidyState;
     private final PloidyStatePrior variantPloidyStatePrior;
     private final double concentrationPriorAlpha;
@@ -15,7 +16,8 @@ public final class TumorHeterogeneityPriorCollection {
     private final double variantSegmentFractionPriorAlpha;
     private final double variantSegmentFractionPriorBeta;
 
-    public TumorHeterogeneityPriorCollection(final PloidyState normalPloidyState,
+    public TumorHeterogeneityPriorCollection(final double metropolisIterationFraction,
+                                             final PloidyState normalPloidyState,
                                              final PloidyStatePrior variantPloidyStatePrior,
                                              final double concentrationPriorAlpha,
                                              final double concentrationPriorBeta,
@@ -23,18 +25,25 @@ public final class TumorHeterogeneityPriorCollection {
                                              final double variantSegmentFractionPriorBeta) {
         Utils.nonNull(normalPloidyState);
         Utils.nonNull(variantPloidyStatePrior);
+        Utils.validateArg(0. <= metropolisIterationFraction && metropolisIterationFraction <= 1.,
+                "Metropolis-iteration fraction must be in [0, 1].");
         Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
                 "Variant-ploidy state prior should not be specified for normal ploidy state.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(variantSegmentFractionPriorAlpha > 0, "Hyperparameter for variant-segment fraction must be positive.");
         Utils.validateArg(variantSegmentFractionPriorBeta > 0, "Hyperparameter for variant-segment fraction must be positive.");
+        this.metropolisIterationFraction = metropolisIterationFraction;
         this.normalPloidyState = normalPloidyState;
         this.variantPloidyStatePrior = variantPloidyStatePrior;
         this.concentrationPriorAlpha = concentrationPriorAlpha;
         this.concentrationPriorBeta = concentrationPriorBeta;
         this.variantSegmentFractionPriorAlpha = variantSegmentFractionPriorAlpha;
         this.variantSegmentFractionPriorBeta = variantSegmentFractionPriorBeta;
+    }
+
+    public double metropolisIterationFraction() {
+        return metropolisIterationFraction;
     }
 
     public PloidyState normalPloidyState() {

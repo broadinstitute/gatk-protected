@@ -1,9 +1,7 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
@@ -14,6 +12,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -30,6 +29,7 @@ public final class TumorHeterogeneityModeller {
     private final TumorHeterogeneityData data;
     private final TumorHeterogeneityPriorCollection priors;
 
+    private final List<Boolean> doMetropolisStepSamples = new ArrayList<>();
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationIndicators> populationIndicatorsSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
@@ -39,19 +39,16 @@ public final class TumorHeterogeneityModeller {
                                       final TumorHeterogeneityPriorCollection priors,
                                       final int numPopulations,
                                       final int numCells,
-                                      final int swapIterationDivisor,
                                       final RandomGenerator rng) {
-        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations, numCells, rng), swapIterationDivisor, rng);
+        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations, numCells, rng), rng);
     }
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
                                       final TumorHeterogeneityState initialState,
-                                      final int swapIterationDivisor,
                                       final RandomGenerator rng) {
         Utils.nonNull(data);
         Utils.nonNull(initialState);
         Utils.nonNull(rng);
-        Utils.validateArg(swapIterationDivisor > 0, "Swap-iteration divisor must be positive.");
 
         this.data = data;
         this.priors = initialState.priors();
@@ -62,16 +59,19 @@ public final class TumorHeterogeneityModeller {
         final int numVariantPopulations = numPopulations - 1;
 
         //define samplers
+        final TumorHeterogeneitySamplers.DoMetropolisStepSampler metropolisStepSampler =
+                new TumorHeterogeneitySamplers.DoMetropolisStepSampler();
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
                 new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
-                new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations, swapIterationDivisor);
+                new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations);
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
                 new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.variantPloidyStatePrior());
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
+                .addParameterSampler(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, metropolisStepSampler, Boolean.class)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
@@ -96,6 +96,8 @@ public final class TumorHeterogeneityModeller {
         gibbsSampler.setNumSamplesPerLogEntry(NUM_SAMPLES_PER_LOG_ENTRY);
         gibbsSampler.runMCMC();
         //update posterior samples
+        doMetropolisStepSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.DO_METROPOLIS_STEP,
+                Boolean.class, numBurnIn));
         concentrationSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.CONCENTRATION,
                 Double.class, numBurnIn));
         populationIndicatorsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_INDICATORS,
@@ -115,21 +117,21 @@ public final class TumorHeterogeneityModeller {
     }
 
     /**
-     * Returns an unmodifiable view of the list of samples of the population-indicators posterior, represented as a list of
-     * {@link TumorHeterogeneityState.PopulationFractions} objects.
-     * @return  unmodifiable view of the list of samples of the population-indicators posterior
-     */
-    public List<TumorHeterogeneityState.PopulationIndicators> getPopulationIndicatorsSamples() {
-        return Collections.unmodifiableList(populationIndicatorsSamples);
-    }
-
-    /**
      * Returns an unmodifiable view of the list of samples of the population-fractions posterior, represented as a list of
      * {@link TumorHeterogeneityState.PopulationFractions} objects.
      * @return  unmodifiable view of the list of samples of the population-fractions posterior
      */
     public List<TumorHeterogeneityState.PopulationFractions> getPopulationFractionsSamples() {
         return Collections.unmodifiableList(populationFractionsSamples);
+    }
+
+    /**
+     * Returns an unmodifiable view of the list of samples of the population-indicators posterior, represented as a list of
+     * {@link TumorHeterogeneityState.PopulationIndicators} objects.
+     * @return  unmodifiable view of the list of samples of the population-indicators posterior
+     */
+    public List<TumorHeterogeneityState.PopulationIndicators> getPopulationIndicatorsSamples() {
+        return Collections.unmodifiableList(populationIndicatorsSamples);
     }
 
     /**
@@ -145,30 +147,16 @@ public final class TumorHeterogeneityModeller {
         final int numSamples = concentrationSamples.size();
         final List<Double> ploidySamples = new ArrayList<>(numSamples);
         for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+            final boolean doMetropolisStep = doMetropolisStepSamples.get(sampleIndex);
             final double concentration = concentrationSamples.get(sampleIndex);
             final TumorHeterogeneityState.PopulationFractions populationFractions = populationFractionsSamples.get(sampleIndex);
             final TumorHeterogeneityState.PopulationIndicators populationIndicators = populationIndicatorsSamples.get(sampleIndex);
             final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = variantProfileCollectionSamples.get(sampleIndex);
-            final TumorHeterogeneityState state = new TumorHeterogeneityState(concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
+            final TumorHeterogeneityState state =
+                    new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
             ploidySamples.add(state.calculatePopulationAndGenomicAveragedPloidy(data));
         }
         return ploidySamples;
-    }
-
-    /**
-     * Returns a Map of {@link PosteriorSummary} elements summarizing the global parameters.
-     * Should only be called after {@link TumorHeterogeneityModeller#fitMCMC(int, int)} has been called.
-     * @param credibleIntervalAlpha credible-interval alpha, must be in (0, 1)
-     * @param ctx                   {@link JavaSparkContext} used for mllib kernel density estimation
-     * @return                      list of {@link PosteriorSummary} elements summarizing the global parameters
-     */
-    public Map<TumorHeterogeneityParameter, PosteriorSummary> getGlobalParameterPosteriorSummaries(final double credibleIntervalAlpha,
-                                                                                                   final JavaSparkContext ctx) {
-        Utils.validateArg(0. <= credibleIntervalAlpha && credibleIntervalAlpha <= 1., "Credible-interval alpha must be in [0, 1].");
-        Utils.nonNull(ctx);
-        final Map<TumorHeterogeneityParameter, PosteriorSummary> posteriorSummaries = new LinkedHashMap<>();
-        posteriorSummaries.put(TumorHeterogeneityParameter.CONCENTRATION, PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(concentrationSamples, credibleIntervalAlpha, ctx));
-        return posteriorSummaries;
     }
 
     public void output(final File outputFile,
@@ -181,34 +169,45 @@ public final class TumorHeterogeneityModeller {
             outputFile.createNewFile();
 
             //comments
-            final double[] ploidySamples = Doubles.toArray(getPloidySamples());
-            final double ploidyPosteriorMean = new Mean().evaluate(ploidySamples);
-            final double ploidyPosteriorStandardDeviation = new StandardDeviation().evaluate(ploidySamples);
-            writer.write("#ploidy: " + ploidyPosteriorMean + " " + ploidyPosteriorStandardDeviation);
+            final PosteriorSummary ploidyPosteriorSummary =
+                    PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(getPloidySamples(), credibleIntervalAlpha, ctx);
+            final double ploidyPosteriorCenter = ploidyPosteriorSummary.getCenter();
+            final double ploidyPosteriorWidth = calculatePosteriorWidth(ploidyPosteriorSummary);
+            writer.write("#ploidy: " + ploidyPosteriorCenter + " " + ploidyPosteriorWidth);
             writer.write(System.getProperty("line.separator"));
 
-            final PosteriorSummary concentrationPosteriorSummary = getGlobalParameterPosteriorSummaries(credibleIntervalAlpha, ctx).get(TumorHeterogeneityParameter.CONCENTRATION);
+            final PosteriorSummary concentrationPosteriorSummary =
+                    PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(getConcentrationSamples(), credibleIntervalAlpha, ctx);
             final double concentrationPosteriorCenter = concentrationPosteriorSummary.getCenter();
-            final double concentrationPosteriorStandardDeviation = (concentrationPosteriorSummary.getUpper() - concentrationPosteriorSummary.getLower()) / 2;
-            writer.write("#concentration: " + concentrationPosteriorCenter + " " + concentrationPosteriorStandardDeviation);
+            final double concentrationPosteriorWidth = calculatePosteriorWidth(concentrationPosteriorSummary);
+            writer.write("#concentration: " + concentrationPosteriorCenter + " " + concentrationPosteriorWidth);
             writer.write(System.getProperty("line.separator"));
+
+            final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
+            final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = getVariantProfileCollectionSamples();
 
             final int numPopulations = populationFractionsSamples.get(0).size();
             for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
                 final int pi = populationIndex;
-                final double[] populationFractionSamples = populationFractionsSamples.stream().mapToDouble(s -> s.get(pi)).toArray();
-                final double populationFractionPosteriorMean = new Mean().evaluate(populationFractionSamples);
-                final double populationFractionPosteriorStandardDeviation = new StandardDeviation().evaluate(populationFractionSamples);
+                final List<Double> populationFractionSamples = populationFractionsSamples.stream()
+                        .map(s -> s.get(pi)).collect(Collectors.toList());
+                final PosteriorSummary populationFractionPosteriorSummary =
+                        PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(populationFractionSamples, credibleIntervalAlpha, ctx);
+                final double populationFractionPosteriorCenter = populationFractionPosteriorSummary.getCenter();
+                final double populationFractionPosteriorWidth = calculatePosteriorWidth(populationFractionPosteriorSummary);
 
                 if (populationIndex != numPopulations - 1) {
-                    final double[] variantSegmentFractionSamples = variantProfileCollectionSamples.stream()
-                            .mapToDouble(vpc -> vpc.get(pi).variantSegmentFraction()).toArray();
-                    final double variantSegmentFractionPosteriorMean = new Mean().evaluate(variantSegmentFractionSamples);
-                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation + " " +
-                            variantSegmentFractionPosteriorMean);
+                    final List<Double> variantSegmentFractionSamples = variantProfileCollectionSamples.stream()
+                            .map(vpc -> vpc.get(pi).variantSegmentFraction()).collect(Collectors.toList());
+                    final PosteriorSummary variantSegmentFractionPosteriorSummary =
+                            PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(variantSegmentFractionSamples, credibleIntervalAlpha, ctx);
+                    final double variantSegmentFractionPosteriorCenter = variantSegmentFractionPosteriorSummary.getCenter();
+                    final double variantSegmentFractionPosteriorWidth = calculatePosteriorWidth(variantSegmentFractionPosteriorSummary);
+                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorCenter + " " + populationFractionPosteriorWidth + " " +
+                            variantSegmentFractionPosteriorCenter + " " + variantSegmentFractionPosteriorWidth);
                     writer.write(System.getProperty("line.separator"));
                 } else {
-                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorMean + " " + populationFractionPosteriorStandardDeviation);
+                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorCenter + " " + populationFractionPosteriorWidth);
                     writer.write(System.getProperty("line.separator"));
                 }
             }
@@ -260,5 +259,9 @@ public final class TumorHeterogeneityModeller {
         } catch (final IOException e) {
             throw new GATKException("Error writing modeller result.");
         }
+    }
+
+    private static double calculatePosteriorWidth(final PosteriorSummary summary) {
+        return (summary.getUpper() - summary.getLower()) / 2.;
     }
 }

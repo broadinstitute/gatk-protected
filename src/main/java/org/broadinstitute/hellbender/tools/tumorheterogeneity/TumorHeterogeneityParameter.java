@@ -9,6 +9,7 @@ import org.broadinstitute.hellbender.utils.mcmc.ParameterEnum;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public enum TumorHeterogeneityParameter implements ParameterEnum {
+    DO_METROPOLIS_STEP("do_metropolis_step"),
     CONCENTRATION("concentration"),
     POPULATION_FRACTIONS("population_fractions"),
     POPULATION_INDICATORS("population_indicators"),
