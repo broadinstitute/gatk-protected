@@ -30,6 +30,19 @@ final class TumorHeterogeneitySamplers {
 
     private TumorHeterogeneitySamplers() {}
 
+    protected static final class DoMetropolisStepSampler implements ParameterSampler<Boolean, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        public DoMetropolisStepSampler() {}
+
+        @Override
+        public Boolean sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+            final boolean doMetropolisStep = rng.nextDouble() < state.priors().metropolisIterationFraction();
+            if (doMetropolisStep) {
+                logger.info("Performing Metropolis step.");
+            }
+            return doMetropolisStep;
+        }
+    }
+
     protected static final class ConcentrationSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private final double concentrationMin;
         private final double concentrationMax;
@@ -78,17 +91,15 @@ final class TumorHeterogeneitySamplers {
         private final Random rnd = new Random(1845);
         private final double singleCellPopulationFraction;
         private final List<Integer> populationIndices;
-        private final int swapIterationDivisor;
 
-        public PopulationIndicatorsSampler(final int numCells, final int numPopulations, final int swapIterationDivisor) {
+        public PopulationIndicatorsSampler(final int numCells, final int numPopulations) {
             singleCellPopulationFraction = 1. / numCells;
             populationIndices = Collections.unmodifiableList(IntStream.range(0, numPopulations).boxed().collect(Collectors.toList()));
-            this.swapIterationDivisor = swapIterationDivisor;
         }
 
         @Override
         public TumorHeterogeneityState.PopulationIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
-            return rnd.nextInt() % swapIterationDivisor == 0 ? sampleMetropolisSwapStep(rng, state, data) : sampleGibbsStep(rng, state, data);
+            return state.doMetropolisStep() ? sampleMetropolisSwapStep(rng, state, data) : sampleGibbsStep(rng, state, data);
         }
 
         private TumorHeterogeneityState.PopulationIndicators sampleMetropolisSwapStep(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {

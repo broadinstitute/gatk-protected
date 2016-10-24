@@ -17,6 +17,7 @@ import java.util.stream.IntStream;
 public final class TumorHeterogeneityState extends ParameterizedState<TumorHeterogeneityParameter> {
     private static final double POPULATION_FRACTION_NORMALIZATION_EPSILON = 1E-4;
 
+    private final boolean doMetropolisStep;
     private final int numPopulations;   //variant populations + normal population
     private final int numCells;
     private final int numSegments;
@@ -25,12 +26,14 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     private final TumorHeterogeneityPriorCollection priors;
 
-    public TumorHeterogeneityState(final double concentration,
+    public TumorHeterogeneityState(final boolean doMetropolisStep,
+                                   final double concentration,
                                    final PopulationFractions populationFractions,
                                    final PopulationIndicators populationIndicators,
                                    final VariantProfileCollection variantProfileCollection,
                                    final TumorHeterogeneityPriorCollection priors) {
         super(Arrays.asList(
+                new Parameter<>(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, doMetropolisStep),
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractions),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicators),
@@ -46,6 +49,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         Utils.validateArg(variantProfileCollection.stream().map(s -> Collections.max(s.variantPloidyStateIndicators)).allMatch(i -> i < priors.variantPloidyStatePrior().numPloidyStates()),
                 "Variant ploidy-state indicators must be consistent with number of variant ploidy states.");
         Utils.nonNull(priors);
+        this.doMetropolisStep = doMetropolisStep;
         numPopulations = populationFractions.numPopulations;
         numCells = populationIndicators.numCells;
         numSegments = variantProfileCollection.numSegments;
@@ -57,16 +61,21 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     public TumorHeterogeneityState(final TumorHeterogeneityState state) {
         this(
+                state.get(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, Boolean.class),
                 state.get(TumorHeterogeneityParameter.CONCENTRATION, Double.class),
-                new TumorHeterogeneityState.PopulationFractions(state.populationFractions()),
-                new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators()),
-                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles()),
+                new TumorHeterogeneityState.PopulationFractions(state.populationFractions()),   //make new copy
+                new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators()), //make new copy
+                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles()),  //make new copy
                 state.priors());
     }
 
     /*===============================================================================================================*
      * GETTERS                                                                                                       *
      *===============================================================================================================*/
+
+    public boolean doMetropolisStep() {
+        return doMetropolisStep;
+    }
 
     public int numPopulations() {
         return numPopulations;

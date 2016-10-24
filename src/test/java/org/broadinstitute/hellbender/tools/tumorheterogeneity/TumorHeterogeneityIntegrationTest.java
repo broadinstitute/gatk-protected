@@ -23,8 +23,8 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
         final String[] arguments = {
                 "--" + ExomeStandardArgumentDefinitions.SEGMENT_FILE_LONG_NAME, ACNV_SEGMENT_FILE.getAbsolutePath(),
                 "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
-                "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "200",
-                "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "150",
+                "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "20",
+                "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "15",
                 "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "500",
                 "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "400",
                 "--" + TumorHeterogeneity.NUM_CELLS_LONG_NAME, "50",
