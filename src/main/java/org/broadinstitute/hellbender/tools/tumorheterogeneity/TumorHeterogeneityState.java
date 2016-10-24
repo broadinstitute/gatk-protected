@@ -17,7 +17,6 @@ import java.util.stream.IntStream;
 public final class TumorHeterogeneityState extends ParameterizedState<TumorHeterogeneityParameter> {
     private static final double POPULATION_FRACTION_NORMALIZATION_EPSILON = 1E-4;
 
-    private final boolean doMetropolisStep;
     private final int numPopulations;   //variant populations + normal population
     private final int numCells;
     private final int numSegments;
@@ -49,7 +48,6 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         Utils.validateArg(variantProfileCollection.stream().map(s -> Collections.max(s.variantPloidyStateIndicators)).allMatch(i -> i < priors.variantPloidyStatePrior().numPloidyStates()),
                 "Variant ploidy-state indicators must be consistent with number of variant ploidy states.");
         Utils.nonNull(priors);
-        this.doMetropolisStep = doMetropolisStep;
         numPopulations = populationFractions.numPopulations;
         numCells = populationIndicators.numCells;
         numSegments = variantProfileCollection.numSegments;
@@ -59,22 +57,12 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         this.priors = priors;
     }
 
-    public TumorHeterogeneityState(final TumorHeterogeneityState state) {
-        this(
-                state.get(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, Boolean.class),
-                state.get(TumorHeterogeneityParameter.CONCENTRATION, Double.class),
-                new TumorHeterogeneityState.PopulationFractions(state.populationFractions()),   //make new copy
-                new TumorHeterogeneityState.PopulationIndicators(state.populationIndicators()), //make new copy
-                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles()),  //make new copy
-                state.priors());
-    }
-
     /*===============================================================================================================*
      * GETTERS                                                                                                       *
      *===============================================================================================================*/
 
     public boolean doMetropolisStep() {
-        return doMetropolisStep;
+        return get(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, Boolean.class);
     }
 
     public int numPopulations() {
@@ -127,11 +115,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     public boolean isVariant(final int populationIndex, final int segmentIndex) {
         validatePopulationIndex(populationIndex, numPopulations);
         validateSegmentIndex(segmentIndex, numSegments);
-        if (populationIndex == numPopulations - 1) {
-            //last population is normal
-            return false;
-        }
-        return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).isVariant(segmentIndex);
+        //last population is normal
+        return populationIndex != numPopulations - 1 && get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).isVariant(segmentIndex);
     }
 
     public int variantPloidyStateIndex(final int populationIndex, final int segmentIndex) {
@@ -208,7 +193,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         validateSegmentIndex(segmentIndex, numSegments);
         final int populationIndexToExcludeValue;
         if (populationIndexToExclude == null) {
-            populationIndexToExcludeValue = -1;
+            populationIndexToExcludeValue = -1; //this will not exclude any populations
         } else {
             validatePopulationIndex(populationIndexToExclude, numPopulations);
             populationIndexToExcludeValue = populationIndexToExclude;
@@ -258,6 +243,15 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             throw new IllegalStateException("Attempted to set variant-ploidy-state index for normal population.");
         }
         get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).variantPloidyStateIndicators.set(segmentIndex, variantPloidyStateIndex);
+    }
+
+    void set(final TumorHeterogeneityState state) {
+        update(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, state.doMetropolisStep());
+        update(TumorHeterogeneityParameter.CONCENTRATION, state.concentration());
+        update(TumorHeterogeneityParameter.POPULATION_FRACTIONS, state.populationFractions());
+        update(TumorHeterogeneityParameter.POPULATION_INDICATORS, state.populationIndicators());
+        update(TumorHeterogeneityParameter.VARIANT_PROFILES, state.variantProfiles());
+        updatePopulationCounts();
     }
 
     /*===============================================================================================================*
