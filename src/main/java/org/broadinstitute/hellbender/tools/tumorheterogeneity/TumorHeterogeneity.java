@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import com.google.common.collect.Iterables;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
@@ -78,11 +77,11 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String NUM_CELLS_LONG_NAME = "numCells";
     protected static final String NUM_CELLS_SHORT_NAME = "numCells";
 
-    protected static final String SWAP_ITERATION_DIVISOR_CLONAL_LONG_NAME = "swapIterationDivisorClonal";
-    protected static final String SWAP_ITERATION_DIVISOR_CLONAL_SHORT_NAME = "swapIterDivisorClonal";
+    protected static final String METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME = "metropolisIterationFractionClonal";
+    protected static final String METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME = "metroIterFracClonal";
 
-    protected static final String SWAP_ITERATION_DIVISOR_LONG_NAME = "swapIterationDivisor";
-    protected static final String SWAP_ITERATION_DIVISOR_SHORT_NAME = "swapIterDivisor";
+    protected static final String METROPOLIS_ITERATION_FRACTION_LONG_NAME = "metropolisIterationFraction";
+    protected static final String METROPOLIS_ITERATION_FRACTION_SHORT_NAME = "metroIterFrac";
 
     protected static final String NUM_SAMPLES_CLONAL_LONG_NAME = "numSamplesClonal";
     protected static final String NUM_SAMPLES_CLONAL_SHORT_NAME = "numSampClonal";
@@ -187,20 +186,20 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int numCells = 50;
 
     @Argument(
-            doc = "Swap step for clonal model will be proposed if randomly-generated integer is divisible by this number.",
-            fullName = SWAP_ITERATION_DIVISOR_CLONAL_LONG_NAME,
-            shortName = SWAP_ITERATION_DIVISOR_CLONAL_SHORT_NAME,
+            doc = "Fraction of iterations for which Metropolis step will be used for clonal model.",
+            fullName = METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME,
+            shortName = METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int swapIterationDivisorClonal = 2;
+    protected double metropolisIterationFractionClonal = 0.25;
 
     @Argument(
-            doc = "Swap step for full model will be proposed if randomly-generated integer is divisible by this number.",
-            fullName = SWAP_ITERATION_DIVISOR_LONG_NAME,
-            shortName = SWAP_ITERATION_DIVISOR_SHORT_NAME,
+            doc = "Fraction of iterations for which Metropolis step will be used for full model.",
+            fullName = METROPOLIS_ITERATION_FRACTION_LONG_NAME,
+            shortName = METROPOLIS_ITERATION_FRACTION_SHORT_NAME,
             optional = true
     )
-    protected int swapIterationDivisor = 2;
+    protected double metropolisIterationFraction = 0.25;
 
     @Argument(
             doc = "Maximum number of populations for full model.",
@@ -307,21 +306,21 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         outputMafCrFile(mafCrFile, data);
 
         final PloidyStatePrior variantPloidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
-        final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(NORMAL_PLOIDY_STATE, variantPloidyStatePriorClonal,
+        final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(metropolisIterationFractionClonal, NORMAL_PLOIDY_STATE, variantPloidyStatePriorClonal,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
 
         final PloidyStatePrior variantPloidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
-        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(NORMAL_PLOIDY_STATE, variantPloidyStatePrior,
+        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(metropolisIterationFraction, NORMAL_PLOIDY_STATE, variantPloidyStatePrior,
                 concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
 
         final File resultClonalFile = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
-        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, numCells, swapIterationDivisorClonal, rng);
+        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, numCells, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
         clonalModeller.output(resultClonalFile, CREDIBLE_INTERVAL_ALPHA, ctx);
 
         final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
-        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, swapIterationDivisor, rng);
+        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
         modeller.output(resultFile, CREDIBLE_INTERVAL_ALPHA, ctx);
 
@@ -433,8 +432,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");
         Utils.validateArg(numCells > 0, NUM_CELLS_LONG_NAME + " must be positive.");
-        Utils.validateArg(swapIterationDivisorClonal > 0, SWAP_ITERATION_DIVISOR_CLONAL_LONG_NAME + " must be positive.");
-        Utils.validateArg(swapIterationDivisor > 0, SWAP_ITERATION_DIVISOR_LONG_NAME + " must be positive.");
+        Utils.validateArg(0. <= metropolisIterationFractionClonal && metropolisIterationFractionClonal <= 1., METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME + " must be in [0, 1].");
+        Utils.validateArg(0. <= metropolisIterationFraction && metropolisIterationFraction <= 1., METROPOLIS_ITERATION_FRACTION_LONG_NAME + " must be in [0, 1].");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(numBurnInClonal > 0 && numBurnInClonal <= numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be positive and less than or equal to " + NUM_SAMPLES_CLONAL_LONG_NAME);
         Utils.validateArg(numSamples > 0, NUM_SAMPLES_LONG_NAME + " must be positive.");
