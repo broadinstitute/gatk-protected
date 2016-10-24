@@ -1,7 +1,9 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import com.google.cloud.dataflow.sdk.repackaged.com.google.common.primitives.Doubles;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
@@ -152,8 +154,8 @@ public final class TumorHeterogeneityModeller {
             final TumorHeterogeneityState.PopulationFractions populationFractions = populationFractionsSamples.get(sampleIndex);
             final TumorHeterogeneityState.PopulationIndicators populationIndicators = populationIndicatorsSamples.get(sampleIndex);
             final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = variantProfileCollectionSamples.get(sampleIndex);
-            final TumorHeterogeneityState state =
-                    new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
+            final TumorHeterogeneityState state = new TumorHeterogeneityState(
+                    doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
             ploidySamples.add(state.calculatePopulationAndGenomicAveragedPloidy(data));
         }
         return ploidySamples;
@@ -162,26 +164,15 @@ public final class TumorHeterogeneityModeller {
     public void output(final File outputFile,
                        final double credibleIntervalAlpha,
                        final JavaSparkContext ctx) {
-        if (concentrationSamples.size() == 0) {
+        if (doMetropolisStepSamples.size() == 0) {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
         try (final FileWriter writer = new FileWriter(outputFile)) {
             outputFile.createNewFile();
 
             //comments
-            final PosteriorSummary ploidyPosteriorSummary =
-                    PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(getPloidySamples(), credibleIntervalAlpha, ctx);
-            final double ploidyPosteriorCenter = ploidyPosteriorSummary.getCenter();
-            final double ploidyPosteriorWidth = calculatePosteriorWidth(ploidyPosteriorSummary);
-            writer.write("#ploidy: " + ploidyPosteriorCenter + " " + ploidyPosteriorWidth);
-            writer.write(System.getProperty("line.separator"));
-
-            final PosteriorSummary concentrationPosteriorSummary =
-                    PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(getConcentrationSamples(), credibleIntervalAlpha, ctx);
-            final double concentrationPosteriorCenter = concentrationPosteriorSummary.getCenter();
-            final double concentrationPosteriorWidth = calculatePosteriorWidth(concentrationPosteriorSummary);
-            writer.write("#concentration: " + concentrationPosteriorCenter + " " + concentrationPosteriorWidth);
-            writer.write(System.getProperty("line.separator"));
+            writePosteriorSummary(writer, "ploidy", getPloidySamples());
+            writePosteriorSummary(writer, "concentration", getConcentrationSamples());
 
             final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
             final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = getVariantProfileCollectionSamples();
@@ -191,24 +182,11 @@ public final class TumorHeterogeneityModeller {
                 final int pi = populationIndex;
                 final List<Double> populationFractionSamples = populationFractionsSamples.stream()
                         .map(s -> s.get(pi)).collect(Collectors.toList());
-                final PosteriorSummary populationFractionPosteriorSummary =
-                        PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(populationFractionSamples, credibleIntervalAlpha, ctx);
-                final double populationFractionPosteriorCenter = populationFractionPosteriorSummary.getCenter();
-                final double populationFractionPosteriorWidth = calculatePosteriorWidth(populationFractionPosteriorSummary);
-
+                writePosteriorSummary(writer, "population fraction " + populationIndex, populationFractionSamples);
                 if (populationIndex != numPopulations - 1) {
                     final List<Double> variantSegmentFractionSamples = variantProfileCollectionSamples.stream()
                             .map(vpc -> vpc.get(pi).variantSegmentFraction()).collect(Collectors.toList());
-                    final PosteriorSummary variantSegmentFractionPosteriorSummary =
-                            PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(variantSegmentFractionSamples, credibleIntervalAlpha, ctx);
-                    final double variantSegmentFractionPosteriorCenter = variantSegmentFractionPosteriorSummary.getCenter();
-                    final double variantSegmentFractionPosteriorWidth = calculatePosteriorWidth(variantSegmentFractionPosteriorSummary);
-                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorCenter + " " + populationFractionPosteriorWidth + " " +
-                            variantSegmentFractionPosteriorCenter + " " + variantSegmentFractionPosteriorWidth);
-                    writer.write(System.getProperty("line.separator"));
-                } else {
-                    writer.write("#population fraction " + populationIndex + ": " + populationFractionPosteriorCenter + " " + populationFractionPosteriorWidth);
-                    writer.write(System.getProperty("line.separator"));
+                    writePosteriorSummary(writer, "variant-segment fraction " + populationIndex, variantSegmentFractionSamples);
                 }
             }
 
@@ -261,7 +239,13 @@ public final class TumorHeterogeneityModeller {
         }
     }
 
-    private static double calculatePosteriorWidth(final PosteriorSummary summary) {
-        return (summary.getUpper() - summary.getLower()) / 2.;
+    private static void writePosteriorSummary(final FileWriter writer,
+                                              final String label,
+                                              final List<Double> samples) throws IOException {
+        final double[] samplesArray = Doubles.toArray(samples);
+        final double center = new Mean().evaluate(samplesArray);
+        final double width = new StandardDeviation().evaluate(samplesArray);
+        writer.write("#" + label + ": " + center + " " + width);
+        writer.write(System.getProperty("line.separator"));
     }
 }
