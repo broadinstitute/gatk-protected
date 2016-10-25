@@ -101,12 +101,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String CONCENTRATION_PRIOR_BETA_LONG_NAME = "concentrationPriorBeta";
     protected static final String CONCENTRATION_PRIOR_BETA_SHORT_NAME = "concBeta";
 
-    protected static final String VARIANT_SEGMENT_FRACTION_PRIOR_ALPHA_LONG_NAME = "variantSegmentFractionPriorAlpha";
-    protected static final String VARIANT_SEGMENT_FRACTION_PRIOR_ALPHA_SHORT_NAME = "varSegFracAlpha";
-
-    protected static final String VARIANT_SEGMENT_FRACTION_PRIOR_BETA_LONG_NAME = "variantSegmentFractionPriorBeta";
-    protected static final String VARIANT_SEGMENT_FRACTION_PRIOR_BETA_SHORT_NAME = "varSegFracBeta";
-
     protected static final String PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME = "completeDeletionPenalty";
     protected static final String PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_SHORT_NAME = "compDelPen";
 
@@ -191,7 +185,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected double metropolisIterationFractionClonal = 0.25;
+    protected double metropolisIterationFractionClonal = 0.5;
 
     @Argument(
             doc = "Fraction of iterations for which Metropolis step will be used for full model.",
@@ -215,7 +209,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_SAMPLES_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int numSamplesClonal = 50;
+    protected int numSamplesClonal = 500;
 
     @Argument(
             doc = "Number of burn-in samples to discard for clonal model.",
@@ -223,7 +217,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_BURN_IN_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int numBurnInClonal = 25;
+    protected int numBurnInClonal = 400;
 
     @Argument(
             doc = "Total number of MCMC samples for full model.",
@@ -255,25 +249,9 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 1E8;
+    protected double concentrationPriorBeta = 1E1;
 
-    @Argument(
-            doc = "Alpha hyperparameter for Beta-distribution prior on variant-segment-fraction parameter.",
-            fullName = VARIANT_SEGMENT_FRACTION_PRIOR_ALPHA_LONG_NAME,
-            shortName = VARIANT_SEGMENT_FRACTION_PRIOR_ALPHA_SHORT_NAME,
-            optional = true
-    )
-    protected double variantSegmentFractionPriorAlpha = 100.;
-
-    @Argument(
-            doc = "Beta hyperparameter for Beta-distribution prior on variant-segment-fraction parameter.",
-            fullName = VARIANT_SEGMENT_FRACTION_PRIOR_BETA_LONG_NAME,
-            shortName = VARIANT_SEGMENT_FRACTION_PRIOR_BETA_SHORT_NAME,
-            optional = true
-    )
-    protected double variantSegmentFractionPriorBeta = 0.1;
-
-    @Argument(
+        @Argument(
             doc = "Penalty for complete allele deletion in ploidy-state prior.",
             fullName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME,
             shortName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_SHORT_NAME,
@@ -305,24 +283,24 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final File mafCrFile = new File(outputPrefix + MAF_CR_FILE_SUFFIX);
         outputMafCrFile(mafCrFile, data);
 
-        final PloidyStatePrior variantPloidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
-        final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(metropolisIterationFractionClonal, NORMAL_PLOIDY_STATE, variantPloidyStatePriorClonal,
-                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+        final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
+        final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
+                metropolisIterationFractionClonal, NORMAL_PLOIDY_STATE, ploidyStatePriorClonal, concentrationPriorAlpha, concentrationPriorBeta);
 
-        final PloidyStatePrior variantPloidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
-        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(metropolisIterationFraction, NORMAL_PLOIDY_STATE, variantPloidyStatePrior,
-                concentrationPriorAlpha, concentrationPriorBeta, variantSegmentFractionPriorAlpha, variantSegmentFractionPriorBeta);
+        final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
+        final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
+                metropolisIterationFraction, NORMAL_PLOIDY_STATE, ploidyStatePrior, concentrationPriorAlpha, concentrationPriorBeta);
 
         final File resultClonalFile = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, numCells, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
-        clonalModeller.output(resultClonalFile, CREDIBLE_INTERVAL_ALPHA, ctx);
+        clonalModeller.output(resultClonalFile);
 
         final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
-        modeller.output(resultFile, CREDIBLE_INTERVAL_ALPHA, ctx);
+        modeller.output(resultFile);
 
         logger.info("SUCCESS: Tumor heterogeneity run complete and result output to " + resultFile + ".");
     }
@@ -352,9 +330,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         for (int n = 0; n <= maxAllelicCopyNumber; n++) {
             for (int m = 0; m <= n; m++) {
-//                if (!(m == 1 && n == 1)) {
-                    unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
-//                }
+                unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
             }
         }
         return new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
@@ -440,8 +416,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 concentrationPriorAlpha / concentrationPriorBeta < TumorHeterogeneityModeller.CONCENTRATION_MAX,
                 CONCENTRATION_PRIOR_ALPHA_LONG_NAME + " / " + CONCENTRATION_PRIOR_BETA_LONG_NAME + " must be in (" +
                         TumorHeterogeneityModeller.CONCENTRATION_MIN + ", " + TumorHeterogeneityModeller.CONCENTRATION_MAX + ").");
-        Utils.validateArg(variantSegmentFractionPriorAlpha > 0, VARIANT_SEGMENT_FRACTION_PRIOR_ALPHA_LONG_NAME + " must be positive.");
-        Utils.validateArg(variantSegmentFractionPriorBeta > 0, VARIANT_SEGMENT_FRACTION_PRIOR_BETA_LONG_NAME + " must be positive.");
         Utils.validateArg(ploidyStatePriorCompleteDeletionPenalty > 0, PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME + " must be positive.");
         Utils.validateArg(ploidyStatePriorChangePenalty > 0, PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME + " must be positive.");
     }

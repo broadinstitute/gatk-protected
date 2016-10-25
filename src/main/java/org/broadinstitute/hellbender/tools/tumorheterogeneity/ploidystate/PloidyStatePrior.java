@@ -16,7 +16,7 @@ public final class PloidyStatePrior {
 
     public PloidyStatePrior(final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap) {
         Utils.nonNull(unnormalizedLogProbabilityMassFunctionMap);
-        Utils.validateArg(!unnormalizedLogProbabilityMassFunctionMap.isEmpty(), "Number of variant ploidy states must be positive.");
+        Utils.validateArg(!unnormalizedLogProbabilityMassFunctionMap.isEmpty(), "Number of ploidy states must be positive.");
         numPloidyStates = unnormalizedLogProbabilityMassFunctionMap.size();
         ploidyStates = Collections.unmodifiableList(new ArrayList<>(unnormalizedLogProbabilityMassFunctionMap.keySet()));
         this.logProbabilityMassFunctionMap = normalize(new LinkedHashMap<>(unnormalizedLogProbabilityMassFunctionMap));
@@ -30,9 +30,9 @@ public final class PloidyStatePrior {
         return ploidyStates;
     }
 
-    public double logProbability(final PloidyState variantPloidyState) {
-        Utils.nonNull(variantPloidyState);
-        return logProbabilityMassFunctionMap.getOrDefault(variantPloidyState, Double.NaN);
+    public double logProbability(final PloidyState ploidyState) {
+        Utils.nonNull(ploidyState);
+        return logProbabilityMassFunctionMap.getOrDefault(ploidyState, Double.NaN);
     }
 
     //normalize log probabilities in mass function (which may be unnormalized)

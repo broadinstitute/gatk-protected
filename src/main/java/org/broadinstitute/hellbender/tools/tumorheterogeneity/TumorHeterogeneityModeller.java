@@ -70,7 +70,7 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
                 new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations);
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
-                new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.variantPloidyStatePrior());
+                new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior());
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, metropolisStepSampler, Boolean.class)
@@ -161,9 +161,7 @@ public final class TumorHeterogeneityModeller {
         return ploidySamples;
     }
 
-    public void output(final File outputFile,
-                       final double credibleIntervalAlpha,
-                       final JavaSparkContext ctx) {
+    public void output(final File outputFile) {
         if (doMetropolisStepSamples.size() == 0) {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
@@ -183,23 +181,18 @@ public final class TumorHeterogeneityModeller {
                 final List<Double> populationFractionSamples = populationFractionsSamples.stream()
                         .map(s -> s.get(pi)).collect(Collectors.toList());
                 writePosteriorSummary(writer, "population fraction " + populationIndex, populationFractionSamples);
-                if (populationIndex != numPopulations - 1) {
-                    final List<Double> variantSegmentFractionSamples = variantProfileCollectionSamples.stream()
-                            .map(vpc -> vpc.get(pi).variantSegmentFraction()).collect(Collectors.toList());
-                    writePosteriorSummary(writer, "variant-segment fraction " + populationIndex, variantSegmentFractionSamples);
-                }
             }
 
             //column headers
-            writer.write("POPULATION_INDEX\tSEGMENT_INDEX\tSEGMENT_INTERVAL\tIS_VARIANT_PROB\t");
-            final List<PloidyState> variantPloidyStates = priors.variantPloidyStatePrior().ploidyStates();
-            final int numVariantPloidyStates = variantPloidyStates.size();
-            for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < numVariantPloidyStates - 1; variantPloidyStateIndex++) {
-                final PloidyState variantPloidyState = variantPloidyStates.get(variantPloidyStateIndex);
-                writer.write(variantPloidyState.m() + "-" + variantPloidyState.n() + "\t");
+            writer.write("POPULATION_INDEX\tSEGMENT_INDEX\tSEGMENT_INTERVAL\t");
+            final List<PloidyState> ploidyStates = priors.ploidyStatePrior().ploidyStates();
+            final int numPloidyStates = ploidyStates.size();
+            for (int ploidyStateIndex = 0; ploidyStateIndex < numPloidyStates - 1; ploidyStateIndex++) {
+                final PloidyState ploidyState = ploidyStates.get(ploidyStateIndex);
+                writer.write(ploidyState.m() + "-" + ploidyState.n() + "\t");
             }
-            final PloidyState variantPloidyState = variantPloidyStates.get(numVariantPloidyStates - 1);
-            writer.write(variantPloidyState.m() + "-" + variantPloidyState.n());
+            final PloidyState ploidyState = ploidyStates.get(numPloidyStates - 1);
+            writer.write(ploidyState.m() + "-" + ploidyState.n());
             writer.write(System.getProperty("line.separator"));
 
             //rows
@@ -211,20 +204,14 @@ public final class TumorHeterogeneityModeller {
                 if (populationIndex != numPopulations - 1 && populationFractionPosteriorMean >= 0.01) {
                     for (int segmentIndex = 0; segmentIndex < data.numSegments(); segmentIndex++) {
                         final int si = segmentIndex;
-                        final double[] isVariantSamples = variantProfileCollectionSamples.stream()
-                                .mapToDouble(vpc -> vpc.get(pi).isVariant(si) ? 1. : 0.)
-                                .toArray();
-                        final double isVariantPosteriorMean = new Mean().evaluate(isVariantSamples);
-                        writer.write(populationIndex + "\t" + segmentIndex + "\t" + data.segments().get(segmentIndex).getInterval() + "\t" + isVariantPosteriorMean + "\t");
-
-                        for (int variantPloidyStateIndex = 0; variantPloidyStateIndex < numVariantPloidyStates; variantPloidyStateIndex++) {
-                            final int vpsi = variantPloidyStateIndex;
-                            final double[] isVariantPloidyStateSamples = variantProfileCollectionSamples.stream()
-                                    .mapToDouble(vpc -> vpc.get(pi).variantPloidyStateIndex(si) == vpsi ? 1. : 0)
+                        for (int ploidyStateIndex = 0; ploidyStateIndex < numPloidyStates; ploidyStateIndex++) {
+                            final int vpsi = ploidyStateIndex;
+                            final double[] isPloidyStateSamples = variantProfileCollectionSamples.stream()
+                                    .mapToDouble(vpc -> vpc.get(pi).ploidyStateIndex(si) == vpsi ? 1. : 0)
                                     .toArray();
-                            final double variantPloidyStatePosteriorMean = new Mean().evaluate(isVariantPloidyStateSamples);
-                            writer.write(String.format("%.3f", variantPloidyStatePosteriorMean));
-                            if (variantPloidyStateIndex != numVariantPloidyStates - 1) {
+                            final double ploidyStatePosteriorMean = new Mean().evaluate(isPloidyStateSamples);
+                            writer.write(String.format("%.3f", ploidyStatePosteriorMean));
+                            if (ploidyStateIndex != numPloidyStates - 1) {
                                 writer.write("\t");
                             }
                         }
