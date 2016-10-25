@@ -35,10 +35,11 @@ public class TumorHeterogeneityStateUnitTest {
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 0), 0.);
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(0, 1), 0.);
+        unnormalizedLogProbabilityMassFunctionMap.put(NORMAL_PLOIDY_STATE, 0.);
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 2), 0.);
         VARIANT_PLOIDY_STATE_PRIOR = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
-        PRIORS = new TumorHeterogeneityPriorCollection(METROPOLIS_ITERATION_FRACTION, NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR,
-                DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
+        PRIORS = new TumorHeterogeneityPriorCollection(
+                METROPOLIS_ITERATION_FRACTION, NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
 
         final boolean doMetropolisStep = false;
         final double concentration = 1.;
@@ -46,13 +47,9 @@ public class TumorHeterogeneityStateUnitTest {
         final TumorHeterogeneityState.PopulationIndicators populationIndicators =
                 new TumorHeterogeneityState.PopulationIndicators(Arrays.asList(0, 1, 1, 2, 2, 2, 2, 2, 2, 2));
         final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(0, 1)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(0, 1)));
         final TumorHeterogeneityState.VariantProfile variantProfile2 = new TumorHeterogeneityState.VariantProfile(
-                0.3,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, false)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(2, 0)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(2, 0)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Arrays.asList(variantProfile1, variantProfile2));
         STATE = new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
 
@@ -105,9 +102,7 @@ public class TumorHeterogeneityStateUnitTest {
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
         final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(2));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.singletonList(0)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(0)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
     }
@@ -124,21 +119,6 @@ public class TumorHeterogeneityStateUnitTest {
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testBadVariantSegmentFraction() {
-        //fail if variant-segment fraction is not in [0, 1]
-        final boolean doMetropolisStep = false;
-        final double concentration = 1.;
-        final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
-        final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(1));
-        final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                -0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.singletonList(0)));
-        final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
-        new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInconsistentNumbersOfPopulationsAndVariants() {
         //fail if number of variants + 1 is not equal to number of populations
         final boolean doMetropolisStep = false;
@@ -146,9 +126,7 @@ public class TumorHeterogeneityStateUnitTest {
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
         final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(0));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.singletonList(0)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(0)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
     }
@@ -161,13 +139,9 @@ public class TumorHeterogeneityStateUnitTest {
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
         final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(0));
         final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.singletonList(0)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(0)));
         final TumorHeterogeneityState.VariantProfile variantProfile2 = new TumorHeterogeneityState.VariantProfile(
-                0.3,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Arrays.asList(true, false)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(0, 1)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(0, 1)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Arrays.asList(variantProfile1, variantProfile2));
         new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
     }
@@ -180,24 +154,20 @@ public class TumorHeterogeneityStateUnitTest {
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
         final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(0));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Arrays.asList(0, 1)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(0, 1)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInconsistentVariantPloidyStateIndicators() {
-        //fail if variant ploidy-state indicators are inconsistent with total number of states in prior
+    public void testInconsistentPloidyStateIndicators() {
+        //fail if ploidy-state indicators are inconsistent with total number of states in prior
         final boolean doMetropolisStep = false;
         final double concentration = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
         final TumorHeterogeneityState.PopulationIndicators populationIndicators = new TumorHeterogeneityState.PopulationIndicators(Collections.singletonList(1));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                0.1,
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.singletonList(true)),
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.singletonList(3)));
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(3)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfiles, PRIORS);
     }

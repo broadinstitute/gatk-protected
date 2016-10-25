@@ -10,36 +10,30 @@ import org.broadinstitute.hellbender.utils.Utils;
 public final class TumorHeterogeneityPriorCollection {
     private final double metropolisIterationFraction;
     private final PloidyState normalPloidyState;
-    private final PloidyStatePrior variantPloidyStatePrior;
+    private final int normalPloidyStateIndex;
+    private final PloidyStatePrior ploidyStatePrior;
     private final double concentrationPriorAlpha;
     private final double concentrationPriorBeta;
-    private final double variantSegmentFractionPriorAlpha;
-    private final double variantSegmentFractionPriorBeta;
 
     public TumorHeterogeneityPriorCollection(final double metropolisIterationFraction,
                                              final PloidyState normalPloidyState,
-                                             final PloidyStatePrior variantPloidyStatePrior,
+                                             final PloidyStatePrior ploidyStatePrior,
                                              final double concentrationPriorAlpha,
-                                             final double concentrationPriorBeta,
-                                             final double variantSegmentFractionPriorAlpha,
-                                             final double variantSegmentFractionPriorBeta) {
+                                             final double concentrationPriorBeta) {
         Utils.nonNull(normalPloidyState);
-        Utils.nonNull(variantPloidyStatePrior);
+        Utils.nonNull(ploidyStatePrior);
+        Utils.validateArg(ploidyStatePrior.ploidyStates().contains(normalPloidyState),
+                "Ploidy-state prior must contain normal ploidy state.");
         Utils.validateArg(0. <= metropolisIterationFraction && metropolisIterationFraction <= 1.,
                 "Metropolis-iteration fraction must be in [0, 1].");
-//        Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
-//                "Variant-ploidy state prior should not be specified for normal ploidy state.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
-        Utils.validateArg(variantSegmentFractionPriorAlpha > 0, "Hyperparameter for variant-segment fraction must be positive.");
-        Utils.validateArg(variantSegmentFractionPriorBeta > 0, "Hyperparameter for variant-segment fraction must be positive.");
         this.metropolisIterationFraction = metropolisIterationFraction;
         this.normalPloidyState = normalPloidyState;
-        this.variantPloidyStatePrior = variantPloidyStatePrior;
+        this.ploidyStatePrior = ploidyStatePrior;
+        normalPloidyStateIndex = ploidyStatePrior().ploidyStates().indexOf(normalPloidyState);
         this.concentrationPriorAlpha = concentrationPriorAlpha;
         this.concentrationPriorBeta = concentrationPriorBeta;
-        this.variantSegmentFractionPriorAlpha = variantSegmentFractionPriorAlpha;
-        this.variantSegmentFractionPriorBeta = variantSegmentFractionPriorBeta;
     }
 
     public double metropolisIterationFraction() {
@@ -50,8 +44,12 @@ public final class TumorHeterogeneityPriorCollection {
         return normalPloidyState;
     }
 
-    public PloidyStatePrior variantPloidyStatePrior() {
-        return variantPloidyStatePrior;
+    public int normalPloidyStateIndex() {
+        return normalPloidyStateIndex;
+    }
+
+    public PloidyStatePrior ploidyStatePrior() {
+        return ploidyStatePrior;
     }
 
     public double concentrationPriorAlpha() {
@@ -60,13 +58,5 @@ public final class TumorHeterogeneityPriorCollection {
 
     public double concentrationPriorBeta() {
         return concentrationPriorBeta;
-    }
-
-    public double variantSegmentFractionPriorAlpha() {
-        return variantSegmentFractionPriorAlpha;
-    }
-
-    public double variantSegmentFractionPriorBeta() {
-        return variantSegmentFractionPriorBeta;
     }
 }

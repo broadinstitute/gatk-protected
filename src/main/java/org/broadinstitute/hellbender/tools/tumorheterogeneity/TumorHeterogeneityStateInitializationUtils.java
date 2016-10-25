@@ -38,7 +38,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         //initialize variant profiles to normal
         final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
-                initializeNormalProfiles(numVariantPopulations, numSegments);
+                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
         return new TumorHeterogeneityState(
                 doMetropolisStep, initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
     }
@@ -64,7 +64,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                 initializeRandomProfiles(numVariantPopulations, numSegments, priors, rng);
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
                 doMetropolisStep,concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
-        new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.variantPloidyStatePrior()).sample(rng, proposedState, data);
+        new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sample(rng, proposedState, data);
         return proposedState;
     }
 
@@ -86,7 +86,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         initialVariantProfiles.addAll(clonalVariantProfileCollection);
         for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
             initialFractions.add(1, 0.);
-            initialVariantProfiles.add(1, TumorHeterogeneityStateInitializationUtils.initializeNormalProfile(data.numSegments()));
+            initialVariantProfiles.add(1, TumorHeterogeneityStateInitializationUtils.initializeNormalProfile(data.numSegments(), priors.normalPloidyStateIndex()));
         }
         initialFractions.add(clonalNormalFraction);
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
@@ -133,8 +133,9 @@ final class TumorHeterogeneityStateInitializationUtils {
     }
 
     private static TumorHeterogeneityState.VariantProfileCollection initializeNormalProfiles(final int numVariantPopulations,
-                                                                                             final int numSegments) {
-        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeNormalProfile(numSegments)));
+                                                                                             final int numSegments,
+                                                                                             final int normalPloidyStateIndex) {
+        return new TumorHeterogeneityState.VariantProfileCollection(Collections.nCopies(numVariantPopulations, initializeNormalProfile(numSegments, normalPloidyStateIndex)));
     }
 
     private static TumorHeterogeneityState.VariantProfileCollection initializeRandomProfiles(final int numVariantPopulations,
@@ -145,29 +146,24 @@ final class TumorHeterogeneityStateInitializationUtils {
                 IntStream.range(0, numVariantPopulations).boxed().map(i -> initializeRandomProfile(numSegments, priors, rng)).collect(Collectors.toList()));
     }
 
-    private static TumorHeterogeneityState.VariantProfile initializeNormalProfile(final int numSegments) {
-        final double variantSegmentFraction = 0.;
-        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantIndicators(Collections.nCopies(numSegments, false));
-        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(Collections.nCopies(numSegments, 0));
-        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
+    private static TumorHeterogeneityState.VariantProfile initializeNormalProfile(final int numSegments,
+                                                                                  final int normalPloidyStateIndex) {
+        final TumorHeterogeneityState.VariantProfile.PloidyStateIndicators ploidyStateIndicators =
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.nCopies(numSegments, normalPloidyStateIndex));
+        return new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators);
     }
 
     private static TumorHeterogeneityState.VariantProfile initializeRandomProfile(final int numSegments,
                                                                                   final TumorHeterogeneityPriorCollection priors,
                                                                                   final RandomGenerator rng) {
-        final double variantSegmentFraction = new BetaDistribution(rng, priors.variantSegmentFractionPriorAlpha(), priors.variantSegmentFractionPriorBeta()).sample();
-        final TumorHeterogeneityState.VariantProfile.VariantIndicators variantIndicators = new TumorHeterogeneityState.VariantProfile.VariantIndicators(
-                IntStream.range(0, numSegments).boxed().map(i -> rng.nextDouble() < variantSegmentFraction).collect(Collectors.toList()));
-        final PloidyStatePrior variantPloidyStatePrior = priors.variantPloidyStatePrior();
-        final List<Integer> variantPloidyStateIndices = IntStream.range(0, variantPloidyStatePrior.numPloidyStates()).boxed().collect(Collectors.toList());
-        final List<Double> variantPloidyStateProbabilities = variantPloidyStatePrior.ploidyStates().stream().map(vps -> Math.exp(variantPloidyStatePrior.logProbability(vps))).collect(Collectors.toList());
-        final Function<Integer, Double> probabilityFunction = variantPloidyStateProbabilities::get;
-        final TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators variantPloidyStateIndicators =
-                new TumorHeterogeneityState.VariantProfile.VariantPloidyStateIndicators(IntStream.range(0, numSegments).boxed()
-                        .map(p -> GATKProtectedMathUtils.randomSelect(variantPloidyStateIndices, probabilityFunction, rng))
+        final PloidyStatePrior ploidyStatePrior = priors.ploidyStatePrior();
+        final List<Integer> ploidyStateIndices = IntStream.range(0, ploidyStatePrior.numPloidyStates()).boxed().collect(Collectors.toList());
+        final List<Double> ploidyStateProbabilities = ploidyStatePrior.ploidyStates().stream().map(vps -> Math.exp(ploidyStatePrior.logProbability(vps))).collect(Collectors.toList());
+        final Function<Integer, Double> probabilityFunction = ploidyStateProbabilities::get;
+        final TumorHeterogeneityState.VariantProfile.PloidyStateIndicators ploidyStateIndicators =
+                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(IntStream.range(0, numSegments).boxed()
+                        .map(p -> GATKProtectedMathUtils.randomSelect(ploidyStateIndices, probabilityFunction, rng))
                         .collect(Collectors.toList()));
-        return new TumorHeterogeneityState.VariantProfile(variantSegmentFraction, variantIndicators, variantPloidyStateIndicators);
+        return new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators);
     }
 }
