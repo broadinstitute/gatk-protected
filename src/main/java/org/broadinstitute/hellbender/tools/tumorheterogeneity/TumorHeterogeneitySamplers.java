@@ -396,7 +396,7 @@ final class TumorHeterogeneitySamplers {
                 for (int segmentIndex : shuffledSegmentIndices) {
                     for (double c = 1E-10; c <= 3; c += 0.5) {
                         for (double f = 0.; f <= 0.5; f += 0.1) {
-                            logger.info("Segment " + segmentIndex + " cr " + c + " maf " + f + ": " + data.logDensity(segmentIndex, c, f));
+                            logger.debug("Segment " + segmentIndex + " cr " + c + " maf " + f + ": " + data.logDensity(segmentIndex, c, f));
                         }
                     }
                     final boolean isVariant = state.isVariant(populationIndex, segmentIndex);
@@ -419,7 +419,7 @@ final class TumorHeterogeneitySamplers {
                                     .toArray() :
                             variantPloidyStatePriorLog10Probabilities;
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
-                    if (isVariant) {
+                    if (isVariant && populationFraction > 0.1) {
                         logger.debug("Population " + populationIndex + " segment " + segmentIndex + ": " + Doubles.asList(probabilities));
                     }
                     final int variantPloidyStateIndex = GATKProtectedMathUtils.randomSelect(variantPloidyStateIndices, i -> probabilities[i], rng);

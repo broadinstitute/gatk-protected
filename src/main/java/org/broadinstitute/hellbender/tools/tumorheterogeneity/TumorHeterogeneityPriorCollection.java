@@ -27,8 +27,8 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.nonNull(variantPloidyStatePrior);
         Utils.validateArg(0. <= metropolisIterationFraction && metropolisIterationFraction <= 1.,
                 "Metropolis-iteration fraction must be in [0, 1].");
-        Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
-                "Variant-ploidy state prior should not be specified for normal ploidy state.");
+//        Utils.validateArg(Double.isNaN(variantPloidyStatePrior.logProbability(normalPloidyState)),
+//                "Variant-ploidy state prior should not be specified for normal ploidy state.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(variantSegmentFractionPriorAlpha > 0, "Hyperparameter for variant-segment fraction must be positive.");
