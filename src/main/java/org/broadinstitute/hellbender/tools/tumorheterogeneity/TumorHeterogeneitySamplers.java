@@ -394,6 +394,11 @@ final class TumorHeterogeneitySamplers {
                 Collections.shuffle(shuffledSegmentIndices, rnd);
                 final List<PloidyState> variantPloidyStates = state.priors().variantPloidyStatePrior().ploidyStates();
                 for (int segmentIndex : shuffledSegmentIndices) {
+                    for (double c = 1E-10; c <= 3; c += 0.5) {
+                        for (double f = 0.; f <= 0.5; f += 0.1) {
+                            logger.info("Segment " + segmentIndex + " cr " + c + " maf " + f + ": " + data.logDensity(segmentIndex, c, f));
+                        }
+                    }
                     final boolean isVariant = state.isVariant(populationIndex, segmentIndex);
                     final double segmentFractionalLength = state.calculateFractionalLength(data, segmentIndex);
                     final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);

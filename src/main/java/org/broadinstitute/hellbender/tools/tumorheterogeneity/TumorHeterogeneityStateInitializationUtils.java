@@ -14,10 +14,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
 final class TumorHeterogeneityStateInitializationUtils {
     private static final int NUM_POPULATIONS_CLONAL = 2;
+    private static final int MAX_POPULATION_FRACTIONS_ITERATIONS = 50;
 
     static TumorHeterogeneityState initializeState(final double initialConcentration,
                                                    final TumorHeterogeneityPriorCollection priors,
@@ -99,8 +101,17 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                                                              final RandomGenerator rng) {
         //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, beta) distributions and normalizing
         final GammaDistribution gammaDistribution = new GammaDistribution(rng, concentration, 1.);
-        final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(i -> gammaDistribution.sample()).toArray();
-        final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
+        for (int i = 0; i < MAX_POPULATION_FRACTIONS_ITERATIONS; i++) {
+            final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(pi -> gammaDistribution.sample()).toArray();
+            final double sum = DoubleStream.of(unnormalizedPopulationFractions).sum();
+            if (sum > 0) {
+                final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
+                System.out.println(populationFractions);
+                return new TumorHeterogeneityState.PopulationFractions(populationFractions);
+            }
+        }
+        System.out.println("Failed to sample population fractions.");
+        return new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
 //        final List<Double> betaSamples = IntStream.range(0, numPopulations).boxed().map(i -> new BetaDistribution(rng, concentration, concentration * (numPopulations - i - 1)).sample()).collect(Collectors.toList());
 //        final List<Double> unnormalizedPopulationFractions = new ArrayList<>(numPopulations);
 //        for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
@@ -109,8 +120,6 @@ final class TumorHeterogeneityStateInitializationUtils {
 //        }
 //        System.out.println(unnormalizedPopulationFractions);
 //        final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(Doubles.toArray(unnormalizedPopulationFractions)));
-        System.out.println(populationFractions);
-        return new TumorHeterogeneityState.PopulationFractions(populationFractions);
     }
 
     private static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numCells,
