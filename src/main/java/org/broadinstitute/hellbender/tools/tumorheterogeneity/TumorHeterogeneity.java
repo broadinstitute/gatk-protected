@@ -327,15 +327,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         logger.info("SUCCESS: Tumor heterogeneity run complete and result output to " + resultFile + ".");
     }
 
-    private static void output(final FileWriter writer, final Logger logger, final String output) {
-        try {
-            writer.write(output);
-//            logger.debug(output);
-        } catch(final IOException e) {
-            throw new GATKException("Cannot output.");
-        }
-    }
-
     private static void outputMafCrFile(final File mafCrFile,
                                         final TumorHeterogeneityData data) {
         try (final FileWriter mafCrWriter = new FileWriter(mafCrFile)) {
@@ -395,29 +386,34 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                     .filter(s -> Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()) || s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10) < mafCredibleIntervalThreshold)
                     .collect(Collectors.toList());
 
-            output(writer, logger, "#num segments all: " + allSegments.size());
-            output(writer, logger, System.getProperty("line.separator"));
-            output(writer, logger, "#num segments after filtering: " + segments.size());
-            output(writer, logger, System.getProperty("line.separator"));
-            output(writer, logger, "#length threshold: " + lengthThreshold);
-            output(writer, logger, System.getProperty("line.separator"));
-            output(writer, logger, "#log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
-            output(writer, logger, System.getProperty("line.separator"));
-            output(writer, logger, "#MAF credible-interval threshold: " + mafCredibleIntervalThreshold);
-            output(writer, logger, System.getProperty("line.separator"));
+            writer.write("#num segments all: " + allSegments.size());
+            writer.write(System.getProperty("line.separator"));
+            writer.write("#num segments after filtering: " + segments.size());
+            writer.write(System.getProperty("line.separator"));
+            writer.write("#length threshold: " + lengthThreshold);
+            writer.write(System.getProperty("line.separator"));
+            writer.write("#log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
+            writer.write(System.getProperty("line.separator"));
+            writer.write("#MAF credible-interval threshold: " + mafCredibleIntervalThreshold);
+            writer.write(System.getProperty("line.separator"));
 
-            output(writer, logger, SegmentTableColumn.CONTIG + "\t" + SegmentTableColumn.START + "\t" + SegmentTableColumn.END + "\t" +
+            writer.write(SegmentTableColumn.CONTIG + "\t" + SegmentTableColumn.START + "\t" + SegmentTableColumn.END + "\t" +
                     SegmentTableColumn.SEGMENT_MEAN_POSTERIOR_MODE + "\t" + SegmentTableColumn.SEGMENT_MEAN_POSTERIOR_LOWER + "\t" + SegmentTableColumn.SEGMENT_MEAN_POSTERIOR_UPPER + "\t" +
                     SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_MODE + "\t" + SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_LOWER + "\t" + SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_UPPER);
-            allSegments.stream().filter(s -> !segments.contains(s))
-                    .forEach(s -> {
-                        output(writer, logger, s.getContig() + "\t" + s.getStart() + "\t" + s.getEnd() + "\t" +
-                                s.getSegmentMeanPosteriorSummary().getCenter() + "\t" + s.getSegmentMeanPosteriorSummary().getLower() + "\t" + s.getSegmentMeanPosteriorSummary().getUpper() + "\t" +
-                                s.getMinorAlleleFractionPosteriorSummary().getCenter() + "\t" + s.getMinorAlleleFractionPosteriorSummary().getLower() + "\t" + s.getMinorAlleleFractionPosteriorSummary().getUpper());
-                        output(writer, logger, System.getProperty("line.separator"));
-                    });
+            allSegments.stream().filter(s -> !segments.contains(s)).forEach(s -> writeSegment(writer, s));
 
             return segments;
+        } catch (final IOException e) {
+            throw new GATKException("Error writing filtered segments.");
+        }
+    }
+
+    private static void writeSegment(final FileWriter writer, final ACNVModeledSegment s) {
+        try {
+            writer.write(s.getContig() + "\t" + s.getStart() + "\t" + s.getEnd() + "\t" +
+                    s.getSegmentMeanPosteriorSummary().getCenter() + "\t" + s.getSegmentMeanPosteriorSummary().getLower() + "\t" + s.getSegmentMeanPosteriorSummary().getUpper() + "\t" +
+                    s.getMinorAlleleFractionPosteriorSummary().getCenter() + "\t" + s.getMinorAlleleFractionPosteriorSummary().getLower() + "\t" + s.getMinorAlleleFractionPosteriorSummary().getUpper());
+            writer.write(System.getProperty("line.separator"));
         } catch (final IOException e) {
             throw new GATKException("Error writing filtered segments.");
         }
