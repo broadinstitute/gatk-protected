@@ -263,7 +263,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = VARIANT_SEGMENT_FRACTION_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double variantSegmentFractionPriorAlpha = 5.;
+    protected double variantSegmentFractionPriorAlpha = 100.;
 
     @Argument(
             doc = "Beta hyperparameter for Beta-distribution prior on variant-segment-fraction parameter.",
@@ -271,7 +271,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = VARIANT_SEGMENT_FRACTION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double variantSegmentFractionPriorBeta = 5.;
+    protected double variantSegmentFractionPriorBeta = 0.1;
 
     @Argument(
             doc = "Penalty for complete allele deletion in ploidy-state prior.",
@@ -352,9 +352,9 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         for (int n = 0; n <= maxAllelicCopyNumber; n++) {
             for (int m = 0; m <= n; m++) {
-                if (!(m == 1 && n == 1)) {
+//                if (!(m == 1 && n == 1)) {
                     unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
-                }
+//                }
             }
         }
         return new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
