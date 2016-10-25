@@ -39,7 +39,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final long serialVersionUID = 19738246L;
 
     private static final long RANDOM_SEED = 13;
-    private static final double CREDIBLE_INTERVAL_ALPHA = 0.95;
     private static final int NUM_POPULATIONS_CLONAL = 2;
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
 

@@ -14,8 +14,8 @@ import static org.testng.Assert.*;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramTest {
-//    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-1.0/total_segments-log2cr_sd-0.05-maf_sd-0.005.acnv.seg");
-    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg");
+    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-0.8/total_segments-log2cr_sd-0.05-maf_sd-0.005.acnv.seg");
+//    private static final File ACNV_SEGMENT_FILE = new File("/home/slee/working/ipython/purity-ploidy/integration-test/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg");
     private static final String OUTPUT_PREFIX = ACNV_SEGMENT_FILE.getAbsolutePath().replace(".acnv.seg", "");
 
     @Test
