@@ -106,7 +106,6 @@ final class TumorHeterogeneityStateInitializationUtils {
             final double sum = DoubleStream.of(unnormalizedPopulationFractions).sum();
             if (sum > 0) {
                 final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-                System.out.println(populationFractions);
                 return new TumorHeterogeneityState.PopulationFractions(populationFractions);
             }
         }

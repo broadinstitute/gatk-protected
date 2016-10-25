@@ -203,6 +203,8 @@ public final class TumorHeterogeneityModeller {
 
                 if (populationIndex != numPopulations - 1 && populationFractionPosteriorMean >= 0.01) {
                     for (int segmentIndex = 0; segmentIndex < data.numSegments(); segmentIndex++) {
+                        writer.write(populationIndex + "\t" + segmentIndex + "\t" + data.segments().get(segmentIndex).getInterval() + "\t");
+
                         final int si = segmentIndex;
                         for (int ploidyStateIndex = 0; ploidyStateIndex < numPloidyStates; ploidyStateIndex++) {
                             final int vpsi = ploidyStateIndex;
