@@ -77,7 +77,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
                 doMetropolisStep,concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
-        new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sample(rng, proposedState, data);
+        new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
         return proposedState;
     }
 

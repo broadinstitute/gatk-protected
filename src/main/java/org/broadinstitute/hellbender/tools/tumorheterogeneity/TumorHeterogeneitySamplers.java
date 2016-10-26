@@ -254,7 +254,7 @@ final class TumorHeterogeneitySamplers {
             return state.doMetropolisStep() ? new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles()) : sampleGibbs(rng, state, data);
         }
 
-        private TumorHeterogeneityState.VariantProfileCollection sampleGibbs(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+        TumorHeterogeneityState.VariantProfileCollection sampleGibbs(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             final List<TumorHeterogeneityState.VariantProfile> shuffledVariantProfiles = new ArrayList<>(numVariantPopulations);
             final List<Integer> shuffledVariantPopulationIndices = IntStream.range(0, numVariantPopulations).boxed().collect(Collectors.toList());
             Collections.shuffle(shuffledVariantPopulationIndices, rnd);
