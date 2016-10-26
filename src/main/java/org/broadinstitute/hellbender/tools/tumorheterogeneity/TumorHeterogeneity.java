@@ -242,16 +242,16 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
-            fullName = CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
-            shortName = CONCENTRATION_PRIOR_ALPHA_SHORT_NAME,
+            fullName = CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME,
+            shortName = CONCENTRATION_PRIOR_ALPHA_CLONAL_SHORT_NAME,
             optional = true
     )
     protected double concentrationPriorAlphaClonal = 1.;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
-            fullName = CONCENTRATION_PRIOR_BETA_LONG_NAME,
-            shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
+            fullName = CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME,
+            shortName = CONCENTRATION_PRIOR_BETA_CLONAL_SHORT_NAME,
             optional = true
     )
     protected double concentrationPriorBetaClonal = 1E1;
