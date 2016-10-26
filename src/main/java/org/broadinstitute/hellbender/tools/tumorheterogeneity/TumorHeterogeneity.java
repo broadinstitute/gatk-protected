@@ -190,7 +190,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected double metropolisIterationFractionClonal = 0.75;
+    protected double metropolisIterationFractionClonal = 0.5;
 
     @Argument(
             doc = "Fraction of iterations for which Metropolis step will be used for full model.",
