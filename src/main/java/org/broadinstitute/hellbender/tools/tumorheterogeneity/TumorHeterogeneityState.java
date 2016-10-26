@@ -314,6 +314,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             validateSegmentIndex(segmentIndex, numSegments);
             return ploidyStateIndicators.get(segmentIndex);
         }
+
+        public int numSegments() {
+            return numSegments;
+        }
     }
 
     /*===============================================================================================================*

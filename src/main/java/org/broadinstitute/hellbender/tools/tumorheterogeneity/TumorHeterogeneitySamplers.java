@@ -52,7 +52,8 @@ final class TumorHeterogeneitySamplers {
             final double proposedLogPosterior = calculateLogPosterior(proposedState, data);
             final double currentLogPosterior = calculateLogPosterior(state, data);
             final double acceptanceProbability = Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior));
-            logger.info(currentLogPosterior + " " + proposedLogPosterior);
+            logger.debug("Log posterior of current state: " + currentLogPosterior);
+            logger.debug("Log posterior of proposed state: " + proposedLogPosterior);
             if (rng.nextDouble() < acceptanceProbability) {
                 logger.info("Proposed state accepted.");
                 state.set(proposedState);
@@ -296,11 +297,6 @@ final class TumorHeterogeneitySamplers {
                 Collections.shuffle(shuffledSegmentIndices, rnd);
                 final List<PloidyState> ploidyStates = state.priors().ploidyStatePrior().ploidyStates();
                 for (int segmentIndex : shuffledSegmentIndices) {
-                    for (double c = 1E-10; c <= 3; c += 0.5) {
-                        for (double f = 0.; f <= 0.5; f += 0.1) {
-                            logger.debug("Segment " + segmentIndex + " cr " + c + " maf " + f + ": " + data.logDensity(segmentIndex, c, f));
-                        }
-                    }
                     final double segmentFractionalLength = state.calculateFractionalLength(data, segmentIndex);
                     final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);
                     final double inploidyTerm = calculatePopulationAndGenomicAveragedPloidyExcludingPopulationInSegment(state, data, segmentIndex, populationIndex);
@@ -318,7 +314,7 @@ final class TumorHeterogeneitySamplers {
                                                     si, populationFraction, segmentFractionalLength, ploidyStates.get(i))))
                                     .toArray();
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
-                    logger.debug("Population " + populationIndex + " segment " + segmentIndex + ": " + Doubles.asList(probabilities));
+                    logger.debug("Population " + populationIndex + " segment " + segmentIndex + " ploidy-state probabilities: " + Doubles.asList(probabilities));
                     final int ploidyStateIndex = GATKProtectedMathUtils.randomSelect(ploidyStateIndices, i -> probabilities[i], rng);
                     ploidyStateIndicators.set(segmentIndex, ploidyStateIndex);
 
