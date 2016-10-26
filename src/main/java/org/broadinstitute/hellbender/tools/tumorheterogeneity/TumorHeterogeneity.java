@@ -94,6 +94,12 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String NUM_BURN_IN_LONG_NAME = "numBurnIn";
     protected static final String NUM_BURN_IN_SHORT_NAME = "numBurn";
     
+    protected static final String CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME = "concentrationPriorAlphaClonal";
+    protected static final String CONCENTRATION_PRIOR_ALPHA_CLONAL_SHORT_NAME = "concAlphaClonal";
+
+    protected static final String CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME = "concentrationPriorBetaClonal";
+    protected static final String CONCENTRATION_PRIOR_BETA_CLONAL_SHORT_NAME = "concBetaClonal";
+
     protected static final String CONCENTRATION_PRIOR_ALPHA_LONG_NAME = "concentrationPriorAlpha";
     protected static final String CONCENTRATION_PRIOR_ALPHA_SHORT_NAME = "concAlpha";
 
@@ -184,7 +190,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected double metropolisIterationFractionClonal = 0.5;
+    protected double metropolisIterationFractionClonal = 0.75;
 
     @Argument(
             doc = "Fraction of iterations for which Metropolis step will be used for full model.",
@@ -235,7 +241,23 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int numBurnIn = 400;
 
     @Argument(
-            doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter.",
+            doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
+            fullName = CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
+            shortName = CONCENTRATION_PRIOR_ALPHA_SHORT_NAME,
+            optional = true
+    )
+    protected double concentrationPriorAlphaClonal = 1.;
+
+    @Argument(
+            doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
+            fullName = CONCENTRATION_PRIOR_BETA_LONG_NAME,
+            shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
+            optional = true
+    )
+    protected double concentrationPriorBetaClonal = 1E1;
+
+    @Argument(
+            doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter for full model.",
             fullName = CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
             shortName = CONCENTRATION_PRIOR_ALPHA_SHORT_NAME,
             optional = true
@@ -243,12 +265,12 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double concentrationPriorAlpha = 1.;
 
     @Argument(
-            doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter.",
+            doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter for full model.",
             fullName = CONCENTRATION_PRIOR_BETA_LONG_NAME,
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 5E1;
+    protected double concentrationPriorBeta = 1E2;
 
         @Argument(
             doc = "Penalty for complete allele deletion in ploidy-state prior.",
@@ -284,7 +306,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
         final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
-                metropolisIterationFractionClonal, NORMAL_PLOIDY_STATE, ploidyStatePriorClonal, concentrationPriorAlpha, concentrationPriorBeta);
+                metropolisIterationFractionClonal, NORMAL_PLOIDY_STATE, ploidyStatePriorClonal, concentrationPriorAlphaClonal, concentrationPriorBetaClonal);
 
         final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(

@@ -30,6 +30,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                 "--" + TumorHeterogeneity.NUM_CELLS_LONG_NAME, "50",
                 "--" + TumorHeterogeneity.METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME, "0.5",
                 "--" + TumorHeterogeneity.METROPOLIS_ITERATION_FRACTION_LONG_NAME, "0.25",
+                "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                 "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_LONG_NAME, "1E2",
                 "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-3",
                 "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-3",
