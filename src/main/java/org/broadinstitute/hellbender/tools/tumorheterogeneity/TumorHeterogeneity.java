@@ -208,7 +208,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_SAMPLES_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int numSamplesClonal = 500;
+    protected int numSamplesClonal = 300;
 
     @Argument(
             doc = "Number of burn-in samples to discard for clonal model.",
@@ -216,7 +216,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_BURN_IN_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int numBurnInClonal = 400;
+    protected int numBurnInClonal = 200;
 
     @Argument(
             doc = "Total number of MCMC samples for full model.",
@@ -248,7 +248,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 1E1;
+    protected double concentrationPriorBeta = 5E1;
 
         @Argument(
             doc = "Penalty for complete allele deletion in ploidy-state prior.",
