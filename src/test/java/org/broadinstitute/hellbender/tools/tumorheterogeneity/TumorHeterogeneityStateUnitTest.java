@@ -187,6 +187,6 @@ public class TumorHeterogeneityStateUnitTest {
 
     @Test
     public void testCalculatePopulationAndGenomicAveragedPloidy() {
-        Assert.assertEquals(STATE.calculatePopulationAndGenomicAveragedPloidy(DATA), 1.925, EPSILON);
+        Assert.assertEquals(STATE.ploidy(DATA), 1.925, EPSILON);
     }
 }
