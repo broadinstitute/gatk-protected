@@ -93,6 +93,10 @@ public final class TumorHeterogeneityData implements DataCollection {
         return totalLength;
     }
 
+    public double fractionalLength(final int segmentIndex) {
+        return (double) segmentLengths.get(segmentIndex) / totalLength;
+    }
+
     public List<Integer> segmentIndicesByDecreasingLength() {
         return segmentIndicesByDecreasingLength;
     }
