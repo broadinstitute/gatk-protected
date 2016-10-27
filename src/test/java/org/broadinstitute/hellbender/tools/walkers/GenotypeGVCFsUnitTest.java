@@ -128,12 +128,11 @@ public class GenotypeGVCFsUnitTest extends BaseTest {
     public void testRGQ0IsNoCall(){
         final List<Allele> noCall = GATKVariantContextUtils.noCallAlleles(2);
         final VariantContext gq0 = getHetWithGenotype(generateGenotypes(b -> b.GQ(0).DP(10).alleles(noCall), // GQ = 0
-                                                                        (b -> b.DP(10).alleles(noCall)))); //no GQ
+                                                                        (b -> b.DP(10).alleles(noCall))));  //no GQ
         final List<Genotype> genotypes = GenotypeGVCFs.cleanupGenotypeAnnotations(gq0, true);
         for( Genotype genotype : genotypes ){
             Assert.assertEquals(genotype.getAlleles(), noCall);
         }
     }
-
 
 }

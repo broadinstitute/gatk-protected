@@ -27,3 +27,9 @@ mutect/dream_synthetic_bams/normal_4.bam filter=lfs diff=lfs merge=lfs -text
 mutect/dream_synthetic_bams/tumor_3.bam filter=lfs diff=lfs merge=lfs -text
 mutect/dream_synthetic_bams/tumor_4.bam filter=lfs diff=lfs merge=lfs -text
 ACNV_pipeline_test_files/human_g1k_v37.chr-20.truncated.fasta filter=lfs diff=lfs merge=lfs -text
+Homo_sapiens_assembly38.20.21.fasta filter=lfs diff=lfs merge=lfs -text
+gvcfs/cutDown.24_sample.21.g.vcf filter=lfs diff=lfs merge=lfs -text
+gvcfs/combined.gatk3.7.g.vcf.gz filter=lfs diff=lfs merge=lfs -text
+gvcfs/combined.gatk3.7.g.vcf.gz.tbi filter=lfs diff=lfs merge=lfs -text
+gvcfs/combined.gatk3.7.expected.vcf.gz filter=lfs diff=lfs merge=lfs -text
+gvcfs/cutDown.24_sample.21.expected.vcf filter=lfs diff=lfs merge=lfs -text

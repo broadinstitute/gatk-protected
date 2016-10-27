@@ -12,6 +12,7 @@ import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Variant context utilities related to merging variant-context instances.
@@ -109,9 +110,15 @@ final class ReferenceConfidenceVariantContextMerger {
         final String ID = rsIDs.isEmpty() ? VCFConstants.EMPTY_ID_FIELD : String.join(",", rsIDs);
 
         // note that in order to calculate the end position, we need a list of alleles that doesn't include anything symbolic
-        final VariantContextBuilder builder = new VariantContextBuilder().source(name).id(ID).alleles(allelesList)
-                .chr(loc.getContig()).start(loc.getStart()).computeEndFromAlleles(nonSymbolicAlleles(allelesList), loc.getStart(), loc.getStart())
-                .genotypes(genotypes).unfiltered().attributes(new TreeMap<>(attributes)).log10PError(CommonInfo.NO_LOG10_PERROR);  // we will need to re-genotype later
+        final VariantContextBuilder builder = new VariantContextBuilder()
+                .source(name)
+                .id(ID)
+                .alleles(allelesList)
+                .chr(loc.getContig())
+                .start(loc.getStart())
+                .computeEndFromAlleles(nonSymbolicAlleles(allelesList), loc.getStart(), loc.getStart())
+                .genotypes(genotypes).unfiltered()
+                .attributes(new TreeMap<>(attributes)).log10PError(CommonInfo.NO_LOG10_PERROR);  // we will need to re-genotype later
 
         return builder.make();
     }
@@ -194,12 +201,11 @@ final class ReferenceConfidenceVariantContextMerger {
             this.isSpanningEvent = isSpanningEvent;
         }
 
-        public List<Allele> filterAllelesForFinalSet() {
+        public Stream<Allele> filterAllelesForFinalSet() {
             return newAlleles.stream().filter(a -> !a.equals(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE))
                     .filter(a -> !a.isReference())
                     .filter(a -> !(a.isSymbolic() && vc.isSymbolic())) // skip <*DEL> if there isn't a real alternate allele.
-                    .filter(Allele::isCalled) // skip NO_CALL
-                    .collect(Collectors.toList());
+                    .filter(Allele::isCalled) ; // skip NO_CALL
         }
 
         // record whether it's also a spanning deletion/event (we know this because the VariantContext type is no
@@ -229,10 +235,9 @@ final class ReferenceConfidenceVariantContextMerger {
         // Reference goes first
         finalAlleleSet.add(refAllele);
 
-        final List<Allele> collected = vcAndNewAllelePairs.stream()
-                .flatMap(vcWithNewAlleles -> vcWithNewAlleles.filterAllelesForFinalSet().stream())
-                .collect(Collectors.toList());
-        finalAlleleSet.addAll(collected);
+        vcAndNewAllelePairs.stream()
+                .flatMap(VCWithNewAlleles::filterAllelesForFinalSet)
+                .forEachOrdered(finalAlleleSet::add);
 
         final boolean sawSpanningDeletion = vcAndNewAllelePairs.stream().anyMatch(VCWithNewAlleles::isSpanningDeletion);
         final boolean sawNonSpanningEvent = vcAndNewAllelePairs.stream().anyMatch(VCWithNewAlleles::isNonSpanningEvent);
