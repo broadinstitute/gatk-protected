@@ -31,8 +31,8 @@ final class TumorHeterogeneitySamplers {
 
     private TumorHeterogeneitySamplers() {}
 
-    protected static final class DoMetropolisStepSampler implements ParameterSampler<Boolean, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        protected DoMetropolisStepSampler() {}
+    static final class DoMetropolisStepSampler implements ParameterSampler<Boolean, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        DoMetropolisStepSampler() {}
 
         @Override
         public Boolean sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
@@ -119,12 +119,12 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
-    protected static final class ConcentrationSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+    static final class ConcentrationSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private final double concentrationMin;
         private final double concentrationMax;
         private final double concentrationSliceSamplingWidth;
 
-        protected ConcentrationSampler(final double concentrationMin, final double concentrationMax, final double concentrationSliceSamplingWidth) {
+        ConcentrationSampler(final double concentrationMin, final double concentrationMax, final double concentrationSliceSamplingWidth) {
             this.concentrationMin = concentrationMin;
             this.concentrationMax = concentrationMax;
             this.concentrationSliceSamplingWidth = concentrationSliceSamplingWidth;
@@ -144,8 +144,8 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
-    protected static final class PopulationFractionsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationFractions, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        protected PopulationFractionsSampler() {
+    static final class PopulationFractionsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationFractions, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        PopulationFractionsSampler() {
         }
 
         @Override
@@ -166,12 +166,12 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
-    protected static final class PopulationIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+    static final class PopulationIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private final Random rnd = new Random(1845);
         private final double singleCellPopulationFraction;
         private final List<Integer> populationIndices;
 
-        protected PopulationIndicatorsSampler(final int numCells, final int numPopulations) {
+        PopulationIndicatorsSampler(final int numCells, final int numPopulations) {
             singleCellPopulationFraction = 1. / numCells;
             populationIndices = Collections.unmodifiableList(IntStream.range(0, numPopulations).boxed().collect(Collectors.toList()));
         }
@@ -229,10 +229,10 @@ final class TumorHeterogeneitySamplers {
     /**
      * Samples genomic profiles for a collection of variant populations.
      */
-    protected static final class VariantProfileCollectionSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfileCollection, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+    static final class VariantProfileCollectionSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfileCollection, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private final List<VariantProfileSampler> variantProfileSamplers;
 
-        protected VariantProfileCollectionSampler(final int numVariantPopulations, final PloidyStatePrior ploidyStatePrior) {
+        VariantProfileCollectionSampler(final int numVariantPopulations, final PloidyStatePrior ploidyStatePrior) {
             variantProfileSamplers = IntStream.range(0, numVariantPopulations).boxed().map(n -> new VariantProfileSampler(n, ploidyStatePrior)).collect(Collectors.toList());
         }
 

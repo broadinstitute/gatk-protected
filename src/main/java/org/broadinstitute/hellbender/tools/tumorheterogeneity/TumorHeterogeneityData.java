@@ -58,8 +58,7 @@ public final class TumorHeterogeneityData implements DataCollection {
 
     private final int numSegments;
     private final List<ACNVModeledSegment> segments;
-    private final List<Integer> segmentLengths;
-    private final long totalLength;
+    private final List<Double> fractionalLengths;
     private final List<Integer> segmentIndicesByDecreasingLength;
     private final List<ACNVSegmentPosterior> segmentPosteriors;
 
@@ -69,8 +68,11 @@ public final class TumorHeterogeneityData implements DataCollection {
         logger.info("Fitting copy-ratio and minor-allele-fraction posteriors to deciles...");
         numSegments = segments.size();
         this.segments = Collections.unmodifiableList(new ArrayList<>(segments));
-        segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList()));
-        totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
+
+        final List<Integer> segmentLengths = segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList());
+        final double totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
+        fractionalLengths = Collections.unmodifiableList(segmentLengths.stream().map(l -> (double) l / totalLength).collect(Collectors.toList()));
+
         segmentIndicesByDecreasingLength =  Collections.unmodifiableList(IntStream.range(0, numSegments)
                 .boxed().sorted((i, j) -> Doubles.compare(segmentLengths.get(j), segmentLengths.get(i)))
                 .collect(Collectors.toList()));
@@ -85,16 +87,9 @@ public final class TumorHeterogeneityData implements DataCollection {
         return segments;
     }
 
-    public int segmentLength(final int segmentIndex) {
-        return segmentLengths.get(segmentIndex);
-    }
-
-    public long totalLength() {
-        return totalLength;
-    }
-
     public double fractionalLength(final int segmentIndex) {
-        return (double) segmentLengths.get(segmentIndex) / totalLength;
+        Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
+        return fractionalLengths.get(segmentIndex);
     }
 
     public List<Integer> segmentIndicesByDecreasingLength() {
@@ -102,7 +97,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     }
 
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction) {
-        Utils.validateArg(0 <= segmentIndex && segmentIndex < segmentPosteriors.size(), "Segment index is not in valid range.");
+        Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
         Utils.validateArg(0 <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
         return segmentPosteriors.get(segmentIndex).logDensity(copyRatio, minorAlleleFraction);
