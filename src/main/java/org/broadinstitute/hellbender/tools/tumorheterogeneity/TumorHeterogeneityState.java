@@ -151,10 +151,9 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 copyNumberFunction.apply(ploidyState(populationIndex, segmentIndex));
     }
 
-    public double calculateFractionalLength(final TumorHeterogeneityData data, final int segmentIndex) {
-        validateData(data, numSegments);
-        validateSegmentIndex(segmentIndex, numSegments);
-        return (double) data.segmentLength(segmentIndex) / data.totalLength();
+    double calculatePopulationAveragedCopyNumberFunction(final int segmentIndex,
+                                                         final Function<PloidyState, Integer> copyNumberFunction) {
+        return calculatePopulationAveragedCopyNumberFunctionExcludingPopulation(null, segmentIndex, copyNumberFunction);
     }
 
     public double calculatePopulationFractionFromCounts(final int populationIndex) {
@@ -162,29 +161,14 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return (double) populationCount(populationIndex) / numCells;
     }
 
-    public double calculatePopulationAveragedTotalCopyNumber(final TumorHeterogeneityData data, final int segmentIndex) {
-        return calculatePopulationAveragedCopyNumberFunction(data, segmentIndex, null, PloidyState::total, false);
-    }
-
-    public double calculatePopulationAveragedMAlleleCopyNumber(final TumorHeterogeneityData data, final int segmentIndex) {
-        return calculatePopulationAveragedCopyNumberFunction(data, segmentIndex, null, PloidyState::m, false);
-    }
-
-    public double calculatePopulationAveragedNAlleleCopyNumber(final TumorHeterogeneityData data, final int segmentIndex) {
-        return calculatePopulationAveragedCopyNumberFunction(data, segmentIndex, null, PloidyState::n, false);
-    }
-
     public double calculatePopulationAndGenomicAveragedPloidy(final TumorHeterogeneityData data) {
         validateData(data, numSegments);
-        return IntStream.range(0, numSegments).mapToDouble(i -> calculatePopulationAveragedCopyNumberFunction(data, i, null, PloidyState::total, true)).sum();
+        return IntStream.range(0, numSegments).mapToDouble(i -> calculatePopulationAndGenomicAveragedCopyNumberFunction(null, i, PloidyState::total, data)).sum();
     }
 
-    double calculatePopulationAveragedCopyNumberFunction(final TumorHeterogeneityData data,
-                                                         final int segmentIndex,
-                                                         final Integer populationIndexToExclude,
-                                                         final Function<PloidyState, Integer> copyNumberFunction,
-                                                         final boolean isWeightedByFractionalLength) {
-        validateData(data, numSegments);
+    double calculatePopulationAveragedCopyNumberFunctionExcludingPopulation(final Integer populationIndexToExclude,
+                                                                            final int segmentIndex,
+                                                                            final Function<PloidyState, Integer> copyNumberFunction) {
         validateSegmentIndex(segmentIndex, numSegments);
         final int populationIndexToExcludeValue;
         if (populationIndexToExclude == null) {
@@ -194,13 +178,20 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             populationIndexToExcludeValue = populationIndexToExclude;
         }
 
-        final double populationWeightedCopyNumberInSegment = IntStream.range(0, numPopulations)
+        return IntStream.range(0, numPopulations)
                 .filter(populationIndex -> populationIndex != populationIndexToExcludeValue)
                 .mapToDouble(populationIndex -> calculatePopulationFractionFromCounts(populationIndex) * calculateCopyNumberFunction(segmentIndex, populationIndex, copyNumberFunction))
                 .sum();
-        return isWeightedByFractionalLength ?
-                populationWeightedCopyNumberInSegment * calculateFractionalLength(data, segmentIndex) :
-                populationWeightedCopyNumberInSegment;
+    }
+
+    double calculatePopulationAndGenomicAveragedCopyNumberFunction(final Integer populationIndexToExclude,
+                                                                   final int segmentIndex,
+                                                                   final Function<PloidyState, Integer> copyNumberFunction,
+                                                                   final TumorHeterogeneityData data) {
+        validateData(data, numSegments);
+        validateSegmentIndex(segmentIndex, numSegments);
+
+        return data.fractionalLength(segmentIndex) * calculatePopulationAveragedCopyNumberFunctionExcludingPopulation(populationIndexToExclude, segmentIndex, copyNumberFunction);
     }
 
     /*===============================================================================================================*
@@ -320,6 +311,12 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
         public int numSegments() {
             return numSegments;
+        }
+
+        public double ploidy(final List<PloidyState> ploidyStates,
+                             final TumorHeterogeneityData data) {
+            validateData(data, numSegments);
+            return IntStream.range(0, numSegments).mapToDouble(i -> data.fractionalLength(i) * ploidyStates.get(ploidyStateIndex(i)).total()).sum();
         }
     }
 

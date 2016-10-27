@@ -174,8 +174,8 @@ public class TumorHeterogeneityStateUnitTest {
 
     @Test
     public void testCalculateFractionalSegmentLength() {
-        Assert.assertEquals(STATE.calculateFractionalLength(DATA, 0), 0.25);
-        Assert.assertEquals(STATE.calculateFractionalLength(DATA, 1), 0.75);
+        Assert.assertEquals(DATA.fractionalLength(0), 0.25);
+        Assert.assertEquals(DATA.fractionalLength(1), 0.75);
     }
 
     @Test
