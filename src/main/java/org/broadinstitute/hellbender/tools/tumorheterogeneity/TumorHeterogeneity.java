@@ -3,7 +3,6 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
-import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
@@ -11,7 +10,9 @@ import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
 import org.broadinstitute.hellbender.engine.spark.SparkCommandLineProgram;
 import org.broadinstitute.hellbender.exceptions.GATKException;
-import org.broadinstitute.hellbender.tools.exome.*;
+import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
+import org.broadinstitute.hellbender.tools.exome.SegmentTableColumn;
+import org.broadinstitute.hellbender.tools.exome.SegmentUtils;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -20,7 +21,10 @@ import org.broadinstitute.hellbender.utils.mcmc.Decile;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -41,6 +45,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final long RANDOM_SEED = 13;
     private static final int NUM_POPULATIONS_CLONAL = 2;
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
+    private static final double EPSILON = 1E-10;
 
     //filename tags for output
     protected static final String CLONAL_RESULT_FILE_SUFFIX = ".th.clonal.tsv";
@@ -297,7 +302,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final File filteredSegmentsFile = new File(outputPrefix + FILTERED_SEGMENTS_FILE_SUFFIX);
         final List<ACNVModeledSegment> allSegments = SegmentUtils.readACNVModeledSegmentFile(allelicCNVFile);
         final List<ACNVModeledSegment> segments = doFilterSegments ?
-                filterAndOutputSegments(allSegments, filteredSegmentsFile, logger, lengthPercentile, log2CrCredibleIntervalPercentile, mafCredibleIntervalPercentile) :
+                filterAndOutputSegments(allSegments, filteredSegmentsFile, lengthPercentile, log2CrCredibleIntervalPercentile, mafCredibleIntervalPercentile) :
                 allSegments;
 
         final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
@@ -312,10 +317,12 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
                 metropolisIterationFraction, NORMAL_PLOIDY_STATE, ploidyStatePrior, concentrationPriorAlpha, concentrationPriorBeta);
 
-        final File resultClonalFile = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
+        final File resultFileClonal = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, numCells, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
-        clonalModeller.output(resultClonalFile);
+        clonalModeller.output(resultFileClonal);
+
+        logger.info("Tumor heterogeneity clonal run complete and result output to " + resultFileClonal + ".");
 
         final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
@@ -323,7 +330,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         modeller.fitMCMC(numSamples, numBurnIn);
         modeller.output(resultFile);
 
-        logger.info("SUCCESS: Tumor heterogeneity run complete and result output to " + resultFile + ".");
+        logger.info("SUCCESS: Tumor heterogeneity full run complete and result output to " + resultFile + ".");
     }
 
     private static void outputMafCrFile(final File mafCrFile,
@@ -357,25 +364,25 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         return new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
     }
 
-    private static List<ACNVModeledSegment> filterAndOutputSegments(final List<ACNVModeledSegment> allSegments, final File outputFile, final Logger logger,
+    private static List<ACNVModeledSegment> filterAndOutputSegments(final List<ACNVModeledSegment> allSegments, final File outputFile,
                                                                     final double lengthPercentile, final double log2CrCredibleIntervalPercentile, final double mafCredibleIntervalPercentile) {
         try (final FileWriter writer = new FileWriter(outputFile)) {
             outputFile.createNewFile();
             final Percentile percentile = new Percentile();
 
             final double[] lengths = allSegments.stream().mapToDouble(s -> (double) s.getInterval().size()).toArray();
-            final int lengthThreshold = (int) percentile.evaluate(lengths, lengthPercentile);
+            final int lengthThreshold = (int) percentile.evaluate(lengths, boundPercentile(lengthPercentile));
 
             final double[] log2CrCredibleIntervalSizes = allSegments.stream()
                     .mapToDouble(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10))
                     .toArray();
-            final double log2crCredibleIntervalThreshold = percentile.evaluate(log2CrCredibleIntervalSizes, log2CrCredibleIntervalPercentile);
+            final double log2crCredibleIntervalThreshold = percentile.evaluate(log2CrCredibleIntervalSizes, boundPercentile(log2CrCredibleIntervalPercentile));
 
             final double[] mafCredibleIntervalSizes = allSegments.stream()
                     .filter(s -> !Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()))
                     .mapToDouble(s -> s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10))
                     .toArray();
-            final double mafCredibleIntervalThreshold = percentile.evaluate(mafCredibleIntervalSizes, mafCredibleIntervalPercentile);
+            final double mafCredibleIntervalThreshold = percentile.evaluate(mafCredibleIntervalSizes, boundPercentile(mafCredibleIntervalPercentile));
 
             final List<ACNVModeledSegment> segments = allSegments.stream()
                     .filter(s -> s.getInterval().size() > lengthThreshold)
@@ -405,6 +412,10 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         }
     }
 
+    private static double boundPercentile(final double percentile) {
+        return Math.max(EPSILON, Math.min(100. - EPSILON, percentile));
+    }
+
     private static void writeSegment(final FileWriter writer, final ACNVModeledSegment s) {
         try {
             writer.write(s.getContig() + "\t" + s.getStart() + "\t" + s.getEnd() + "\t" +
@@ -418,9 +429,9 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     //validate CLI arguments
     private void validateArguments() {
-        Utils.validateArg(0. < lengthPercentile && lengthPercentile <= 100., LENGTH_PERCENTILE_LONG_NAME + " must be in (0, 100].");
-        Utils.validateArg(0. < log2CrCredibleIntervalPercentile && log2CrCredibleIntervalPercentile <= 100., LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in (0, 100].");
-        Utils.validateArg(0. < mafCredibleIntervalPercentile && mafCredibleIntervalPercentile <= 100., MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in (0, 100].");
+        Utils.validateArg(0. <= lengthPercentile && lengthPercentile <= 100., LENGTH_PERCENTILE_LONG_NAME + " must be in [0, 100].");
+        Utils.validateArg(0. <= log2CrCredibleIntervalPercentile && log2CrCredibleIntervalPercentile <= 100., LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in [0, 100].");
+        Utils.validateArg(0. <= mafCredibleIntervalPercentile && mafCredibleIntervalPercentile <= 100., MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in [0, 100].");
         Utils.validateArg(maxAllelicCopyNumberClonal > 0, MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");
