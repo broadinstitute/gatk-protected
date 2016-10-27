@@ -158,7 +158,7 @@ public final class TumorHeterogeneityModeller {
             final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = variantProfileCollectionSamples.get(sampleIndex);
             final TumorHeterogeneityState state = new TumorHeterogeneityState(
                     doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
-            ploidySamples.add(state.calculatePopulationAndGenomicAveragedPloidy(data));
+            ploidySamples.add(state.ploidy(data));
         }
         return ploidySamples;
     }

@@ -36,7 +36,7 @@ final class TumorHeterogeneitySamplers {
 
         @Override
         public Boolean sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
-            logger.info(String.format("Ploidy of current state: %.6f", state.calculatePopulationAndGenomicAveragedPloidy(data)));
+            logger.info(String.format("Ploidy of current state: %.6f", state.ploidy(data)));
             final boolean doMetropolisStep = rng.nextDouble() < state.priors().metropolisIterationFraction();
             if (doMetropolisStep) {
                 logger.info("Performing Metropolis step.");
@@ -102,7 +102,7 @@ final class TumorHeterogeneitySamplers {
 
             //copy-ratio--minor-allele-fraction likelihood
             double logLikelihoodSegments = 0.;
-            final double ploidy = state.calculatePopulationAndGenomicAveragedPloidy(data);
+            final double ploidy = state.ploidy(data);
             for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
                 final double totalCopyNumber = state.calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::total);
                 final double mAlleleCopyNumber = state.calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::m);
@@ -187,15 +187,14 @@ final class TumorHeterogeneitySamplers {
             final List<Integer> shuffledCellIndices = IntStream.range(0, state.numCells()).boxed().collect(Collectors.toList());
             Collections.shuffle(shuffledCellIndices, rnd);
 
-            double ploidy = state.calculatePopulationAndGenomicAveragedPloidy(data);
-            final List<PloidyState> ploidyStates = state.priors().ploidyStatePrior().ploidyStates();
+            double ploidy = state.ploidy(data);
+            final List<Double> variantPloidies = populationIndices.stream()
+                    .map(i -> state.populationPloidy(i, data)).collect(Collectors.toList());
 
             for (int cellIndex : shuffledCellIndices) {
                 final int currentPopulationIndex = state.populationIndex(cellIndex);
 
-                ploidy -= singleCellPopulationFraction * (state.isNormalPopulation(currentPopulationIndex) ?
-                        state.priors().normalPloidyState().total() :
-                        state.variantProfiles().get(currentPopulationIndex).ploidy(ploidyStates, data));
+                ploidy -= singleCellPopulationFraction * variantPloidies.get(currentPopulationIndex);
                 final double invariantPloidyTerm = ploidy;
 
                 final double[] log10Probabilities = new double[state.numPopulations()];
@@ -220,6 +219,7 @@ final class TumorHeterogeneitySamplers {
 
                 //update the state as a side effect
                 state.setPopulationIndexAndIncrementCounts(cellIndex, populationIndex);
+                ploidy += singleCellPopulationFraction * variantPloidies.get(populationIndex);
             }
             logger.debug("Sampled population indicators: " + populationIndicators);
             return new TumorHeterogeneityState.PopulationIndicators(populationIndicators);
@@ -289,7 +289,7 @@ final class TumorHeterogeneitySamplers {
                 final List<Integer> ploidyStateIndicators = new ArrayList<>(Collections.nCopies(state.numSegments(), 0));
                 final List<PloidyState> ploidyStates = state.priors().ploidyStatePrior().ploidyStates();
 
-                double ploidy = state.calculatePopulationAndGenomicAveragedPloidy(data);
+                double ploidy = state.ploidy(data);
                 for (int segmentIndex : data.segmentIndicesByDecreasingLength()) {
                     final double segmentFractionalLength = data.fractionalLength(segmentIndex);
                     final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);

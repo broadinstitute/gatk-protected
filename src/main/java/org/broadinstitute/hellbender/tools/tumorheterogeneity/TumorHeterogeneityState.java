@@ -89,7 +89,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class).get(populationIndex);
     }
 
-    protected TumorHeterogeneityState.PopulationFractions populationFractions() {
+    TumorHeterogeneityState.PopulationFractions populationFractions() {
         return get(TumorHeterogeneityParameter.POPULATION_FRACTIONS, PopulationFractions.class);
     }
 
@@ -108,7 +108,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return populationIndex == numPopulations - 1;
     }
 
-    protected TumorHeterogeneityState.PopulationIndicators populationIndicators() {
+    TumorHeterogeneityState.PopulationIndicators populationIndicators() {
         return get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class);
     }
 
@@ -129,7 +129,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 priors.ploidyStatePrior().ploidyStates().get(ploidyStateIndex(populationIndex, segmentIndex));
     }
 
-    protected TumorHeterogeneityState.VariantProfileCollection variantProfiles() {
+    TumorHeterogeneityState.VariantProfileCollection variantProfiles() {
         return get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class);
     }
 
@@ -151,8 +151,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 copyNumberFunction.apply(ploidyState(populationIndex, segmentIndex));
     }
 
-    double calculatePopulationAveragedCopyNumberFunction(final int segmentIndex,
-                                                         final Function<PloidyState, Integer> copyNumberFunction) {
+    public double calculatePopulationAveragedCopyNumberFunction(final int segmentIndex,
+                                                                final Function<PloidyState, Integer> copyNumberFunction) {
         return calculatePopulationAveragedCopyNumberFunctionExcludingPopulation(null, segmentIndex, copyNumberFunction);
     }
 
@@ -161,9 +161,17 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return (double) populationCount(populationIndex) / numCells;
     }
 
-    public double calculatePopulationAndGenomicAveragedPloidy(final TumorHeterogeneityData data) {
+    public double ploidy(final TumorHeterogeneityData data) {
         validateData(data, numSegments);
         return IntStream.range(0, numSegments).mapToDouble(i -> calculatePopulationAndGenomicAveragedCopyNumberFunction(null, i, PloidyState::total, data)).sum();
+    }
+
+    public double populationPloidy(final int populationIndex, final TumorHeterogeneityData data) {
+        validatePopulationIndex(populationIndex, numPopulations);
+        validateData(data, numSegments);
+        return isNormalPopulation(populationIndex) ?
+                priors.normalPloidyState().total() :
+                variantProfiles().get(populationIndex).ploidy(priors.ploidyStatePrior().ploidyStates(), data);
     }
 
     double calculatePopulationAveragedCopyNumberFunctionExcludingPopulation(final Integer populationIndexToExclude,
@@ -184,10 +192,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 .sum();
     }
 
-    double calculatePopulationAndGenomicAveragedCopyNumberFunction(final Integer populationIndexToExclude,
-                                                                   final int segmentIndex,
-                                                                   final Function<PloidyState, Integer> copyNumberFunction,
-                                                                   final TumorHeterogeneityData data) {
+    private double calculatePopulationAndGenomicAveragedCopyNumberFunction(final Integer populationIndexToExclude,
+                                                                           final int segmentIndex,
+                                                                           final Function<PloidyState, Integer> copyNumberFunction,
+                                                                           final TumorHeterogeneityData data) {
         validateData(data, numSegments);
         validateSegmentIndex(segmentIndex, numSegments);
 
