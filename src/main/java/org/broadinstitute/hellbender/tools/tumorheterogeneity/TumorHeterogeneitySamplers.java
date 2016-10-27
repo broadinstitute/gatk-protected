@@ -240,11 +240,9 @@ final class TumorHeterogeneitySamplers {
      * Samples genomic profiles for a collection of variant populations.
      */
     protected static final class VariantProfileCollectionSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfileCollection, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        private final int numVariantPopulations;
         private final List<VariantProfileSampler> variantProfileSamplers;
 
         protected VariantProfileCollectionSampler(final int numVariantPopulations, final PloidyStatePrior ploidyStatePrior) {
-            this.numVariantPopulations = numVariantPopulations;
             variantProfileSamplers = IntStream.range(0, numVariantPopulations).boxed().map(n -> new VariantProfileSampler(n, ploidyStatePrior)).collect(Collectors.toList());
         }
 
@@ -254,14 +252,8 @@ final class TumorHeterogeneitySamplers {
         }
 
         TumorHeterogeneityState.VariantProfileCollection sampleGibbs(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
-            final List<TumorHeterogeneityState.VariantProfile> shuffledVariantProfiles = new ArrayList<>(numVariantPopulations);
-            //sort variant populations by decreasing population fraction
-            final List<Integer> sortedVariantPopulationIndices = IntStream.range(0, numVariantPopulations)
-                    .boxed().sorted((i, j) -> Doubles.compare(state.populationFraction(j), state.populationFraction(i)))
-                    .collect(Collectors.toList());
-            sortedVariantPopulationIndices.forEach(i -> shuffledVariantProfiles.add(variantProfileSamplers.get(i).sample(rng, state, data)));
-            final List<TumorHeterogeneityState.VariantProfile> variantProfiles = IntStream.range(0, numVariantPopulations).boxed()
-                    .map(i -> shuffledVariantProfiles.get(sortedVariantPopulationIndices.indexOf(i))).collect(Collectors.toList());
+            final List<TumorHeterogeneityState.VariantProfile> variantProfiles = variantProfileSamplers.stream()
+                    .map(vps -> vps.sample(rng, state, data)).collect(Collectors.toList());
             return new TumorHeterogeneityState.VariantProfileCollection(variantProfiles);
         }
     }
