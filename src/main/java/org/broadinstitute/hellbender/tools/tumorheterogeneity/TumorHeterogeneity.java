@@ -418,9 +418,9 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     //validate CLI arguments
     private void validateArguments() {
-        Utils.validateArg(0. <= lengthPercentile && lengthPercentile <= 100., LENGTH_PERCENTILE_LONG_NAME + " must be in [0, 100].");
-        Utils.validateArg(0. <= log2CrCredibleIntervalPercentile && log2CrCredibleIntervalPercentile <= 100., LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in [0, 100].");
-        Utils.validateArg(0. <= mafCredibleIntervalPercentile && mafCredibleIntervalPercentile <= 100., MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in [0, 100].");
+        Utils.validateArg(0. < lengthPercentile && lengthPercentile <= 100., LENGTH_PERCENTILE_LONG_NAME + " must be in (0, 100].");
+        Utils.validateArg(0. < log2CrCredibleIntervalPercentile && log2CrCredibleIntervalPercentile <= 100., LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in (0, 100].");
+        Utils.validateArg(0. < mafCredibleIntervalPercentile && mafCredibleIntervalPercentile <= 100., MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in (0, 100].");
         Utils.validateArg(maxAllelicCopyNumberClonal > 0, MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");

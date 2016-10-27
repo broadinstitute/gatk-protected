@@ -60,6 +60,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private final List<ACNVModeledSegment> segments;
     private final List<Integer> segmentLengths;
     private final long totalLength;
+    private final List<Integer> segmentIndicesByDecreasingLength;
     private final List<ACNVSegmentPosterior> segmentPosteriors;
 
     public TumorHeterogeneityData(final List<ACNVModeledSegment> segments) {
@@ -70,6 +71,9 @@ public final class TumorHeterogeneityData implements DataCollection {
         this.segments = Collections.unmodifiableList(new ArrayList<>(segments));
         segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList()));
         totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
+        segmentIndicesByDecreasingLength =  Collections.unmodifiableList(IntStream.range(0, numSegments)
+                .boxed().sorted((i, j) -> Doubles.compare(segmentLengths.get(j), segmentLengths.get(i)))
+                .collect(Collectors.toList()));
         segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
     }
 
@@ -87,6 +91,10 @@ public final class TumorHeterogeneityData implements DataCollection {
 
     public long totalLength() {
         return totalLength;
+    }
+
+    public List<Integer> segmentIndicesByDecreasingLength() {
+        return segmentIndicesByDecreasingLength;
     }
 
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction) {

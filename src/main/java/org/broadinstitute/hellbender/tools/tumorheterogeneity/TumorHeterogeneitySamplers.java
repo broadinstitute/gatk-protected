@@ -282,7 +282,6 @@ final class TumorHeterogeneitySamplers {
          * Updates the ploidy-state indicators held by the {@link TumorHeterogeneityState}.
          */
         private final class PloidyStateIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.VariantProfile.PloidyStateIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-            private final Random rnd = new Random(4615);
             private final List<Integer> ploidyStateIndices;
             private final double[] ploidyStatePriorLog10Probabilities;
 
@@ -298,10 +297,8 @@ final class TumorHeterogeneitySamplers {
             public TumorHeterogeneityState.VariantProfile.PloidyStateIndicators sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
                 logger.debug("Sampling ploidy-state indicators for population " + populationIndex);
                 final List<Integer> ploidyStateIndicators = new ArrayList<>(Collections.nCopies(state.numSegments(), 0));
-                final List<Integer> shuffledSegmentIndices = IntStream.range(0, state.numSegments()).boxed().collect(Collectors.toList());
-                Collections.shuffle(shuffledSegmentIndices, rnd);
                 final List<PloidyState> ploidyStates = state.priors().ploidyStatePrior().ploidyStates();
-                for (int segmentIndex : shuffledSegmentIndices) {
+                for (int segmentIndex : data.segmentIndicesByDecreasingLength()) {
                     final double segmentFractionalLength = state.calculateFractionalLength(data, segmentIndex);
                     final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);
                     final double inploidyTerm = calculatePopulationAndGenomicAveragedPloidyExcludingPopulationInSegment(state, data, segmentIndex, populationIndex);
