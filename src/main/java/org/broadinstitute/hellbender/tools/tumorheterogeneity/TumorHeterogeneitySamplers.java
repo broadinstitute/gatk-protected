@@ -189,7 +189,7 @@ final class TumorHeterogeneitySamplers {
             for (int cellIndex : shuffledCellIndices) {
                 final int currentPopulationIndex = state.populationIndex(cellIndex);
 
-                final double inploidyTerm = calculatePopulationAndGenomicAveragedPloidyExcludingPopulation(state, data, currentPopulationIndex, singleCellPopulationFraction);
+                final double invariantPloidyTerm = calculatePopulationAndGenomicAveragedPloidyExcludingPopulation(state, data, currentPopulationIndex, singleCellPopulationFraction);
 
                 final double[] log10Probabilities = new double[state.numPopulations()];
                 for (int populationIndex = 0; populationIndex < state.numPopulations(); populationIndex++) {
@@ -200,7 +200,7 @@ final class TumorHeterogeneitySamplers {
                         final double invariantNAlleleCopyNumberTerm = calculatePopulationAveragedNAlleleCopyNumberExcludingPopulation(state, data, segmentIndex, currentPopulationIndex, singleCellPopulationFraction);
 
                         final PloidyState ploidyState = state.ploidyState(populationIndex, segmentIndex);
-                        logDensity += calculateSegmentLogLikelihoodFromInvariantTerms(data, inploidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                        logDensity += calculateSegmentLogLikelihoodFromInvariantTerms(data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                 segmentIndex, singleCellPopulationFraction, segmentFractionalLength, ploidyState);
                     }
                     log10Probabilities[populationIndex] = MathUtils.logToLog10(logDensity);
@@ -302,7 +302,7 @@ final class TumorHeterogeneitySamplers {
                 for (int segmentIndex : data.segmentIndicesByDecreasingLength()) {
                     final double segmentFractionalLength = state.calculateFractionalLength(data, segmentIndex);
                     final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);
-                    final double inploidyTerm = calculatePopulationAndGenomicAveragedPloidyExcludingPopulationInSegment(state, data, segmentIndex, populationIndex);
+                    final double invariantPloidyTerm = calculatePopulationAndGenomicAveragedPloidyExcludingPopulationInSegment(state, data, segmentIndex, populationIndex);
                     final double invariantMAlleleCopyNumberTerm = calculatePopulationAveragedMAlleleCopyNumberExcludingPopulationInSegment(state, data, segmentIndex, populationIndex);
                     final double invariantNAlleleCopyNumberTerm = calculatePopulationAveragedNAlleleCopyNumberExcludingPopulationInSegment(state, data, segmentIndex, populationIndex);
 
@@ -313,7 +313,7 @@ final class TumorHeterogeneitySamplers {
                     final double[] log10Probabilities = ploidyStateIndices.stream()
                                     .mapToDouble(i -> ploidyStatePriorLog10Probabilities[i] +
                                             MathUtils.logToLog10(calculateSegmentLogLikelihoodFromInvariantTerms(
-                                                    data, inploidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
+                                                    data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                                     si, populationFraction, segmentFractionalLength, ploidyStates.get(i))))
                                     .toArray();
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
@@ -347,14 +347,14 @@ final class TumorHeterogeneitySamplers {
     }
 
     private static double calculateSegmentLogLikelihoodFromInvariantTerms(final TumorHeterogeneityData data,
-                                                                          final double inploidyTerm,
+                                                                          final double invariantPloidyTerm,
                                                                           final double invariantMAlleleCopyNumberTerm,
                                                                           final double invariantNAlleleCopyNumberTerm,
                                                                           final int segmentIndex,
                                                                           final double populationFraction,
                                                                           final double segmentFractionalLength,
                                                                           final PloidyState ploidyState) {
-        final double ploidy = inploidyTerm + populationFraction * segmentFractionalLength * ploidyState.total();
+        final double ploidy = invariantPloidyTerm + populationFraction * segmentFractionalLength * ploidyState.total();
         final double copyRatio = (invariantMAlleleCopyNumberTerm + invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.total()) / (ploidy + EPSILON);
         final double minorAlleleFraction = calculateMinorAlleleFraction(
                 invariantMAlleleCopyNumberTerm + populationFraction * ploidyState.m(),
