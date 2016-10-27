@@ -26,7 +26,6 @@ import java.util.stream.IntStream;
  */
 final class TumorHeterogeneitySamplers {
     private static final double EPSILON = 1E-10;
-    private static final double EPSILON_TIMES_TWO = 2. * EPSILON;
 
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneitySamplers.class);
 
@@ -364,6 +363,6 @@ final class TumorHeterogeneitySamplers {
     }
 
     private static double calculateMinorAlleleFraction(final double m, final double n) {
-        return Math.min(m + EPSILON, n + EPSILON) / (m + n + EPSILON_TIMES_TWO);
+        return Math.min(m, n) / (m + n + EPSILON);
     }
 }
