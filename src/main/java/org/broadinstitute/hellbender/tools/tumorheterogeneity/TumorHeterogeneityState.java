@@ -215,11 +215,6 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         get(TumorHeterogeneityParameter.POPULATION_INDICATORS, PopulationIndicators.class).set(cellIndex, populationIndex);
     }
 
-    void updatePopulationCounts() {
-        IntStream.range(0, numPopulations).boxed().forEach(i -> populationCounts.get(i).setValue(0));
-        IntStream.range(0, numCells).boxed().forEach(i -> populationCounts.get(populationIndex(i)).increment());
-    }
-
     void setPloidyStateIndex(final int populationIndex, final int segmentIndex, final int ploidyStateIndex) {
         validatePopulationIndex(populationIndex, numPopulations);
         validateSegmentIndex(segmentIndex, numSegments);
@@ -237,6 +232,11 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         update(TumorHeterogeneityParameter.POPULATION_INDICATORS, state.populationIndicators());
         update(TumorHeterogeneityParameter.VARIANT_PROFILES, state.variantProfiles());
         updatePopulationCounts();
+    }
+
+    private void updatePopulationCounts() {
+        IntStream.range(0, numPopulations).boxed().forEach(i -> populationCounts.get(i).setValue(0));
+        IntStream.range(0, numCells).boxed().forEach(i -> populationCounts.get(populationIndex(i)).increment());
     }
 
     /*===============================================================================================================*
