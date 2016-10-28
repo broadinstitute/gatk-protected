@@ -167,7 +167,6 @@ final class TumorHeterogeneitySamplers {
     }
 
     static final class PopulationIndicatorsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationIndicators, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        private final Random rnd = new Random(1845);
         private final double singleCellPopulationFraction;
         private final List<Integer> populationIndices;
 
@@ -185,7 +184,7 @@ final class TumorHeterogeneitySamplers {
         private TumorHeterogeneityState.PopulationIndicators sampleGibbs(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             final List<Integer> populationIndicators = new ArrayList<>(Collections.nCopies(state.numCells(), 0));
             final List<Integer> shuffledCellIndices = IntStream.range(0, state.numCells()).boxed().collect(Collectors.toList());
-            Collections.shuffle(shuffledCellIndices, rnd);
+            Collections.shuffle(shuffledCellIndices, new Random(rng.nextLong()));
 
             double ploidy = state.ploidy(data);
             final List<Double> variantPloidies = populationIndices.stream()
@@ -289,8 +288,11 @@ final class TumorHeterogeneitySamplers {
                 final List<Integer> ploidyStateIndicators = new ArrayList<>(Collections.nCopies(state.numSegments(), 0));
                 final List<PloidyState> ploidyStates = state.priors().ploidyStatePrior().ploidyStates();
 
+                final List<Integer> shuffledSegmentIndices = IntStream.range(0, state.numSegments()).boxed().collect(Collectors.toList());
+                Collections.shuffle(shuffledSegmentIndices, new Random(rng.nextLong()));
+
                 double ploidy = state.ploidy(data);
-                for (int segmentIndex : data.segmentIndicesByDecreasingLength()) {
+                for (int segmentIndex : shuffledSegmentIndices) {
                     final double segmentFractionalLength = data.fractionalLength(segmentIndex);
                     final double populationFraction = state.calculatePopulationFractionFromCounts(populationIndex);
 
