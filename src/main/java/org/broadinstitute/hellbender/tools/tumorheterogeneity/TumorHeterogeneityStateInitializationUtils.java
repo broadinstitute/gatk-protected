@@ -32,23 +32,18 @@ final class TumorHeterogeneityStateInitializationUtils {
     static TumorHeterogeneityState initializeState(final double initialConcentration,
                                                    final TumorHeterogeneityPriorCollection priors,
                                                    final int numSegments,
-                                                   final int numPopulations,
-                                                   final int numCells,
-                                                   final RandomGenerator rng) {
+                                                   final int numPopulations) {
         //start with Gibbs step
         final boolean doMetropolisStep = false;
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
-        //randomly initialize population indicators for each cell
-        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                initializePopulationIndicators(numCells, initialPopulationFractions, rng);
         //initialize variant profiles to normal
         final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
         return new TumorHeterogeneityState(
-                doMetropolisStep, initialConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
+                initialConcentration, initialPopulationFractions, initialVariantProfileCollection, priors);
     }
 
     /**
@@ -59,24 +54,20 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                 final TumorHeterogeneityState state,
                                                 final TumorHeterogeneityData data) {
         final int numPopulations = state.numPopulations();
-        final int numCells = state.numCells();
         final int numSegments = state.numSegments();
-        //record that we are performing a Metropolis step
-        final boolean doMetropolisStep = true;
         final double concentration = state.concentration();
+        final boolean doSampleFromPrior = rng.nextDouble() < 0.25;
         //randomly initialize population fractions from prior
         final TumorHeterogeneityState.PopulationFractions populationFractions =
-                initializePopulationFractions(numPopulations, concentration, rng);
-        //randomly initialize population indicators for each cell
-        final TumorHeterogeneityState.PopulationIndicators populationIndicators =
-                initializePopulationIndicators(numCells, populationFractions, rng);
+                 doSampleFromPrior ? initializePopulationFractions(numPopulations, concentration, rng) : initializePopulationFractions(state.populationFractions(), concentration, rng);
         //initialize variant profiles using sampler
         final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityPriorCollection priors = state.priors();
-        final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection =
-                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
+        final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = doSampleFromPrior ?
+                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
+                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
-                doMetropolisStep,concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
+                concentration, populationFractions, variantProfileCollection, priors);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
         return proposedState;
     }
@@ -87,8 +78,7 @@ final class TumorHeterogeneityStateInitializationUtils {
     static TumorHeterogeneityState initializeStateFromClonalResult(final TumorHeterogeneityData data,
                                                                    final TumorHeterogeneityPriorCollection priors,
                                                                    final TumorHeterogeneityModeller clonalModeller,
-                                                                   final int maxNumPopulations,
-                                                                   final int numCells) {
+                                                                   final int maxNumPopulations) {
         //double check some of the parameters
         Utils.validateArg(clonalModeller.getConcentrationSamples().size() > 0,
                 "Clonal modeller must have a non-zero number of samples.");
@@ -103,12 +93,6 @@ final class TumorHeterogeneityStateInitializationUtils {
         final double[] normalFractionSamples = clonalModeller.getPopulationFractionsSamples().stream()
                 .mapToDouble(pfs -> pfs.get(NUM_POPULATIONS_CLONAL - 1)).toArray();
         final double clonalNormalFraction = new Mean().evaluate(normalFractionSamples);
-
-        //initialize population indicators to last state of clonal result
-        final TumorHeterogeneityState.PopulationIndicators initialPopulationIndicators =
-                new TumorHeterogeneityState.PopulationIndicators(Iterables.getLast(clonalModeller.getPopulationIndicatorsSamples()));
-        //reset population index of normal-population indicators to maxNumPopulations - 1 (instead of NUM_POPULATIONS_CLONAL - 1 = 1)
-        IntStream.range(0, numCells).filter(i -> initialPopulationIndicators.get(i) == 1).forEach(i -> initialPopulationIndicators.set(i, maxNumPopulations - 1));
 
         //initialize one variant profile to posterior mode of clonal result
         final List<TumorHeterogeneityState.VariantProfile> clonalProfileSamples = clonalModeller.getVariantProfileCollectionSamples().stream()
@@ -133,15 +117,15 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
 
-        return new TumorHeterogeneityState(doMetropolisStep, clonalConcentration, initialPopulationFractions, initialPopulationIndicators, initialVariantProfileCollection, priors);
+        return new TumorHeterogeneityState(clonalConcentration, initialPopulationFractions, initialVariantProfileCollection, priors);
     }
 
     /**
      * Sample population fractions from a symmetric Dirichlet distribution.
      */
-    static TumorHeterogeneityState.PopulationFractions initializePopulationFractions(final int numPopulations,
-                                                                                     final double concentration,
-                                                                                     final RandomGenerator rng) {
+    private static TumorHeterogeneityState.PopulationFractions initializePopulationFractions(final int numPopulations,
+                                                                                             final double concentration,
+                                                                                             final RandomGenerator rng) {
         //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
         final GammaDistribution gammaDistribution = new GammaDistribution(rng, concentration, 1.);
         //for small values of concentration, all Gamma(alpha_vec_i, 1) samples may be zero,
@@ -151,7 +135,7 @@ final class TumorHeterogeneityStateInitializationUtils {
             final double sum = DoubleStream.of(unnormalizedPopulationFractions).sum();
             if (sum > 0) {
                 final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-                logger.debug("Proposed population fractions: " + populationFractions);
+                logger.info("Proposed population fractions using prior: " + populationFractions);
                 return new TumorHeterogeneityState.PopulationFractions(populationFractions);
             }
         }
@@ -160,6 +144,18 @@ final class TumorHeterogeneityStateInitializationUtils {
                 "Proposing evenly distributed population fractions instead. " +
                 "Consider adjusting concentration-prior hyperparameters to increase prior mean.");
         return new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
+    }
+
+    private static TumorHeterogeneityState.PopulationFractions initializePopulationFractions(final TumorHeterogeneityState.PopulationFractions populationFractions,
+                                                                                             final double concentration,
+                                                                                             final RandomGenerator rng) {
+
+        final int numPopulations = populationFractions.size();
+        //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
+        final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(pi -> new GammaDistribution(rng, concentration + 10 * populationFractions.get(pi), 1.).sample()).toArray();
+        final List<Double> proposedPopulationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
+        logger.info("Proposed population fractions using posterior: " + proposedPopulationFractions);
+        return new TumorHeterogeneityState.PopulationFractions(proposedPopulationFractions);
     }
 
     /**
@@ -183,20 +179,6 @@ final class TumorHeterogeneityStateInitializationUtils {
         }
         return new TumorHeterogeneityState.VariantProfile(
                 new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(ploidyStateIndicators));
-    }
-
-    /**
-     * Given population fractions, initialize corresponding population indicators for each cell;
-     * the probability that a cell belongs to a population is given by the population fraction.
-     */
-    static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numCells,
-                                                                                       final TumorHeterogeneityState.PopulationFractions populationFractions,
-                                                                                       final RandomGenerator rng) {
-        final List<Integer> populationIndices = IntStream.range(0, populationFractions.size()).boxed().collect(Collectors.toList());
-        final Function<Integer, Double> probabilityFunction = populationFractions::get;
-        return new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numCells).boxed()
-                .map(p -> GATKProtectedMathUtils.randomSelect(populationIndices, probabilityFunction, rng))
-                .collect(Collectors.toList()));
     }
 
     /**

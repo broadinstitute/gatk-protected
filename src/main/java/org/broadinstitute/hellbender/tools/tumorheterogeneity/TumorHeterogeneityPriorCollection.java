@@ -8,15 +8,13 @@ import org.broadinstitute.hellbender.utils.Utils;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityPriorCollection {
-    private final double metropolisIterationFraction;
     private final PloidyState normalPloidyState;
     private final int normalPloidyStateIndex;
     private final PloidyStatePrior ploidyStatePrior;
     private final double concentrationPriorAlpha;
     private final double concentrationPriorBeta;
 
-    public TumorHeterogeneityPriorCollection(final double metropolisIterationFraction,
-                                             final PloidyState normalPloidyState,
+    public TumorHeterogeneityPriorCollection(final PloidyState normalPloidyState,
                                              final PloidyStatePrior ploidyStatePrior,
                                              final double concentrationPriorAlpha,
                                              final double concentrationPriorBeta) {
@@ -24,20 +22,13 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.nonNull(ploidyStatePrior);
         Utils.validateArg(ploidyStatePrior.ploidyStates().contains(normalPloidyState),
                 "Ploidy-state prior must contain normal ploidy state.");
-        Utils.validateArg(0. <= metropolisIterationFraction && metropolisIterationFraction <= 1.,
-                "Metropolis-iteration fraction must be in [0, 1].");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
-        this.metropolisIterationFraction = metropolisIterationFraction;
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
         normalPloidyStateIndex = ploidyStatePrior().ploidyStates().indexOf(normalPloidyState);
         this.concentrationPriorAlpha = concentrationPriorAlpha;
         this.concentrationPriorBeta = concentrationPriorBeta;
-    }
-
-    public double metropolisIterationFraction() {
-        return metropolisIterationFraction;
     }
 
     public PloidyState normalPloidyState() {
