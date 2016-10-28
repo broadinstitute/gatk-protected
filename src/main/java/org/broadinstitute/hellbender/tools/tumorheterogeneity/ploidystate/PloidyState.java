@@ -52,6 +52,6 @@ public final class PloidyState {
 
     @Override
     public String toString() {
-        return "(m = " + m +", n = " + n + ')';
+        return "(" + m +", " + n + ')';
     }
 }

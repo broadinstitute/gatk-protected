@@ -139,9 +139,9 @@ final class TumorHeterogeneityStateInitializationUtils {
     /**
      * Sample population fractions from a symmetric Dirichlet distribution.
      */
-    private static TumorHeterogeneityState.PopulationFractions initializePopulationFractions(final int numPopulations,
-                                                                                             final double concentration,
-                                                                                             final RandomGenerator rng) {
+    static TumorHeterogeneityState.PopulationFractions initializePopulationFractions(final int numPopulations,
+                                                                                     final double concentration,
+                                                                                     final RandomGenerator rng) {
         //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
         final GammaDistribution gammaDistribution = new GammaDistribution(rng, concentration, 1.);
         //for small values of concentration, all Gamma(alpha_vec_i, 1) samples may be zero,
@@ -189,9 +189,9 @@ final class TumorHeterogeneityStateInitializationUtils {
      * Given population fractions, initialize corresponding population indicators for each cell;
      * the probability that a cell belongs to a population is given by the population fraction.
      */
-    private static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numCells,
-                                                                                               final TumorHeterogeneityState.PopulationFractions populationFractions,
-                                                                                               final RandomGenerator rng) {
+    static TumorHeterogeneityState.PopulationIndicators initializePopulationIndicators(final int numCells,
+                                                                                       final TumorHeterogeneityState.PopulationFractions populationFractions,
+                                                                                       final RandomGenerator rng) {
         final List<Integer> populationIndices = IntStream.range(0, populationFractions.size()).boxed().collect(Collectors.toList());
         final Function<Integer, Double> probabilityFunction = populationFractions::get;
         return new TumorHeterogeneityState.PopulationIndicators(IntStream.range(0, numCells).boxed()
