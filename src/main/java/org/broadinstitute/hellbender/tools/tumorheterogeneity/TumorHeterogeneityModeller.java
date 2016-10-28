@@ -33,18 +33,15 @@ public final class TumorHeterogeneityModeller {
     private final TumorHeterogeneityData data;
     private final TumorHeterogeneityPriorCollection priors;
 
-    private final List<Boolean> doMetropolisStepSamples = new ArrayList<>();
     private final List<Double> concentrationSamples = new ArrayList<>();
-    private final List<TumorHeterogeneityState.PopulationIndicators> populationIndicatorsSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = new ArrayList<>();
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
                                       final TumorHeterogeneityPriorCollection priors,
                                       final int numPopulations,
-                                      final int numCells,
                                       final RandomGenerator rng) {
-        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations, numCells, rng), rng);
+        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations), rng);
     }
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
@@ -59,25 +56,18 @@ public final class TumorHeterogeneityModeller {
 
         final double concentrationSliceSamplingWidth = initialState.concentration();
         final int numPopulations = initialState.numPopulations();
-        final int numCells = initialState.numCells();
         final int numVariantPopulations = numPopulations - 1;
 
         //define samplers
-        final TumorHeterogeneitySamplers.DoMetropolisStepSampler metropolisStepSampler =
-                new TumorHeterogeneitySamplers.DoMetropolisStepSampler();
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
                 new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
-        final TumorHeterogeneitySamplers.PopulationIndicatorsSampler populationIndicatorsSampler =
-                new TumorHeterogeneitySamplers.PopulationIndicatorsSampler(numCells, numPopulations);
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
                 new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior());
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
-                .addParameterSampler(TumorHeterogeneityParameter.DO_METROPOLIS_STEP, metropolisStepSampler, Boolean.class)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
-                .addParameterSampler(TumorHeterogeneityParameter.POPULATION_INDICATORS, populationIndicatorsSampler, TumorHeterogeneityState.PopulationIndicators.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
                 .addParameterSampler(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollectionSampler, TumorHeterogeneityState.VariantProfileCollection.class)
                 .build();
@@ -100,12 +90,8 @@ public final class TumorHeterogeneityModeller {
         gibbsSampler.setNumSamplesPerLogEntry(NUM_SAMPLES_PER_LOG_ENTRY);
         gibbsSampler.runMCMC();
         //update posterior samples
-        doMetropolisStepSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.DO_METROPOLIS_STEP,
-                Boolean.class, numBurnIn));
         concentrationSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.CONCENTRATION,
                 Double.class, numBurnIn));
-        populationIndicatorsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_INDICATORS,
-                TumorHeterogeneityState.PopulationIndicators.class, numBurnIn));
         populationFractionsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_FRACTIONS,
                 TumorHeterogeneityState.PopulationFractions.class, numBurnIn));
         variantProfileCollectionSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.VARIANT_PROFILES,
@@ -130,15 +116,6 @@ public final class TumorHeterogeneityModeller {
     }
 
     /**
-     * Returns an unmodifiable view of the list of samples of the population-indicators posterior, represented as a list of
-     * {@link TumorHeterogeneityState.PopulationIndicators} objects.
-     * @return  unmodifiable view of the list of samples of the population-indicators posterior
-     */
-    public List<TumorHeterogeneityState.PopulationIndicators> getPopulationIndicatorsSamples() {
-        return Collections.unmodifiableList(populationIndicatorsSamples);
-    }
-
-    /**
      * Returns an unmodifiable view of the list of samples of the variant-profile-collection posterior, represented as a list of
      * {@link TumorHeterogeneityState.PopulationFractions} objects.
      * @return  unmodifiable view of the list of samples of the variant-profile-collection posterior
@@ -151,20 +128,18 @@ public final class TumorHeterogeneityModeller {
         final int numSamples = concentrationSamples.size();
         final List<Double> ploidySamples = new ArrayList<>(numSamples);
         for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
-            final boolean doMetropolisStep = doMetropolisStepSamples.get(sampleIndex);
             final double concentration = concentrationSamples.get(sampleIndex);
             final TumorHeterogeneityState.PopulationFractions populationFractions = populationFractionsSamples.get(sampleIndex);
-            final TumorHeterogeneityState.PopulationIndicators populationIndicators = populationIndicatorsSamples.get(sampleIndex);
             final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = variantProfileCollectionSamples.get(sampleIndex);
             final TumorHeterogeneityState state = new TumorHeterogeneityState(
-                    doMetropolisStep, concentration, populationFractions, populationIndicators, variantProfileCollection, priors);
+                    concentration, populationFractions, variantProfileCollection, priors);
             ploidySamples.add(state.ploidy(data));
         }
         return ploidySamples;
     }
 
     public void output(final File outputFile) {
-        if (doMetropolisStepSamples.size() == 0) {
+        if (concentrationSamples.size() == 0) {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
         try (final FileWriter writer = new FileWriter(outputFile)) {

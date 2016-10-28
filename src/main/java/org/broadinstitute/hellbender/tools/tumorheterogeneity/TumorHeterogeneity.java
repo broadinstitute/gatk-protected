@@ -78,15 +78,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String MAX_NUM_POPULATIONS_LONG_NAME = "maxNumPopulations";
     protected static final String MAX_NUM_POPULATIONS_SHORT_NAME = "maxNumPop";
 
-    protected static final String NUM_CELLS_LONG_NAME = "numCells";
-    protected static final String NUM_CELLS_SHORT_NAME = "numCells";
-
-    protected static final String METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME = "metropolisIterationFractionClonal";
-    protected static final String METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME = "metroIterFracClonal";
-
-    protected static final String METROPOLIS_ITERATION_FRACTION_LONG_NAME = "metropolisIterationFraction";
-    protected static final String METROPOLIS_ITERATION_FRACTION_SHORT_NAME = "metroIterFrac";
-
     protected static final String NUM_SAMPLES_CLONAL_LONG_NAME = "numSamplesClonal";
     protected static final String NUM_SAMPLES_CLONAL_SHORT_NAME = "numSampClonal";
 
@@ -182,36 +173,12 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int maxAllelicCopyNumber = 5;
 
     @Argument(
-            doc = "Number of auxilliary cell indicators.",
-            fullName = NUM_CELLS_LONG_NAME,
-            shortName = NUM_CELLS_SHORT_NAME,
-            optional = true
-    )
-    protected int numCells = 50;
-
-    @Argument(
-            doc = "Fraction of iterations for which Metropolis step will be used for clonal model.",
-            fullName = METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME,
-            shortName = METROPOLIS_ITERATION_FRACTION_CLONAL_SHORT_NAME,
-            optional = true
-    )
-    protected double metropolisIterationFractionClonal = 0.5;
-
-    @Argument(
-            doc = "Fraction of iterations for which Metropolis step will be used for full model.",
-            fullName = METROPOLIS_ITERATION_FRACTION_LONG_NAME,
-            shortName = METROPOLIS_ITERATION_FRACTION_SHORT_NAME,
-            optional = true
-    )
-    protected double metropolisIterationFraction = 0.25;
-
-    @Argument(
             doc = "Maximum number of populations for full model.",
             fullName = MAX_NUM_POPULATIONS_LONG_NAME,
             shortName = MAX_NUM_POPULATIONS_SHORT_NAME,
             optional = true
     )
-    protected int maxNumPopulations = 4;
+    protected int maxNumPopulations = 3;
 
     @Argument(
             doc = "Total number of MCMC samples for clonal model.",
@@ -275,7 +242,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 1E2;
+    protected double concentrationPriorBeta = 1E1;
 
         @Argument(
             doc = "Penalty for complete allele deletion in ploidy-state prior.",
@@ -311,20 +278,20 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
         final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
-                metropolisIterationFractionClonal, NORMAL_PLOIDY_STATE, ploidyStatePriorClonal, concentrationPriorAlphaClonal, concentrationPriorBetaClonal);
+                NORMAL_PLOIDY_STATE, ploidyStatePriorClonal, concentrationPriorAlphaClonal, concentrationPriorBetaClonal);
 
         final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
-                metropolisIterationFraction, NORMAL_PLOIDY_STATE, ploidyStatePrior, concentrationPriorAlpha, concentrationPriorBeta);
+                NORMAL_PLOIDY_STATE, ploidyStatePrior, concentrationPriorAlpha, concentrationPriorBeta);
 
         final File resultFileClonal = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
-        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, numCells, rng);
+        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
         clonalModeller.output(resultFileClonal);
 
         logger.info("Tumor heterogeneity clonal run complete and result output to " + resultFileClonal + ".");
 
-        final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations, numCells);
+        final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(data, priors, clonalModeller, maxNumPopulations);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, rng);
         modeller.fitMCMC(numSamples, numBurnIn);
@@ -435,9 +402,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(maxAllelicCopyNumberClonal > 0, MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");
-        Utils.validateArg(numCells > 0, NUM_CELLS_LONG_NAME + " must be positive.");
-        Utils.validateArg(0. <= metropolisIterationFractionClonal && metropolisIterationFractionClonal <= 1., METROPOLIS_ITERATION_FRACTION_CLONAL_LONG_NAME + " must be in [0, 1].");
-        Utils.validateArg(0. <= metropolisIterationFraction && metropolisIterationFraction <= 1., METROPOLIS_ITERATION_FRACTION_LONG_NAME + " must be in [0, 1].");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(numBurnInClonal > 0 && numBurnInClonal <= numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be positive and less than or equal to " + NUM_SAMPLES_CLONAL_LONG_NAME);
         Utils.validateArg(numSamples > 0, NUM_SAMPLES_LONG_NAME + " must be positive.");
