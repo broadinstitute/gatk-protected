@@ -56,6 +56,50 @@ final class TumorHeterogeneitySamplers {
         }
     }
 
+    static final class CopyRatioNoiseFactorSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        private static final double MIN = 1.;
+        private static final double MAX = Double.POSITIVE_INFINITY;
+        private final double copyRatioNoiseFactorSliceSamplingWidth;
+
+        CopyRatioNoiseFactorSampler(final double copyRatioNoiseFactorSliceSamplingWidth) {
+            this.copyRatioNoiseFactorSliceSamplingWidth = copyRatioNoiseFactorSliceSamplingWidth;
+        }
+
+        @Override
+        public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+            final Function<Double, Double> logConditionalPDF = newCopyRatioNoiseFactor -> {
+                final TumorHeterogeneityState newState = new TumorHeterogeneityState(
+                        state.concentration(), newCopyRatioNoiseFactor, state.minorAlleleFractionNoiseFactor(), state.populationFractions(), state.variantProfiles(), state.priors());
+                return calculateLogPosterior(newState, data);
+            };
+            final double copyRatioNoiseFactor = new SliceSampler(rng, logConditionalPDF, MIN, MAX, copyRatioNoiseFactorSliceSamplingWidth).sample(state.copyRatioNoiseFactor());
+            logger.debug("Sampled CR noise factor: " + copyRatioNoiseFactor);
+            return copyRatioNoiseFactor;
+        }
+    }
+
+    static final class MinorAlleleFractionNoiseFactorSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
+        private static final double MIN = 1.;
+        private static final double MAX = Double.POSITIVE_INFINITY;
+        private final double minorAlleleFractionNoiseFactorSliceSamplingWidth;
+
+        MinorAlleleFractionNoiseFactorSampler(final double minorAlleleFractionNoiseFactorSliceSamplingWidth) {
+            this.minorAlleleFractionNoiseFactorSliceSamplingWidth = minorAlleleFractionNoiseFactorSliceSamplingWidth;
+        }
+
+        @Override
+        public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+            final Function<Double, Double> logConditionalPDF = newMinorAlleleFractionNoiseFactor -> {
+                final TumorHeterogeneityState newState = new TumorHeterogeneityState(
+                        state.concentration(), state.copyRatioNoiseFactor(), newMinorAlleleFractionNoiseFactor, state.populationFractions(), state.variantProfiles(), state.priors());
+                return calculateLogPosterior(newState, data);
+            };
+            final double minorAlleleFractionNoiseFactor = new SliceSampler(rng, logConditionalPDF, MIN, MAX, minorAlleleFractionNoiseFactorSliceSamplingWidth).sample(state.minorAlleleFractionNoiseFactor());
+            logger.debug("Sampled MAF noise factor: " + minorAlleleFractionNoiseFactor);
+            return minorAlleleFractionNoiseFactor;
+        }
+    }
+
     static final class PopulationFractionsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationFractions, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         PopulationFractionsSampler() {
         }
@@ -166,7 +210,8 @@ final class TumorHeterogeneitySamplers {
                                     .mapToDouble(i -> ploidyStatePriorLog10Probabilities[i] +
                                             MathUtils.logToLog10(calculateSegmentLogLikelihoodFromInvariantTerms(
                                                     data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
-                                                    si, populationFraction, segmentFractionalLength, ploidyStates.get(i))))
+                                                    si, populationFraction, segmentFractionalLength, ploidyStates.get(i),
+                                                    state.copyRatioNoiseFactor(), state.minorAlleleFractionNoiseFactor())))
                                     .toArray();
                     final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
                     final int ploidyStateIndex = GATKProtectedMathUtils.randomSelect(ploidyStateIndices, i -> probabilities[i], rng);
@@ -192,9 +237,29 @@ final class TumorHeterogeneitySamplers {
         final double concentration = state.concentration();
         final double logPriorConcentration =
                 concentrationPriorAlpha * Math.log(concentrationPriorBeta + EPSILON)
-                        + (concentrationPriorAlpha - 1.) * Math.log(concentration)
+                        + (concentrationPriorAlpha - 1.) * Math.log(concentration + EPSILON)
                         - concentrationPriorBeta * concentration
                         - Gamma.logGamma(concentrationPriorAlpha);
+
+        //copy-ratio noise-factor prior
+        final double copyRatioNoiseFactorPriorAlpha = state.priors().copyRatioNoiseFactorPriorAlpha();
+        final double copyRatioNoiseFactorPriorBeta = state.priors().copyRatioNoiseFactorPriorBeta();
+        final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
+        final double logPriorCopyRatioNoiseFactor =
+                concentrationPriorAlpha * Math.log(copyRatioNoiseFactorPriorBeta + EPSILON)
+                        + (copyRatioNoiseFactorPriorAlpha - 1.) * Math.log(copyRatioNoiseFactor - 1. + EPSILON)
+                        - copyRatioNoiseFactorPriorBeta * (copyRatioNoiseFactor - 1.)
+                        - Gamma.logGamma(copyRatioNoiseFactorPriorAlpha);
+
+        //minor-allele-fraction noise-factor prior
+        final double minorAlleleFractionNoiseFactorPriorAlpha = state.priors().minorAlleleFractionNoiseFactorPriorAlpha();
+        final double minorAlleleFractionNoiseFactorPriorBeta = state.priors().minorAlleleFractionNoiseFactorPriorBeta();
+        final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
+        final double logPriorMinorAlleleFractionNoiseFactor =
+                concentrationPriorAlpha * Math.log(minorAlleleFractionNoiseFactorPriorBeta + EPSILON)
+                        + (minorAlleleFractionNoiseFactorPriorAlpha - 1.) * Math.log(minorAlleleFractionNoiseFactor - 1. + EPSILON)
+                        - minorAlleleFractionNoiseFactorPriorBeta * (minorAlleleFractionNoiseFactor - 1.)
+                        - Gamma.logGamma(minorAlleleFractionNoiseFactorPriorAlpha);
 
         //population-fractions prior
         final double logPriorPopulationFractionsSum = IntStream.range(0, numPopulations)
@@ -224,13 +289,11 @@ final class TumorHeterogeneitySamplers {
             final double nAlleleCopyNumber = state.calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::n);
             final double copyRatio = totalCopyNumber / (ploidy + EPSILON);
             final double minorAlleleFraction = calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);
-            logLikelihoodSegments += data.logDensity(segmentIndex, copyRatio, minorAlleleFraction);
+            logLikelihoodSegments += data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
         }
 
-        return logPriorConcentration +
-                logPriorPopulationFractions +
-                logPriorVariantProfiles +
-                logLikelihoodSegments;
+        return logPriorConcentration + logPriorCopyRatioNoiseFactor + logPriorMinorAlleleFractionNoiseFactor +
+                logPriorPopulationFractions + logPriorVariantProfiles + logLikelihoodSegments;
     }
 
     private static double calculateSegmentLogLikelihoodFromInvariantTerms(final TumorHeterogeneityData data,
@@ -240,13 +303,15 @@ final class TumorHeterogeneitySamplers {
                                                                           final int segmentIndex,
                                                                           final double populationFraction,
                                                                           final double segmentFractionalLength,
-                                                                          final PloidyState ploidyState) {
+                                                                          final PloidyState ploidyState,
+                                                                          final double copyRatioNoiseFactor,
+                                                                          final double minorAlleleFractionNoiseFactor) {
         final double ploidy = invariantPloidyTerm + populationFraction * segmentFractionalLength * ploidyState.total();
         final double copyRatio = (invariantMAlleleCopyNumberTerm + invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.total()) / (ploidy + EPSILON);
         final double minorAlleleFraction = calculateMinorAlleleFraction(
                 invariantMAlleleCopyNumberTerm + populationFraction * ploidyState.m(),
                 invariantNAlleleCopyNumberTerm + populationFraction * ploidyState.n());
-        return data.logDensity(segmentIndex, copyRatio, minorAlleleFraction);
+        return data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
     }
 
     private static double calculateMinorAlleleFraction(final double m, final double n) {

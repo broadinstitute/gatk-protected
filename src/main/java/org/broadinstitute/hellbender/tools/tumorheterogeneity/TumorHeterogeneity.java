@@ -51,7 +51,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String CLONAL_RESULT_FILE_SUFFIX = ".th.clonal.tsv";
     protected static final String RESULT_FILE_SUFFIX = ".th.tsv";
     protected static final String FILTERED_SEGMENTS_FILE_SUFFIX = ".filtered.seg";
-    protected static final String MAF_CR_FILE_SUFFIX = ".maf-cr.tsv";
 
     //CLI arguments
     protected static final String OUTPUT_PREFIX_LONG_NAME = "outputPrefix";
@@ -101,6 +100,18 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     protected static final String CONCENTRATION_PRIOR_BETA_LONG_NAME = "concentrationPriorBeta";
     protected static final String CONCENTRATION_PRIOR_BETA_SHORT_NAME = "concBeta";
+
+    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseFactorPriorAlpha";
+    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "crNoiseAlpha";
+
+    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME = "copyRatioNoiseFactorPriorBeta";
+    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "crNoiseBeta";
+
+    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "minorAlleleFractionNoiseFactorPriorAlpha";
+    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "mafNoiseAlpha";
+
+    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME = "minorAlleleFractionNoiseFactorPriorBeta";
+    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "mafNoiseBeta";
 
     protected static final String PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME = "completeDeletionPenalty";
     protected static final String PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_SHORT_NAME = "compDelPen";
@@ -244,11 +255,43 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     )
     protected double concentrationPriorBeta = 1E1;
 
-        @Argument(
-            doc = "Penalty for complete allele deletion in ploidy-state prior.",
-            fullName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME,
-            shortName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_SHORT_NAME,
+    @Argument(
+            doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
+            fullName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
+            shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
+    )
+    protected double copyRatioNoiseFactorPriorAlpha = 25.;
+
+    @Argument(
+            doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
+            fullName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
+            shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
+            optional = true
+    )
+    protected double copyRatioNoiseFactorPriorBeta = 0.5;
+
+    @Argument(
+            doc = "Alpha hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
+            fullName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
+            shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
+            optional = true
+    )
+    protected double minorAlleleFractionNoiseFactorPriorAlpha = 25.;
+
+    @Argument(
+            doc = "Beta hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
+            fullName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
+            shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
+            optional = true
+    )
+    protected double minorAlleleFractionNoiseFactorPriorBeta = 0.5;
+
+    @Argument(
+        doc = "Penalty for complete allele deletion in ploidy-state prior.",
+        fullName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME,
+        shortName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_SHORT_NAME,
+        optional = true
     )
     protected double ploidyStatePriorCompleteDeletionPenalty = 1E-3;
 
@@ -273,16 +316,20 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 allSegments;
 
         final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
-        final File mafCrFile = new File(outputPrefix + MAF_CR_FILE_SUFFIX);
-        outputMafCrFile(mafCrFile, data);
 
         final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
-                NORMAL_PLOIDY_STATE, ploidyStatePriorClonal, concentrationPriorAlphaClonal, concentrationPriorBetaClonal);
+                NORMAL_PLOIDY_STATE, ploidyStatePriorClonal,
+                concentrationPriorAlphaClonal, concentrationPriorBetaClonal,
+                copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
+                minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
 
         final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
-                NORMAL_PLOIDY_STATE, ploidyStatePrior, concentrationPriorAlpha, concentrationPriorBeta);
+                NORMAL_PLOIDY_STATE, ploidyStatePrior,
+                concentrationPriorAlpha, concentrationPriorBeta,
+                copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
+                minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
 
         final File resultFileClonal = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, rng);
@@ -298,23 +345,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         modeller.output(resultFile);
 
         logger.info("SUCCESS: Tumor heterogeneity full run complete and result output to " + resultFile + ".");
-    }
-
-    private static void outputMafCrFile(final File mafCrFile,
-                                        final TumorHeterogeneityData data) {
-        try (final FileWriter mafCrWriter = new FileWriter(mafCrFile)) {
-            mafCrFile.createNewFile();
-            for (double f = 0.; f <= 0.5; f += 0.01) {
-                for (double c = 1E-10; c <= 5; c += 0.05) {
-                    final double maf = f;
-                    final double cr = c;
-                    final double density = IntStream.range(0, data.numSegments()).mapToDouble(i -> Math.exp(data.logDensity(i, cr, maf))).sum();
-                    mafCrWriter.write(maf + "\t" + cr + "\t" + density + System.getProperty("line.separator"));
-                }
-            }
-        } catch (final IOException e) {
-            throw new GATKException("Error writing MAF-CR file.");
-        }
     }
 
     private static PloidyStatePrior calculatePloidyStatePrior(final double ploidyStatePriorCompleteDeletionPenalty,
