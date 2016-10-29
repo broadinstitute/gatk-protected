@@ -197,7 +197,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_SAMPLES_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int numSamplesClonal = 300;
+    protected int numSamplesClonal = 2000;
 
     @Argument(
             doc = "Number of burn-in samples to discard for clonal model.",
@@ -205,7 +205,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_BURN_IN_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected int numBurnInClonal = 200;
+    protected int numBurnInClonal = 500;
 
     @Argument(
             doc = "Total number of MCMC samples for full model.",
@@ -213,7 +213,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_SAMPLES_SHORT_NAME,
             optional = true
     )
-    protected int numSamples = 500;
+    protected int numSamples = 2000;
 
     @Argument(
             doc = "Number of burn-in samples to discard for full model.",
@@ -221,7 +221,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_BURN_IN_SHORT_NAME,
             optional = true
     )
-    protected int numBurnIn = 400;
+    protected int numBurnIn = 500;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
@@ -229,7 +229,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_ALPHA_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorAlphaClonal = 1.;
+    protected double concentrationPriorAlphaClonal = 1E1;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
@@ -253,7 +253,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 1E1;
+    protected double concentrationPriorBeta = 1E2;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -293,7 +293,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         shortName = PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_SHORT_NAME,
         optional = true
     )
-    protected double ploidyStatePriorCompleteDeletionPenalty = 1E-3;
+    protected double ploidyStatePriorCompleteDeletionPenalty = 1E-1;
 
     @Argument(
             doc = "Penalty for copy change in ploidy-state prior.",
@@ -301,7 +301,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PLOIDY_STATE_PRIOR_CHANGE_PENALTY_SHORT_NAME,
             optional = true
     )
-    protected double ploidyStatePriorChangePenalty = 1E-3;
+    protected double ploidyStatePriorChangePenalty = 1E-1;
 
     @Override
     protected void runPipeline(final JavaSparkContext ctx) {

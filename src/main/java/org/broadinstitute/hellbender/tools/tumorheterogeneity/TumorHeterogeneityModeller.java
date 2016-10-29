@@ -180,8 +180,8 @@ public final class TumorHeterogeneityModeller {
             //comments
             writePosteriorSummary(writer, "ploidy", getPloidySamples());
             writePosteriorSummary(writer, "concentration", getConcentrationSamples());
-            writePosteriorSummary(writer, "cr noise factor", getCopyRatioNoiseFactorSamples());
-            writePosteriorSummary(writer, "maf noise factor", getMinorAlleleFractionNoiseFactorSamples());
+            writePosteriorSummary(writer, "CR noise factor", getCopyRatioNoiseFactorSamples());
+            writePosteriorSummary(writer, "MAF noise factor", getMinorAlleleFractionNoiseFactorSamples());
 
             final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
             final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = getVariantProfileCollectionSamples();
