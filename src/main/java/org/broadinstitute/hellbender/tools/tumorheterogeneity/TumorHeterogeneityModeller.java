@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 public final class TumorHeterogeneityModeller {
     private static final double EPSILON = 1E-12;
 
-    protected static final double CONCENTRATION_MIN = EPSILON;
-    protected static final double CONCENTRATION_MAX = 10.;
+    static final double CONCENTRATION_MIN = EPSILON;
+    static final double CONCENTRATION_MAX = 10.;
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 10;
 
@@ -34,6 +34,8 @@ public final class TumorHeterogeneityModeller {
     private final TumorHeterogeneityPriorCollection priors;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
+    private final List<Double> copyRatioNoiseFactorSamples = new ArrayList<>();
+    private final List<Double> minorAlleleFractionNoiseFactorSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = new ArrayList<>();
     private final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = new ArrayList<>();
 
@@ -41,7 +43,7 @@ public final class TumorHeterogeneityModeller {
                                       final TumorHeterogeneityPriorCollection priors,
                                       final int numPopulations,
                                       final RandomGenerator rng) {
-        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors.concentrationPriorAlpha() / priors.concentrationPriorBeta(), priors, data.numSegments(), numPopulations), rng);
+        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors, data.numSegments(), numPopulations), rng);
     }
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
@@ -55,12 +57,18 @@ public final class TumorHeterogeneityModeller {
         this.priors = initialState.priors();
 
         final double concentrationSliceSamplingWidth = initialState.concentration();
+        final double copyRatioNoiseFactorSliceSamplingWidth = initialState.copyRatioNoiseFactor();
+        final double minorAlleleFractionNoiseFactorSliceSamplingWidth = initialState.minorAlleleFractionNoiseFactor();
         final int numPopulations = initialState.numPopulations();
         final int numVariantPopulations = numPopulations - 1;
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
                 new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth);
+        final TumorHeterogeneitySamplers.CopyRatioNoiseFactorSampler copyRatioNoiseFactorSampler =
+                new TumorHeterogeneitySamplers.CopyRatioNoiseFactorSampler(copyRatioNoiseFactorSliceSamplingWidth);
+        final TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler minorAlleleFractionNoiseFactorSampler =
+                new TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler(minorAlleleFractionNoiseFactorSliceSamplingWidth);
         final TumorHeterogeneitySamplers.PopulationFractionsSampler populationFractionsSampler =
                 new TumorHeterogeneitySamplers.PopulationFractionsSampler();
         final TumorHeterogeneitySamplers.VariantProfileCollectionSampler variantProfileCollectionSampler =
@@ -68,6 +76,8 @@ public final class TumorHeterogeneityModeller {
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
+                .addParameterSampler(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, copyRatioNoiseFactorSampler, Double.class)
+                .addParameterSampler(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, minorAlleleFractionNoiseFactorSampler, Double.class)
                 .addParameterSampler(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractionsSampler, TumorHeterogeneityState.PopulationFractions.class)
                 .addParameterSampler(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollectionSampler, TumorHeterogeneityState.VariantProfileCollection.class)
                 .build();
@@ -92,6 +102,10 @@ public final class TumorHeterogeneityModeller {
         //update posterior samples
         concentrationSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.CONCENTRATION,
                 Double.class, numBurnIn));
+        copyRatioNoiseFactorSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR,
+                Double.class, numBurnIn));
+        minorAlleleFractionNoiseFactorSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR,
+                Double.class, numBurnIn));
         populationFractionsSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_FRACTIONS,
                 TumorHeterogeneityState.PopulationFractions.class, numBurnIn));
         variantProfileCollectionSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.VARIANT_PROFILES,
@@ -104,6 +118,22 @@ public final class TumorHeterogeneityModeller {
      */
     public List<Double> getConcentrationSamples() {
         return Collections.unmodifiableList(concentrationSamples);
+    }
+
+    /**
+     * Returns an unmodifiable view of the list of samples of the copy-ratio noise-factor posterior.
+     * @return  unmodifiable view of the list of samples of the copy-ratio noise-factor posterior
+     */
+    public List<Double> getCopyRatioNoiseFactorSamples() {
+        return Collections.unmodifiableList(copyRatioNoiseFactorSamples);
+    }
+
+    /**
+     * Returns an unmodifiable view of the list of samples of the minor-allele-fraction noise-factor posterior.
+     * @return  unmodifiable view of the list of samples of the minor-allele-fraction noise-factor posterior
+     */
+    public List<Double> getMinorAlleleFractionNoiseFactorSamples() {
+        return Collections.unmodifiableList(minorAlleleFractionNoiseFactorSamples);
     }
 
     /**
@@ -129,10 +159,12 @@ public final class TumorHeterogeneityModeller {
         final List<Double> ploidySamples = new ArrayList<>(numSamples);
         for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
             final double concentration = concentrationSamples.get(sampleIndex);
+            final double copyRatioNoiseFactor = copyRatioNoiseFactorSamples.get(sampleIndex);
+            final double minorAlleleFractionNoiseFactor = minorAlleleFractionNoiseFactorSamples.get(sampleIndex);
             final TumorHeterogeneityState.PopulationFractions populationFractions = populationFractionsSamples.get(sampleIndex);
             final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = variantProfileCollectionSamples.get(sampleIndex);
             final TumorHeterogeneityState state = new TumorHeterogeneityState(
-                    concentration, populationFractions, variantProfileCollection, priors);
+                    concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
             ploidySamples.add(state.ploidy(data));
         }
         return ploidySamples;
@@ -148,6 +180,8 @@ public final class TumorHeterogeneityModeller {
             //comments
             writePosteriorSummary(writer, "ploidy", getPloidySamples());
             writePosteriorSummary(writer, "concentration", getConcentrationSamples());
+            writePosteriorSummary(writer, "cr noise factor", getCopyRatioNoiseFactorSamples());
+            writePosteriorSummary(writer, "maf noise factor", getMinorAlleleFractionNoiseFactorSamples());
 
             final List<TumorHeterogeneityState.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
             final List<TumorHeterogeneityState.VariantProfileCollection> variantProfileCollectionSamples = getVariantProfileCollectionSamples();

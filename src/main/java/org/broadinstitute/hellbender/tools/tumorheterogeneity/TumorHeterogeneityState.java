@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import org.apache.commons.lang3.mutable.MutableInt;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Parameter;
@@ -11,7 +10,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -26,15 +24,19 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     private final TumorHeterogeneityPriorCollection priors;
 
-    public TumorHeterogeneityState(final double concentration,
+    public TumorHeterogeneityState(final double concentration, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor,
                                    final PopulationFractions populationFractions,
                                    final VariantProfileCollection variantProfileCollection,
                                    final TumorHeterogeneityPriorCollection priors) {
         super(Arrays.asList(
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
+                new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, copyRatioNoiseFactor),
+                new Parameter<>(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, minorAlleleFractionNoiseFactor),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractions),
                 new Parameter<>(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollection)));
         Utils.validateArg(concentration > 0, "Concentration must be positive.");
+        Utils.validateArg(copyRatioNoiseFactor >= 1, "Copy-ratio noise factor must be >= 1.");
+        Utils.validateArg(minorAlleleFractionNoiseFactor >= 1, "Minor-allele-fraction noise factor must be >= 1.");
         Utils.nonNull(populationFractions);
         Utils.nonNull(variantProfileCollection);
         Utils.validateArg(populationFractions.numPopulations == variantProfileCollection.numVariantPopulations + 1,
@@ -62,6 +64,14 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     public double concentration() {
         return get(TumorHeterogeneityParameter.CONCENTRATION, Double.class);
+    }
+
+    public double copyRatioNoiseFactor() {
+        return get(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, Double.class);
+    }
+
+    public double minorAlleleFractionNoiseFactor() {
+        return get(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, Double.class);
     }
 
     public double populationFraction(final int populationIndex) {
@@ -179,6 +189,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     void set(final TumorHeterogeneityState state) {
         update(TumorHeterogeneityParameter.CONCENTRATION, state.concentration());
+        update(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, state.copyRatioNoiseFactor());
+        update(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, state.minorAlleleFractionNoiseFactor());
         update(TumorHeterogeneityParameter.POPULATION_FRACTIONS, state.populationFractions());
         update(TumorHeterogeneityParameter.VARIANT_PROFILES, state.variantProfiles());
     }

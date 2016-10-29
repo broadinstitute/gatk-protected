@@ -1,13 +1,11 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 
@@ -29,21 +27,21 @@ final class TumorHeterogeneityStateInitializationUtils {
     /**
      * Initialize state with evenly distributed population fractions and normal variant profiles.
      */
-    static TumorHeterogeneityState initializeState(final double initialConcentration,
-                                                   final TumorHeterogeneityPriorCollection priors,
+    static TumorHeterogeneityState initializeState(final TumorHeterogeneityPriorCollection priors,
                                                    final int numSegments,
                                                    final int numPopulations) {
-        //start with Gibbs step
-        final boolean doMetropolisStep = false;
+        final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
+        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
+        final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
         //initialize population fractions to be evenly distributed
-        final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
+        final TumorHeterogeneityState.PopulationFractions populationFractions =
                 new TumorHeterogeneityState.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
         //initialize variant profiles to normal
         final int numVariantPopulations = numPopulations - 1;
-        final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
+        final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection =
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
         return new TumorHeterogeneityState(
-                initialConcentration, initialPopulationFractions, initialVariantProfileCollection, priors);
+                concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
     }
 
     /**
@@ -56,7 +54,9 @@ final class TumorHeterogeneityStateInitializationUtils {
         final int numPopulations = state.numPopulations();
         final int numSegments = state.numSegments();
         final double concentration = state.concentration();
-        final boolean doSampleFromPrior = rng.nextDouble() < 0.25;
+        final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
+        final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
+        final boolean doSampleFromPrior = rng.nextDouble() < 0.3;
         //randomly initialize population fractions from prior
         final TumorHeterogeneityState.PopulationFractions populationFractions =
                  doSampleFromPrior ? initializePopulationFractions(numPopulations, concentration, rng) : initializePopulationFractions(state.populationFractions(), concentration, rng);
@@ -65,9 +65,10 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityPriorCollection priors = state.priors();
         final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = doSampleFromPrior ?
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
-                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
+                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
+//                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
-                concentration, populationFractions, variantProfileCollection, priors);
+                concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
         return proposedState;
     }
@@ -84,10 +85,11 @@ final class TumorHeterogeneityStateInitializationUtils {
                 "Clonal modeller must have a non-zero number of samples.");
         Utils.validateArg(clonalModeller.getPopulationFractionsSamples().get(0).size() == 2,
                 "Clonal modeller must have two populations (clone + normal).");
-        //start with Gibbs step
-        final boolean doMetropolisStep = false;
-        //initialize concentration to posterior mean of clonal result
+
+        //initialize global parameters to posterior mean of clonal result
         final double clonalConcentration = new Mean().evaluate(Doubles.toArray(clonalModeller.getConcentrationSamples()));
+        final double clonalCopyRatioNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getCopyRatioNoiseFactorSamples()));
+        final double clonalMinorAlleleFractionNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getMinorAlleleFractionNoiseFactorSamples()));
 
         //initialize normal fraction to posterior mean of clonal result
         final double[] normalFractionSamples = clonalModeller.getPopulationFractionsSamples().stream()
@@ -117,7 +119,8 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
 
-        return new TumorHeterogeneityState(clonalConcentration, initialPopulationFractions, initialVariantProfileCollection, priors);
+        return new TumorHeterogeneityState(
+                clonalConcentration, clonalCopyRatioNoiseFactor, clonalMinorAlleleFractionNoiseFactor, initialPopulationFractions, initialVariantProfileCollection, priors);
     }
 
     /**
@@ -135,7 +138,7 @@ final class TumorHeterogeneityStateInitializationUtils {
             final double sum = DoubleStream.of(unnormalizedPopulationFractions).sum();
             if (sum > 0) {
                 final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-                logger.info("Proposed population fractions using prior: " + populationFractions);
+                logger.debug("Proposed population fractions using prior: " + populationFractions);
                 return new TumorHeterogeneityState.PopulationFractions(populationFractions);
             }
         }
@@ -154,7 +157,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
         final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(pi -> new GammaDistribution(rng, concentration + 10 * populationFractions.get(pi), 1.).sample()).toArray();
         final List<Double> proposedPopulationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-        logger.info("Proposed population fractions using posterior: " + proposedPopulationFractions);
+        logger.debug("Proposed population fractions using posterior: " + proposedPopulationFractions);
         return new TumorHeterogeneityState.PopulationFractions(proposedPopulationFractions);
     }
 
