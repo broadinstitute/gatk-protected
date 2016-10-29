@@ -56,7 +56,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final double concentration = state.concentration();
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
-        final boolean doSampleFromPrior = rng.nextDouble() < 0.3;
+        final boolean doSampleFromPrior = rng.nextDouble() < 0.2;
         //randomly initialize population fractions from prior
         final TumorHeterogeneityState.PopulationFractions populationFractions =
                  doSampleFromPrior ? initializePopulationFractions(numPopulations, concentration, rng) : initializePopulationFractions(state.populationFractions(), concentration, rng);
@@ -65,8 +65,8 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityPriorCollection priors = state.priors();
         final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = doSampleFromPrior ?
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
-                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
-//                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
+//                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
+                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
                 concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
@@ -155,7 +155,7 @@ final class TumorHeterogeneityStateInitializationUtils {
 
         final int numPopulations = populationFractions.size();
         //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
-        final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(pi -> new GammaDistribution(rng, concentration + 10 * populationFractions.get(pi), 1.).sample()).toArray();
+        final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(pi -> new GammaDistribution(rng, concentration + 100 * populationFractions.get(pi), 1.).sample()).toArray();
         final List<Double> proposedPopulationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
         logger.debug("Proposed population fractions using posterior: " + proposedPopulationFractions);
         return new TumorHeterogeneityState.PopulationFractions(proposedPopulationFractions);
