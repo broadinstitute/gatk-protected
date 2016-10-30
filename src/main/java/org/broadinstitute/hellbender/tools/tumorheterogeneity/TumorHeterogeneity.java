@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Detects copy-number events using allelic-count data and GATK CNV output.
@@ -49,8 +48,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     //filename tags for output
     protected static final String CLONAL_RESULT_FILE_SUFFIX = ".th.clonal.tsv";
-    protected static final String RESULT_FILE_SUFFIX = ".th.tsv";
-    protected static final String FILTERED_SEGMENTS_FILE_SUFFIX = ".filtered.seg";
+    protected static final String RESULT_FILE_SUFFIX = ".th.final.tsv";
+    protected static final String FILTERED_SEGMENTS_FILE_SUFFIX = ".th.filtered.seg";
 
     //CLI arguments
     protected static final String OUTPUT_PREFIX_LONG_NAME = "outputPrefix";
@@ -88,6 +87,18 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     protected static final String NUM_BURN_IN_LONG_NAME = "numBurnIn";
     protected static final String NUM_BURN_IN_SHORT_NAME = "numBurn";
+
+    protected static final String PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME = "priorProposalFractionClonal";
+    protected static final String PRIOR_PROPOSAL_FRACTION_CLONAL_SHORT_NAME = "priorPropFracClonal";
+
+    protected static final String PRIOR_PROPOSAL_FRACTION_LONG_NAME = "priorProposalFraction";
+    protected static final String PRIOR_PROPOSAL_FRACTION_SHORT_NAME = "priorPropFrac";
+
+    protected static final String PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME = "proposalWidthFactorClonal";
+    protected static final String PROPOSAL_WIDTH_FACTOR_CLONAL_SHORT_NAME = "propWidthFactorClonal";
+
+    protected static final String PROPOSAL_WIDTH_FACTOR_LONG_NAME = "proposalWidthFactor";
+    protected static final String PROPOSAL_WIDTH_FACTOR_SHORT_NAME = "propWidthFactor";
     
     protected static final String CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME = "concentrationPriorAlphaClonal";
     protected static final String CONCENTRATION_PRIOR_ALPHA_CLONAL_SHORT_NAME = "concAlphaClonal";
@@ -224,6 +235,38 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int numBurnIn = 500;
 
     @Argument(
+            doc = "Prior-proposal fraction for Metropolis step for clonal model.",
+            fullName = PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME,
+            shortName = PRIOR_PROPOSAL_FRACTION_CLONAL_SHORT_NAME,
+            optional = true
+    )
+    protected double priorProposalFractionClonal = 0.2;
+
+    @Argument(
+            doc = "Prior-proposal fraction for Metropolis step for full model.",
+            fullName = PRIOR_PROPOSAL_FRACTION_LONG_NAME,
+            shortName = PRIOR_PROPOSAL_FRACTION_SHORT_NAME,
+            optional = true
+    )
+    protected double priorProposalFraction = 0.5;
+
+    @Argument(
+            doc = "Proposal-width factor for Metropolis step for clonal model.",
+            fullName = PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME,
+            shortName = PROPOSAL_WIDTH_FACTOR_CLONAL_SHORT_NAME,
+            optional = true
+    )
+    protected double proposalWidthFactorClonal = 100.;
+
+    @Argument(
+            doc = "Proposal-width factor for Metropolis step for full model.",
+            fullName = PROPOSAL_WIDTH_FACTOR_LONG_NAME,
+            shortName = PROPOSAL_WIDTH_FACTOR_SHORT_NAME,
+            optional = true
+    )
+    protected double proposalWidthFactor = 100.;
+
+    @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
             fullName = CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME,
             shortName = CONCENTRATION_PRIOR_ALPHA_CLONAL_SHORT_NAME,
@@ -261,7 +304,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorAlpha = 25.;
+    protected double copyRatioNoiseFactorPriorAlpha = 100.;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -269,7 +312,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorBeta = 0.5;
+    protected double copyRatioNoiseFactorPriorBeta = 10.;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
@@ -277,7 +320,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double minorAlleleFractionNoiseFactorPriorAlpha = 25.;
+    protected double minorAlleleFractionNoiseFactorPriorAlpha = 100.;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
@@ -285,7 +328,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double minorAlleleFractionNoiseFactorPriorBeta = 0.5;
+    protected double minorAlleleFractionNoiseFactorPriorBeta = 10.;
 
     @Argument(
         doc = "Penalty for complete allele deletion in ploidy-state prior.",
@@ -320,6 +363,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, ploidyStatePriorClonal,
+                priorProposalFractionClonal, proposalWidthFactorClonal,
                 concentrationPriorAlphaClonal, concentrationPriorBetaClonal,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
@@ -327,6 +371,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, ploidyStatePrior,
+                priorProposalFraction, proposalWidthFactor,
                 concentrationPriorAlpha, concentrationPriorBeta,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);

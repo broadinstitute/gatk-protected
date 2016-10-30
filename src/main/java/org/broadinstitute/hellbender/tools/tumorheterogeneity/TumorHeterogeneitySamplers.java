@@ -1,11 +1,13 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import com.google.cloud.dataflow.sdk.repackaged.com.google.common.primitives.Doubles;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
+import org.broadinstitute.hellbender.utils.Dirichlet;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterSampler;
@@ -51,7 +53,7 @@ final class TumorHeterogeneitySamplers {
                         Gamma.logGamma(newConcentration * numPopulations) - numPopulations * Gamma.logGamma(newConcentration) + populationFractionsTerm;
             };
             final double concentration = new SliceSampler(rng, logConditionalPDF, concentrationMin, concentrationMax, concentrationSliceSamplingWidth).sample(state.concentration());
-            logger.debug("Sampled concentration: " + concentration);
+            logger.info("Sampled concentration: " + concentration);
             return concentration;
         }
     }
@@ -73,7 +75,7 @@ final class TumorHeterogeneitySamplers {
                 return calculateLogPosterior(newState, data);
             };
             final double copyRatioNoiseFactor = new SliceSampler(rng, logConditionalPDF, MIN, MAX, copyRatioNoiseFactorSliceSamplingWidth).sample(state.copyRatioNoiseFactor());
-            logger.debug("Sampled CR noise factor: " + copyRatioNoiseFactor);
+            logger.info("Sampled CR noise factor: " + copyRatioNoiseFactor);
             return copyRatioNoiseFactor;
         }
     }
@@ -95,14 +97,13 @@ final class TumorHeterogeneitySamplers {
                 return calculateLogPosterior(newState, data);
             };
             final double minorAlleleFractionNoiseFactor = new SliceSampler(rng, logConditionalPDF, MIN, MAX, minorAlleleFractionNoiseFactorSliceSamplingWidth).sample(state.minorAlleleFractionNoiseFactor());
-            logger.debug("Sampled MAF noise factor: " + minorAlleleFractionNoiseFactor);
+            logger.info("Sampled MAF noise factor: " + minorAlleleFractionNoiseFactor);
             return minorAlleleFractionNoiseFactor;
         }
     }
 
     static final class PopulationFractionsSampler implements ParameterSampler<TumorHeterogeneityState.PopulationFractions, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        PopulationFractionsSampler() {
-        }
+        PopulationFractionsSampler() {}
 
         @Override
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
@@ -111,11 +112,12 @@ final class TumorHeterogeneitySamplers {
             return populationFractions;
         }
 
-        private static TumorHeterogeneityState.PopulationFractions sampleMetropolis(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
+        private TumorHeterogeneityState.PopulationFractions sampleMetropolis(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             final TumorHeterogeneityState proposedState = TumorHeterogeneityStateInitializationUtils.proposeState(rng, state, data);
             final double proposedLogPosterior = calculateLogPosterior(proposedState, data);
             final double currentLogPosterior = calculateLogPosterior(state, data);
-            final double acceptanceProbability = Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior));
+            final double logProposalRatio = calculateLogProposalRatio(state, proposedState);
+            final double acceptanceProbability = Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior + logProposalRatio));
             logger.info("Log posterior of current state: " + currentLogPosterior);
             logger.info("Log posterior of proposed state: " + proposedLogPosterior);
             if (rng.nextDouble() < acceptanceProbability) {
@@ -123,6 +125,27 @@ final class TumorHeterogeneitySamplers {
                 state.set(proposedState);
             }
             return new TumorHeterogeneityState.PopulationFractions(state.populationFractions());
+        }
+
+        private static double calculateLogProposalRatio(final TumorHeterogeneityState currentState,
+                                                        final TumorHeterogeneityState proposedState) {
+            final double currentLogProposalProbability = calculateLogProposalProbability(currentState);
+            final double proposedLogProposalProbability = calculateLogProposalProbability(proposedState);
+            logger.debug("Proposal log probability of current state: " + currentLogProposalProbability);
+            logger.debug("Proposal log probability of proposed state: " + proposedLogProposalProbability);
+            return currentLogProposalProbability - proposedLogProposalProbability;
+        }
+
+        private static double calculateLogProposalProbability(final TumorHeterogeneityState state) {
+            final int numPopulations = state.numPopulations();
+            final double priorProposalFraction = state.priors().priorProposalFraction();
+            final double proposalWidthFactor = state.priors().proposalWidthFactor();
+            final double concentration = state.concentration();
+            final Dirichlet prior = Dirichlet.symmetricDirichlet(numPopulations, concentration * numPopulations);   //concentration convention differs from that used in Dirichlet class
+            final double[] populationFractions = Doubles.toArray(state.populationFractions());
+            final double[] effectiveCounts = state.populationFractions().stream().mapToDouble(f -> proposalWidthFactor * f).toArray();
+            final Dirichlet target = new Dirichlet(prior, effectiveCounts);
+            return Math.log(priorProposalFraction * Math.exp(prior.logDensity(populationFractions)) + (1. - priorProposalFraction) * Math.exp(target.logDensity(populationFractions)));
         }
     }
 

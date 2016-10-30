@@ -11,6 +11,8 @@ public final class TumorHeterogeneityPriorCollection {
     private final PloidyState normalPloidyState;
     private final int normalPloidyStateIndex;
     private final PloidyStatePrior ploidyStatePrior;
+    private final double priorProposalFraction;
+    private final double proposalWidthFactor;
     private final double concentrationPriorAlpha;
     private final double concentrationPriorBeta;
     private final double copyRatioNoiseFactorPriorAlpha;
@@ -20,6 +22,8 @@ public final class TumorHeterogeneityPriorCollection {
 
     public TumorHeterogeneityPriorCollection(final PloidyState normalPloidyState,
                                              final PloidyStatePrior ploidyStatePrior,
+                                             final double priorProposalFraction,
+                                             final double proposalWidthFactor,
                                              final double concentrationPriorAlpha,
                                              final double concentrationPriorBeta,
                                              final double copyRatioNoiseFactorPriorAlpha,
@@ -30,6 +34,8 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.nonNull(ploidyStatePrior);
         Utils.validateArg(ploidyStatePrior.ploidyStates().contains(normalPloidyState),
                 "Ploidy-state prior must contain normal ploidy state.");
+        Utils.validateArg(0 <= priorProposalFraction && priorProposalFraction <= 1, "Prior-proposal fraction must be in [0, 1].");
+        Utils.validateArg(proposalWidthFactor > 0, "Proposal-width factor must be positive.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(copyRatioNoiseFactorPriorAlpha > 0, "Hyperparameter for copy-ratio noise-factor prior must be positive.");
@@ -39,6 +45,8 @@ public final class TumorHeterogeneityPriorCollection {
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
         normalPloidyStateIndex = ploidyStatePrior().ploidyStates().indexOf(normalPloidyState);
+        this.priorProposalFraction = priorProposalFraction;
+        this.proposalWidthFactor = proposalWidthFactor;
         this.concentrationPriorAlpha = concentrationPriorAlpha;
         this.concentrationPriorBeta = concentrationPriorBeta;
         this.copyRatioNoiseFactorPriorAlpha = copyRatioNoiseFactorPriorAlpha;
@@ -53,6 +61,14 @@ public final class TumorHeterogeneityPriorCollection {
 
     public int normalPloidyStateIndex() {
         return normalPloidyStateIndex;
+    }
+
+    public double priorProposalFraction() {
+        return priorProposalFraction;
+    }
+
+    public double proposalWidthFactor() {
+        return proposalWidthFactor;
     }
 
     public PloidyStatePrior ploidyStatePrior() {
