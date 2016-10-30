@@ -240,7 +240,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PRIOR_PROPOSAL_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected double priorProposalFractionClonal = 0.2;
+    protected double priorProposalFractionClonal = 0.1;
 
     @Argument(
             doc = "Prior-proposal fraction for Metropolis step for full model.",
@@ -248,7 +248,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PRIOR_PROPOSAL_FRACTION_SHORT_NAME,
             optional = true
     )
-    protected double priorProposalFraction = 0.2;
+    protected double priorProposalFraction = 0.1;
 
     @Argument(
             doc = "Proposal-width factor for Metropolis step for clonal model.",
@@ -296,7 +296,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 1E2;
+    protected double concentrationPriorBeta = 1E1;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -478,9 +478,9 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
-        Utils.validateArg(numBurnInClonal > 0 && numBurnInClonal <= numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be positive and less than or equal to " + NUM_SAMPLES_CLONAL_LONG_NAME);
+        Utils.validateArg(numBurnInClonal >= 0 && numBurnInClonal <= numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_CLONAL_LONG_NAME);
         Utils.validateArg(numSamples > 0, NUM_SAMPLES_LONG_NAME + " must be positive.");
-        Utils.validateArg(numBurnIn > 0 && numBurnIn <= numSamples, NUM_BURN_IN_LONG_NAME + " must be positive and less than or equal to " + NUM_SAMPLES_LONG_NAME);
+        Utils.validateArg(numBurnIn >= 0 && numBurnIn <= numSamples, NUM_BURN_IN_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_LONG_NAME);
         Utils.validateArg(concentrationPriorAlpha > 0, CONCENTRATION_PRIOR_ALPHA_LONG_NAME + " must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, CONCENTRATION_PRIOR_BETA_LONG_NAME + " must be positive.");
         Utils.validateArg(TumorHeterogeneityModeller.CONCENTRATION_MIN < concentrationPriorAlpha / concentrationPriorBeta &&
