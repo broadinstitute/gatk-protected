@@ -129,23 +129,25 @@ final class TumorHeterogeneitySamplers {
 
         private static double calculateLogProposalRatio(final TumorHeterogeneityState currentState,
                                                         final TumorHeterogeneityState proposedState) {
-            final double currentLogProposalProbability = calculateLogProposalProbability(currentState);
-            final double proposedLogProposalProbability = calculateLogProposalProbability(proposedState);
+            final double currentLogProposalProbability = calculateLogProposalProbability(currentState, proposedState);
+            final double proposedLogProposalProbability = calculateLogProposalProbability(proposedState, currentState);
             logger.debug("Proposal log probability of current state: " + currentLogProposalProbability);
             logger.debug("Proposal log probability of proposed state: " + proposedLogProposalProbability);
-            return currentLogProposalProbability - proposedLogProposalProbability;
+            return 0.;
+//            return currentLogProposalProbability - proposedLogProposalProbability;
         }
 
-        private static double calculateLogProposalProbability(final TumorHeterogeneityState state) {
-            final int numPopulations = state.numPopulations();
-            final double priorProposalFraction = state.priors().priorProposalFraction();
-            final double proposalWidthFactor = state.priors().proposalWidthFactor();
-            final double concentration = state.concentration();
+        private static double calculateLogProposalProbability(final TumorHeterogeneityState newState,
+                                                              final TumorHeterogeneityState conditionalState) {
+            final int numPopulations = conditionalState.numPopulations();
+            final double priorProposalFraction = conditionalState.priors().priorProposalFraction();
+            final double proposalWidthFactor = conditionalState.priors().proposalWidthFactor();
+            final double concentration = conditionalState.concentration();
             final Dirichlet prior = Dirichlet.symmetricDirichlet(numPopulations, concentration * numPopulations);   //concentration convention differs from that used in Dirichlet class
-            final double[] populationFractions = Doubles.toArray(state.populationFractions());
-            final double[] effectiveCounts = state.populationFractions().stream().mapToDouble(f -> proposalWidthFactor * f).toArray();
-            final Dirichlet target = new Dirichlet(prior, effectiveCounts);
-            return Math.log(priorProposalFraction * Math.exp(prior.logDensity(populationFractions)) + (1. - priorProposalFraction) * Math.exp(target.logDensity(populationFractions)));
+            final double[] proposedPopulationFractions = Doubles.toArray(newState.populationFractions());
+            final double[] currentEffectiveCounts = conditionalState.populationFractions().stream().mapToDouble(f -> proposalWidthFactor * f).toArray();
+            final Dirichlet target = new Dirichlet(prior, currentEffectiveCounts);
+            return Math.log(priorProposalFraction * Math.exp(prior.logDensity(proposedPopulationFractions)) + (1. - priorProposalFraction) * Math.exp(target.logDensity(proposedPopulationFractions)));
         }
     }
 
