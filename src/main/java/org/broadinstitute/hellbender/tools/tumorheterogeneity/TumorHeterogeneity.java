@@ -240,7 +240,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PRIOR_PROPOSAL_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
-    protected double priorProposalFractionClonal = 0.1;
+    protected double priorProposalFractionClonal = 0.2;
 
     @Argument(
             doc = "Prior-proposal fraction for Metropolis step for full model.",
@@ -248,7 +248,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PRIOR_PROPOSAL_FRACTION_SHORT_NAME,
             optional = true
     )
-    protected double priorProposalFraction = 0.1;
+    protected double priorProposalFraction = 0.2;
 
     @Argument(
             doc = "Proposal-width factor for Metropolis step for clonal model.",
