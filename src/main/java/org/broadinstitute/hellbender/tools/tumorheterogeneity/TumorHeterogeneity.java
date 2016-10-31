@@ -2,31 +2,24 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
-import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
 import org.broadinstitute.hellbender.engine.spark.SparkCommandLineProgram;
-import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
-import org.broadinstitute.hellbender.tools.exome.SegmentTableColumn;
 import org.broadinstitute.hellbender.tools.exome.SegmentUtils;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
-import org.broadinstitute.hellbender.utils.mcmc.Decile;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Detects copy-number events using allelic-count data and GATK CNV output.
@@ -44,28 +37,14 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final long RANDOM_SEED = 13;
     private static final int NUM_POPULATIONS_CLONAL = 2;
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
-    private static final double EPSILON = 1E-10;
 
     //filename tags for output
     protected static final String CLONAL_RESULT_FILE_SUFFIX = ".th.clonal.tsv";
     protected static final String RESULT_FILE_SUFFIX = ".th.final.tsv";
-    protected static final String FILTERED_SEGMENTS_FILE_SUFFIX = ".th.filtered.seg";
 
     //CLI arguments
     protected static final String OUTPUT_PREFIX_LONG_NAME = "outputPrefix";
     protected static final String OUTPUT_PREFIX_SHORT_NAME = "pre";
-
-    protected static final String DO_FILTER_SEGMENTS_LONG_NAME = "filterSegments";
-    protected static final String DO_FILTER_SEGMENTS_SHORT_NAME = "filterSeg";
-
-    protected static final String LENGTH_PERCENTILE_LONG_NAME = "lengthPercentile";
-    protected static final String LENGTH_PERCENTILE_SHORT_NAME = "lenPct";
-
-    protected static final String LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME = "log2CopyRatioCredibleIntervalPercentile";
-    protected static final String LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_SHORT_NAME = "log2CRCredIntPct";
-
-    protected static final String MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME = "minorAlleleFractionCredibleIntervalPercentile";
-    protected static final String MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_SHORT_NAME = "MAFCredIntPct";
 
     protected static final String MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME = "maxAllelicCopyNumberClonal";
     protected static final String MAX_ALLELIC_COPY_NUMBER_CLONAL_SHORT_NAME = "maxACNClonal";
@@ -145,38 +124,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             optional = false
     )
     protected String outputPrefix;
-
-    @Argument(
-            doc = "Filter AllelicCNV segments based on length and credible interval.",
-            fullName = DO_FILTER_SEGMENTS_LONG_NAME,
-            shortName = DO_FILTER_SEGMENTS_SHORT_NAME,
-            optional = true
-    )
-    protected boolean doFilterSegments = false;
-
-    @Argument(
-            doc = "Percentile of segment length below which to filter out segments.",
-            fullName = LENGTH_PERCENTILE_LONG_NAME,
-            shortName = LENGTH_PERCENTILE_SHORT_NAME,
-            optional = true
-    )
-    protected double lengthPercentile = 0.;
-
-    @Argument(
-            doc = "Percentile of log2 copy-ratio credible-interval size above which to filter out segments.",
-            fullName = LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME,
-            shortName = LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_SHORT_NAME,
-            optional = true
-    )
-    protected double log2CrCredibleIntervalPercentile = 100.;
-
-    @Argument(
-            doc = "Percentile of minor-allele-fraction credible-interval size above which to filter out segments.",
-            fullName = MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME,
-            shortName = MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_SHORT_NAME,
-            optional = true
-    )
-    protected double mafCredibleIntervalPercentile = 100.;
 
     @Argument(
             doc = "Maximum allelic copy number for clonal model.",
@@ -352,11 +299,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
         final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
 
-        final File filteredSegmentsFile = new File(outputPrefix + FILTERED_SEGMENTS_FILE_SUFFIX);
-        final List<ACNVModeledSegment> allSegments = SegmentUtils.readACNVModeledSegmentFile(allelicCNVFile);
-        final List<ACNVModeledSegment> segments = doFilterSegments ?
-                filterAndOutputSegments(allSegments, filteredSegmentsFile, lengthPercentile, log2CrCredibleIntervalPercentile, mafCredibleIntervalPercentile) :
-                allSegments;
+        final List<ACNVModeledSegment> segments = SegmentUtils.readACNVModeledSegmentFile(allelicCNVFile);
 
         final TumorHeterogeneityData data = new TumorHeterogeneityData(segments);
 
@@ -406,74 +349,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         return new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
     }
 
-    private static List<ACNVModeledSegment> filterAndOutputSegments(final List<ACNVModeledSegment> allSegments, final File outputFile,
-                                                                    final double lengthPercentile, final double log2CrCredibleIntervalPercentile, final double mafCredibleIntervalPercentile) {
-        try (final FileWriter writer = new FileWriter(outputFile)) {
-            outputFile.createNewFile();
-            final Percentile percentile = new Percentile();
-
-            final double[] lengths = allSegments.stream().mapToDouble(s -> (double) s.getInterval().size()).toArray();
-            final int lengthThreshold = (int) percentile.evaluate(lengths, boundPercentile(lengthPercentile));
-
-            final double[] log2CrCredibleIntervalSizes = allSegments.stream()
-                    .mapToDouble(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10))
-                    .toArray();
-            final double log2crCredibleIntervalThreshold = percentile.evaluate(log2CrCredibleIntervalSizes, boundPercentile(log2CrCredibleIntervalPercentile));
-
-            final double[] mafCredibleIntervalSizes = allSegments.stream()
-                    .filter(s -> !Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()))
-                    .mapToDouble(s -> s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10))
-                    .toArray();
-            final double mafCredibleIntervalThreshold = percentile.evaluate(mafCredibleIntervalSizes, boundPercentile(mafCredibleIntervalPercentile));
-
-            final List<ACNVModeledSegment> segments = allSegments.stream()
-                    .filter(s -> s.getInterval().size() > lengthThreshold)
-                    .filter(s -> s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getSegmentMeanPosteriorSummary().getDeciles().get(Decile.DECILE_10) < log2crCredibleIntervalThreshold)
-                    .filter(s -> Double.isNaN(s.getMinorAlleleFractionPosteriorSummary().getCenter()) || s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_90) - s.getMinorAlleleFractionPosteriorSummary().getDeciles().get(Decile.DECILE_10) < mafCredibleIntervalThreshold)
-                    .collect(Collectors.toList());
-
-            writer.write("#num segments all: " + allSegments.size());
-            writer.write(System.getProperty("line.separator"));
-            writer.write("#num segments after filtering: " + segments.size());
-            writer.write(System.getProperty("line.separator"));
-            writer.write("#length threshold: " + lengthThreshold);
-            writer.write(System.getProperty("line.separator"));
-            writer.write("#log2CR credible-interval threshold: " + log2crCredibleIntervalThreshold);
-            writer.write(System.getProperty("line.separator"));
-            writer.write("#MAF credible-interval threshold: " + mafCredibleIntervalThreshold);
-            writer.write(System.getProperty("line.separator"));
-
-            writer.write(SegmentTableColumn.CONTIG + "\t" + SegmentTableColumn.START + "\t" + SegmentTableColumn.END + "\t" +
-                    SegmentTableColumn.SEGMENT_MEAN_POSTERIOR_MODE + "\t" + SegmentTableColumn.SEGMENT_MEAN_POSTERIOR_LOWER + "\t" + SegmentTableColumn.SEGMENT_MEAN_POSTERIOR_UPPER + "\t" +
-                    SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_MODE + "\t" + SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_LOWER + "\t" + SegmentTableColumn.MINOR_ALLELE_FRACTION_POSTERIOR_UPPER);
-            allSegments.stream().filter(s -> !segments.contains(s)).forEach(s -> writeSegment(writer, s));
-
-            return segments;
-        } catch (final IOException e) {
-            throw new GATKException("Error writing filtered segments.");
-        }
-    }
-
-    private static double boundPercentile(final double percentile) {
-        return Math.max(EPSILON, Math.min(100. - EPSILON, percentile));
-    }
-
-    private static void writeSegment(final FileWriter writer, final ACNVModeledSegment s) {
-        try {
-            writer.write(s.getContig() + "\t" + s.getStart() + "\t" + s.getEnd() + "\t" +
-                    s.getSegmentMeanPosteriorSummary().getCenter() + "\t" + s.getSegmentMeanPosteriorSummary().getLower() + "\t" + s.getSegmentMeanPosteriorSummary().getUpper() + "\t" +
-                    s.getMinorAlleleFractionPosteriorSummary().getCenter() + "\t" + s.getMinorAlleleFractionPosteriorSummary().getLower() + "\t" + s.getMinorAlleleFractionPosteriorSummary().getUpper());
-            writer.write(System.getProperty("line.separator"));
-        } catch (final IOException e) {
-            throw new GATKException("Error writing filtered segments.");
-        }
-    }
-
     //validate CLI arguments
     private void validateArguments() {
-        Utils.validateArg(0. <= lengthPercentile && lengthPercentile <= 100., LENGTH_PERCENTILE_LONG_NAME + " must be in [0, 100].");
-        Utils.validateArg(0. <= log2CrCredibleIntervalPercentile && log2CrCredibleIntervalPercentile <= 100., LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in [0, 100].");
-        Utils.validateArg(0. <= mafCredibleIntervalPercentile && mafCredibleIntervalPercentile <= 100., MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME + " must be in [0, 100].");
         Utils.validateArg(maxAllelicCopyNumberClonal > 0, MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");

@@ -141,8 +141,8 @@ final class TumorHeterogeneityStateInitializationUtils {
             final double sum = DoubleStream.of(unnormalizedPopulationFractions).sum();
             if (sum > 0) {
                 final List<Double> populationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-                logger.info("Proposing population fractions using prior.");
-                logger.info("Proposed population fractions: " + populationFractions);
+                logger.debug("Proposing population fractions using prior.");
+                logger.debug("Proposed population fractions: " + populationFractions);
                 return new TumorHeterogeneityState.PopulationFractions(populationFractions);
             }
         }
@@ -161,8 +161,8 @@ final class TumorHeterogeneityStateInitializationUtils {
         //sampling from Dirichlet(alpha_vec) is equivalent to sampling from individual Gamma(alpha_vec_i, 1) distributions and normalizing
         final double[] unnormalizedPopulationFractions = IntStream.range(0, numPopulations).boxed().mapToDouble(pi -> new GammaDistribution(rng, concentration + proposalWidthFactor * populationFractions.get(pi), 1.).sample()).toArray();
         final List<Double> proposedPopulationFractions = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedPopulationFractions));
-        logger.info("Proposing population fractions using posterior.");
-        logger.info("Proposed population fractions: " + proposedPopulationFractions);
+        logger.debug("Proposing population fractions using posterior.");
+        logger.debug("Proposed population fractions: " + proposedPopulationFractions);
         return new TumorHeterogeneityState.PopulationFractions(proposedPopulationFractions);
     }
 

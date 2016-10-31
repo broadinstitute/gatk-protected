@@ -20,7 +20,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
 //            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.8/total_segments-log2cr_sd-0.05-maf_sd-0.005.acnv.seg")
 //    );
     private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
-            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
+            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
     );
 //    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
 //            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-0-SM-74NEG-sim-final.seg"),
@@ -41,17 +41,13 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
             final String[] arguments = {
                     "--" + ExomeStandardArgumentDefinitions.SEGMENT_FILE_LONG_NAME, ACNV_SEGMENT_FILE.getAbsolutePath(),
                     "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
-//                    "--" + TumorHeterogeneity.DO_FILTER_SEGMENTS_LONG_NAME,
-//                    "--" + TumorHeterogeneity.LENGTH_PERCENTILE_LONG_NAME, "5",
-//                    "--" + TumorHeterogeneity.LOG2_COPY_RATIO_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME, "95",
-//                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_CREDIBLE_INTERVAL_PERCENTILE_LONG_NAME, "95",
-                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "6",
-                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "6",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "2000",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "30000",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10000",
-                    "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME, "0.2",
+                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "5",
+                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "10",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10",
+                    "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME, "0.5",
                     "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_LONG_NAME, "0.2",
                     "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "1000",
                     "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "1000",
@@ -59,13 +55,13 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_LONG_NAME, "1E1",
-                    "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "25",
-                    "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "0.5",
-                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "25",
-                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "0.5",
+                    "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1",
+                    "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E2",
+                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1",
+                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E2",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-1",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-1",
-                    "--verbosity", "WARNING"
+                    "--verbosity", "DEBUG"
             };
             runCommandLine(arguments);
         }

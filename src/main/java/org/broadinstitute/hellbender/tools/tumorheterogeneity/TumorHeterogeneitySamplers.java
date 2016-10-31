@@ -44,7 +44,7 @@ final class TumorHeterogeneitySamplers {
 
         @Override
         public Double sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
-            logger.info("Ploidy of current state: " + state.ploidy(data));
+            logger.debug("Ploidy of current state: " + state.ploidy(data));
             final int numPopulations = state.numPopulations();
             final Function<Double, Double> logConditionalPDF = newConcentration -> {
                 final double populationFractionsTerm = IntStream.range(0, numPopulations)
@@ -53,7 +53,7 @@ final class TumorHeterogeneitySamplers {
                         Gamma.logGamma(newConcentration * numPopulations) - numPopulations * Gamma.logGamma(newConcentration) + populationFractionsTerm;
             };
             final double concentration = new SliceSampler(rng, logConditionalPDF, concentrationMin, concentrationMax, concentrationSliceSamplingWidth).sample(state.concentration());
-            logger.info("Sampled concentration: " + concentration);
+            logger.debug("Sampled concentration: " + concentration);
             return concentration;
         }
     }
@@ -75,7 +75,7 @@ final class TumorHeterogeneitySamplers {
                 return calculateLogPosterior(newState, data);
             };
             final double copyRatioNoiseFactor = new SliceSampler(rng, logConditionalPDF, MIN, MAX, copyRatioNoiseFactorSliceSamplingWidth).sample(state.copyRatioNoiseFactor());
-            logger.info("Sampled CR noise factor: " + copyRatioNoiseFactor);
+            logger.debug("Sampled CR noise factor: " + copyRatioNoiseFactor);
             return copyRatioNoiseFactor;
         }
     }
@@ -97,7 +97,7 @@ final class TumorHeterogeneitySamplers {
                 return calculateLogPosterior(newState, data);
             };
             final double minorAlleleFractionNoiseFactor = new SliceSampler(rng, logConditionalPDF, MIN, MAX, minorAlleleFractionNoiseFactorSliceSamplingWidth).sample(state.minorAlleleFractionNoiseFactor());
-            logger.info("Sampled MAF noise factor: " + minorAlleleFractionNoiseFactor);
+            logger.debug("Sampled MAF noise factor: " + minorAlleleFractionNoiseFactor);
             return minorAlleleFractionNoiseFactor;
         }
     }
@@ -108,7 +108,7 @@ final class TumorHeterogeneitySamplers {
         @Override
         public TumorHeterogeneityState.PopulationFractions sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             final TumorHeterogeneityState.PopulationFractions populationFractions = sampleMetropolis(rng, state, data);
-            logger.info("Sampled population fractions: " + populationFractions);
+            logger.debug("Sampled population fractions: " + populationFractions);
             return populationFractions;
         }
 
@@ -118,10 +118,10 @@ final class TumorHeterogeneitySamplers {
             final double currentLogPosterior = calculateLogPosterior(state, data);
             final double logProposalRatio = calculateLogProposalRatio(state, proposedState);
             final double acceptanceProbability = Math.min(1., Math.exp(proposedLogPosterior - currentLogPosterior + logProposalRatio));
-            logger.info("Log posterior of current state: " + currentLogPosterior);
-            logger.info("Log posterior of proposed state: " + proposedLogPosterior);
+            logger.debug("Log posterior of current state: " + currentLogPosterior);
+            logger.debug("Log posterior of proposed state: " + proposedLogPosterior);
             if (rng.nextDouble() < acceptanceProbability) {
-                logger.info("Proposed state accepted.");
+                logger.debug("Proposed state accepted.");
                 state.set(proposedState);
             }
             return new TumorHeterogeneityState.PopulationFractions(state.populationFractions());
@@ -188,8 +188,8 @@ final class TumorHeterogeneitySamplers {
         public TumorHeterogeneityState.VariantProfile sample(final RandomGenerator rng, final TumorHeterogeneityState state, final TumorHeterogeneityData data) {
             final TumorHeterogeneityState.VariantProfile.PloidyStateIndicators ploidyStateIndicators = ploidyStateIndicatorsSampler.sample(rng, state, data);
             final List<PloidyState> ploidyStates = state.priors().ploidyStatePrior().ploidyStates();
-            logger.debug("Sampled ploidy states for population " + populationIndex + ": " + ploidyStateIndicators.stream()
-                    .map(i -> ploidyStates.get(i).toString()).collect(Collectors.joining(" ")));
+//            logger.debug("Sampled ploidy states for population " + populationIndex + ": " + ploidyStateIndicators.stream()
+//                    .map(i -> ploidyStates.get(i).toString()).collect(Collectors.joining(" ")));
             return new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators);
         }
 

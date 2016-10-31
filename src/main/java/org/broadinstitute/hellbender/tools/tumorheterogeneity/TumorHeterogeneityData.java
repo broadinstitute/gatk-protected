@@ -52,7 +52,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = 1E-10;
-    private static final double COPY_RATIO_THRESHOLD = 5E-3; //below this, do not use minor-allele fraction posterior
+    private static final double COPY_RATIO_THRESHOLD = 1E-6; //below this, do not use minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
