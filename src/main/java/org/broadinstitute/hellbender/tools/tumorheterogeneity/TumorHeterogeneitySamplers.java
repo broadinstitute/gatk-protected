@@ -133,8 +133,8 @@ final class TumorHeterogeneitySamplers {
             final double proposedLogProposalProbability = calculateLogProposalProbability(proposedState, currentState);
             logger.debug("Proposal log probability of current state: " + currentLogProposalProbability);
             logger.debug("Proposal log probability of proposed state: " + proposedLogProposalProbability);
-            return 0.;
-//            return currentLogProposalProbability - proposedLogProposalProbability;
+//            return 0.;
+            return currentLogProposalProbability - proposedLogProposalProbability;
         }
 
         private static double calculateLogProposalProbability(final TumorHeterogeneityState newState,
