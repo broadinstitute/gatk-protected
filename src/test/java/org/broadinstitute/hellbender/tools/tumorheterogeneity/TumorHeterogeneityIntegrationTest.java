@@ -16,12 +16,14 @@ import static org.testng.Assert.*;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramTest {
-//    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
-//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.8/total_segments-log2cr_sd-0.05-maf_sd-0.005.acnv.seg")
-//    );
     private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
-            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
+            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
     );
+//    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
+//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
+//    );
 //    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
 //            new File("/home/slee/working/ipython/purity-ploidy/purity-series/0-0-SM-74NEG-sim-final.seg"),
 //            new File("/home/slee/working/ipython/purity-ploidy/purity-series/1-10-SM-74P2T-sim-final.seg"),
@@ -43,10 +45,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "5",
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "500",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "10",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "500",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "100",
                     "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME, "0.5",
                     "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_LONG_NAME, "0.2",
                     "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "1000",
