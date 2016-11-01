@@ -67,11 +67,11 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String NUM_BURN_IN_LONG_NAME = "numBurnIn";
     protected static final String NUM_BURN_IN_SHORT_NAME = "numBurn";
 
-    protected static final String PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME = "priorProposalFractionClonal";
-    protected static final String PRIOR_PROPOSAL_FRACTION_CLONAL_SHORT_NAME = "priorPropFracClonal";
+    protected static final String TAIL_PROPOSAL_FRACTION_CLONAL_LONG_NAME = "tailProposalFractionClonal";
+    protected static final String TAIL_PROPOSAL_FRACTION_CLONAL_SHORT_NAME = "tailPropFracClonal";
 
-    protected static final String PRIOR_PROPOSAL_FRACTION_LONG_NAME = "priorProposalFraction";
-    protected static final String PRIOR_PROPOSAL_FRACTION_SHORT_NAME = "priorPropFrac";
+    protected static final String TAIL_PROPOSAL_FRACTION_LONG_NAME = "tailProposalFraction";
+    protected static final String TAIL_PROPOSAL_FRACTION_SHORT_NAME = "tailPropFrac";
 
     protected static final String PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME = "proposalWidthFactorClonal";
     protected static final String PROPOSAL_WIDTH_FACTOR_CLONAL_SHORT_NAME = "propWidthFactorClonal";
@@ -182,20 +182,20 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int numBurnIn = 500;
 
     @Argument(
-            doc = "Prior-proposal fraction for Metropolis step for clonal model.",
-            fullName = PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME,
-            shortName = PRIOR_PROPOSAL_FRACTION_CLONAL_SHORT_NAME,
+            doc = "Tail-proposal fraction for Metropolis step for clonal model.",
+            fullName = TAIL_PROPOSAL_FRACTION_CLONAL_LONG_NAME,
+            shortName = TAIL_PROPOSAL_FRACTION_CLONAL_SHORT_NAME,
             optional = true
     )
     protected double priorProposalFractionClonal = 0.2;
 
     @Argument(
-            doc = "Prior-proposal fraction for Metropolis step for full model.",
-            fullName = PRIOR_PROPOSAL_FRACTION_LONG_NAME,
-            shortName = PRIOR_PROPOSAL_FRACTION_SHORT_NAME,
+            doc = "Tail-proposal fraction for Metropolis step for full model.",
+            fullName = TAIL_PROPOSAL_FRACTION_LONG_NAME,
+            shortName = TAIL_PROPOSAL_FRACTION_SHORT_NAME,
             optional = true
     )
-    protected double priorProposalFraction = 0.2;
+    protected double priorProposalFraction = 0.1;
 
     @Argument(
             doc = "Proposal-width factor for Metropolis step for clonal model.",

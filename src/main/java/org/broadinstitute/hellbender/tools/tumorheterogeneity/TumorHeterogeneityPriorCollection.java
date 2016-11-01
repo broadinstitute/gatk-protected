@@ -63,7 +63,7 @@ public final class TumorHeterogeneityPriorCollection {
         return normalPloidyStateIndex;
     }
 
-    public double priorProposalFraction() {
+    public double tailProposalFraction() {
         return priorProposalFraction;
     }
 

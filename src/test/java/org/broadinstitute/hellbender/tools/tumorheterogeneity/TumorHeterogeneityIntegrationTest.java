@@ -8,8 +8,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.testng.Assert.*;
-
 /**
  * Integration tests for {@link TumorHeterogeneity}.
  *
@@ -22,8 +20,8 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
 //            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
 //    );
     private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
-            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
-            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
             new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
     );
 //    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
@@ -49,12 +47,12 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
                     "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "1000",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "5000",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "1000",
-                    "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_CLONAL_LONG_NAME, "0.2",
-                    "--" + TumorHeterogeneity.PRIOR_PROPOSAL_FRACTION_LONG_NAME, "0.1",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "10",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "10",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "10000",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "5000",
+                    "--" + TumorHeterogeneity.TAIL_PROPOSAL_FRACTION_CLONAL_LONG_NAME, "0.2",
+                    "--" + TumorHeterogeneity.TAIL_PROPOSAL_FRACTION_LONG_NAME, "0.1",
+                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "1000",
+                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "1000",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
