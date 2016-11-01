@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools;
 
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
 import org.apache.spark.SparkException;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.engine.AuthHolder;
@@ -177,7 +178,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
     @Test
     public void testReferenceMultiSourceIsSerializable() {
-        final ReferenceMultiSource args = new ReferenceMultiSource((AuthHolder)null, BaseTest.b37_2bit_reference_20_21, ReferenceWindowFunctions.IDENTITY_FUNCTION);
+        final ReferenceMultiSource args = new ReferenceMultiSource((PipelineOptions) null, BaseTest.b37_2bit_reference_20_21, ReferenceWindowFunctions.IDENTITY_FUNCTION);
         SparkTestUtils.roundTripInKryo(args, ReferenceMultiSource.class, SparkContextFactory.getTestSparkContext().getConf());
     }
 
