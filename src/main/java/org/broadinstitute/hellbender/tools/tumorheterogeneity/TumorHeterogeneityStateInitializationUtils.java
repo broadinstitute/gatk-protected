@@ -56,25 +56,27 @@ final class TumorHeterogeneityStateInitializationUtils {
         final double concentration = state.concentration();
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
-        final double priorProposalFraction = state.priors().priorProposalFraction();
+        final double tailProposalFraction = state.priors().tailProposalFraction();
         final double proposalWidthFactor = state.priors().proposalWidthFactor();
-        final boolean doSampleFromPrior = rng.nextDouble() < priorProposalFraction;
+        final boolean doSampleFromTail = rng.nextDouble() < tailProposalFraction;
         //randomly initialize population fractions from prior
-        final TumorHeterogeneityState.PopulationFractions populationFractions = doSampleFromPrior ?
-                initializePopulationFractions(numPopulations, concentration, rng) :
-                rng.nextDouble() < 0.9 ?
-                        initializePopulationFractions(state.populationFractions(), concentration, 10 * proposalWidthFactor, rng) :
-                        initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
+        final TumorHeterogeneityState.PopulationFractions populationFractions = doSampleFromTail ?
+                initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor / 10., rng) :
+                initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
         //initialize variant profiles using sampler
         final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityPriorCollection priors = state.priors();
-        final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = doSampleFromPrior ?
-                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
+        final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection =
+//                doSampleFromTail ?
+//                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
 //                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
                 concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
+//        if (doSampleFromTail) {
+//            logger.debug("Proposing population fractions using tail.");
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
+//        }
         return proposedState;
     }
 
@@ -91,10 +93,10 @@ final class TumorHeterogeneityStateInitializationUtils {
         Utils.validateArg(clonalModeller.getPopulationFractionsSamples().get(0).size() == 2,
                 "Clonal modeller must have two populations (clone + normal).");
 
-        //initialize global parameters to posterior mean of clonal result
-        final double clonalConcentration = new Mean().evaluate(Doubles.toArray(clonalModeller.getConcentrationSamples()));
-        final double clonalCopyRatioNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getCopyRatioNoiseFactorSamples()));
-        final double clonalMinorAlleleFractionNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getMinorAlleleFractionNoiseFactorSamples()));
+        //initialize global parameters to prior mean or posterior mean of clonal result
+        final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
+        final double copyRatioNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getCopyRatioNoiseFactorSamples()));
+        final double minorAlleleFractionNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getMinorAlleleFractionNoiseFactorSamples()));
 
         //initialize normal fraction to posterior mean of clonal result
         final double[] normalFractionSamples = clonalModeller.getPopulationFractionsSamples().stream()
@@ -128,7 +130,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
 
         return new TumorHeterogeneityState(
-                clonalConcentration, clonalCopyRatioNoiseFactor, clonalMinorAlleleFractionNoiseFactor, initialPopulationFractions, initialVariantProfileCollection, priors);
+                concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPopulationFractions, initialVariantProfileCollection, priors);
     }
 
     /**
