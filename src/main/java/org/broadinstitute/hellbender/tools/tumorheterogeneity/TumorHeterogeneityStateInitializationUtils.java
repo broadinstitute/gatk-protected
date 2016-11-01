@@ -62,14 +62,16 @@ final class TumorHeterogeneityStateInitializationUtils {
         //randomly initialize population fractions from prior
         final TumorHeterogeneityState.PopulationFractions populationFractions = doSampleFromPrior ?
                 initializePopulationFractions(numPopulations, concentration, rng) :
-                initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
+                rng.nextDouble() < 0.9 ?
+                        initializePopulationFractions(state.populationFractions(), concentration, 10 * proposalWidthFactor, rng) :
+                        initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
         //initialize variant profiles using sampler
         final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityPriorCollection priors = state.priors();
         final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection = doSampleFromPrior ?
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
-//                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
-                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
+                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
+//                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
                 concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
@@ -109,11 +111,14 @@ final class TumorHeterogeneityStateInitializationUtils {
         final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
         //add clonal population
         initialFractions.add(1. - clonalNormalFraction);
+//        initialFractions.add((1. - clonalNormalFraction) / (maxNumPopulations - 1));
         initialVariantProfiles.add(initialClonalProfile);
         //initialize additional variant profiles with zero population fraction and normal profile
         for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
             initialFractions.add(1, 0.);
             initialVariantProfiles.add(1, TumorHeterogeneityStateInitializationUtils.initializeNormalProfile(data.numSegments(), priors.normalPloidyStateIndex()));
+//            initialFractions.add((1. - clonalNormalFraction) / (maxNumPopulations - 1));
+//            initialVariantProfiles.add(1, new TumorHeterogeneityState.VariantProfile(initialClonalProfile));
         }
         //add normal population fraction
         initialFractions.add(clonalNormalFraction);
@@ -186,7 +191,7 @@ final class TumorHeterogeneityStateInitializationUtils {
             ploidyStateIndicators.add(ploidyStateIndicatorMode);
         }
         return new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(ploidyStateIndicators));
+                new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators));
     }
 
     /**
@@ -204,8 +209,8 @@ final class TumorHeterogeneityStateInitializationUtils {
      */
     private static TumorHeterogeneityState.VariantProfile initializeNormalProfile(final int numSegments,
                                                                                   final int normalPloidyStateIndex) {
-        final TumorHeterogeneityState.VariantProfile.PloidyStateIndicators ploidyStateIndicators =
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.nCopies(numSegments, normalPloidyStateIndex));
+        final TumorHeterogeneityState.VariantProfile ploidyStateIndicators =
+                new TumorHeterogeneityState.VariantProfile(Collections.nCopies(numSegments, normalPloidyStateIndex));
         return new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators);
     }
 }
