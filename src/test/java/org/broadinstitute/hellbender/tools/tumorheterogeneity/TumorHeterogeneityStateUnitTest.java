@@ -45,9 +45,9 @@ public class TumorHeterogeneityStateUnitTest {
         final double minorAlleleFractionNoiseFactor = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
         final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(0, 1)));
+                new TumorHeterogeneityState.VariantProfile(Arrays.asList(0, 1)));
         final TumorHeterogeneityState.VariantProfile variantProfile2 = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(2, 0)));
+                new TumorHeterogeneityState.VariantProfile(Arrays.asList(2, 0)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Arrays.asList(variantProfile1, variantProfile2));
         STATE = new TumorHeterogeneityState(concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfiles, PRIORS);
 
@@ -100,7 +100,7 @@ public class TumorHeterogeneityStateUnitTest {
         final double minorAlleleFractionNoiseFactor = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(0)));
+                new TumorHeterogeneityState.VariantProfile(Collections.singletonList(0)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfiles, PRIORS);
     }
@@ -124,7 +124,7 @@ public class TumorHeterogeneityStateUnitTest {
         final double minorAlleleFractionNoiseFactor = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(0)));
+                new TumorHeterogeneityState.VariantProfile(Collections.singletonList(0)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfiles, PRIORS);
     }
@@ -137,9 +137,9 @@ public class TumorHeterogeneityStateUnitTest {
         final double minorAlleleFractionNoiseFactor = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
         final TumorHeterogeneityState.VariantProfile variantProfile1 = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(0)));
+                new TumorHeterogeneityState.VariantProfile(Collections.singletonList(0)));
         final TumorHeterogeneityState.VariantProfile variantProfile2 = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(0, 1)));
+                new TumorHeterogeneityState.VariantProfile(Arrays.asList(0, 1)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Arrays.asList(variantProfile1, variantProfile2));
         new TumorHeterogeneityState(concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfiles, PRIORS);
     }
@@ -152,7 +152,7 @@ public class TumorHeterogeneityStateUnitTest {
         final double minorAlleleFractionNoiseFactor = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Arrays.asList(0, 1)));
+                new TumorHeterogeneityState.VariantProfile(Arrays.asList(0, 1)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfiles, PRIORS);
     }
@@ -165,7 +165,7 @@ public class TumorHeterogeneityStateUnitTest {
         final double minorAlleleFractionNoiseFactor = 1.;
         final TumorHeterogeneityState.PopulationFractions populationFractions = new TumorHeterogeneityState.PopulationFractions(Arrays.asList(0.1, 0.9));
         final TumorHeterogeneityState.VariantProfile variantProfile = new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile.PloidyStateIndicators(Collections.singletonList(3)));
+                new TumorHeterogeneityState.VariantProfile(Collections.singletonList(3)));
         final TumorHeterogeneityState.VariantProfileCollection variantProfiles = new TumorHeterogeneityState.VariantProfileCollection(Collections.singletonList(variantProfile));
         new TumorHeterogeneityState(concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfiles, PRIORS);
     }

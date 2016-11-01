@@ -32,8 +32,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
                 new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, copyRatioNoiseFactor),
                 new Parameter<>(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, minorAlleleFractionNoiseFactor),
-                new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, populationFractions),
-                new Parameter<>(TumorHeterogeneityParameter.VARIANT_PROFILES, variantProfileCollection)));
+                new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, new PopulationFractions(populationFractions)),
+                new Parameter<>(TumorHeterogeneityParameter.VARIANT_PROFILES, new VariantProfileCollection(variantProfileCollection))));
         Utils.validateArg(concentration > 0, "Concentration must be positive.");
         Utils.validateArg(copyRatioNoiseFactor >= 1, "Copy-ratio noise factor must be >= 1.");
         Utils.validateArg(minorAlleleFractionNoiseFactor >= 1, "Minor-allele-fraction noise factor must be >= 1.");
@@ -41,7 +41,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         Utils.nonNull(variantProfileCollection);
         Utils.validateArg(populationFractions.numPopulations == variantProfileCollection.numVariantPopulations + 1,
                 "Number of populations must be equal to number of variant populations + 1.");
-        Utils.validateArg(variantProfileCollection.stream().map(s -> Collections.max(s.ploidyStateIndicators)).allMatch(i -> i < priors.ploidyStatePrior().numPloidyStates()),
+        Utils.validateArg(variantProfileCollection.stream().map(Collections::max).allMatch(i -> i < priors.ploidyStatePrior().numPloidyStates()),
                 "Ploidy-state indicators must be consistent with number of ploidy states.");
         Utils.nonNull(priors);
         numPopulations = populationFractions.numPopulations;
@@ -184,7 +184,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         if (populationIndex == numPopulations - 1) {
             throw new IllegalStateException("Attempted to set ploidy-state index for normal population.");
         }
-        get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).ploidyStateIndicators.set(segmentIndex, ploidyStateIndex);
+        get(TumorHeterogeneityParameter.VARIANT_PROFILES, VariantProfileCollection.class).get(populationIndex).set(segmentIndex, ploidyStateIndex);
     }
 
     void set(final TumorHeterogeneityState state) {
@@ -205,7 +205,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         private static final long serialVersionUID = 79454L;
         private final int numPopulations;
         public PopulationFractions(final List<Double> populationFractions) {
-            super(Utils.nonNull(populationFractions));
+            super(Utils.nonNull(new ArrayList<>(populationFractions)));
             Utils.validateArg(populationFractions.size() > 1, "Number of populations must be strictly greater than 1.");
             final double populationFractionNormalization = populationFractions.stream().mapToDouble(Double::doubleValue).sum();
             Utils.validateArg(Math.abs(1. - populationFractionNormalization) <= POPULATION_FRACTION_NORMALIZATION_EPSILON,
@@ -220,7 +220,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         private final int numSegments;
         private final int numVariantPopulations;
         public VariantProfileCollection(final List<VariantProfile> variantProfiles) {
-            super(Utils.nonNull(variantProfiles));
+            super(Utils.nonNull(new ArrayList<>()));
             Utils.validateArg(variantProfiles.size() > 0, "Number of variants must be positive.");
             final int numSegmentsForFirstVariant = variantProfiles.get(0).numSegments;
             Utils.validateArg(variantProfiles.stream().map(s -> s.numSegments).allMatch(n -> n == numSegmentsForFirstVariant),
@@ -228,37 +228,28 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
             Utils.validateArg(numSegmentsForFirstVariant > 0, "Number of segments must be positive.");
             numSegments = numSegmentsForFirstVariant;
             numVariantPopulations = variantProfiles.size();
+            variantProfiles.forEach(vp -> add(new VariantProfile(vp)));
         }
     }
 
     /**
      * For each variant population, represents ploidy-state indicators.
      */
-    static class VariantProfile {
-        public static final class PloidyStateIndicators extends ArrayList<Integer> {
-            //list of integers, size = number of segments, i-th element = ploidy-state index of segment i
-            private static final long serialVersionUID = 78476L;
-            private final int numSegments;
-            public PloidyStateIndicators(final List<Integer> ploidyStateIndicators) {
-                super(Utils.nonNull(ploidyStateIndicators));
-                Utils.validateArg(ploidyStateIndicators.size() > 0, "Number of segments must be positive.");
-                Utils.validateArg(ploidyStateIndicators.stream().allMatch(i -> i >= 0), "Population indicators must be non-negative.");
-                numSegments = ploidyStateIndicators.size();
-            }
-        }
-
+    static class VariantProfile extends ArrayList<Integer> {
+        //list of integers, size = number of segments, i-th element = ploidy-state index of segment i
+        private static final long serialVersionUID = 78476L;
         private final int numSegments;
-        private final PloidyStateIndicators ploidyStateIndicators;
 
-        VariantProfile(final PloidyStateIndicators ploidyStateIndicators) {
-            Utils.nonNull(ploidyStateIndicators);
-            numSegments = ploidyStateIndicators.numSegments;
-            this.ploidyStateIndicators = ploidyStateIndicators;
+        VariantProfile(final List<Integer> ploidyStateIndicators) {
+            super(Utils.nonNull(new ArrayList<>(ploidyStateIndicators)));
+            Utils.validateArg(ploidyStateIndicators.size() > 0, "Number of segments must be positive.");
+            Utils.validateArg(ploidyStateIndicators.stream().allMatch(i -> i >= 0), "Population indicators must be non-negative.");
+            numSegments = ploidyStateIndicators.size();
         }
 
         public int ploidyStateIndex(final int segmentIndex) {
             validateSegmentIndex(segmentIndex, numSegments);
-            return ploidyStateIndicators.get(segmentIndex);
+            return get(segmentIndex);
         }
 
         public int numSegments() {
