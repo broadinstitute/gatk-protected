@@ -61,7 +61,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final boolean doSampleFromTail = rng.nextDouble() < tailProposalFraction;
         //randomly initialize population fractions from prior
         final TumorHeterogeneityState.PopulationFractions populationFractions = doSampleFromTail ?
-                initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor / 10., rng) :
+                initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor / 50., rng) :
                 initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
         //initialize variant profiles using sampler
         final int numVariantPopulations = numPopulations - 1;
@@ -75,6 +75,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                 concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
 //        if (doSampleFromTail) {
 //            logger.debug("Proposing population fractions using tail.");
+//        new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
 //        }
         return proposedState;

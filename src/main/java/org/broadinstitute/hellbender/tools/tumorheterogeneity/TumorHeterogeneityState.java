@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Parameter;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterizedState;
