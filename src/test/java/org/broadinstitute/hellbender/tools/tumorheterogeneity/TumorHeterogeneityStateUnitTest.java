@@ -38,7 +38,7 @@ public class TumorHeterogeneityStateUnitTest {
         unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(1, 2), 0.);
         VARIANT_PLOIDY_STATE_PRIOR = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
         PRIORS = new TumorHeterogeneityPriorCollection(
-                NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
+                NORMAL_PLOIDY_STATE, VARIANT_PLOIDY_STATE_PRIOR, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER, DUMMY_HYPERPARAMETER);
 
         final double concentration = 1.;
         final double copyRatioNoiseFactor = 1.;

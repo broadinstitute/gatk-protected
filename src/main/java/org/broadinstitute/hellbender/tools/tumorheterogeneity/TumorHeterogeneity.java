@@ -67,12 +67,6 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String NUM_BURN_IN_LONG_NAME = "numBurnIn";
     protected static final String NUM_BURN_IN_SHORT_NAME = "numBurn";
 
-    protected static final String TAIL_PROPOSAL_FRACTION_CLONAL_LONG_NAME = "tailProposalFractionClonal";
-    protected static final String TAIL_PROPOSAL_FRACTION_CLONAL_SHORT_NAME = "tailPropFracClonal";
-
-    protected static final String TAIL_PROPOSAL_FRACTION_LONG_NAME = "tailProposalFraction";
-    protected static final String TAIL_PROPOSAL_FRACTION_SHORT_NAME = "tailPropFrac";
-
     protected static final String PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME = "proposalWidthFactorClonal";
     protected static final String PROPOSAL_WIDTH_FACTOR_CLONAL_SHORT_NAME = "propWidthFactorClonal";
 
@@ -171,7 +165,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_SAMPLES_SHORT_NAME,
             optional = true
     )
-    protected int numSamples = 2000;
+    protected int numSamples = 5000;
 
     @Argument(
             doc = "Number of burn-in samples to discard for full model.",
@@ -179,23 +173,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_BURN_IN_SHORT_NAME,
             optional = true
     )
-    protected int numBurnIn = 500;
-
-    @Argument(
-            doc = "Tail-proposal fraction for Metropolis step for clonal model.",
-            fullName = TAIL_PROPOSAL_FRACTION_CLONAL_LONG_NAME,
-            shortName = TAIL_PROPOSAL_FRACTION_CLONAL_SHORT_NAME,
-            optional = true
-    )
-    protected double priorProposalFractionClonal = 0.2;
-
-    @Argument(
-            doc = "Tail-proposal fraction for Metropolis step for full model.",
-            fullName = TAIL_PROPOSAL_FRACTION_LONG_NAME,
-            shortName = TAIL_PROPOSAL_FRACTION_SHORT_NAME,
-            optional = true
-    )
-    protected double priorProposalFraction = 0.1;
+    protected int numBurnIn = 1000;
 
     @Argument(
             doc = "Proposal-width factor for Metropolis step for clonal model.",
@@ -211,7 +189,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PROPOSAL_WIDTH_FACTOR_SHORT_NAME,
             optional = true
     )
-    protected double proposalWidthFactor = 100.;
+    protected double proposalWidthFactor = 500.;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter for clonal model.",
@@ -243,7 +221,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorBeta = 1E1;
+    protected double concentrationPriorBeta = 1E2;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -251,7 +229,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorAlpha = 100.;
+    protected double copyRatioNoiseFactorPriorAlpha = 1.;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -259,7 +237,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorBeta = 10.;
+    protected double copyRatioNoiseFactorPriorBeta = 1E2;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
@@ -267,7 +245,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double minorAlleleFractionNoiseFactorPriorAlpha = 100.;
+    protected double minorAlleleFractionNoiseFactorPriorAlpha = 1.;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
@@ -275,7 +253,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double minorAlleleFractionNoiseFactorPriorBeta = 10.;
+    protected double minorAlleleFractionNoiseFactorPriorBeta = 1E2;
 
     @Argument(
         doc = "Penalty for complete allele deletion in ploidy-state prior.",
@@ -306,7 +284,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, ploidyStatePriorClonal,
-                priorProposalFractionClonal, proposalWidthFactorClonal,
+                proposalWidthFactorClonal,
                 concentrationPriorAlphaClonal, concentrationPriorBetaClonal,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
@@ -314,7 +292,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
         final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, ploidyStatePrior,
-                priorProposalFraction, proposalWidthFactor,
+                proposalWidthFactor,
                 concentrationPriorAlpha, concentrationPriorBeta,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);

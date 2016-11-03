@@ -52,32 +52,21 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                 final TumorHeterogeneityState state,
                                                 final TumorHeterogeneityData data) {
         final int numPopulations = state.numPopulations();
-        final int numSegments = state.numSegments();
         final double concentration = state.concentration();
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
-        final double tailProposalFraction = state.priors().tailProposalFraction();
         final double proposalWidthFactor = state.priors().proposalWidthFactor();
-        final boolean doSampleFromTail = rng.nextDouble() < tailProposalFraction;
         //randomly initialize population fractions from prior
-        final TumorHeterogeneityState.PopulationFractions populationFractions = doSampleFromTail ?
-                initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor / 50., rng) :
+        final TumorHeterogeneityState.PopulationFractions populationFractions =
                 initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
         //initialize variant profiles using sampler
         final int numVariantPopulations = numPopulations - 1;
         final TumorHeterogeneityPriorCollection priors = state.priors();
         final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection =
-//                doSampleFromTail ?
-//                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex()) :
-                initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
-//                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
+                new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
                 concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
-//        if (doSampleFromTail) {
-//            logger.debug("Proposing population fractions using tail.");
-//        new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
-//        }
         return proposedState;
     }
 
@@ -102,7 +91,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         //initialize normal fraction to posterior mean of clonal result
         final double[] normalFractionSamples = clonalModeller.getPopulationFractionsSamples().stream()
                 .mapToDouble(pfs -> pfs.get(NUM_POPULATIONS_CLONAL - 1)).toArray();
-        final double clonalNormalFraction = new Mean().evaluate(normalFractionSamples);
+        final double normalFraction = new Mean().evaluate(normalFractionSamples);
 
         //initialize one variant profile to posterior mode of clonal result
         final List<TumorHeterogeneityState.VariantProfile> clonalProfileSamples = clonalModeller.getVariantProfileCollectionSamples().stream()
@@ -110,21 +99,19 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityState.VariantProfile initialClonalProfile = calculateVariantProfilePosteriorMode(clonalProfileSamples);
 
         //build new population fractions and variant-profile collection with additional variant populations
+        //split clonal fraction evenly among new populations and initialize with clonal profile
         final List<Double> initialFractions = new ArrayList<>();
         final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
         //add clonal population
-        initialFractions.add(1. - clonalNormalFraction);
-//        initialFractions.add((1. - clonalNormalFraction) / (maxNumPopulations - 1));
-        initialVariantProfiles.add(initialClonalProfile);
-        //initialize additional variant profiles with zero population fraction and normal profile
+        initialFractions.add((1. - normalFraction) / (maxNumPopulations - 1));
+        initialVariantProfiles.add(new TumorHeterogeneityState.VariantProfile(initialClonalProfile));
+        //initialize additional variant profiles
         for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
-            initialFractions.add(1, 0.);
-            initialVariantProfiles.add(1, TumorHeterogeneityStateInitializationUtils.initializeNormalProfile(data.numSegments(), priors.normalPloidyStateIndex()));
-//            initialFractions.add((1. - clonalNormalFraction) / (maxNumPopulations - 1));
-//            initialVariantProfiles.add(1, new TumorHeterogeneityState.VariantProfile(initialClonalProfile));
+            initialFractions.add((1. - normalFraction) / (maxNumPopulations - 1));
+            initialVariantProfiles.add(1, new TumorHeterogeneityState.VariantProfile(initialClonalProfile));
         }
         //add normal population fraction
-        initialFractions.add(clonalNormalFraction);
+        initialFractions.add(normalFraction);
         final TumorHeterogeneityState.PopulationFractions initialPopulationFractions =
                 new TumorHeterogeneityState.PopulationFractions(initialFractions);
         final TumorHeterogeneityState.VariantProfileCollection initialVariantProfileCollection =
