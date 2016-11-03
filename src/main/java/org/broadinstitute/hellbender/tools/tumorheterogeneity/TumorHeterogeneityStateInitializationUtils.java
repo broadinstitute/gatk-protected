@@ -104,7 +104,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final List<TumorHeterogeneityState.VariantProfile> initialVariantProfiles = new ArrayList<>();
         //add clonal population
         initialFractions.add((1. - normalFraction) / (maxNumPopulations - 1));
-        initialVariantProfiles.add(new TumorHeterogeneityState.VariantProfile(initialClonalProfile));
+        initialVariantProfiles.add(initialClonalProfile);
         //initialize additional variant profiles
         for (int i = 0; i < maxNumPopulations - NUM_POPULATIONS_CLONAL; i++) {
             initialFractions.add((1. - normalFraction) / (maxNumPopulations - 1));
@@ -180,8 +180,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                     .get().get(0);
             ploidyStateIndicators.add(ploidyStateIndicatorMode);
         }
-        return new TumorHeterogeneityState.VariantProfile(
-                new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators));
+        return new TumorHeterogeneityState.VariantProfile(ploidyStateIndicators);
     }
 
     /**

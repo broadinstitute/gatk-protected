@@ -191,7 +191,7 @@ final class TumorHeterogeneitySamplers {
             final List<Pair<Integer, Integer>> shuffledPopulationAndSegmentIndices = new ArrayList<>();
 //            Collections.shuffle(shuffledPopulationIndices, new Random(rng.nextLong()));
             for (final int populationIndex : shuffledPopulationIndices) {
-//                Collections.shuffle(shuffledSegmentIndices, new Random(rng.nextLong()));
+                Collections.shuffle(shuffledSegmentIndices, new Random(rng.nextLong()));
                 for (final int segmentIndex : shuffledSegmentIndices) {
                     shuffledPopulationAndSegmentIndices.add(new Pair<>(populationIndex, segmentIndex));
                 }
