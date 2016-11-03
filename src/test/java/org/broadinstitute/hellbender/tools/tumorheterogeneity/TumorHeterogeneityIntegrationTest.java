@@ -16,14 +16,16 @@ import java.util.List;
 public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramTest {
 //    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
 //            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.4/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
 //            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
 //            new File("/home/slee/working/ipython/purity-ploidy/integration-test/1_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
 //    );
     private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
             new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.4/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.4/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
             new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
-//            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+            new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
             new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
     );
 //    private static final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
@@ -49,10 +51,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
                     "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "2000",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "5000",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "1000",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "500",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "20000",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10000",
+                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "100",
+                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "50",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
@@ -61,8 +63,8 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E2",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E2",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-1",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-1",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-2",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-2",
                     "--verbosity", "DEBUG"
             };
             runCommandLine(arguments);

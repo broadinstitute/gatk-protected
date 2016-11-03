@@ -56,7 +56,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
         final double proposalWidthFactor = state.priors().proposalWidthFactor();
-        //randomly initialize population fractions from prior
+        //randomly initialize population fractions from proposal distribution
         final TumorHeterogeneityState.PopulationFractions populationFractions =
                 initializePopulationFractions(state.populationFractions(), concentration, proposalWidthFactor, rng);
         //initialize variant profiles using sampler
@@ -73,8 +73,7 @@ final class TumorHeterogeneityStateInitializationUtils {
     /**
      * Initialize state from a modeller run that assumes one clonal population and one normal population.
      */
-    static TumorHeterogeneityState initializeStateFromClonalResult(final TumorHeterogeneityData data,
-                                                                   final TumorHeterogeneityPriorCollection priors,
+    static TumorHeterogeneityState initializeStateFromClonalResult(final TumorHeterogeneityPriorCollection priors,
                                                                    final TumorHeterogeneityModeller clonalModeller,
                                                                    final int maxNumPopulations) {
         //double check some of the parameters
@@ -83,10 +82,10 @@ final class TumorHeterogeneityStateInitializationUtils {
         Utils.validateArg(clonalModeller.getPopulationFractionsSamples().get(0).size() == 2,
                 "Clonal modeller must have two populations (clone + normal).");
 
-        //initialize global parameters to prior mean or posterior mean of clonal result
+        //initialize global parameters to prior mean
         final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
-        final double copyRatioNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getCopyRatioNoiseFactorSamples()));
-        final double minorAlleleFractionNoiseFactor = new Mean().evaluate(Doubles.toArray(clonalModeller.getMinorAlleleFractionNoiseFactorSamples()));
+        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
+        final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
 
         //initialize normal fraction to posterior mean of clonal result
         final double[] normalFractionSamples = clonalModeller.getPopulationFractionsSamples().stream()
