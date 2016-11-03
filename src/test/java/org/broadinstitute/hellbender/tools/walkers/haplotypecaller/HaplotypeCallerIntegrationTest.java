@@ -1,20 +1,17 @@
 package org.broadinstitute.hellbender.tools.walkers.haplotypecaller;
 
-import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
-import org.broadinstitute.hellbender.engine.FeatureDataSource;
 import org.broadinstitute.hellbender.engine.ReadsDataSource;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.test.IntegrationTestSpec;
+import org.broadinstitute.hellbender.utils.test.VariantContextTestUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
 
@@ -99,7 +96,7 @@ public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = VariantContextTestUtils.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in VCF mode is < 99%");
     }
 
@@ -132,7 +129,7 @@ public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = VariantContextTestUtils.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in AS VCF mode is < 99%");
     }
 
@@ -215,7 +212,7 @@ public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = VariantContextTestUtils.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in GVCF mode is < 99%");
     }
 
@@ -245,7 +242,7 @@ public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = VariantContextTestUtils.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in AS GVCF mode is < 99%.");
     }
 
@@ -307,47 +304,4 @@ public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
         IntegrationTestSpec.assertEqualTextFiles(output, expected);
     }
 
-    /*
-     * Calculate rough concordance between two vcfs, comparing only the positions, alleles, and the first genotype.
-     */
-    public static double calculateConcordance( final File actual, final File expected ) {
-        final Set<String> actualVCFKeys = new HashSet<>();
-        final Set<String> expectedVCFKeys = new HashSet<>();
-        int concordant = 0;
-        int discordant = 0;
-
-        try ( final FeatureDataSource<VariantContext> actualSource = new FeatureDataSource<>(actual);
-              final FeatureDataSource<VariantContext> expectedSource = new FeatureDataSource<>(expected) ) {
-
-            for ( final VariantContext vc : actualSource ) {
-                actualVCFKeys.add(keyForVariant(vc));
-            }
-
-            for ( final VariantContext vc : expectedSource ) {
-                expectedVCFKeys.add(keyForVariant(vc));
-            }
-
-            for ( final String vcKey : actualVCFKeys ) {
-                if ( ! expectedVCFKeys.contains(vcKey) ) {
-                    ++discordant;
-                }
-                else {
-                    ++concordant;
-                }
-            }
-
-            for ( final String vcKey : expectedVCFKeys ) {
-                if ( ! actualVCFKeys.contains(vcKey) ) {
-                    ++discordant;
-                }
-            }
-        }
-
-        return (double)concordant / (double)(concordant + discordant);
-    }
-
-    private static String keyForVariant( final VariantContext variant ) {
-        return String.format("%s:%d-%d %s %s", variant.getContig(), variant.getStart(), variant.getEnd(),
-                variant.getAlleles(), variant.getGenotype(0).getGenotypeString(false));
-    }
 }
