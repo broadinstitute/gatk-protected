@@ -14,6 +14,8 @@ public final class TumorHeterogeneityPriorCollection {
     private final double proposalWidthFactor;
     private final double concentrationPriorAlpha;
     private final double concentrationPriorBeta;
+    private final double copyRatioNoiseFloorPriorAlpha;
+    private final double copyRatioNoiseFloorPriorBeta;
     private final double copyRatioNoiseFactorPriorAlpha;
     private final double copyRatioNoiseFactorPriorBeta;
     private final double minorAlleleFractionNoiseFactorPriorAlpha;
@@ -24,6 +26,8 @@ public final class TumorHeterogeneityPriorCollection {
                                              final double proposalWidthFactor,
                                              final double concentrationPriorAlpha,
                                              final double concentrationPriorBeta,
+                                             final double copyRatioNoiseFloorPriorAlpha,
+                                             final double copyRatioNoiseFloorPriorBeta,
                                              final double copyRatioNoiseFactorPriorAlpha,
                                              final double copyRatioNoiseFactorPriorBeta,
                                              final double minorAlleleFractionNoiseFactorPriorAlpha,
@@ -35,6 +39,8 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.validateArg(proposalWidthFactor > 0, "Proposal-width factor must be positive.");
         Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
+        Utils.validateArg(copyRatioNoiseFloorPriorAlpha > 0, "Hyperparameter for copy-ratio noise-floor prior must be positive.");
+        Utils.validateArg(copyRatioNoiseFloorPriorBeta > 0, "Hyperparameter for copy-ratio noise-floor prior must be positive.");
         Utils.validateArg(copyRatioNoiseFactorPriorAlpha > 0, "Hyperparameter for copy-ratio noise-factor prior must be positive.");
         Utils.validateArg(copyRatioNoiseFactorPriorBeta > 0, "Hyperparameter for copy-ratio noise-factor prior must be positive.");
         Utils.validateArg(minorAlleleFractionNoiseFactorPriorAlpha > 0, "Hyperparameter for minor-allele-fraction noise-factor prior must be positive.");
@@ -45,6 +51,8 @@ public final class TumorHeterogeneityPriorCollection {
         this.proposalWidthFactor = proposalWidthFactor;
         this.concentrationPriorAlpha = concentrationPriorAlpha;
         this.concentrationPriorBeta = concentrationPriorBeta;
+        this.copyRatioNoiseFloorPriorAlpha = copyRatioNoiseFloorPriorAlpha;
+        this.copyRatioNoiseFloorPriorBeta = copyRatioNoiseFloorPriorBeta;
         this.copyRatioNoiseFactorPriorAlpha = copyRatioNoiseFactorPriorAlpha;
         this.copyRatioNoiseFactorPriorBeta = copyRatioNoiseFactorPriorBeta;
         this.minorAlleleFractionNoiseFactorPriorAlpha = minorAlleleFractionNoiseFactorPriorAlpha;
@@ -73,6 +81,14 @@ public final class TumorHeterogeneityPriorCollection {
 
     public double concentrationPriorBeta() {
         return concentrationPriorBeta;
+    }
+
+    public double copyRatioNoiseFloorPriorAlpha() {
+        return copyRatioNoiseFloorPriorAlpha;
+    }
+
+    public double copyRatioNoiseFloorPriorBeta() {
+        return copyRatioNoiseFloorPriorBeta;
     }
 
     public double copyRatioNoiseFactorPriorAlpha() {

@@ -85,6 +85,12 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String CONCENTRATION_PRIOR_BETA_LONG_NAME = "concentrationPriorBeta";
     protected static final String CONCENTRATION_PRIOR_BETA_SHORT_NAME = "concBeta";
 
+    protected static final String COPY_RATIO_NOISE_FLOOR_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseFloorPriorAlpha";
+    protected static final String COPY_RATIO_NOISE_FLOOR_PRIOR_ALPHA_SHORT_NAME = "crFloorAlpha";
+
+    protected static final String COPY_RATIO_NOISE_FLOOR_PRIOR_BETA_LONG_NAME = "copyRatioNoiseFloorPriorBeta";
+    protected static final String COPY_RATIO_NOISE_FLOOR_PRIOR_BETA_SHORT_NAME = "crFloorBeta";
+
     protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseFactorPriorAlpha";
     protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "crNoiseAlpha";
 
@@ -224,12 +230,28 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double concentrationPriorBeta = 1E2;
 
     @Argument(
+            doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-floor parameter.",
+            fullName = COPY_RATIO_NOISE_FLOOR_PRIOR_ALPHA_LONG_NAME,
+            shortName = COPY_RATIO_NOISE_FLOOR_PRIOR_ALPHA_SHORT_NAME,
+            optional = true
+    )
+    protected double copyRatioNoiseFloorPriorAlpha = 1E-1;
+
+    @Argument(
+            doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-floor parameter.",
+            fullName = COPY_RATIO_NOISE_FLOOR_PRIOR_BETA_LONG_NAME,
+            shortName = COPY_RATIO_NOISE_FLOOR_PRIOR_BETA_SHORT_NAME,
+            optional = true
+    )
+    protected double copyRatioNoiseFloorPriorBeta = 1E1;
+
+    @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
             fullName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorAlpha = 1.;
+    protected double copyRatioNoiseFactorPriorAlpha = 1E-1;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -286,6 +308,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 NORMAL_PLOIDY_STATE, ploidyStatePriorClonal,
                 proposalWidthFactorClonal,
                 concentrationPriorAlphaClonal, concentrationPriorBetaClonal,
+                copyRatioNoiseFloorPriorAlpha, copyRatioNoiseFloorPriorBeta,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
 
@@ -294,6 +317,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 NORMAL_PLOIDY_STATE, ploidyStatePrior,
                 proposalWidthFactor,
                 concentrationPriorAlpha, concentrationPriorBeta,
+                copyRatioNoiseFloorPriorAlpha, copyRatioNoiseFloorPriorBeta,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
 
@@ -329,6 +353,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
     //validate CLI arguments
     private void validateArguments() {
+        //TODO UPDATE THIS
         Utils.validateArg(maxAllelicCopyNumberClonal > 0, MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");

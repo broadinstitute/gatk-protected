@@ -89,9 +89,10 @@ public class TumorHeterogeneityDataUnitTest {
         final int segmentIndex = 0;
         final double copyRatio = 1.;
         final double minorAlleleFraction = 0.25;    //density is flat in MAF for NaN MAF posterior, so this value is arbitrary
-        final double copyRatioNoiseFactor = 1.;
+        final double copyRatioNoiseFloor = 0.;
+        final double copyRatioNoiseFactor = 0.;
         final double minorAlleleFractionNoiseFactor = 1.;
-        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
+        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
 
         //calculate expected log density from true distribution at point
         final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
@@ -132,9 +133,10 @@ public class TumorHeterogeneityDataUnitTest {
         final int segmentIndex = 0;
         final double copyRatio = 1.;
         final double minorAlleleFraction = 0.25;
-        final double copyRatioNoiseFactor = 1.;
+        final double copyRatioNoiseFloor = 0.;
+        final double copyRatioNoiseFactor = 0.;
         final double minorAlleleFractionNoiseFactor = 1.;
-        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
+        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
 
         //calculate expected log density from true distribution at point
         final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;

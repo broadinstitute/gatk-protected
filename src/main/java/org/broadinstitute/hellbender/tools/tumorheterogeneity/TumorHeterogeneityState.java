@@ -25,18 +25,21 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     private final TumorHeterogeneityPriorCollection priors;
 
-    public TumorHeterogeneityState(final double concentration, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor,
+    public TumorHeterogeneityState(final double concentration,
+                                   final double copyRatioNoiseFloor, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor,
                                    final PopulationFractions populationFractions,
                                    final VariantProfileCollection variantProfileCollection,
                                    final TumorHeterogeneityPriorCollection priors) {
         super(Arrays.asList(
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
+                new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FLOOR, copyRatioNoiseFloor),
                 new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, copyRatioNoiseFactor),
                 new Parameter<>(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, minorAlleleFractionNoiseFactor),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_FRACTIONS, new PopulationFractions(populationFractions)),
                 new Parameter<>(TumorHeterogeneityParameter.VARIANT_PROFILES, new VariantProfileCollection(variantProfileCollection))));
         Utils.validateArg(concentration > 0, "Concentration must be positive.");
-        Utils.validateArg(copyRatioNoiseFactor >= 1, "Copy-ratio noise factor must be >= 1.");
+        Utils.validateArg(copyRatioNoiseFactor >= 0, "Copy-ratio noise floor must be non-negative.");
+        Utils.validateArg(copyRatioNoiseFactor >= 0, "Copy-ratio noise factor must be non-negative.");
         Utils.validateArg(minorAlleleFractionNoiseFactor >= 1, "Minor-allele-fraction noise factor must be >= 1.");
         Utils.nonNull(populationFractions);
         Utils.nonNull(variantProfileCollection);
@@ -65,6 +68,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     public double concentration() {
         return get(TumorHeterogeneityParameter.CONCENTRATION, Double.class);
+    }
+
+    public double copyRatioNoiseFloor() {
+        return get(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FLOOR, Double.class);
     }
 
     public double copyRatioNoiseFactor() {
@@ -190,6 +197,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     void set(final TumorHeterogeneityState state) {
         update(TumorHeterogeneityParameter.CONCENTRATION, state.concentration());
+        update(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FLOOR, state.copyRatioNoiseFloor());
         update(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, state.copyRatioNoiseFactor());
         update(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, state.minorAlleleFractionNoiseFactor());
         update(TumorHeterogeneityParameter.POPULATION_FRACTIONS, state.populationFractions());
