@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,7 +51,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = 1E-10;
-    private static final double COPY_RATIO_THRESHOLD = 1E-6; //below this, do not use minor-allele fraction posterior
+    private static final double COPY_RATIO_EPSILON = 1E-6; //below this, do not use minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
@@ -98,11 +97,11 @@ public final class TumorHeterogeneityData implements DataCollection {
     }
 
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction,
-                             final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
+                             final double copyRatioNoiseFloor, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
         Utils.validateArg(0 <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
-        return segmentPosteriors.get(segmentIndex).logDensity(copyRatio, minorAlleleFraction, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
+        return segmentPosteriors.get(segmentIndex).logDensity(copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
     }
 
     private final class ACNVSegmentPosterior {
@@ -126,11 +125,11 @@ public final class TumorHeterogeneityData implements DataCollection {
         }
 
         double logDensity(final double copyRatio, final double minorAlleleFraction,
-                          final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
-            final double log2CopyRatio = Math.log(copyRatio + COPY_RATIO_THRESHOLD) * INV_LN2;
+                          final double copyRatioNoiseFloor, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
+            final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON) * INV_LN2;
             final double copyRatioPosteriorLogDensity =
-                    log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + COPY_RATIO_THRESHOLD);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
-            if (copyRatio < COPY_RATIO_THRESHOLD) {
+                    log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            if (copyRatio < COPY_RATIO_EPSILON) {
                 return copyRatioPosteriorLogDensity;
             }
             final double minorAlleleFractionBounded = Math.max(Math.min(0.5 - EPSILON, minorAlleleFraction), EPSILON);
@@ -165,7 +164,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             return point -> {
                 final double log2cr = point[0];
                 final double copyRatioNoiseFactor = point[1];
-                return new NormalDistribution(null, mean, standardDeviation * copyRatioNoiseFactor).logDensity(log2cr);
+                return new NormalDistribution(null, mean, standardDeviation + copyRatioNoiseFactor).logDensity(log2cr);
             };
         }
 

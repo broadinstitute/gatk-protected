@@ -31,7 +31,8 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                    final int numSegments,
                                                    final int numPopulations) {
         final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
-        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
+        final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorAlpha() / priors.copyRatioNoiseFloorPriorBeta();
+        final double copyRatioNoiseFactor = priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
         final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions populationFractions =
@@ -41,7 +42,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection =
                 initializeNormalProfiles(numVariantPopulations, numSegments, priors.normalPloidyStateIndex());
         return new TumorHeterogeneityState(
-                concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
+                concentration, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
     }
 
     /**
@@ -53,6 +54,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                 final TumorHeterogeneityData data) {
         final int numPopulations = state.numPopulations();
         final double concentration = state.concentration();
+        final double copyRatioNoiseFloor = state.copyRatioNoiseFloor();
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
         final double proposalWidthFactor = state.priors().proposalWidthFactor();
@@ -65,7 +67,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         final TumorHeterogeneityState.VariantProfileCollection variantProfileCollection =
                 new TumorHeterogeneityState.VariantProfileCollection(state.variantProfiles());
         final TumorHeterogeneityState proposedState = new TumorHeterogeneityState(
-                concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
+                concentration, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, populationFractions, variantProfileCollection, priors);
         new TumorHeterogeneitySamplers.VariantProfileCollectionSampler(numVariantPopulations, priors.ploidyStatePrior()).sampleGibbs(rng, proposedState, data);
         return proposedState;
     }
@@ -84,7 +86,8 @@ final class TumorHeterogeneityStateInitializationUtils {
 
         //initialize global parameters to prior mean
         final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
-        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
+        final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorAlpha() / priors.copyRatioNoiseFloorPriorBeta();
+        final double copyRatioNoiseFactor = priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
         final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
 
         //initialize normal fraction to posterior mean of clonal result
@@ -117,7 +120,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                 new TumorHeterogeneityState.VariantProfileCollection(initialVariantProfiles);
 
         return new TumorHeterogeneityState(
-                concentration, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPopulationFractions, initialVariantProfileCollection, priors);
+                concentration, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPopulationFractions, initialVariantProfileCollection, priors);
     }
 
     /**
