@@ -32,7 +32,7 @@ final class TumorHeterogeneityStateInitializationUtils {
                                                    final int numPopulations) {
         final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
         final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorAlpha() / priors.copyRatioNoiseFloorPriorBeta();
-        final double copyRatioNoiseFactor = priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
+        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
         final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
         //initialize population fractions to be evenly distributed
         final TumorHeterogeneityState.PopulationFractions populationFractions =
@@ -87,7 +87,7 @@ final class TumorHeterogeneityStateInitializationUtils {
         //initialize global parameters to prior mean
         final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
         final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorAlpha() / priors.copyRatioNoiseFloorPriorBeta();
-        final double copyRatioNoiseFactor = priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
+        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
         final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
 
         //initialize normal fraction to posterior mean of clonal result
