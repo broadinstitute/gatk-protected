@@ -235,7 +235,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FLOOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFloorPriorAlpha = 1E-1;
+    protected double copyRatioNoiseFloorPriorAlpha = 1;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-floor parameter.",
@@ -243,7 +243,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FLOOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFloorPriorBeta = 1E1;
+    protected double copyRatioNoiseFloorPriorBeta = 1E2;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -251,7 +251,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorAlpha = 1E-1;
+    protected double copyRatioNoiseFactorPriorAlpha = 1;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio noise-factor parameter.",
@@ -259,7 +259,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorBeta = 1E2;
+    protected double copyRatioNoiseFactorPriorBeta = 1E3;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on minor-allele-fraction noise-factor parameter.",
@@ -275,7 +275,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double minorAlleleFractionNoiseFactorPriorBeta = 1E2;
+    protected double minorAlleleFractionNoiseFactorPriorBeta = 1E3;
 
     @Argument(
         doc = "Penalty for complete allele deletion in ploidy-state prior.",

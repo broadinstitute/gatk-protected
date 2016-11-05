@@ -51,7 +51,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = 1E-10;
-    private static final double COPY_RATIO_EPSILON = 1E-6; //below this, do not use minor-allele fraction posterior
+    private static final double COPY_RATIO_EPSILON = 1E-6; //below this, use flat minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
@@ -59,6 +59,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private final int numSegments;
     private final List<ACNVModeledSegment> segments;
     private final List<Double> fractionalLengths;
+    private final List<Integer> segmentLengths;
     private final List<Integer> segmentIndicesByDecreasingLength;
     private final List<ACNVSegmentPosterior> segmentPosteriors;
 
@@ -69,7 +70,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         numSegments = segments.size();
         this.segments = Collections.unmodifiableList(new ArrayList<>(segments));
 
-        final List<Integer> segmentLengths = segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList());
+        segmentLengths = segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList());
         final double totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
         fractionalLengths = Collections.unmodifiableList(segmentLengths.stream().map(l -> (double) l / totalLength).collect(Collectors.toList()));
 
@@ -90,6 +91,11 @@ public final class TumorHeterogeneityData implements DataCollection {
     public double fractionalLength(final int segmentIndex) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         return fractionalLengths.get(segmentIndex);
+    }
+
+    public double length(final int segmentIndex) {
+        Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
+        return segmentLengths.get(segmentIndex);
     }
 
     public List<Integer> segmentIndicesByDecreasingLength() {
@@ -130,7 +136,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double copyRatioPosteriorLogDensity =
                     log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
             if (copyRatio < COPY_RATIO_EPSILON) {
-                return copyRatioPosteriorLogDensity;
+                return copyRatioPosteriorLogDensity + LN2;
             }
             final double minorAlleleFractionBounded = Math.max(Math.min(0.5 - EPSILON, minorAlleleFraction), EPSILON);
             final double minorAlleleFractionPosteriorLogDensity = minorAlleleFractionPosteriorLogPDF.value(new double[]{minorAlleleFractionBounded, minorAlleleFractionNoiseFactor});
@@ -164,7 +170,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             return point -> {
                 final double log2cr = point[0];
                 final double copyRatioNoiseFactor = point[1];
-                return new NormalDistribution(null, mean, standardDeviation + copyRatioNoiseFactor).logDensity(log2cr);
+                return new NormalDistribution(null, mean, standardDeviation * copyRatioNoiseFactor).logDensity(log2cr);
             };
         }
 

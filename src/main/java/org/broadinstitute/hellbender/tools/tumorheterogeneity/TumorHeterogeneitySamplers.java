@@ -28,7 +28,7 @@ import java.util.stream.IntStream;
  */
 final class TumorHeterogeneitySamplers {
     private static final double EPSILON = 1E-10;
-    private static final double COPY_RATIO_NOISE_PARAMETER_MAX = 5E-2;
+    private static final double COPY_RATIO_NOISE_FLOOR_MAX = 1E-2;
 
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneitySamplers.class);
 
@@ -63,7 +63,7 @@ final class TumorHeterogeneitySamplers {
 
     static final class CopyRatioNoiseFloorSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private static final double MIN = 0.;
-        private static final double MAX = COPY_RATIO_NOISE_PARAMETER_MAX;
+        private static final double MAX = COPY_RATIO_NOISE_FLOOR_MAX;
         private final double copyRatioNoiseFloorSliceSamplingWidth;
 
         CopyRatioNoiseFloorSampler(final double copyRatioNoiseFloorSliceSamplingWidth) {
@@ -85,7 +85,7 @@ final class TumorHeterogeneitySamplers {
 
     static final class CopyRatioNoiseFactorSampler implements ParameterSampler<Double, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
         private static final double MIN = 0.;
-        private static final double MAX = COPY_RATIO_NOISE_PARAMETER_MAX;
+        private static final double MAX = Double.POSITIVE_INFINITY;
         private final double copyRatioNoiseFactorSliceSamplingWidth;
 
         CopyRatioNoiseFactorSampler(final double copyRatioNoiseFactorSliceSamplingWidth) {
@@ -212,20 +212,20 @@ final class TumorHeterogeneitySamplers {
             final List<Integer> shuffledSegmentIndices = IntStream.range(0, state.numSegments()).boxed().collect(Collectors.toList());
             final List<Integer> shuffledPopulationIndices = IntStream.range(0, state.numPopulations() - 1).boxed().collect(Collectors.toList());
             final List<Pair<Integer, Integer>> shuffledPopulationAndSegmentIndices = new ArrayList<>();
-//            Collections.shuffle(shuffledPopulationIndices, new Random(rng.nextLong()));
+            Collections.shuffle(shuffledPopulationIndices, new Random(rng.nextLong()));
             for (final int populationIndex : shuffledPopulationIndices) {
 //                Collections.shuffle(shuffledSegmentIndices, new Random(rng.nextLong()));
-                for (final int segmentIndex : shuffledSegmentIndices) {
+                for (final int segmentIndex : data.segmentIndicesByDecreasingLength()) {
                     shuffledPopulationAndSegmentIndices.add(new Pair<>(populationIndex, segmentIndex));
                 }
             }
-            Collections.shuffle(shuffledPopulationAndSegmentIndices, new Random(rng.nextLong()));
-
-            double ploidy = state.ploidy(data);// + new NormalDistribution(rng, 0, 0.5).sample();
+//            Collections.shuffle(shuffledPopulationAndSegmentIndices, new Random(rng.nextLong()));
+            double ploidy = state.ploidy(data);
             for (final Pair<Integer, Integer> populationAndSegmentIndices : shuffledPopulationAndSegmentIndices) {
                 final int populationIndex = populationAndSegmentIndices.getFirst();
                 final int segmentIndex = populationAndSegmentIndices.getSecond();
                 final double segmentFractionalLength = data.fractionalLength(segmentIndex);
+                final double segmentLength = data.fractionalLength(segmentIndex);
                 final double populationFraction = state.populationFraction(populationIndex);
 
                 ploidy -= populationFraction * segmentFractionalLength * state.calculateCopyNumberFunction(segmentIndex, populationIndex, PloidyState::total);
@@ -237,7 +237,7 @@ final class TumorHeterogeneitySamplers {
 
                 //calculate unnormalized probabilities for all ploidy states
                 final double[] log10Probabilities = ploidyStateIndices.stream()
-                        .mapToDouble(i -> ploidyStatePriorLog10Probabilities[i] +
+                        .mapToDouble(i -> segmentLength * ploidyStatePriorLog10Probabilities[i] +
                                 MathUtils.logToLog10(calculateSegmentLogLikelihoodFromInvariantTerms(
                                         data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                         segmentIndex, populationFraction, segmentFractionalLength, ploidyStates.get(i),
@@ -286,8 +286,8 @@ final class TumorHeterogeneitySamplers {
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double logPriorCopyRatioNoiseFactor =
                 copyRatioNoiseFactorPriorAlpha * Math.log(copyRatioNoiseFactorPriorBeta + EPSILON)
-                        + (copyRatioNoiseFactorPriorAlpha - 1.) * Math.log(copyRatioNoiseFactor + EPSILON)
-                        - copyRatioNoiseFactorPriorBeta * copyRatioNoiseFactor
+                        + (copyRatioNoiseFactorPriorAlpha - 1.) * Math.log(copyRatioNoiseFactor - 1. + EPSILON)
+                        - copyRatioNoiseFactorPriorBeta * (copyRatioNoiseFactor - 1.)
                         - Gamma.logGamma(copyRatioNoiseFactorPriorAlpha);
 
         //minor-allele-fraction noise-factor prior
@@ -295,7 +295,7 @@ final class TumorHeterogeneitySamplers {
         final double minorAlleleFractionNoiseFactorPriorBeta = state.priors().minorAlleleFractionNoiseFactorPriorBeta();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
         final double logPriorMinorAlleleFractionNoiseFactor =
-                concentrationPriorAlpha * Math.log(minorAlleleFractionNoiseFactorPriorBeta + EPSILON)
+                minorAlleleFractionNoiseFactorPriorAlpha * Math.log(minorAlleleFractionNoiseFactorPriorBeta + EPSILON)
                         + (minorAlleleFractionNoiseFactorPriorAlpha - 1.) * Math.log(minorAlleleFractionNoiseFactor - 1. + EPSILON)
                         - minorAlleleFractionNoiseFactorPriorBeta * (minorAlleleFractionNoiseFactor - 1.)
                         - Gamma.logGamma(minorAlleleFractionNoiseFactorPriorAlpha);
@@ -313,9 +313,10 @@ final class TumorHeterogeneitySamplers {
         double logPriorVariantProfiles = 0.;
         for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
             for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+                final double segmentLength = data.length(segmentIndex);
                 final int ploidyStateIndex = state.ploidyStateIndex(populationIndex, segmentIndex);
                 final PloidyState ploidyState = state.priors().ploidyStatePrior().ploidyStates().get(ploidyStateIndex);
-                logPriorVariantProfiles += state.priors().ploidyStatePrior().logProbability(ploidyState);
+                logPriorVariantProfiles += segmentLength * state.priors().ploidyStatePrior().logProbability(ploidyState);
             }
         }
 
