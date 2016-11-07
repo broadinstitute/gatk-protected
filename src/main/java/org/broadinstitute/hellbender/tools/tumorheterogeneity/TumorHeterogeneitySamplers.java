@@ -214,18 +214,19 @@ final class TumorHeterogeneitySamplers {
             final List<Pair<Integer, Integer>> shuffledPopulationAndSegmentIndices = new ArrayList<>();
             Collections.shuffle(shuffledPopulationIndices, new Random(rng.nextLong()));
             for (final int populationIndex : shuffledPopulationIndices) {
-//                Collections.shuffle(shuffledSegmentIndices, new Random(rng.nextLong()));
-                for (final int segmentIndex : data.segmentIndicesByDecreasingLength()) {
+                Collections.shuffle(shuffledSegmentIndices, new Random(rng.nextLong()));
+//                for (final int segmentIndex : data.segmentIndicesByDecreasingLength()) {
+                for (final int segmentIndex : shuffledSegmentIndices) {
                     shuffledPopulationAndSegmentIndices.add(new Pair<>(populationIndex, segmentIndex));
                 }
             }
 //            Collections.shuffle(shuffledPopulationAndSegmentIndices, new Random(rng.nextLong()));
+
             double ploidy = state.ploidy(data);
             for (final Pair<Integer, Integer> populationAndSegmentIndices : shuffledPopulationAndSegmentIndices) {
                 final int populationIndex = populationAndSegmentIndices.getFirst();
                 final int segmentIndex = populationAndSegmentIndices.getSecond();
                 final double segmentFractionalLength = data.fractionalLength(segmentIndex);
-                final double segmentLength = data.fractionalLength(segmentIndex);
                 final double populationFraction = state.populationFraction(populationIndex);
 
                 ploidy -= populationFraction * segmentFractionalLength * state.calculateCopyNumberFunction(segmentIndex, populationIndex, PloidyState::total);
@@ -237,7 +238,7 @@ final class TumorHeterogeneitySamplers {
 
                 //calculate unnormalized probabilities for all ploidy states
                 final double[] log10Probabilities = ploidyStateIndices.stream()
-                        .mapToDouble(i -> segmentLength * ploidyStatePriorLog10Probabilities[i] +
+                        .mapToDouble(i -> ploidyStatePriorLog10Probabilities[i] +
                                 MathUtils.logToLog10(calculateSegmentLogLikelihoodFromInvariantTerms(
                                         data, invariantPloidyTerm, invariantMAlleleCopyNumberTerm, invariantNAlleleCopyNumberTerm,
                                         segmentIndex, populationFraction, segmentFractionalLength, ploidyStates.get(i),
@@ -313,10 +314,9 @@ final class TumorHeterogeneitySamplers {
         double logPriorVariantProfiles = 0.;
         for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
             for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
-                final double segmentLength = data.length(segmentIndex);
                 final int ploidyStateIndex = state.ploidyStateIndex(populationIndex, segmentIndex);
                 final PloidyState ploidyState = state.priors().ploidyStatePrior().ploidyStates().get(ploidyStateIndex);
-                logPriorVariantProfiles += segmentLength * state.priors().ploidyStatePrior().logProbability(ploidyState);
+                logPriorVariantProfiles += state.priors().ploidyStatePrior().logProbability(ploidyState);
             }
         }
 
