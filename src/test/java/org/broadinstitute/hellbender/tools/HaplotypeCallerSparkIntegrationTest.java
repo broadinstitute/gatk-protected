@@ -11,6 +11,7 @@ import org.broadinstitute.hellbender.engine.AuthHolder;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceWindowFunctions;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
+import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.GenotypeCalculationArgumentCollection;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerArgumentCollection;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -65,7 +66,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
      * It's included to parallel the matching (also exploding) test for the non-spark HaplotypeCaller
      * {@link org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerIntegrationTest#testVCFModeIsConcordantWithGATK3_5ResultsAlleleSpecificAnnotations()}
      */
-    @Test(expectedExceptions = SparkException.class) //this should be a UserException, but spark exceptions are not unwrapped yet
+    @Test(expectedExceptions = UserException.class) //this should be a UserException, but spark exceptions are not unwrapped yet
     public void testVCFModeIsConcordantWithGATK3_5ResultsAlleleSpecificAnnotations() throws Exception {
         Utils.resetRandomGenerator();
 

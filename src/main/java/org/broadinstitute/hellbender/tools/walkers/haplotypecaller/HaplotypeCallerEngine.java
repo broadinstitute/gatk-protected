@@ -63,31 +63,30 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
 
     private final SAMFileHeader readsHeader;
 
-    private ReferenceConfidenceModel referenceConfidenceModel = null;
+    private final ReferenceConfidenceModel referenceConfidenceModel;
 
-    private AssemblyRegionTrimmer trimmer = new AssemblyRegionTrimmer();
+    private final AssemblyRegionTrimmer trimmer = new AssemblyRegionTrimmer();
 
     // the genotyping engine for the isActive() determination
-    private MinimalGenotypingEngine activeRegionEvaluationGenotyperEngine = null;
+    private final MinimalGenotypingEngine activeRegionEvaluationGenotyperEngine;
 
-    private ReadThreadingAssembler assemblyEngine = null;
+    private final ReadThreadingAssembler assemblyEngine;
 
-    private ReadLikelihoodCalculationEngine likelihoodCalculationEngine = null;
+    private final ReadLikelihoodCalculationEngine likelihoodCalculationEngine;
 
-    private HaplotypeCallerGenotypingEngine genotypingEngine = null;
+    private final HaplotypeCallerGenotypingEngine genotypingEngine;
 
-    private VariantAnnotatorEngine annotationEngine = null;
+    private final VariantAnnotatorEngine annotationEngine;
 
     // fasta reference reader to supplement the edges of the reference sequence
     private final ReferenceSequenceFile referenceReader;
 
     // writes Haplotypes to a bam file when the -bamout option is specified
-    private Optional<HaplotypeBAMWriter> haplotypeBAMWriter;
+    private final Optional<HaplotypeBAMWriter> haplotypeBAMWriter;
 
-    private Set<String> sampleSet;
     private SampleList samplesList;
 
-    private byte minTailQuality;
+    private final byte minTailQuality;
     public static final byte MIN_TAIL_QUALITY_WITH_ERROR_CORRECTION = 6;
 
     /**
@@ -142,45 +141,42 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         this.readsHeader = Utils.nonNull(readsHeader);
         this.referenceReader = Utils.nonNull(referenceReader);
 
-        initialize();
-    }
-
-    private void initialize() {
         // Note: order of operations matters here!
 
-        initializeSamples();
+        samplesList = initializeSamples(readsHeader, hcArgs);
 
         // Must be called after initializeSamples()
-        validateAndInitializeArgs();
-        minTailQuality = (byte)(hcArgs.minBaseQualityScore - 1);
+        validateAndInitializeArgs(hcArgs, samplesList);
+        minTailQuality = (byte)(this.hcArgs.minBaseQualityScore - 1);
 
-        initializeActiveRegionEvaluationGenotyperEngine();
+        activeRegionEvaluationGenotyperEngine = createActiveRegionEvaluationGenotyperEngine(this.hcArgs, samplesList);
 
-        annotationEngine = VariantAnnotatorEngine.ofSelectedMinusExcluded(hcArgs.annotationGroupsToUse, hcArgs.annotationsToUse, hcArgs.annotationsToExclude, hcArgs.dbsnp.dbsnp, hcArgs.comps);
+        annotationEngine = VariantAnnotatorEngine.ofSelectedMinusExcluded(this.hcArgs.annotationGroupsToUse, this.hcArgs.annotationsToUse, this.hcArgs.annotationsToExclude, this.hcArgs.dbsnp.dbsnp, this.hcArgs.comps);
 
-        genotypingEngine = new HaplotypeCallerGenotypingEngine(hcArgs, samplesList, FixedAFCalculatorProvider.createThreadSafeProvider(hcArgs), ! hcArgs.doNotRunPhysicalPhasing);
-        genotypingEngine.setAnnotationEngine(annotationEngine);
+        genotypingEngine = createGenotypingEngine(annotationEngine, hcArgs, samplesList);
 
-        referenceConfidenceModel = new ReferenceConfidenceModel(samplesList, readsHeader, hcArgs.indelSizeToEliminateInRefModel);
+        referenceConfidenceModel = new ReferenceConfidenceModel(samplesList, readsHeader, this.hcArgs.indelSizeToEliminateInRefModel);
 
         //Allele-specific annotations are not yet supported in the VCF mode
-        if (isAlleleSpecificMode(annotationEngine) && isVCFMode()){
+        if (isAlleleSpecificMode(annotationEngine) && hcArgs.isVCFMode()){
            throw new UserException("Allele-specific annotations are not yet supported in the VCF mode");
         }
 
-        haplotypeBAMWriter = AssemblyBasedCallerUtils.createBamWriter(hcArgs, readsHeader);
-        assemblyEngine = AssemblyBasedCallerUtils.createReadThreadingAssembler(hcArgs);
-        likelihoodCalculationEngine = AssemblyBasedCallerUtils.createLikelihoodCalculationEngine(hcArgs.likelihoodArgs);
+        haplotypeBAMWriter = AssemblyBasedCallerUtils.createBamWriter(this.hcArgs, this.readsHeader);
+        assemblyEngine = AssemblyBasedCallerUtils.createReadThreadingAssembler(this.hcArgs);
+        likelihoodCalculationEngine = AssemblyBasedCallerUtils.createLikelihoodCalculationEngine(this.hcArgs.likelihoodArgs);
 
-        trimmer.initialize(hcArgs.assemblyRegionTrimmerArgs, readsHeader.getSequenceDictionary(), hcArgs.debug,
-                hcArgs.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES, emitReferenceConfidence());
+        trimmer.initialize(this.hcArgs.assemblyRegionTrimmerArgs, this.readsHeader.getSequenceDictionary(), this.hcArgs.debug,
+                this.hcArgs.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES, hcArgs.emitReferenceConfidence());
     }
 
-    private boolean isVCFMode() {
-        return hcArgs.emitReferenceConfidence == ReferenceConfidenceMode.NONE;
+    private static HaplotypeCallerGenotypingEngine createGenotypingEngine(VariantAnnotatorEngine annotationEngine, HaplotypeCallerArgumentCollection hcArgs, SampleList samplesList) {
+        final HaplotypeCallerGenotypingEngine engine = new HaplotypeCallerGenotypingEngine(hcArgs, samplesList, FixedAFCalculatorProvider.createThreadSafeProvider(hcArgs), !hcArgs.doNotRunPhysicalPhasing);
+        engine.setAnnotationEngine(annotationEngine);
+        return engine;
     }
 
-    private boolean isAlleleSpecificMode(final VariantAnnotatorEngine annotationEngine) {
+    private static boolean isAlleleSpecificMode(final VariantAnnotatorEngine annotationEngine) {
         //HACK. Note: we can't use subclass information from ReducibleAnnotation (which would be the obvious choice)
         // because RMSMappingQuality is both a reducible annotation and a standard annotation.
         final boolean infoAnnAlleleSpefic = annotationEngine.getInfoAnnotations().stream().anyMatch(infoFieldAnnotation -> infoFieldAnnotation.getClass().getSimpleName().startsWith("AS_"));
@@ -191,17 +187,17 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         return genoAnnAlleleSpefic;
     }
 
-    private void validateAndInitializeArgs() {
+    private static void validateAndInitializeArgs(HaplotypeCallerArgumentCollection hcArgs, SampleList samplesList) {
         if ( hcArgs.genotypeArgs.samplePloidy != HomoSapiensConstants.DEFAULT_PLOIDY && ! hcArgs.doNotRunPhysicalPhasing ) {
             hcArgs.doNotRunPhysicalPhasing = true;
             logger.info("Currently, physical phasing is not available when ploidy is different than " + HomoSapiensConstants.DEFAULT_PLOIDY + "; therefore it won't be performed");
         }
 
-        if ( hcArgs.dontGenotype && emitReferenceConfidence() ) {
+        if ( hcArgs.dontGenotype && hcArgs.emitReferenceConfidence() ) {
             throw new UserException("You cannot request gVCF output and 'do not genotype' at the same time");
         }
 
-        if ( emitReferenceConfidence() ) {
+        if ( hcArgs.emitReferenceConfidence() ) {
             if ( hcArgs.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES) {
                 throw new UserException.BadArgumentValue("ERC/gt_mode", "you cannot request reference confidence output and GENOTYPE_GIVEN_ALLELES at the same time");
             }
@@ -228,7 +224,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         }
 
         if ( hcArgs.CONTAMINATION_FRACTION_FILE != null ) {
-            hcArgs.setSampleContamination(AlleleBiasedDownsamplingUtils.loadContaminationFile(hcArgs.CONTAMINATION_FRACTION_FILE, hcArgs.CONTAMINATION_FRACTION, sampleSet, logger));
+            hcArgs.setSampleContamination(AlleleBiasedDownsamplingUtils.loadContaminationFile(hcArgs.CONTAMINATION_FRACTION_FILE, hcArgs.CONTAMINATION_FRACTION, samplesList.asSetOfSamples(), logger));
         }
 
         if ( hcArgs.genotypingOutputMode == GenotypingOutputMode.GENOTYPE_GIVEN_ALLELES && hcArgs.assemblerArgs.consensusMode ) {
@@ -237,14 +233,15 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
 
         Utils.validateArg(hcArgs.likelihoodArgs.BASE_QUALITY_SCORE_THRESHOLD >= QualityUtils.MIN_USABLE_Q_SCORE, "BASE_QUALITY_SCORE_THRESHOLD must be greater than or equal to " + QualityUtils.MIN_USABLE_Q_SCORE + " (QualityUtils.MIN_USABLE_Q_SCORE)");
 
-        if ( emitReferenceConfidence() && samplesList.numberOfSamples() != 1 ) {
+        if ( hcArgs.emitReferenceConfidence() && samplesList.numberOfSamples() != 1 ) {
             throw new UserException.BadArgumentValue("--emitRefConfidence", "Can only be used in single sample mode currently. Use the sample_name argument to run on a single sample out of a multi-sample BAM file.");
         }
     }
 
-    private void initializeSamples() {
-        sampleSet = ReadUtils.getSamplesFromHeader(readsHeader);
-        samplesList = new IndexedSampleList(sampleSet);
+    //note: this may modify values in hcArgs
+    private static SampleList initializeSamples(SAMFileHeader readsHeader, HaplotypeCallerArgumentCollection hcArgs) {
+        final Set<String> sampleSet = ReadUtils.getSamplesFromHeader(readsHeader);
+        SampleList samplesList = new IndexedSampleList(sampleSet);
 
         if ( hcArgs.sampleNameToUse != null ) {
             if ( ! sampleSet.contains(hcArgs.sampleNameToUse) ) {
@@ -255,13 +252,12 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
                 hcArgs.sampleNameToUse = null;
             } else {
                 samplesList = new IndexedSampleList(hcArgs.sampleNameToUse);
-                sampleSet.clear();
-                sampleSet.add(hcArgs.sampleNameToUse);
             }
         }
+        return samplesList;
     }
 
-    private void initializeActiveRegionEvaluationGenotyperEngine() {
+    private static MinimalGenotypingEngine createActiveRegionEvaluationGenotyperEngine(HaplotypeCallerArgumentCollection hcArgs, SampleList samplesList) {
         // create a UAC but with the exactCallsLog = null, so we only output the log for the HC caller itself, if requested
         final UnifiedArgumentCollection simpleUAC = new UnifiedArgumentCollection();
         simpleUAC.copyStandardCallerArgsFrom(hcArgs);
@@ -277,9 +273,10 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         // UGs engine with ploidy == 1
         simpleUAC.genotypeArgs.samplePloidy = Math.max(MINIMUM_PUTATIVE_PLOIDY_FOR_ACTIVE_REGION_DISCOVERY, hcArgs.genotypeArgs.samplePloidy);
 
-        activeRegionEvaluationGenotyperEngine = new MinimalGenotypingEngine(simpleUAC, samplesList,
+        MinimalGenotypingEngine minimalGenotypingEngine = new MinimalGenotypingEngine(simpleUAC, samplesList,
                 FixedAFCalculatorProvider.createThreadSafeProvider(simpleUAC));
-        activeRegionEvaluationGenotyperEngine.setLogger(logger);
+        minimalGenotypingEngine.setLogger(logger);
+        return minimalGenotypingEngine;
     }
 
     /**
@@ -330,7 +327,16 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      */
     public void writeHeader( final VariantContextWriter vcfWriter, final SAMSequenceDictionary sequenceDictionary ) {
         Utils.nonNull(vcfWriter);
+        final VCFHeader vcfHeader = getVcfHeader(sequenceDictionary);
+        vcfWriter.writeHeader(vcfHeader);
+    }
 
+    /**
+     * @param sequenceDictionary sequence dictionary to insert into the header
+     * @return a header initialized with the values that will be emitted in the Variants produced by the this engine
+     * @apiNote this does not include any values
+     */
+    public VCFHeader getVcfHeader(SAMSequenceDictionary sequenceDictionary) {
         final Set<VCFHeaderLine> headerInfo = new HashSet<>();
 
         headerInfo.addAll(genotypingEngine.getAppropriateVCFInfoHeaders());
@@ -356,13 +362,14 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
         // where the filters are used.  For example, in emitting all sites the lowQual field is used
         headerInfo.add(GATKVCFHeaderLines.getFilterLine(GATKVCFConstants.LOW_QUAL_FILTER_NAME));
 
-        if ( emitReferenceConfidence() ) {
+        if ( hcArgs.emitReferenceConfidence() ) {
             headerInfo.addAll(referenceConfidenceModel.getVCFHeaderLines());
         }
 
-        final VCFHeader vcfHeader = new VCFHeader(headerInfo, sampleSet);
+        final VCFHeader vcfHeader = new VCFHeader(headerInfo, samplesList.asSetOfSamples());
+
         vcfHeader.setSequenceDictionary(sequenceDictionary);
-        vcfWriter.writeHeader(vcfHeader);
+        return vcfHeader;
     }
 
 
@@ -537,7 +544,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
                 regionForGenotyping.getSpan(),
                 features,
                 (hcArgs.assemblerArgs.consensusMode ? Collections.<VariantContext>emptyList() : givenAlleles),
-                emitReferenceConfidence(),
+                hcArgs.emitReferenceConfidence(),
                 readsHeader);
 
         if ( haplotypeBAMWriter.isPresent() ) {
@@ -553,7 +560,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             logger.info("----------------------------------------------------------------------------------");
         }
 
-        if ( emitReferenceConfidence() ) {
+        if ( hcArgs.emitReferenceConfidence() ) {
             if ( !containsCalls(calledHaplotypes) ) {
                 // no called all of the potential haplotypes
                 return referenceModelForNoVariation(region, false);
@@ -595,7 +602,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      * @return a list of variant contexts (can be empty) to emit for this ref region
      */
     private List<VariantContext> referenceModelForNoVariation(final AssemblyRegion region, final boolean needsToBeFinalized) {
-        if ( emitReferenceConfidence() ) {
+        if ( hcArgs.emitReferenceConfidence() ) {
             //TODO - why the activeRegion cannot manage its own one-time finalization and filtering?
             //TODO - perhaps we can remove the last parameter of this method and the three lines bellow?
             if ( needsToBeFinalized ) {
@@ -634,10 +641,7 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
      */
     public void shutdown() {
         likelihoodCalculationEngine.close();
-
-        if ( haplotypeBAMWriter.isPresent() ) {
-            haplotypeBAMWriter.get().close();
-        }
+        haplotypeBAMWriter.ifPresent(HaplotypeBAMWriter::close);
     }
 
     private void finalizeRegion(final AssemblyRegion region) {
@@ -663,15 +667,6 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
 
     private Map<String, List<GATKRead>> splitReadsBySample( final SampleList samplesList, final Collection<GATKRead> reads ) {
         return AssemblyBasedCallerUtils.splitReadsBySample(samplesList, readsHeader, reads);
-    }
-
-    /**
-     * Are we emitting a reference confidence in some form, or not?
-     *
-     * @return true if HC must emit reference confidence.
-     */
-    public boolean emitReferenceConfidence() {
-        return hcArgs.emitReferenceConfidence != ReferenceConfidenceMode.NONE;
     }
 
     private void removeReadsFromAllSamplesExcept(final String targetSample, final AssemblyRegion activeRegion) {

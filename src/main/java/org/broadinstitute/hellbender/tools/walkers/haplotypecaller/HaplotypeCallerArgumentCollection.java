@@ -55,11 +55,11 @@ public class HaplotypeCallerArgumentCollection extends AssemblyBasedCallerArgume
     @Argument(fullName = "GVCFGQBands", shortName = "GQB", doc= "GQ thresholds for reference confidence bands", optional = true)
     public List<Integer> GVCFGQBands = new ArrayList<>(70);
     {
-            for (int i=1; i<=60; ++i) {
-                GVCFGQBands.add(i);
-            }
-            GVCFGQBands.add(70); GVCFGQBands.add(80); GVCFGQBands.add(90); GVCFGQBands.add(99);
-    };
+        for (int i=1; i<=60; ++i) {
+            GVCFGQBands.add(i);
+        }
+        GVCFGQBands.add(70); GVCFGQBands.add(80); GVCFGQBands.add(90); GVCFGQBands.add(99);
+    }
 
     /**
      * This parameter determines the maximum size of an indel considered as potentially segregating in the
@@ -76,4 +76,29 @@ public class HaplotypeCallerArgumentCollection extends AssemblyBasedCallerArgume
     @Advanced
     @Argument(fullName = "useAllelesTrigger", shortName = "allelesTrigger", doc = "Use additional trigger on variants found in an external alleles file", optional = true)
     public boolean USE_ALLELES_TRIGGER = false;
+
+    /**
+     * @return should the output be in normal vcf mode without reference confidences
+     */
+    public boolean isVCFMode() {
+        return emitReferenceConfidence == ReferenceConfidenceMode.NONE;
+    }
+
+    /**
+     * @return should the output be a GVCF
+     */
+    public boolean isGVCFMode() {
+        return emitReferenceConfidence == ReferenceConfidenceMode.GVCF;
+    }
+
+    /**
+     * Are we emitting a reference confidence in some form, or not?
+     *
+     * @return true if HC must emit reference confidence.
+     */
+    public boolean emitReferenceConfidence() {
+        return emitReferenceConfidence != ReferenceConfidenceMode.NONE;
+    }
+
+
 }

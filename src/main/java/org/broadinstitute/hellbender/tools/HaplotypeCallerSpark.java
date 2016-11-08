@@ -8,6 +8,7 @@ import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.util.OverlapDetector;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import htsjdk.variant.vcf.VCFHeader;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -20,8 +21,10 @@ import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.engine.spark.SparkReadShard;
+import org.broadinstitute.hellbender.engine.spark.datasources.VariantsSparkSink;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.tools.walkers.GenotypeGVCFs;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCaller;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerArgumentCollection;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerEngine;
@@ -30,6 +33,8 @@ import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.reference.ReferenceBases;
+import org.broadinstitute.hellbender.utils.variant.writers.GVCFBlockCombiner;
+import org.broadinstitute.hellbender.utils.variant.writers.GVCFBlockMergingIterator;
 import scala.Tuple2;
 
 import java.io.IOException;
@@ -105,9 +110,25 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
 
     @Override
     protected void runTool(final JavaSparkContext ctx) {
+        final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgs, getHeaderForReads(), new ReferenceMultiSourceAdaptor(getReference(), getAuthHolder()));
+
         final List<SimpleInterval> intervals = hasIntervals() ? getIntervals() : IntervalUtils.getAllIntervalsForReference(getHeaderForReads().getSequenceDictionary());
         final JavaRDD<VariantContext> variants = callVariantsWithHaplotypeCaller(getAuthHolder(), ctx, getReads(), getHeaderForReads(), getReference(), intervals, hcArgs, shardingArgs);
-        writeVariants(variants);
+        final VCFHeader vcfHeader = hcEngine.getVcfHeader(this.getBestAvailableSequenceDictionary());
+        try {
+            GVCFBlockCombiner gvcfBlockCombiner = new GVCFBlockCombiner(hcArgs.GVCFGQBands, hcArgs.genotypeArgs.samplePloidy);
+            gvcfBlockCombiner.addRangesToHeader(vcfHeader);
+            if( hcArgs.isGVCFMode() ) {
+                final List<Integer> bands = hcArgs.GVCFGQBands;
+                final int ploidy = hcArgs.genotypeArgs.samplePloidy;
+                variants.mapPartitions(vcs -> new GVCFBlockMergingIterator(vcs, bands, ploidy));
+                VariantsSparkSink.writeVariants(ctx, output, variants, vcfHeader);
+            } else {
+                VariantsSparkSink.writeVariants(ctx, output, variants, vcfHeader);
+            }
+        } catch (final IOException e) {
+            throw new UserException.CouldNotCreateOutputFile("Couldn't write variants to " + output, e);
+        }
     }
 
     @Override
