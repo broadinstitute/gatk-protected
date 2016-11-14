@@ -21,6 +21,11 @@ public enum TargetAnnotation {
     GC_CONTENT(TargetTableColumn.GC_CONTENT),
 
     /**
+     * TODO
+     */
+    MAPPABILITY_CONTENT(TargetTableColumn.MAPPABILITY_CONTENT),
+
+    /**
      * Fraction of bases in the target that have been marked as repeated somewhere else in the genome.
      *
      * <p>This value is always a number between 0 and 1 without exceptions.</p>

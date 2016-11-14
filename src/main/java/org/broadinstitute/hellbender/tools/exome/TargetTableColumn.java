@@ -16,8 +16,9 @@ public enum TargetTableColumn {
     START("start", true), /* it was a terrible idea to change this from "START" to "start"! */
     END("stop", true), /* it was a terrible idea to change this from "END" to "stop"! */
     GC_CONTENT("GC_CONTENT", false),
-    REPEAT_FRACTION("REPEAT_FRACTION", false);
-
+    REPEAT_FRACTION("REPEAT_FRACTION", false),
+    MAPPABILITY_CONTENT("MAPPABILITY_CONTENT", false);
+   
     private final String columnName;  //store the column names
 
     private final boolean mandatory;
