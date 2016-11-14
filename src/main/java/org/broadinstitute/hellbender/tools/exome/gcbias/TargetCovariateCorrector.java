@@ -50,7 +50,7 @@ class GCCorrector {
     public GCCorrector(final double[] gcContents, final RealVector coverage) {
         Utils.nonNull(gcContents);
         Utils.nonNull(coverage);
-        Utils.validateArg(gcContents.length > 0, "must have at lest one datum");
+        Utils.validateArg(gcContents.length > 0, "must have at least one datum");
         Utils.validateArg(gcContents.length == coverage.getDimension(), "must have one gc value per coverage.");
 
         final List<List<Double>> coveragesByGC = new ArrayList<>(NUMBER_OF_GC_BINS);

@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Correct coverage for sample-specific GC bias effects as described in {@link GCCorrector}.
+ * Correct coverage for sample-specific GC bias effects as described in {@link TargetCovariateCorrector}.
  *
  * Inputs are
  * 1. read counts file (format described in {@link ReadCountCollectionUtils}).  Since this tool corrects
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
                 " content and dividing input coverage by these derived bias curves.",
         programGroup = CopyNumberProgramGroup.class
 )
-public class CorrectGCBias extends CommandLineProgram {
+public class CorrectCovariateBias extends CommandLineProgram {
     public static final String INPUT_READ_COUNTS_FILE_LONG_NAME = StandardArgumentDefinitions.INPUT_LONG_NAME;
     public static final String INPUT_READ_COUNTS_FILE_SHORT_NAME = StandardArgumentDefinitions.INPUT_SHORT_NAME;
 
@@ -67,7 +67,7 @@ public class CorrectGCBias extends CommandLineProgram {
         final TargetCollection<Target> targets = targetArguments.readTargetCollection(false);
         final ReadCountCollection inputCounts = readInputCounts(targets);
         final double[] gcContentByTarget = gcContentsOfTargets(inputCounts, targets);
-        final ReadCountCollection outputCounts = GCCorrector.correctCoverage(inputCounts, gcContentByTarget);
+        final ReadCountCollection outputCounts = TargetCovariateCorrector.correctCoverage(inputCounts, gcContentByTarget);
         writeOutputCounts(outputCounts);
         return "SUCCESS";
     }

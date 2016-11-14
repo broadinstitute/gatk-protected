@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
  */
-public class CorrectGCBiasIntegrationTest extends CommandLineProgramTest {
+public class CorrectCovariateBiasIntegrationTest extends CommandLineProgramTest {
     // Test meta-parameters:
     private static final int NUM_TARGETS = 10000;
     private static final int NUM_SAMPLES = 10;
@@ -46,13 +46,13 @@ public class CorrectGCBiasIntegrationTest extends CommandLineProgramTest {
     public void testGCCorrection() throws IOException {
         final List<String> arguments = new ArrayList<>();
         arguments.addAll(Arrays.asList(
-                "-" + CorrectGCBias.INPUT_READ_COUNTS_FILE_SHORT_NAME, INPUT_COUNTS_FILE.getAbsolutePath(),
-                "-" + CorrectGCBias.OUTPUT_READ_COUNTS_FILE_SHORT_NAME, OUTPUT_COUNTS_FILE.getAbsolutePath(),
+                "-" + CorrectCovariateBias.INPUT_READ_COUNTS_FILE_SHORT_NAME, INPUT_COUNTS_FILE.getAbsolutePath(),
+                "-" + CorrectCovariateBias.OUTPUT_READ_COUNTS_FILE_SHORT_NAME, OUTPUT_COUNTS_FILE.getAbsolutePath(),
                 "-" + ExomeStandardArgumentDefinitions.TARGET_FILE_SHORT_NAME, TARGETS_FILE.getAbsolutePath()));
         runCommandLine(arguments);
 
         final ReadCountCollection outputCounts = ReadCountCollectionUtils.parse(OUTPUT_COUNTS_FILE);
-        final ReadCountCollection expectedOutputCounts = GCCorrector.correctCoverage(inputCounts, gcContentByTarget);
+        final ReadCountCollection expectedOutputCounts = TargetCovariateCorrector.correctCoverage(inputCounts, gcContentByTarget);
         Assert.assertEquals(outputCounts.columnNames(), inputCounts.columnNames());
         Assert.assertEquals(outputCounts.counts().subtract(expectedOutputCounts.counts()).getNorm(), 0, 1e-10);
     }
