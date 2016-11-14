@@ -5,6 +5,7 @@ import htsjdk.samtools.SAMUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.broadinstitute.gatk.nativebindings.pairhmm.PairHMMNativeArguments;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.QualityUtils;
@@ -99,10 +100,11 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
      * @param pcrErrorModel model to correct for PCR indel artifacts
      */
     public PairHMMLikelihoodCalculationEngine(final byte constantGCP,
+                                              final PairHMMNativeArguments arguments,
                                               final PairHMM.Implementation hmmType,
                                               final double log10globalReadMismappingRate,
                                               final PCRErrorModel pcrErrorModel) {
-        this( constantGCP, hmmType, log10globalReadMismappingRate, pcrErrorModel, PairHMM.BASE_QUALITY_SCORE_THRESHOLD );
+        this( constantGCP, arguments, hmmType, log10globalReadMismappingRate, pcrErrorModel, PairHMM.BASE_QUALITY_SCORE_THRESHOLD );
     }
 
     /**
@@ -123,6 +125,7 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
      *                                  quality.
      */
     public PairHMMLikelihoodCalculationEngine(final byte constantGCP,
+                                              final PairHMMNativeArguments arguments,
                                               final PairHMM.Implementation hmmType,
                                               final double log10globalReadMismappingRate,
                                               final PCRErrorModel pcrErrorModel,
@@ -138,7 +141,7 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         this.constantGCP = constantGCP;
         this.log10globalReadMismappingRate = log10globalReadMismappingRate;
         this.pcrErrorModel = pcrErrorModel;
-        this.pairHMM = hmmType.makeNewHMM();
+        this.pairHMM = hmmType.makeNewHMM(arguments);
 
         initializePCRErrorModel();
 
