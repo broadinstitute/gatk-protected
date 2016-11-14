@@ -8,8 +8,6 @@ import org.broadinstitute.hellbender.utils.pairhmm.PairHMM;
 
 import java.io.Serializable;
 
-import java.io.Serializable;
-
 /**
  * Set of arguments related to {@link ReadLikelihoodCalculationEngine} implementations
  */

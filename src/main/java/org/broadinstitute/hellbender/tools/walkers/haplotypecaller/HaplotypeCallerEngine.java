@@ -44,8 +44,6 @@ import org.broadinstitute.hellbender.utils.variant.writers.GVCFWriter;
 import java.io.File;
 import java.util.*;
 
-import static htsjdk.samtools.SAMFileHeader.GroupOrder.reference;
-
 /**
  * The core engine for the HaplotypeCaller that does all of the actual work of the tool.
  *

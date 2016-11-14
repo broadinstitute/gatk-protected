@@ -45,12 +45,15 @@ import java.util.stream.StreamSupport;
  *
  * This is an implementation of {@link HaplotypeCaller} using spark to distribute the computation.
  * It is still in an early stage of development and does not yet support all the options that the non-spark version does.
+ *
+ * Specifically it does not support the --dbsnp, --comp, and --bamOutput options.
+ *
  */
 @CommandLineProgramProperties(summary = "HaplotypeCaller on Spark", oneLineSummary = "HaplotypeCaller on Spark", programGroup = SparkProgramGroup.class)
 public final class HaplotypeCallerSpark extends GATKSparkTool {
     private static final long serialVersionUID = 1L;
 
-    @Argument(fullName= StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME, doc = "Put the output vcf here")
+    @Argument(fullName= StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME, doc = "Single file to which variants should be written")
     public String output;
 
     @ArgumentCollection
@@ -136,6 +139,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             final ShardingArgumentCollection shardingArgs) {
         Utils.validateArg(hcArgs.dbsnp.dbsnp == null, "HaplotypeCallerSpark does not yet support -D or --dbsnp arguments" );
         Utils.validateArg(hcArgs.comps.isEmpty(), "HaplotypeCallerSpark does not yet support -comp or --comp arguments" );
+        Utils.validateArg(hcArgs.bamOutputPath == null, "HaplotypeCallerSpark does not yet support -bamout or --bamOutput");
         if ( !reference.isCompatibleWithSparkBroadcast()){
             throw new UserException.Require2BitReferenceForBroadcast();
         }
@@ -164,11 +168,14 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             final Broadcast<ReferenceMultiSource> referenceBroadcast,
             final Broadcast<HaplotypeCallerArgumentCollection> hcArgsBroadcast) {
         return regionAndInterval -> {
-            final ReferenceMultiSourceAdaptor referenceReader = new ReferenceMultiSourceAdaptor(referenceBroadcast.getValue(), authHolder);
+            final ReferenceMultiSourceAdapter referenceReader = new ReferenceMultiSourceAdapter(referenceBroadcast.getValue(), authHolder);
+            //this isn't serializable so it must be created in place
             final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceReader);
             final List<VariantContext> variantContexts = hcEngine.callRegion(regionAndInterval._1(), new FeatureContext());
             final SimpleInterval shardBoundary = regionAndInterval._2();
-            return variantContexts.stream().filter(shardBoundary::contains).collect(Collectors.toList());
+            return variantContexts.stream()
+                    .filter(vc -> shardBoundary.contains(new SimpleInterval(vc.getContig(), vc.getStart(), vc.getStart())))
+                    .iterator();
         };
     }
 
@@ -185,7 +192,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
                 .sorted((o1, o2) -> IntervalUtils.compareLocatables(o1, o2, referenceDictionary))
                 .collect(Collectors.toList());
 
-        final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgs, getHeaderForReads(), new ReferenceMultiSourceAdaptor(getReference(), getAuthHolder()));
+        final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgs, getHeaderForReads(), new ReferenceMultiSourceAdapter(getReference(), getAuthHolder()));
         try(final VariantContextWriter writer = hcEngine.makeVCFWriter(output, this.getBestAvailableSequenceDictionary())) {
             hcEngine.writeHeader(writer, getHeaderForReads().getSequenceDictionary());
             sortedVariants.forEach(writer::add);
@@ -201,7 +208,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
     private static JavaRDD<Shard<GATKRead>> createReadShards(final Broadcast<OverlapDetector<ShardBoundary>> shardBoundariesBroadcast, final JavaRDD<GATKRead> reads) {
         final JavaPairRDD<ShardBoundary, GATKRead> paired = reads.flatMapToPair(read -> {
             final Collection<ShardBoundary> overlappingShards = shardBoundariesBroadcast.value().getOverlaps(read);
-            return overlappingShards.stream().map(key -> new Tuple2<>(key, read)).collect(Collectors.toList());
+            return overlappingShards.stream().map(key -> new Tuple2<>(key, read)).iterator();
         });
         final JavaPairRDD<ShardBoundary, Iterable<GATKRead>> shardsWithReads = paired.groupByKey();
         return shardsWithReads.map(shard -> new SparkReadShard(shard._1(), shard._2()));
@@ -231,7 +238,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             final SAMFileHeader header) {
         return shard -> {
             final ReferenceMultiSource referenceMultiSource = reference.value();
-            final ReferenceMultiSourceAdaptor referenceSource = new ReferenceMultiSourceAdaptor(referenceMultiSource, authHolder);
+            final ReferenceMultiSourceAdapter referenceSource = new ReferenceMultiSourceAdapter(referenceMultiSource, authHolder);
             final ReferenceContext refContext = new ReferenceContext(referenceSource, shard.getPaddedInterval());
 
             //TODO load features as a side input
@@ -239,6 +246,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
 
             final Iterable<AssemblyRegion> assemblyRegions = AssemblyRegion.createFromReadShard(
                     shard, header, refContext, features,
+                    //this isn't serializable so it must be created in place on each of the executors
                     new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceSource),
                     assemblyArgs.minAssemblyRegionSize, assemblyArgs.maxAssemblyRegionSize,
                     assemblyArgs.assemblyRegionPadding, assemblyArgs.activeProbThreshold,
@@ -246,20 +254,20 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
 
             return StreamSupport.stream(assemblyRegions.spliterator(), false)
                     .map( a -> new Tuple2<>(a, shard.getInterval()))
-                    .collect(Collectors.toList());
+                    .iterator();
         };
     }
 
 
     @VisibleForTesting
-    static final class ReferenceMultiSourceAdaptor implements ReferenceSequenceFile, ReferenceDataSource, Serializable{
+    public static final class ReferenceMultiSourceAdapter implements ReferenceSequenceFile, ReferenceDataSource, Serializable{
         private static final long serialVersionUID = 1L;
 
         private final ReferenceMultiSource source;
         private final AuthHolder auth;
         private final SAMSequenceDictionary sequenceDictionary;
 
-        ReferenceMultiSourceAdaptor(final ReferenceMultiSource source, final AuthHolder auth) {
+        public ReferenceMultiSourceAdapter(final ReferenceMultiSource source, final AuthHolder auth) {
             this.source = source;
             this.auth = auth;
             this.sequenceDictionary = source.getReferenceSequenceDictionary(null);
@@ -307,7 +315,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
 
         @Override
         public void close() {
-            // should this do something?
+            // doesn't do anything because you can't close a two-bit file
         }
 
         @Override

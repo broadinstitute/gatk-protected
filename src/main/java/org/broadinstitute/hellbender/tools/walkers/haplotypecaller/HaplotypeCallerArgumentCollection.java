@@ -53,10 +53,15 @@ public class HaplotypeCallerArgumentCollection extends AssemblyBasedCallerArgume
      */
     @Advanced
     @Argument(fullName = "GVCFGQBands", shortName = "GQB", doc= "GQ thresholds for reference confidence bands", optional = true)
-    public List<Integer> GVCFGQBands = new ArrayList<>(70);
-    {
-        for (int i=1; i<=60; ++i) GVCFGQBands.add(i);
-        GVCFGQBands.add(70); GVCFGQBands.add(80); GVCFGQBands.add(90); GVCFGQBands.add(99);
+    public List<Integer> GVCFGQBands = new ArrayList<Integer>(70) {
+        private static final long serialVersionUID = 1L;
+
+        {
+            for (int i=1; i<=60; ++i) {
+                add(i);
+            }
+            add(70); add(80); add(90); add(99);
+        }
     };
 
     /**

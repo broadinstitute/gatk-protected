@@ -19,10 +19,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 
-import static org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerIntegrationTest.TEST_FILES_DIR;
-import static org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerIntegrationTest.calculateConcordance;
+import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerIntegrationTest;
 
 public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest {
+
+    private  static final String TEST_FILES_DIR = publicTestDir + "org/broadinstitute/hellbender/tools/haplotypecaller/";
 
     /*
     * Test that in VCF mode we're >= 99% concordant with GATK3.5 results
@@ -50,7 +51,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in VCF mode is < 99%");
     }
 
@@ -86,7 +87,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in AS VCF mode is < 99%");
     }
 
@@ -117,7 +118,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in GVCF mode is < 99%");
     }
 
@@ -148,7 +149,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
         runCommandLine(args);
 
-        final double concordance = calculateConcordance(output, gatk3Output);
+        final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
         Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in AS GVCF mode is < 99%");
     }
 
@@ -157,8 +158,8 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         final AuthHolder auth = new AuthHolder("name", "somestring");
         final ReferenceMultiSource referenceMultiSource = new ReferenceMultiSource(auth, b37_2bit_reference_20_21, ReferenceWindowFunctions.IDENTITY_FUNCTION);
         SparkTestUtils.roundTripInKryo(referenceMultiSource, ReferenceMultiSource.class, SparkContextFactory.getTestSparkContext().getConf());
-        final HaplotypeCallerSpark.ReferenceMultiSourceAdaptor adaptor = new HaplotypeCallerSpark.ReferenceMultiSourceAdaptor(referenceMultiSource, auth);
-        SparkTestUtils.roundTripInKryo(adaptor, HaplotypeCallerSpark.ReferenceMultiSourceAdaptor.class, SparkContextFactory.getTestSparkContext().getConf());
+        final HaplotypeCallerSpark.ReferenceMultiSourceAdapter adapter = new HaplotypeCallerSpark.ReferenceMultiSourceAdapter(referenceMultiSource, auth);
+        SparkTestUtils.roundTripInKryo(adapter, HaplotypeCallerSpark.ReferenceMultiSourceAdapter.class, SparkContextFactory.getTestSparkContext().getConf());
 
     }
 
