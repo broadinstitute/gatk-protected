@@ -1,7 +1,13 @@
 package org.broadinstitute.hellbender.tools;
 
 import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.repackaged.com.google.common.collect.Lists;
+import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.FastGenotype;
+import htsjdk.variant.variantcontext.Genotype;
+import htsjdk.variant.variantcontext.GenotypeBuilder;
 import org.apache.spark.SparkException;
+import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.engine.AuthHolder;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
@@ -186,11 +192,20 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
     @Test
     public void testBroadcastHcArgs() {
-        SparkContextFactory.getTestSparkContext().broadcast(new HaplotypeCallerArgumentCollection());
+        Broadcast<HaplotypeCallerArgumentCollection> broadcast = SparkContextFactory.getTestSparkContext().broadcast(new HaplotypeCallerArgumentCollection());
+        broadcast.getValue();
     }
 
     @Test
     public void testFastGenotypeIsSerializable() {
-        SparkTestUtils.roundTripInKryo(Collections.nCopies(2, "value"), Collections.nCopies(2, "value").getClass(), SparkContextFactory.getTestSparkContext().getConf());
+        Genotype genotype = GenotypeBuilder.create("sample1", Lists.newArrayList(Allele.create("C", false)));
+        SparkTestUtils.roundTripInKryo(genotype, genotype.getClass(), SparkContextFactory.getTestSparkContext().getConf());
+    }
+
+    @Test
+    public void testAllelesAreSerializable() {
+        Allele a = Allele.create("A");
+        SparkTestUtils.roundTripInKryo(a, a.getClass(), SparkContextFactory.getTestSparkContext().getConf());
+        SparkTestUtils.roundTripInKryo(Allele.NO_CALL, Allele.class, SparkContextFactory.getTestSparkContext().getConf());
     }
 }

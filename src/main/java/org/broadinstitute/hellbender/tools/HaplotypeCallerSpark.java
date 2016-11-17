@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -152,9 +153,9 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
         final JavaRDD<Shard<GATKRead>> readShards = createReadShards(shardBoundariesBroadcast, reads);
 
         final JavaRDD<Tuple2<AssemblyRegion, SimpleInterval>> assemblyRegions = readShards
-                .flatMap(shardsToAssemblyRegions(authHolder, referenceBroadcast, hcArgsBroadcast, shardingArgs, header));
+                .mapPartitions(shardsToAssemblyRegions(authHolder, referenceBroadcast, hcArgsBroadcast, shardingArgs, header));
 
-        return assemblyRegions.flatMap(callVariantsFromAssemblyRegions(authHolder, header, referenceBroadcast, hcArgsBroadcast));
+        return assemblyRegions.mapPartitions(callVariantsFromAssemblyRegions(authHolder, header, referenceBroadcast, hcArgsBroadcast));
     }
 
     /**
@@ -162,20 +163,24 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
      * The interval should be the non-padded shard boundary for the shard that the corresponding AssemblyRegion was
      * created in, it's used to eliminate redundant variant calls at the edge of shard boundaries.
      */
-    private static FlatMapFunction<Tuple2<AssemblyRegion, SimpleInterval>, VariantContext> callVariantsFromAssemblyRegions(
+    private static FlatMapFunction<Iterator<Tuple2<AssemblyRegion, SimpleInterval>>, VariantContext> callVariantsFromAssemblyRegions(
             final AuthHolder authHolder,
             final SAMFileHeader header,
             final Broadcast<ReferenceMultiSource> referenceBroadcast,
             final Broadcast<HaplotypeCallerArgumentCollection> hcArgsBroadcast) {
-        return regionAndInterval -> {
+        return regionAndIntervals -> {
+
             final ReferenceMultiSourceAdapter referenceReader = new ReferenceMultiSourceAdapter(referenceBroadcast.getValue(), authHolder);
             //this isn't serializable so it must be created in place
             final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceReader);
-            final List<VariantContext> variantContexts = hcEngine.callRegion(regionAndInterval._1(), new FeatureContext());
-            final SimpleInterval shardBoundary = regionAndInterval._2();
-            return variantContexts.stream()
-                    .filter(vc -> shardBoundary.contains(new SimpleInterval(vc.getContig(), vc.getStart(), vc.getStart())))
-                    .iterator();
+            Iterable<Tuple2<AssemblyRegion, SimpleInterval>> regionsIterable = () -> regionAndIntervals;
+            Stream<Tuple2<AssemblyRegion, SimpleInterval>> stream = StreamSupport.stream(regionsIterable.spliterator(), false);
+            return stream.flatMap( regionAndInterval -> {
+                final List<VariantContext> variantContexts = hcEngine.callRegion(regionAndInterval._1(), new FeatureContext());
+                final SimpleInterval shardBoundary = regionAndInterval._2();
+                return variantContexts.stream()
+                    .filter(vc -> shardBoundary.contains(new SimpleInterval(vc.getContig(), vc.getStart(), vc.getStart())));
+            }).iterator();
         };
     }
 
@@ -230,31 +235,36 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
      * @return and RDD of {@link Tuple2<AssemblyRegion, SimpleInterval>} which pairs each AssemblyRegion with the
      * interval it was generated in
      */
-    private static FlatMapFunction<Shard<GATKRead>, Tuple2<AssemblyRegion, SimpleInterval>> shardsToAssemblyRegions(
+    private static FlatMapFunction<Iterator<Shard<GATKRead>>, Tuple2<AssemblyRegion, SimpleInterval>> shardsToAssemblyRegions(
             final AuthHolder authHolder,
             final Broadcast<ReferenceMultiSource> reference,
             final Broadcast<HaplotypeCallerArgumentCollection> hcArgsBroadcast,
             final ShardingArgumentCollection assemblyArgs,
             final SAMFileHeader header) {
-        return shard -> {
+        return shards -> {
             final ReferenceMultiSource referenceMultiSource = reference.value();
             final ReferenceMultiSourceAdapter referenceSource = new ReferenceMultiSourceAdapter(referenceMultiSource, authHolder);
-            final ReferenceContext refContext = new ReferenceContext(referenceSource, shard.getPaddedInterval());
+            final HaplotypeCallerEngine evaluator = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceSource);
 
-            //TODO load features as a side input
-            final FeatureContext features = new FeatureContext();
+            Iterable<Shard<GATKRead>> shardIterable = () -> shards;
+            Stream<Shard<GATKRead>> stream = StreamSupport.stream(shardIterable.spliterator(), false);
+            return stream.flatMap( shard -> {
+                final ReferenceContext refContext = new ReferenceContext(referenceSource, shard.getPaddedInterval());
 
-            final Iterable<AssemblyRegion> assemblyRegions = AssemblyRegion.createFromReadShard(
-                    shard, header, refContext, features,
-                    //this isn't serializable so it must be created in place on each of the executors
-                    new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceSource),
-                    assemblyArgs.minAssemblyRegionSize, assemblyArgs.maxAssemblyRegionSize,
-                    assemblyArgs.assemblyRegionPadding, assemblyArgs.activeProbThreshold,
-                    assemblyArgs.maxProbPropagationDistance);
+                //TODO load features as a side input
+                final FeatureContext features = new FeatureContext();
 
-            return StreamSupport.stream(assemblyRegions.spliterator(), false)
-                    .map( a -> new Tuple2<>(a, shard.getInterval()))
-                    .iterator();
+                final Iterable<AssemblyRegion> assemblyRegions = AssemblyRegion.createFromReadShard(
+                        shard, header, refContext, features,
+                        //this isn't serializable so it must be created in place on each of the executors
+                        evaluator,
+                        assemblyArgs.minAssemblyRegionSize, assemblyArgs.maxAssemblyRegionSize,
+                        assemblyArgs.assemblyRegionPadding, assemblyArgs.activeProbThreshold,
+                        assemblyArgs.maxProbPropagationDistance);
+
+                return StreamSupport.stream(assemblyRegions.spliterator(), false)
+                        .map(a -> new Tuple2<>(a, shard.getInterval()));
+            }).iterator();
         };
     }
 

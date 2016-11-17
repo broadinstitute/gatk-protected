@@ -276,7 +276,7 @@ public class HaplotypeCallerIntegrationTest extends CommandLineProgramTest {
 
         runCommandLine(args);
 
-        try ( final ReadsDataSource bamOutReadsSource = new ReadsDataSource(bamOutput) ) {
+        try ( final ReadsDataSource bamOutReadsSource = new ReadsDataSource(bamOutput.toPath()) ) {
             int actualBamoutNumReads = 0;
             for ( final GATKRead read : bamOutReadsSource ) {
                 ++actualBamoutNumReads;

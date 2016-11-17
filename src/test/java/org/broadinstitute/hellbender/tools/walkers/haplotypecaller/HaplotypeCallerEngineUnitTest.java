@@ -44,7 +44,7 @@ public class HaplotypeCallerEngineUnitTest extends BaseTest {
                 new SimpleInterval("20", 10001019, 10001019)
         );
 
-        try ( final ReadsDataSource reads = new ReadsDataSource(testBam);
+        try ( final ReadsDataSource reads = new ReadsDataSource(testBam.toPath());
               final ReferenceDataSource ref = new ReferenceFileSource(reference);
               final CachingIndexedFastaSequenceFile referenceReader = new CachingIndexedFastaSequenceFile(reference);) {
 
