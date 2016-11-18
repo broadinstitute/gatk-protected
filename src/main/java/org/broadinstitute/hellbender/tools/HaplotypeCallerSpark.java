@@ -37,6 +37,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -169,18 +170,24 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             final Broadcast<ReferenceMultiSource> referenceBroadcast,
             final Broadcast<HaplotypeCallerArgumentCollection> hcArgsBroadcast) {
         return regionAndIntervals -> {
-
+            //HaplotypeCallerEngine isn't serializable but is expensive to instantiate, so construct and reuse one for every partition
             final ReferenceMultiSourceAdapter referenceReader = new ReferenceMultiSourceAdapter(referenceBroadcast.getValue(), authHolder);
-            //this isn't serializable so it must be created in place
             final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceReader);
-            Iterable<Tuple2<AssemblyRegion, SimpleInterval>> regionsIterable = () -> regionAndIntervals;
-            Stream<Tuple2<AssemblyRegion, SimpleInterval>> stream = StreamSupport.stream(regionsIterable.spliterator(), false);
-            return stream.flatMap( regionAndInterval -> {
-                final List<VariantContext> variantContexts = hcEngine.callRegion(regionAndInterval._1(), new FeatureContext());
-                final SimpleInterval shardBoundary = regionAndInterval._2();
-                return variantContexts.stream()
-                    .filter(vc -> shardBoundary.contains(new SimpleInterval(vc.getContig(), vc.getStart(), vc.getStart())));
-            }).iterator();
+            return iteratorToStream(regionAndIntervals).flatMap(regionToVariants(hcEngine)).iterator();
+        };
+    }
+
+    private static <T> Stream<T> iteratorToStream(Iterator<T> iterator) {
+        Iterable<T> regionsIterable = () -> iterator;
+        return StreamSupport.stream(regionsIterable.spliterator(), false);
+    }
+
+    private static Function<Tuple2<AssemblyRegion, SimpleInterval>, Stream<? extends VariantContext>> regionToVariants(HaplotypeCallerEngine hcEngine) {
+        return regionAndInterval -> {
+            final List<VariantContext> variantContexts = hcEngine.callRegion(regionAndInterval._1(), new FeatureContext());
+            final SimpleInterval shardBoundary = regionAndInterval._2();
+            return variantContexts.stream()
+                .filter(vc -> shardBoundary.contains(new SimpleInterval(vc.getContig(), vc.getStart(), vc.getStart())));
         };
     }
 
@@ -244,31 +251,39 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
         return shards -> {
             final ReferenceMultiSource referenceMultiSource = reference.value();
             final ReferenceMultiSourceAdapter referenceSource = new ReferenceMultiSourceAdapter(referenceMultiSource, authHolder);
-            final HaplotypeCallerEngine evaluator = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceSource);
+            final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceSource);
 
-            Iterable<Shard<GATKRead>> shardIterable = () -> shards;
-            Stream<Shard<GATKRead>> stream = StreamSupport.stream(shardIterable.spliterator(), false);
-            return stream.flatMap( shard -> {
-                final ReferenceContext refContext = new ReferenceContext(referenceSource, shard.getPaddedInterval());
-
-                //TODO load features as a side input
-                final FeatureContext features = new FeatureContext();
-
-                final Iterable<AssemblyRegion> assemblyRegions = AssemblyRegion.createFromReadShard(
-                        shard, header, refContext, features,
-                        //this isn't serializable so it must be created in place on each of the executors
-                        evaluator,
-                        assemblyArgs.minAssemblyRegionSize, assemblyArgs.maxAssemblyRegionSize,
-                        assemblyArgs.assemblyRegionPadding, assemblyArgs.activeProbThreshold,
-                        assemblyArgs.maxProbPropagationDistance);
-
-                return StreamSupport.stream(assemblyRegions.spliterator(), false)
-                        .map(a -> new Tuple2<>(a, shard.getInterval()));
-            }).iterator();
+            return iteratorToStream(shards).flatMap(shardToRegion(assemblyArgs, header, referenceSource, hcEngine)).iterator();
         };
     }
 
+    private static Function<Shard<GATKRead>, Stream<? extends Tuple2<AssemblyRegion, SimpleInterval>>> shardToRegion(
+            ShardingArgumentCollection assemblyArgs,
+            SAMFileHeader header,
+            ReferenceMultiSourceAdapter referenceSource,
+            HaplotypeCallerEngine evaluator) {
+        return shard -> {
+            final ReferenceContext refContext = new ReferenceContext(referenceSource, shard.getPaddedInterval());
 
+            //TODO load features as a side input
+            final FeatureContext features = new FeatureContext();
+
+            final Iterable<AssemblyRegion> assemblyRegions = AssemblyRegion.createFromReadShard(
+                    shard, header, refContext, features, evaluator,
+                    assemblyArgs.minAssemblyRegionSize, assemblyArgs.maxAssemblyRegionSize,
+                    assemblyArgs.assemblyRegionPadding, assemblyArgs.activeProbThreshold,
+                    assemblyArgs.maxProbPropagationDistance);
+
+            return StreamSupport.stream(assemblyRegions.spliterator(), false)
+                    .map(a -> new Tuple2<>(a, shard.getInterval()));
+        };
+    }
+
+    /**
+     * Adapter to allow a 2bit reference to be used in HaplotypeCallerEngine.
+     * This is not intended as a general purpose adapter, it only enables the operations needed in {@link HaplotypeCallerEngine}
+     * This should not be used outside of this class except for testing purposes.
+     */
     @VisibleForTesting
     public static final class ReferenceMultiSourceAdapter implements ReferenceSequenceFile, ReferenceDataSource, Serializable{
         private static final long serialVersionUID = 1L;
