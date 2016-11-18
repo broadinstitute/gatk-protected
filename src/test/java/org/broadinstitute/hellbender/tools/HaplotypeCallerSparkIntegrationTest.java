@@ -198,7 +198,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
     @Test
     public void testFastGenotypeIsSerializable() {
-        Genotype genotype = GenotypeBuilder.create("sample1", Lists.newArrayList(Allele.create("C", false)));
+        Genotype genotype = GenotypeBuilder.create("sample1", Collections.nCopies(2, Allele.create("C", false)));
         SparkTestUtils.roundTripInKryo(genotype, genotype.getClass(), SparkContextFactory.getTestSparkContext().getConf());
     }
 
