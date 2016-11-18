@@ -233,7 +233,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
     private static OverlapDetector<ShardBoundary> getShardBoundaryOverlapDetector(final SAMFileHeader header, final List<SimpleInterval> intervals, final int readShardSize, final int readShardPadding) {
         final OverlapDetector<ShardBoundary> shardBoundaryOverlapDetector = new OverlapDetector<>(0, 0);
         intervals.stream()
-                .flatMap(interval -> Shard.divideIntervalIntoShards(interval, readShardSize, readShardSize, readShardPadding, header.getSequenceDictionary()).stream())
+                .flatMap(interval -> Shard.divideIntervalIntoShards(interval, readShardSize, readShardPadding, header.getSequenceDictionary()).stream())
                 .forEach(boundary -> shardBoundaryOverlapDetector.addLhs(boundary, boundary.getPaddedInterval()));
         return shardBoundaryOverlapDetector;
     }
