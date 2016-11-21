@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionLikelihoods;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -11,14 +12,11 @@ public final class TumorHeterogeneityPriorCollection {
     private final PloidyState normalPloidyState;
     private final PloidyStatePrior ploidyStatePrior;
     private final double proposalWidthFactor;
-    private final double concentrationPriorAlpha;
-    private final double concentrationPriorBeta;
-    private final double copyRatioNoiseFloorPriorAlpha;
-    private final double copyRatioNoiseFloorPriorBeta;
-    private final double copyRatioNoiseFactorPriorAlpha;
-    private final double copyRatioNoiseFactorPriorBeta;
-    private final double minorAlleleFractionNoiseFactorPriorAlpha;
-    private final double minorAlleleFractionNoiseFactorPriorBeta;
+
+    private final HyperparameterValues concentrationPriorHyperparameterValues;
+    private final HyperparameterValues copyRatioNoiseFloorPriorHyperparameterValues;
+    private final HyperparameterValues copyRatioNoiseFactorPriorHyperparameterValues;
+    private final HyperparameterValues minorAlleleFractionNoiseFactorPriorHyperparameterValues;
 
     public TumorHeterogeneityPriorCollection(final PloidyState normalPloidyState,
                                              final PloidyStatePrior ploidyStatePrior,
@@ -36,68 +34,60 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.validateArg(ploidyStatePrior.ploidyStates().contains(normalPloidyState),
                 "Ploidy-state prior must contain normal ploidy state.");
         Utils.validateArg(proposalWidthFactor > 0, "Proposal-width factor must be positive.");
-        Utils.validateArg(concentrationPriorAlpha > 0, "Hyperparameter for concentration prior must be positive.");
-        Utils.validateArg(concentrationPriorBeta > 0, "Hyperparameter for concentration prior must be positive.");
-        Utils.validateArg(copyRatioNoiseFloorPriorAlpha > 0, "Hyperparameter for copy-ratio noise-floor prior must be positive.");
-        Utils.validateArg(copyRatioNoiseFloorPriorBeta > 0, "Hyperparameter for copy-ratio noise-floor prior must be positive.");
-        Utils.validateArg(copyRatioNoiseFactorPriorAlpha > 0, "Hyperparameter for copy-ratio noise-factor prior must be positive.");
-        Utils.validateArg(copyRatioNoiseFactorPriorBeta > 0, "Hyperparameter for copy-ratio noise-factor prior must be positive.");
-        Utils.validateArg(minorAlleleFractionNoiseFactorPriorAlpha > 0, "Hyperparameter for minor-allele-fraction noise-factor prior must be positive.");
-        Utils.validateArg(minorAlleleFractionNoiseFactorPriorBeta > 0, "Hyperparameter for minor-allele-fraction noise-factor prior must be positive.");
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
         this.proposalWidthFactor = proposalWidthFactor;
-        this.concentrationPriorAlpha = concentrationPriorAlpha;
-        this.concentrationPriorBeta = concentrationPriorBeta;
-        this.copyRatioNoiseFloorPriorAlpha = copyRatioNoiseFloorPriorAlpha;
-        this.copyRatioNoiseFloorPriorBeta = copyRatioNoiseFloorPriorBeta;
-        this.copyRatioNoiseFactorPriorAlpha = copyRatioNoiseFactorPriorAlpha;
-        this.copyRatioNoiseFactorPriorBeta = copyRatioNoiseFactorPriorBeta;
-        this.minorAlleleFractionNoiseFactorPriorAlpha = minorAlleleFractionNoiseFactorPriorAlpha;
-        this.minorAlleleFractionNoiseFactorPriorBeta = minorAlleleFractionNoiseFactorPriorBeta;
+        concentrationPriorHyperparameterValues = new HyperparameterValues(concentrationPriorAlpha, concentrationPriorBeta);
+        copyRatioNoiseFloorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFloorPriorAlpha, copyRatioNoiseFloorPriorBeta);
+        copyRatioNoiseFactorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta);
+        minorAlleleFractionNoiseFactorPriorHyperparameterValues = new HyperparameterValues(minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
     }
 
     public PloidyState normalPloidyState() {
         return normalPloidyState;
     }
 
-    public double proposalWidthFactor() {
-        return proposalWidthFactor;
-    }
-
     public PloidyStatePrior ploidyStatePrior() {
         return ploidyStatePrior;
     }
 
-    public double concentrationPriorAlpha() {
-        return concentrationPriorAlpha;
+    public double proposalWidthFactor() {
+        return proposalWidthFactor;
     }
 
-    public double concentrationPriorBeta() {
-        return concentrationPriorBeta;
+    public HyperparameterValues concentrationPriorHyperparameterValues() {
+        return concentrationPriorHyperparameterValues;
     }
 
-    public double copyRatioNoiseFloorPriorAlpha() {
-        return copyRatioNoiseFloorPriorAlpha;
+    public HyperparameterValues copyRatioNoiseFloorPriorHyperparameterValues() {
+        return copyRatioNoiseFloorPriorHyperparameterValues;
     }
 
-    public double copyRatioNoiseFloorPriorBeta() {
-        return copyRatioNoiseFloorPriorBeta;
+    public HyperparameterValues copyRatioNoiseFactorPriorHyperparameterValues() {
+        return copyRatioNoiseFactorPriorHyperparameterValues;
     }
 
-    public double copyRatioNoiseFactorPriorAlpha() {
-        return copyRatioNoiseFactorPriorAlpha;
+    public HyperparameterValues minorAlleleFractionNoiseFactorPriorHyperparameterValues() {
+        return minorAlleleFractionNoiseFactorPriorHyperparameterValues;
     }
 
-    public double copyRatioNoiseFactorPriorBeta() {
-        return copyRatioNoiseFactorPriorBeta;
-    }
+    public static class HyperparameterValues {
+        private final double alpha;
+        private final double beta;
 
-    public double minorAlleleFractionNoiseFactorPriorAlpha() {
-        return minorAlleleFractionNoiseFactorPriorAlpha;
-    }
+        public HyperparameterValues(final double alpha, final double beta) {
+            Utils.validateArg(alpha > 0, "Hyperparameter must be positive.");
+            Utils.validateArg(beta > 0, "Hyperparameter must be positive.");
+            this.alpha = alpha;
+            this.beta = beta;
+        }
 
-    public double minorAlleleFractionNoiseFactorPriorBeta() {
-        return minorAlleleFractionNoiseFactorPriorBeta;
+        public double getAlpha() {
+            return alpha;
+        }
+
+        public double getBeta() {
+            return beta;
+        }
     }
 }
