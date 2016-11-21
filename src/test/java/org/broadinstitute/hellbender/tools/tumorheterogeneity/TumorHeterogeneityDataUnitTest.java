@@ -73,31 +73,35 @@ public class TumorHeterogeneityDataUnitTest {
     public void testFitNormalLogPDFToInnerDeciles(final double meanTruth, final double standardDeviationTruth) {
         //test the fitting of a normal distribution to log_2 copy-ratio deciles by setting minor-allele fraction deciles to NaN
 
+        final double copyRatioNoiseFloor = 0.02;
+        final double copyRatioNoiseFactor = 1.5;
+        final double minorAlleleFractionNoiseFactor = 2.7;  //density is flat in MAF for NaN MAF posterior, so this value is arbitrary
+
         //calculate deciles for true copy-ratio posterior (normal)
-        final NormalDistribution log2CopyRatioPosteriorDensityTruth = new NormalDistribution(meanTruth, standardDeviationTruth);
-        final List<Double> decilesTruth = IntStream.range(0, DecileCollection.NUM_DECILES).boxed()
+        final NormalDistribution log2CopyRatioPosteriorDensityTruth =
+                new NormalDistribution(meanTruth + copyRatioNoiseFloor + TumorHeterogeneityData.COPY_RATIO_EPSILON, standardDeviationTruth);
+        final List<Double> log2CopyRatioDecilesTruth = IntStream.range(0, DecileCollection.NUM_DECILES).boxed()
                 .map(i -> log2CopyRatioPosteriorDensityTruth.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
 
         //construct TumorHeterogeneityPosteriorData from ACNVModeledSegment with true copy-ratio posterior deciles and NaN minor-allele fraction posterior
         final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(
                 meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used in fit
-        segmentMeanPosteriorSummary.setDeciles(new DecileCollection(decilesTruth, DecileCollection.ConstructionMode.DECILES));
+        segmentMeanPosteriorSummary.setDeciles(new DecileCollection(log2CopyRatioDecilesTruth, DecileCollection.ConstructionMode.DECILES));
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
         final TumorHeterogeneityData data = new TumorHeterogeneityData(Collections.singletonList(segment));
 
-        //test log density at a point
-        final int segmentIndex = 0;
-        final double copyRatio = 1.;
-        final double minorAlleleFraction = 0.25;    //density is flat in MAF for NaN MAF posterior, so this value is arbitrary
-        final double copyRatioNoiseFloor = 0.;
-        final double copyRatioNoiseFactor = 0.;
-        final double minorAlleleFractionNoiseFactor = 1.;
-        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
-
         //calculate expected log density from true distribution at point
-        final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
+        final double copyRatio = 1.;
+        final double minorAlleleFraction = 0.25;
+        final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + TumorHeterogeneityData.COPY_RATIO_EPSILON) * INV_LN2;
+        final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
+                new NormalDistribution(meanTruth + copyRatioNoiseFloor + TumorHeterogeneityData.COPY_RATIO_EPSILON, standardDeviationTruth * copyRatioNoiseFactor);
         final double expectedLogDensity =
-                Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / copyRatio) + LN2;
+                Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / copyRatio) + LN2;
+
+        //check against log density from TumorHeterogeneityData fit to true deciles
+        final int segmentIndex = 0;
+        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
 
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
     }
@@ -107,10 +111,15 @@ public class TumorHeterogeneityDataUnitTest {
         //test the fitting of a beta distribution to minor-allele-fraction deciles,
         //assuming normal distribution is fit correctly to log_2 copy-ratio deciles
 
-        //calculate deciles for true copy-ratio posterior (normal)
-        final double meanTruth = 0.;
+        final double copyRatio = 1.;
         final double standardDeviationTruth = 1.;
-        final NormalDistribution log2CopyRatioPosteriorDensityTruth = new NormalDistribution(meanTruth, standardDeviationTruth);
+        final double copyRatioNoiseFloor = 0.02;
+        final double copyRatioNoiseFactor = 1.5;
+        final double minorAlleleFractionNoiseFactor = 1.5;
+
+        //calculate deciles for true copy-ratio posterior (normal)
+        final NormalDistribution log2CopyRatioPosteriorDensityTruth =
+                new NormalDistribution(copyRatio + copyRatioNoiseFloor + TumorHeterogeneityData.COPY_RATIO_EPSILON, standardDeviationTruth);
         final List<Double> log2CopyRatioDecilesTruth = IntStream.range(0, DecileCollection.NUM_DECILES).boxed()
                 .map(i -> log2CopyRatioPosteriorDensityTruth.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
 
@@ -121,29 +130,41 @@ public class TumorHeterogeneityDataUnitTest {
 
         //construct TumorHeterogeneityPosteriorData from ACNVModeledSegment with true posterior deciles
         final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(
-                meanTruth, meanTruth - 2 * standardDeviationTruth, meanTruth + 2 * standardDeviationTruth); //credible interval is not used in fit
+                copyRatio, copyRatio - 2 * standardDeviationTruth, copyRatio + 2 * standardDeviationTruth); //credible interval is not used in fit
         segmentMeanPosteriorSummary.setDeciles(new DecileCollection(log2CopyRatioDecilesTruth, DecileCollection.ConstructionMode.DECILES));
         final PosteriorSummary minorAlleleFractionPosteriorSummary = new PosteriorSummary(0.25, 0., 0.5);   //credible interval is not used in fit
         minorAlleleFractionPosteriorSummary.setDeciles(new DecileCollection(minorAlleleFractionDecilesTruth, DecileCollection.ConstructionMode.DECILES));
-
         final ACNVModeledSegment segment = new ACNVModeledSegment(DUMMY_INTERVAL, segmentMeanPosteriorSummary, minorAlleleFractionPosteriorSummary);
         final TumorHeterogeneityData data = new TumorHeterogeneityData(Collections.singletonList(segment));
 
+        //calculate expected log density from true distribution at point
+        final double minorAlleleFraction = 0.25;
+        final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + TumorHeterogeneityData.COPY_RATIO_EPSILON) * INV_LN2;
+        final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
+                new NormalDistribution(copyRatio + copyRatioNoiseFloor + TumorHeterogeneityData.COPY_RATIO_EPSILON, standardDeviationTruth * copyRatioNoiseFactor);
+        final BetaDistribution scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor =
+                new BetaDistribution(alphaTruth / minorAlleleFractionNoiseFactor, betaTruth / minorAlleleFractionNoiseFactor);
+        final double expectedLogDensity =
+                Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / copyRatio) +
+                        Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor.density(2. * minorAlleleFraction));
+
         //test log density at a point
         final int segmentIndex = 0;
-        final double copyRatio = 1.;
-        final double minorAlleleFraction = 0.25;
-        final double copyRatioNoiseFloor = 0.;
-        final double copyRatioNoiseFactor = 0.;
-        final double minorAlleleFractionNoiseFactor = 1.;
         final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
 
-        //calculate expected log density from true distribution at point
-        final double log2CopyRatio = Math.log(copyRatio) * INV_LN2;
-        final double expectedLogDensity =
-                Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / copyRatio) +
-                Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruth.density(2. * minorAlleleFraction));
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
+    }
+
+    @Test
+    public void testCalculateFractionalSegmentLength() {
+        //need valid segment-mean posterior summary to construct TumorHeterogeneityData, but it is not used in tests
+        final PosteriorSummary segmentMeanPosteriorSummary = new PosteriorSummary(0., -0.1, 0.1);
+        segmentMeanPosteriorSummary.setDeciles(new DecileCollection(Arrays.asList(0., -0.1, 0.1), DecileCollection.ConstructionMode.SAMPLES));
+        final ACNVModeledSegment segment1 = new ACNVModeledSegment(new SimpleInterval("1", 1, 25), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
+        final ACNVModeledSegment segment2 = new ACNVModeledSegment(new SimpleInterval("1", 26, 100), segmentMeanPosteriorSummary, DUMMY_POSTERIOR_SUMMARY);
+        final TumorHeterogeneityData data = new TumorHeterogeneityData(Arrays.asList(segment1, segment2));
+        Assert.assertEquals(data.fractionalLength(0), 0.25);
+        Assert.assertEquals(data.fractionalLength(1), 0.75);
     }
 
     private static double relativeError(final double x, final double xTrue) {

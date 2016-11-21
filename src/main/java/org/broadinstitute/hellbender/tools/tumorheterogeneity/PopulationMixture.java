@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
+import com.google.common.collect.Ordering;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 
@@ -158,6 +159,8 @@ public final class PopulationMixture {
             final double populationFractionNormalization = populationFractions.stream().mapToDouble(Double::doubleValue).sum();
             Utils.validateArg(Math.abs(1. - populationFractionNormalization) <= POPULATION_FRACTION_NORMALIZATION_EPSILON,
                     "Population fractions must sum to unity.");
+            Utils.validateArg(Ordering.natural().reverse().isOrdered(populationFractions.subList(0, populationFractions.size() - 1)),
+                    "Variant population fractions must be in decreasing order.");
             numPopulations = populationFractions.size();
         }
     }

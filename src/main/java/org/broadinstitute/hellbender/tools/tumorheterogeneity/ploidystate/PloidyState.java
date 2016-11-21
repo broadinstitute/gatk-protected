@@ -13,6 +13,7 @@ public final class PloidyState {
     public PloidyState(final int m, final int n) {
         Utils.validateArg(m >= 0, "Number of allele copies must be non-negative.");
         Utils.validateArg(n >= 0, "Number of allele copies must be non-negative.");
+        Utils.validateArg(m <= n, "Ploidy state must be specified as (m, n) with m <= n.");
         this.m = m;
         this.n = n;
         total = m + n;

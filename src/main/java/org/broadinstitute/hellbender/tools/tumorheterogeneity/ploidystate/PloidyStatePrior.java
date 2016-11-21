@@ -40,7 +40,7 @@ public final class PloidyStatePrior {
         final List<PloidyState> states = new ArrayList<>(unnormalizedLogProbabilityMassFunctionMap.keySet());
         final double[] log10Probabilities = states.stream()
                 .mapToDouble(s -> MathUtils.logToLog10(unnormalizedLogProbabilityMassFunctionMap.get(s))).toArray();
-        final double[] probabilities = MathUtils.normalizeFromLog10(log10Probabilities);
+        final double[] probabilities = MathUtils.normalizeFromLog10ToLinearSpace(log10Probabilities);
         final LinkedHashMap<PloidyState, Double> logProbabilityMassFunctionMap = new LinkedHashMap<>();
         IntStream.range(0, unnormalizedLogProbabilityMassFunctionMap.size())
                 .forEach(i -> logProbabilityMassFunctionMap.put(states.get(i), Math.log(probabilities[i])));

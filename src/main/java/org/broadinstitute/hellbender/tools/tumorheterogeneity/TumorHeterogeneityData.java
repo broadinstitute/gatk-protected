@@ -51,7 +51,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = 1E-10;
-    private static final double COPY_RATIO_EPSILON = 1E-6; //below this, use flat minor-allele fraction posterior
+    protected static final double COPY_RATIO_EPSILON = 1E-6; //below this, use flat minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
@@ -134,8 +134,9 @@ public final class TumorHeterogeneityData implements DataCollection {
                           final double copyRatioNoiseFloor, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
             final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON) * INV_LN2;
             final double copyRatioPosteriorLogDensity =
-                    log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+                    log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
             if (copyRatio < COPY_RATIO_EPSILON) {
+                //if copy ratio is below threshold, use flat minor-allele fraction posterior
                 return copyRatioPosteriorLogDensity + LN2;
             }
             final double minorAlleleFractionBounded = Math.max(Math.min(0.5 - EPSILON, minorAlleleFraction), EPSILON);
@@ -207,7 +208,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             return point -> {
                 final double maf = point[0];
                 final double minorAlleleFractionNoiseFactor = point[1];
-                return new BetaDistribution(null, Math.max(1., alpha / minorAlleleFractionNoiseFactor), Math.max(1., beta / minorAlleleFractionNoiseFactor)).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
+                return new BetaDistribution(null, alpha / minorAlleleFractionNoiseFactor, beta / minorAlleleFractionNoiseFactor).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
             };
         }
     }
