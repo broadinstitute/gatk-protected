@@ -121,8 +121,8 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             if( hcArgs.isGVCFMode() ) {
                 final List<Integer> bands = hcArgs.GVCFGQBands;
                 final int ploidy = hcArgs.genotypeArgs.samplePloidy;
-                variants.mapPartitions(vcs -> new GVCFBlockMergingIterator(vcs, bands, ploidy));
-                VariantsSparkSink.writeVariants(ctx, output, variants, vcfHeader);
+                JavaRDD<VariantContext> blockedVariants = variants.mapPartitions(vcs -> new GVCFBlockMergingIterator(vcs, bands, ploidy));
+                VariantsSparkSink.writeVariants(ctx, output, blockedVariants, vcfHeader);
             } else {
                 VariantsSparkSink.writeVariants(ctx, output, variants, vcfHeader);
             }
