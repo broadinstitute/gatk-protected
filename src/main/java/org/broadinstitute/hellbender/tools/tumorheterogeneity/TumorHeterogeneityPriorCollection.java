@@ -9,7 +9,6 @@ import org.broadinstitute.hellbender.utils.Utils;
  */
 public final class TumorHeterogeneityPriorCollection {
     private final PloidyState normalPloidyState;
-    private final int normalPloidyStateIndex;
     private final PloidyStatePrior ploidyStatePrior;
     private final double proposalWidthFactor;
     private final double concentrationPriorAlpha;
@@ -47,7 +46,6 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.validateArg(minorAlleleFractionNoiseFactorPriorBeta > 0, "Hyperparameter for minor-allele-fraction noise-factor prior must be positive.");
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
-        normalPloidyStateIndex = ploidyStatePrior().ploidyStates().indexOf(normalPloidyState);
         this.proposalWidthFactor = proposalWidthFactor;
         this.concentrationPriorAlpha = concentrationPriorAlpha;
         this.concentrationPriorBeta = concentrationPriorBeta;
@@ -61,10 +59,6 @@ public final class TumorHeterogeneityPriorCollection {
 
     public PloidyState normalPloidyState() {
         return normalPloidyState;
-    }
-
-    public int normalPloidyStateIndex() {
-        return normalPloidyStateIndex;
     }
 
     public double proposalWidthFactor() {

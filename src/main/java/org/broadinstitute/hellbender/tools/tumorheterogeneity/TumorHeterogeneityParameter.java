@@ -13,8 +13,7 @@ public enum TumorHeterogeneityParameter implements ParameterEnum {
     COPY_RATIO_NOISE_FLOOR("cr_noise_floor"),
     COPY_RATIO_NOISE_FACTOR("cr_noise_factor"),
     MINOR_ALLELE_FRACTION_NOISE_FACTOR("maf_noise_factor"),
-    POPULATION_FRACTIONS("population_fractions"),
-    VARIANT_PROFILES("variant_profiles");
+    POPULATION_MIXTURE("population_mixture");
 
     public final String name;
 
