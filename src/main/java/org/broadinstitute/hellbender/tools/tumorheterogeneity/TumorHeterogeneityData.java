@@ -102,12 +102,24 @@ public final class TumorHeterogeneityData implements DataCollection {
         return segmentIndicesByDecreasingLength;
     }
 
+    public double copyRatioLogDensity(final int segmentIndex, final double copyRatio,
+                                      final double copyRatioNoiseFloor, final double copyRatioNoiseFactor) {
+        Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
+        Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
+        return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseFloor, copyRatioNoiseFactor);
+    }
+
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction,
                              final double copyRatioNoiseFloor, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
         Utils.validateArg(0 <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
-        return segmentPosteriors.get(segmentIndex).logDensity(copyRatio, minorAlleleFraction, copyRatioNoiseFloor, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
+        if (copyRatio < COPY_RATIO_EPSILON) {
+            //if copy ratio is below threshold, use flat minor-allele fraction posterior
+            return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseFloor, copyRatioNoiseFactor) + LN2;
+        }
+        return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseFloor, copyRatioNoiseFactor)
+                + segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction, minorAlleleFractionNoiseFactor);
     }
 
     private final class ACNVSegmentPosterior {
@@ -130,18 +142,14 @@ public final class TumorHeterogeneityData implements DataCollection {
                     fitScaledBetaLogPDFToInnerDeciles(minorAlleleFractionInnerDeciles);
         }
 
-        double logDensity(final double copyRatio, final double minorAlleleFraction,
-                          final double copyRatioNoiseFloor, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
+        double copyRatioLogDensity(final double copyRatio, final double copyRatioNoiseFloor, final double copyRatioNoiseFactor) {
             final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON) * INV_LN2;
-            final double copyRatioPosteriorLogDensity =
-                    log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
-            if (copyRatio < COPY_RATIO_EPSILON) {
-                //if copy ratio is below threshold, use flat minor-allele fraction posterior
-                return copyRatioPosteriorLogDensity + LN2;
-            }
+            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+        }
+
+        double minorAlleleFractionLogDensity(final double minorAlleleFraction, final double minorAlleleFractionNoiseFactor) {
             final double minorAlleleFractionBounded = Math.max(Math.min(0.5 - EPSILON, minorAlleleFraction), EPSILON);
-            final double minorAlleleFractionPosteriorLogDensity = minorAlleleFractionPosteriorLogPDF.value(new double[]{minorAlleleFractionBounded, minorAlleleFractionNoiseFactor});
-            return copyRatioPosteriorLogDensity + minorAlleleFractionPosteriorLogDensity;
+            return minorAlleleFractionPosteriorLogPDF.value(new double[]{minorAlleleFractionBounded, minorAlleleFractionNoiseFactor});
         }
 
         //fit a normal distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares

@@ -1,9 +1,11 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionLikelihoods;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
+
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -11,6 +13,7 @@ import org.broadinstitute.hellbender.utils.Utils;
 public final class TumorHeterogeneityPriorCollection {
     private final PloidyState normalPloidyState;
     private final PloidyStatePrior ploidyStatePrior;
+    private final int maxTotalCopyNumber;
     private final double proposalWidthFactor;
 
     private final HyperparameterValues concentrationPriorHyperparameterValues;
@@ -36,6 +39,7 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.validateArg(proposalWidthFactor > 0, "Proposal-width factor must be positive.");
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
+        maxTotalCopyNumber = Collections.max(ploidyStatePrior().ploidyStates().stream().map(PloidyState::n).collect(Collectors.toList()));
         this.proposalWidthFactor = proposalWidthFactor;
         concentrationPriorHyperparameterValues = new HyperparameterValues(concentrationPriorAlpha, concentrationPriorBeta);
         copyRatioNoiseFloorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFloorPriorAlpha, copyRatioNoiseFloorPriorBeta);
@@ -49,6 +53,10 @@ public final class TumorHeterogeneityPriorCollection {
 
     public PloidyStatePrior ploidyStatePrior() {
         return ploidyStatePrior;
+    }
+
+    public int maxTotalCopyNumber() {
+        return maxTotalCopyNumber;
     }
 
     public double proposalWidthFactor() {

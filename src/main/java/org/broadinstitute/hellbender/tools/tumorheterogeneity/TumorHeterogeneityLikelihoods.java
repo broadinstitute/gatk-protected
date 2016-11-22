@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import org.apache.commons.math3.special.Gamma;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
+import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 
 import java.util.stream.IntStream;
 
@@ -14,7 +15,7 @@ final class TumorHeterogeneityLikelihoods {
     private TumorHeterogeneityLikelihoods() {}
 
     static double calculateLogPosterior(final TumorHeterogeneityState state,
-                                                final TumorHeterogeneityData data) {
+                                        final TumorHeterogeneityData data) {
         final int numPopulations = state.populationMixture().numPopulations();
         final int numSegments = data.numSegments();
 
@@ -68,13 +69,7 @@ final class TumorHeterogeneityLikelihoods {
                         + logPriorPopulationFractionsSum;
 
         //variant-profiles prior
-        double logPriorVariantProfiles = 0.;
-        for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
-            for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
-                final PloidyState ploidyState = state.populationMixture().ploidyState(populationIndex, segmentIndex);
-                logPriorVariantProfiles += state.priors().ploidyStatePrior().logProbability(ploidyState);
-            }
-        }
+        final double logPriorVariantProfiles = calculateLogPriorVariantProfiles(state.populationMixture().variantProfileCollection(), state.priors().ploidyStatePrior());
 
         //copy-ratio--minor-allele-fraction likelihood
         double logLikelihoodSegments = 0.;
@@ -90,6 +85,18 @@ final class TumorHeterogeneityLikelihoods {
 
         return logPriorConcentration + logPriorCopyRatioNoiseFloor + logPriorCopyRatioNoiseFactor + logPriorMinorAlleleFractionNoiseFactor +
                 logPriorPopulationFractions + logPriorVariantProfiles + logLikelihoodSegments;
+    }
+
+    static double calculateLogPriorVariantProfiles(final PopulationMixture.VariantProfileCollection variantProfileCollection,
+                                                   final PloidyStatePrior ploidyStatePrior) {
+        double logPriorVariantProfiles = 0.;
+        for (int populationIndex = 0; populationIndex < variantProfileCollection.numVariantPopulations(); populationIndex++) {
+            for (int segmentIndex = 0; segmentIndex < variantProfileCollection.numSegments(); segmentIndex++) {
+                final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
+                logPriorVariantProfiles += ploidyStatePrior.logProbability(ploidyState);
+            }
+        }
+        return logPriorVariantProfiles;
     }
 
     private static double calculateMinorAlleleFraction(final double m, final double n) {

@@ -31,10 +31,10 @@ final class TumorHeterogeneityStateInitializationUtils {
     static TumorHeterogeneityState initializeState(final TumorHeterogeneityPriorCollection priors,
                                                    final int numSegments,
                                                    final int numPopulations) {
-        final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
-        final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorAlpha() / priors.copyRatioNoiseFloorPriorBeta();
-        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
-        final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
+        final double concentration = priors.concentrationPriorHyperparameterValues().getAlpha() / priors.concentrationPriorHyperparameterValues().getBeta();
+        final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorHyperparameterValues().getAlpha() / priors.copyRatioNoiseFloorPriorHyperparameterValues().getBeta();
+        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorHyperparameterValues().getAlpha() / priors.copyRatioNoiseFactorPriorHyperparameterValues().getBeta();
+        final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getAlpha() / priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getBeta();
         //initialize population fractions to be evenly distributed
         final PopulationMixture.PopulationFractions populationFractions =
                 new PopulationMixture.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
@@ -60,10 +60,10 @@ final class TumorHeterogeneityStateInitializationUtils {
                 "Clonal modeller must have two populations (clone + normal).");
 
         //initialize global parameters to prior mean
-        final double concentration = priors.concentrationPriorAlpha() / priors.concentrationPriorBeta();
-        final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorAlpha() / priors.copyRatioNoiseFloorPriorBeta();
-        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorAlpha() / priors.copyRatioNoiseFactorPriorBeta();
-        final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorAlpha() / priors.minorAlleleFractionNoiseFactorPriorBeta();
+        final double concentration = priors.concentrationPriorHyperparameterValues().getAlpha() / priors.concentrationPriorHyperparameterValues().getBeta();
+        final double copyRatioNoiseFloor = priors.copyRatioNoiseFloorPriorHyperparameterValues().getAlpha() / priors.copyRatioNoiseFloorPriorHyperparameterValues().getBeta();
+        final double copyRatioNoiseFactor = 1. + priors.copyRatioNoiseFactorPriorHyperparameterValues().getAlpha() / priors.copyRatioNoiseFactorPriorHyperparameterValues().getBeta();
+        final double minorAlleleFractionNoiseFactor = 1. + priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getAlpha() / priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getBeta();
 
         //initialize normal fraction to posterior mean of clonal result
         final double[] normalFractionSamples = clonalModeller.getPopulationFractionsSamples().stream()

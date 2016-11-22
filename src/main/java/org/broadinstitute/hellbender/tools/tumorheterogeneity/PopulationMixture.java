@@ -68,7 +68,7 @@ public final class PopulationMixture {
         validateSegmentIndex(segmentIndex, numSegments);
         return isNormalPopulation(populationIndex) ?
                 normalPloidyState :
-                variantProfileCollection.get(populationIndex).ploidyState(segmentIndex);
+                variantProfileCollection.ploidyState(populationIndex, segmentIndex);
     }
 
     /*===============================================================================================================*
@@ -159,8 +159,8 @@ public final class PopulationMixture {
             final double populationFractionNormalization = populationFractions.stream().mapToDouble(Double::doubleValue).sum();
             Utils.validateArg(Math.abs(1. - populationFractionNormalization) <= POPULATION_FRACTION_NORMALIZATION_EPSILON,
                     "Population fractions must sum to unity.");
-            Utils.validateArg(Ordering.natural().reverse().isOrdered(populationFractions.subList(0, populationFractions.size() - 1)),
-                    "Variant population fractions must be in decreasing order.");
+//            Utils.validateArg(Ordering.natural().reverse().isOrdered(populationFractions.subList(0, populationFractions.size() - 1)),
+//                    "Variant population fractions must be in decreasing order.");
             numPopulations = populationFractions.size();
         }
     }
@@ -180,6 +180,20 @@ public final class PopulationMixture {
             numSegments = numSegmentsForFirstVariant;
             numVariantPopulations = variantProfiles.size();
             variantProfiles.forEach(vp -> add(new VariantProfile(vp)));
+        }
+
+        public int numSegments() {
+            return numSegments;
+        }
+
+        public int numVariantPopulations() {
+            return numVariantPopulations;
+        }
+
+        public PloidyState ploidyState(final int populationIndex, final int segmentIndex) {
+            validatePopulationIndex(populationIndex, numVariantPopulations);
+            validateSegmentIndex(segmentIndex, numSegments);
+            return get(populationIndex).ploidyState(segmentIndex);
         }
     }
 

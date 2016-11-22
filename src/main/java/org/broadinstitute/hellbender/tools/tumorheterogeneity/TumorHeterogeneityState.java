@@ -57,12 +57,4 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     public TumorHeterogeneityPriorCollection priors() {
         return priors;
     }
-
-    void set(final TumorHeterogeneityState state) {
-        update(TumorHeterogeneityParameter.CONCENTRATION, state.concentration());
-        update(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FLOOR, state.copyRatioNoiseFloor());
-        update(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, state.copyRatioNoiseFactor());
-        update(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, state.minorAlleleFractionNoiseFactor());
-        update(TumorHeterogeneityParameter.POPULATION_MIXTURE, state.populationMixture());
-    }
 }
