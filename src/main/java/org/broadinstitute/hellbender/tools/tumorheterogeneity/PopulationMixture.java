@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import com.google.common.collect.Ordering;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 

@@ -328,7 +328,7 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
 
         logger.info("Tumor heterogeneity clonal run complete and result output to " + resultFileClonal + ".");
 
-        final TumorHeterogeneityState initialState = TumorHeterogeneityStateInitializationUtils.initializeStateFromClonalResult(priors, clonalModeller, maxNumPopulations);
+        final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeStateFromClonalResult(priors, clonalModeller, maxNumPopulations);
         final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
         final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, rng);
         modeller.fitMCMC(numSamples, numBurnIn);

@@ -43,7 +43,7 @@ public final class TumorHeterogeneityModeller {
                                       final TumorHeterogeneityPriorCollection priors,
                                       final int numPopulations,
                                       final RandomGenerator rng) {
-        this(data, TumorHeterogeneityStateInitializationUtils.initializeState(priors, data.numSegments(), numPopulations), rng);
+        this(data, TumorHeterogeneityState.initializeState(priors, data.numSegments(), numPopulations), rng);
     }
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
