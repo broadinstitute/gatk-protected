@@ -117,7 +117,10 @@ final class TumorHeterogeneityUtils {
                                                                                       final TumorHeterogeneityState currentState,
                                                                                       final TumorHeterogeneityData data,
                                                                                       final PopulationMixture.PopulationFractions proposedPopulationFractions,
+                                                                                      final double transformedPopulationFractionsProposalWidth,
+                                                                                      final double ploidyProposalWidth,
                                                                                       final int maxTotalCopyNumber,
+                                                                                      final int maxNumIterationsPloidyStep,
                                                                                       final List<List<Integer>> totalCopyNumberProductStates,
                                                                                       final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
         final int numPopulations = currentState.populationMixture().numPopulations();
@@ -130,7 +133,7 @@ final class TumorHeterogeneityUtils {
         TumorHeterogeneitySamplers.logger.info("Current population fractions: " + currentState.populationMixture().populationFractions());
         TumorHeterogeneitySamplers.logger.info("Current ploidy: " + currentPloidy);
 
-        final double proposedPloidy = proposePloidy(rng, currentPloidy, maxTotalCopyNumber);
+        final double proposedPloidy = proposePloidy(rng, currentPloidy, ploidyProposalWidth, maxTotalCopyNumber, maxNumIterationsPloidyStep);
         TumorHeterogeneitySamplers.logger.info("Proposed initial ploidy: " + proposedPloidy);
 
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
@@ -242,20 +245,24 @@ final class TumorHeterogeneityUtils {
                 .collect(Collectors.toList());
     }
 
-    static double proposeTransformedPopulationFraction(final RandomGenerator rng, final Double currentTransformedPopulationFraction) {
+    static double proposeTransformedPopulationFraction(final RandomGenerator rng,
+                                                       final double currentTransformedPopulationFraction,
+                                                       final double proposalWidth) {
         return rng.nextDouble() < 0.5
-                ? currentTransformedPopulationFraction + new NormalDistribution(rng, 0., TumorHeterogeneitySamplers.PopulationMixtureSampler.transformedPopulationFractionProposalWidth).sample()
-                : currentTransformedPopulationFraction + new NormalDistribution(rng, 0., 10 * TumorHeterogeneitySamplers.PopulationMixtureSampler.transformedPopulationFractionProposalWidth).sample();
+                ? currentTransformedPopulationFraction + new NormalDistribution(rng, 0., proposalWidth).sample()
+                : currentTransformedPopulationFraction + new NormalDistribution(rng, 0., proposalWidth).sample();
     }
 
     private static double proposePloidy(final RandomGenerator rng,
-                                    final double currentPloidy,
-                                    final int maxTotalCopyNumber) {
+                                        final double currentPloidy,
+                                        final double proposalWidth,
+                                        final int maxTotalCopyNumber,
+                                        final int maxNumIterations) {
         int numIterations = 0;
         final NormalDistribution normal = rng.nextDouble() < 0.5
-                ? new NormalDistribution(rng, 0., TumorHeterogeneitySamplers.PopulationMixtureSampler.ploidyProposalWidth)
-                : new NormalDistribution(rng, 0., 10 * TumorHeterogeneitySamplers.PopulationMixtureSampler.ploidyProposalWidth);
-        while (numIterations < TumorHeterogeneitySamplers.PopulationMixtureSampler.MAX_NUM_PLOIDY_STEP_ITERATIONS) {
+                ? new NormalDistribution(rng, 0., proposalWidth)
+                : new NormalDistribution(rng, 0., proposalWidth);
+        while (numIterations < maxNumIterations) {
             final double proposedPloidy = currentPloidy + normal.sample();
             if (0 < proposedPloidy && proposedPloidy <= maxTotalCopyNumber) {
                 return proposedPloidy;

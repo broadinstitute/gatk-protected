@@ -1,6 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import autovalue.shaded.com.google.common.common.collect.Sets;
+import com.google.common.collect.Sets;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
 import org.apache.logging.log4j.LogManager;
@@ -18,10 +18,10 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 final class TumorHeterogeneitySamplers {
-    private static final double EPSILON = 1E-10;
+    static final double EPSILON = 1E-10;
     private static final double COPY_RATIO_NOISE_FLOOR_MAX = 1E-2;
 
-    private static final Logger logger = LogManager.getLogger(TumorHeterogeneitySamplers.class);
+    static final Logger logger = LogManager.getLogger(TumorHeterogeneitySamplers.class);
 
     private TumorHeterogeneitySamplers() {}
 
@@ -135,7 +135,7 @@ final class TumorHeterogeneitySamplers {
     }
 
     static final class PopulationMixtureSampler implements ParameterSampler<PopulationMixture, TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> {
-        private static final int MAX_NUM_PLOIDY_STEP_ITERATIONS = 25;
+        private static final int maxNumIterationsPloidyStep = 25;
         private static final double transformedPopulationFractionProposalWidth = 0.1;
         private static final double ploidyProposalWidth = 0.05;
 
@@ -169,14 +169,15 @@ final class TumorHeterogeneitySamplers {
                     TumorHeterogeneityUtils.calculateTransformedPopulationFractionsFromPopulationFractions(currentPopulationFractions);
 
             final List<Double> proposedTransformedPopulationFractions = currentTransformedPopulationFractions.stream()
-                    .map(x -> TumorHeterogeneityUtils.proposeTransformedPopulationFraction(rng, x))
+                    .map(x -> TumorHeterogeneityUtils.proposeTransformedPopulationFraction(rng, x, transformedPopulationFractionProposalWidth))
                     .collect(Collectors.toList());
             final PopulationMixture.PopulationFractions proposedPopulationFractions =
                     TumorHeterogeneityUtils.calculatePopulationFractionsFromTransformedPopulationFractions(proposedTransformedPopulationFractions);
 
             final PopulationMixture.VariantProfileCollection proposedVariantProfileCollection =
-                    TumorHeterogeneityUtils.proposeVariantProfileCollection(rng, state, data, proposedPopulationFractions,
-                            maxTotalCopyNumber, totalCopyNumberProductStates, ploidyStateSetsMap);
+                    TumorHeterogeneityUtils.proposeVariantProfileCollection(rng, state, data,
+                            proposedPopulationFractions, transformedPopulationFractionProposalWidth,
+                            ploidyProposalWidth, maxTotalCopyNumber, maxNumIterationsPloidyStep, totalCopyNumberProductStates, ploidyStateSetsMap);
             final PopulationMixture proposedPopulationMixture = new PopulationMixture(
                     proposedPopulationFractions, proposedVariantProfileCollection, normalPloidyState);
             logger.info("Proposed population fractions: " + proposedPopulationFractions);
