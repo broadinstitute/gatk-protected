@@ -31,12 +31,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "5",
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "1000",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "20",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "500",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "200",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "1",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
@@ -49,7 +47,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E3",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-2",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-2",
-                    "--verbosity", "INFO"
+                    "--verbosity", "DEBUG"
             };
             runCommandLine(arguments);
         }
@@ -72,12 +70,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "5",
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "100",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "1000",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "20",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "500",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "100",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
@@ -119,10 +115,8 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
                     "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "500",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "100",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "10",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_CLONAL_LONG_NAME, "20",
-                    "--" + TumorHeterogeneity.PROPOSAL_WIDTH_FACTOR_LONG_NAME, "20",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "1",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_CLONAL_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
@@ -132,9 +126,9 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E3",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1",
-                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E2",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-3",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-3",
+                    "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E3",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-2",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-2",
                     "--verbosity", "DEBUG"
             };
             runCommandLine(arguments);

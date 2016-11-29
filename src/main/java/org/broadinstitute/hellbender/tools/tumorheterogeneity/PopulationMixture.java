@@ -131,19 +131,6 @@ public final class PopulationMixture {
     }
 
     /*===============================================================================================================*
-     * SETTERS (SHOULD ONLY BE USED BY SAMPLERS TO MODIFY STATE FOR SAMPLING OF INDICATOR VARIABLES)                 *
-     *===============================================================================================================*/
-
-    void setPloidyState(final int populationIndex, final int segmentIndex, final PloidyState ploidyState) {
-        validatePopulationIndex(populationIndex, numPopulations);
-        validateSegmentIndex(segmentIndex, numSegments);
-        if (populationIndex == numPopulations - 1) {
-            throw new IllegalStateException("Attempted to set ploidy state for normal population.");
-        }
-        variantProfileCollection.get(populationIndex).set(segmentIndex, ploidyState);
-    }
-
-    /*===============================================================================================================*
      * INNER CLASSES                                                                                                 *
      *===============================================================================================================*/
 
@@ -158,9 +145,15 @@ public final class PopulationMixture {
             final double populationFractionNormalization = populationFractions.stream().mapToDouble(Double::doubleValue).sum();
             Utils.validateArg(Math.abs(1. - populationFractionNormalization) <= POPULATION_FRACTION_NORMALIZATION_EPSILON,
                     "Population fractions must sum to unity.");
-//            Utils.validateArg(Ordering.natural().reverse().isOrdered(populationFractions.subList(0, populationFractions.size() - 1)),
-//                    "Variant population fractions must be in decreasing order.");
             numPopulations = populationFractions.size();
+        }
+
+        public double normalFraction() {
+            return get(numPopulations - 1);
+        }
+
+        public double tumorFraction() {
+            return 1. - normalFraction();
         }
     }
 

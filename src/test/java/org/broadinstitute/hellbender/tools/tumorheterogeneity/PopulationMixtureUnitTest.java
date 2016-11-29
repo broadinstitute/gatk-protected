@@ -49,14 +49,6 @@ public class PopulationMixtureUnitTest {
         new PopulationMixture(populationFractions, variantProfileCollection, NORMAL_PLOIDY_STATE);
     }
 
-//    @Test(expectedExceptions = IllegalArgumentException.class)
-//    public void testUnsortedPopulationFractions() {
-//        //fail if population fractions are not in decreasing order for variant populations
-//        final PopulationMixture.PopulationFractions populationFractions = new PopulationMixture.PopulationFractions(Arrays.asList(0.1, 0.2, 0.7));
-//        final PopulationMixture.VariantProfileCollection variantProfileCollection = new PopulationMixture.VariantProfileCollection(Arrays.asList(DUMMY_VARIANT_PROFILE, DUMMY_VARIANT_PROFILE));
-//        new PopulationMixture(populationFractions, variantProfileCollection, NORMAL_PLOIDY_STATE);
-//    }
-
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testNoVariants() {
         //fail if number of variant populations is not positive

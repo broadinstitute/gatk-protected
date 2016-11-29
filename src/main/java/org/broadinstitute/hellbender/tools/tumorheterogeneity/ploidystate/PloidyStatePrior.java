@@ -32,7 +32,10 @@ public final class PloidyStatePrior {
 
     public double logProbability(final PloidyState ploidyState) {
         Utils.nonNull(ploidyState);
-        return logProbabilityMassFunctionMap.getOrDefault(ploidyState, Double.NaN);
+        if (!logProbabilityMassFunctionMap.containsKey(ploidyState)) {
+            throw new IllegalArgumentException("Ploidy-state prior not specified for given ploidy state.");
+        }
+        return logProbabilityMassFunctionMap.get(ploidyState);
     }
 
     //normalize log probabilities in mass function (which may be unnormalized)

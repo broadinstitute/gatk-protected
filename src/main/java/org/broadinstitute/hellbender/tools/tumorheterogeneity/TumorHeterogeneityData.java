@@ -144,7 +144,7 @@ public final class TumorHeterogeneityData implements DataCollection {
 
         double copyRatioLogDensity(final double copyRatio, final double copyRatioNoiseFloor, final double copyRatioNoiseFactor) {
             final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON) * INV_LN2;
-            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + COPY_RATIO_EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
         }
 
         double minorAlleleFractionLogDensity(final double minorAlleleFraction, final double minorAlleleFractionNoiseFactor) {

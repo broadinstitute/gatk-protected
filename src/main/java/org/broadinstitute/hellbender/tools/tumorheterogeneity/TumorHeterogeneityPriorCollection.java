@@ -13,8 +13,6 @@ import java.util.stream.Collectors;
 public final class TumorHeterogeneityPriorCollection {
     private final PloidyState normalPloidyState;
     private final PloidyStatePrior ploidyStatePrior;
-    private final int maxTotalCopyNumber;
-    private final double proposalWidthFactor;
 
     private final HyperparameterValues concentrationPriorHyperparameterValues;
     private final HyperparameterValues copyRatioNoiseFloorPriorHyperparameterValues;
@@ -23,7 +21,6 @@ public final class TumorHeterogeneityPriorCollection {
 
     public TumorHeterogeneityPriorCollection(final PloidyState normalPloidyState,
                                              final PloidyStatePrior ploidyStatePrior,
-                                             final double proposalWidthFactor,
                                              final double concentrationPriorAlpha,
                                              final double concentrationPriorBeta,
                                              final double copyRatioNoiseFloorPriorAlpha,
@@ -36,11 +33,8 @@ public final class TumorHeterogeneityPriorCollection {
         Utils.nonNull(ploidyStatePrior);
         Utils.validateArg(ploidyStatePrior.ploidyStates().contains(normalPloidyState),
                 "Ploidy-state prior must contain normal ploidy state.");
-        Utils.validateArg(proposalWidthFactor > 0, "Proposal-width factor must be positive.");
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
-        maxTotalCopyNumber = Collections.max(ploidyStatePrior().ploidyStates().stream().map(PloidyState::n).collect(Collectors.toList()));
-        this.proposalWidthFactor = proposalWidthFactor;
         concentrationPriorHyperparameterValues = new HyperparameterValues(concentrationPriorAlpha, concentrationPriorBeta);
         copyRatioNoiseFloorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFloorPriorAlpha, copyRatioNoiseFloorPriorBeta);
         copyRatioNoiseFactorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta);
@@ -53,14 +47,6 @@ public final class TumorHeterogeneityPriorCollection {
 
     public PloidyStatePrior ploidyStatePrior() {
         return ploidyStatePrior;
-    }
-
-    public int maxTotalCopyNumber() {
-        return maxTotalCopyNumber;
-    }
-
-    public double proposalWidthFactor() {
-        return proposalWidthFactor;
     }
 
     public HyperparameterValues concentrationPriorHyperparameterValues() {

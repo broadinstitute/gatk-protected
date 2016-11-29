@@ -61,7 +61,8 @@ public final class TumorHeterogeneityModeller {
         final double copyRatioNoiseFactorSliceSamplingWidth = initialState.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactorSliceSamplingWidth = initialState.minorAlleleFractionNoiseFactor();
         final int numPopulations = initialState.populationMixture().numPopulations();
-        final int maxTotalCopyNumber = priors.maxTotalCopyNumber();
+        final List<PloidyState> ploidyStates = priors.ploidyStatePrior().ploidyStates();
+        final PloidyState normalPloidyState = priors.normalPloidyState();
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
@@ -73,7 +74,7 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler minorAlleleFractionNoiseFactorSampler =
                 new TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler(minorAlleleFractionNoiseFactorSliceSamplingWidth);
         final TumorHeterogeneitySamplers.PopulationMixtureSampler populationMixtureSampler =
-                new TumorHeterogeneitySamplers.PopulationMixtureSampler(numPopulations, maxTotalCopyNumber);
+                new TumorHeterogeneitySamplers.PopulationMixtureSampler(rng, numPopulations, ploidyStates, normalPloidyState);
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
