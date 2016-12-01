@@ -4,9 +4,6 @@ import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.Ploidy
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
 import org.broadinstitute.hellbender.utils.Utils;
 
-import java.util.Collections;
-import java.util.stream.Collectors;
-
 /**
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */

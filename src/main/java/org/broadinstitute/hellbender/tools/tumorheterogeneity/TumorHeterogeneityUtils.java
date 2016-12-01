@@ -19,7 +19,7 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 final class TumorHeterogeneityUtils {
-    private static final double EPSILON = 1E-10;
+    static final double EPSILON = 1E-10;
 
     private TumorHeterogeneityUtils() {}
 
@@ -78,7 +78,10 @@ final class TumorHeterogeneityUtils {
                         + logPriorPopulationFractionsSum;
 
         //variant-profiles prior
-        final double logPriorVariantProfiles = calculateLogPriorVariantProfiles(state.populationMixture().variantProfileCollection(), state.priors().ploidyStatePrior());
+        final double logPriorVariantProfiles = calculateLogPriorVariantProfiles(
+                state.populationMixture().variantProfileCollection(),
+                state.priors().ploidyStatePrior(),
+                data.segmentLengths());
 
         //copy-ratio--minor-allele-fraction likelihood
         final double logLikelihoodSegments = calculateLogLikelihoodSegments(state, data);
@@ -89,12 +92,13 @@ final class TumorHeterogeneityUtils {
     }
 
     static double calculateLogPriorVariantProfiles(final PopulationMixture.VariantProfileCollection variantProfileCollection,
-                                                   final PloidyStatePrior ploidyStatePrior) {
+                                                   final PloidyStatePrior ploidyStatePrior,
+                                                   final List<Integer> segmentLengths) {
         double logPriorVariantProfiles = 0.;
         for (int populationIndex = 0; populationIndex < variantProfileCollection.numVariantPopulations(); populationIndex++) {
             for (int segmentIndex = 0; segmentIndex < variantProfileCollection.numSegments(); segmentIndex++) {
                 final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
-                logPriorVariantProfiles += ploidyStatePrior.logProbability(ploidyState);
+                logPriorVariantProfiles += segmentLengths.get(segmentIndex) * ploidyStatePrior.logProbability(ploidyState);
             }
         }
         return logPriorVariantProfiles;
@@ -128,11 +132,13 @@ final class TumorHeterogeneityUtils {
         final int numPopulations = currentState.populationMixture().numPopulations();
         final int numSegments = data.numSegments();
         final PloidyState normalPloidyState = currentState.priors().normalPloidyState();
+        final PloidyStatePrior ploidyStatePrior = currentState.priors().ploidyStatePrior();
         final List<PopulationMixture.VariantProfile> variantProfiles = new ArrayList<>(Collections.nCopies(numPopulations - 1,
                 new PopulationMixture.VariantProfile(Collections.nCopies(numSegments, normalPloidyState))));
 
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
             final int si = segmentIndex;
+            final int segmentLength = data.length(si);
             final double[] log10ProbabilitiesCopyRatio = totalCopyNumberProductStates.stream()
                     .mapToDouble(tcnps -> calculateTotalCopyNumber(proposedPopulationFractions, tcnps, normalPloidyState) / (proposedInitialPloidy + EPSILON))
                     .map(cr -> data.copyRatioLogDensity(si, cr, currentState.copyRatioNoiseFloor(), currentState.copyRatioNoiseFactor()))
@@ -147,8 +153,10 @@ final class TumorHeterogeneityUtils {
             final List<List<PloidyState>> ploidyStateProductStates =
                     new ArrayList<>(Sets.cartesianProduct(totalCopyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
             final double[] log10ProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                    .mapToDouble(psps -> calculateMinorAlleleFraction(proposedPopulationFractions, psps, normalPloidyState))
-                    .map(maf -> data.logDensity(si, totalCopyRatio, maf, currentState.copyRatioNoiseFloor(), currentState.copyRatioNoiseFactor(), currentState.minorAlleleFractionNoiseFactor()))
+                    .mapToDouble(psps ->
+                            data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(proposedPopulationFractions, psps, normalPloidyState),
+                                    currentState.copyRatioNoiseFloor(), currentState.copyRatioNoiseFactor(), currentState.minorAlleleFractionNoiseFactor())
+                                    + psps.stream().mapToDouble(ps -> segmentLength * ploidyStatePrior.logProbability(ps)).sum())
                     .map(MathUtils::logToLog10)
                     .toArray();
             final double[] probabilitiesPloidyStateProductStates = MathUtils.normalizeFromLog10ToLinearSpace(log10ProbabilitiesPloidyStateProductStates);
@@ -180,7 +188,7 @@ final class TumorHeterogeneityUtils {
         final double nAlleleCopyNumber = IntStream.range(0, numPopulations - 1).boxed()
                 .mapToDouble(i -> ploidyStateProductState.get(i).n() * populationFractions.get(i))
                 .sum() + normalPloidyState.n() * populationFractions.normalFraction();
-        return Math.min(mAlleleCopyNumber, nAlleleCopyNumber) / (mAlleleCopyNumber + nAlleleCopyNumber + TumorHeterogeneitySamplers.EPSILON);
+        return Math.min(mAlleleCopyNumber, nAlleleCopyNumber) / (mAlleleCopyNumber + nAlleleCopyNumber + EPSILON);
     }
 
     static double calculateLogJacobianFactor(final PopulationMixture.PopulationFractions populationFractions) {

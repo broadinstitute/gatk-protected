@@ -29,10 +29,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
             final String[] arguments = {
                     "--" + ExomeStandardArgumentDefinitions.SEGMENT_FILE_LONG_NAME, ACNV_SEGMENT_FILE.getAbsolutePath(),
                     "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
-                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "5",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "500",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "200",
+                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "3",
+                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "3",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "25",
                     "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_CLONAL_LONG_NAME, "1E1",
@@ -45,9 +45,9 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E3",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1E3",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1E-2",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-2",
-                    "--verbosity", "DEBUG"
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_COMPLETE_DELETION_PENALTY_LONG_NAME, "1",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "0.95",
+                    "--verbosity", "INFO"
             };
             runCommandLine(arguments);
         }

@@ -22,12 +22,13 @@ import java.util.stream.Collectors;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityModeller {
-    private static final double EPSILON = 1E-12;
+    private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
     static final double CONCENTRATION_MIN = EPSILON;
     static final double CONCENTRATION_MAX = 10.;
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 10;
+    private static final int NUM_WALKERS = 50;
 
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
     private final TumorHeterogeneityData data;
@@ -63,18 +64,19 @@ public final class TumorHeterogeneityModeller {
         final int numPopulations = initialState.populationMixture().numPopulations();
         final List<PloidyState> ploidyStates = priors.ploidyStatePrior().ploidyStates();
         final PloidyState normalPloidyState = priors.normalPloidyState();
+        final int numWalkers = NUM_WALKERS;
 
         //define samplers
         final TumorHeterogeneitySamplers.ConcentrationSampler concentrationSampler =
-                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth);
+                new TumorHeterogeneitySamplers.ConcentrationSampler(CONCENTRATION_MIN, CONCENTRATION_MAX, concentrationSliceSamplingWidth, numWalkers);
         final TumorHeterogeneitySamplers.CopyRatioNoiseFloorSampler copyRatioNoiseFloorSampler =
-                new TumorHeterogeneitySamplers.CopyRatioNoiseFloorSampler(copyRatioNoiseFloorSliceSamplingWidth);
+                new TumorHeterogeneitySamplers.CopyRatioNoiseFloorSampler(copyRatioNoiseFloorSliceSamplingWidth, numWalkers);
         final TumorHeterogeneitySamplers.CopyRatioNoiseFactorSampler copyRatioNoiseFactorSampler =
-                new TumorHeterogeneitySamplers.CopyRatioNoiseFactorSampler(copyRatioNoiseFactorSliceSamplingWidth);
+                new TumorHeterogeneitySamplers.CopyRatioNoiseFactorSampler(copyRatioNoiseFactorSliceSamplingWidth, numWalkers);
         final TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler minorAlleleFractionNoiseFactorSampler =
-                new TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler(minorAlleleFractionNoiseFactorSliceSamplingWidth);
+                new TumorHeterogeneitySamplers.MinorAlleleFractionNoiseFactorSampler(minorAlleleFractionNoiseFactorSliceSamplingWidth, numWalkers);
         final TumorHeterogeneitySamplers.PopulationMixtureSampler populationMixtureSampler =
-                new TumorHeterogeneitySamplers.PopulationMixtureSampler(rng, numPopulations, ploidyStates, normalPloidyState);
+                new TumorHeterogeneitySamplers.PopulationMixtureSampler(rng, numPopulations, ploidyStates, normalPloidyState, numWalkers);
 
         model = new ParameterizedModel.GibbsBuilder<>(initialState, data)
                 .addParameterSampler(TumorHeterogeneityParameter.CONCENTRATION, concentrationSampler, Double.class)
@@ -98,20 +100,20 @@ public final class TumorHeterogeneityModeller {
                 "Number of burn-in samples to discard must be non-negative and strictly less than total number of samples.");
         //run MCMC
         final GibbsSampler<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> gibbsSampler
-                = new GibbsSampler<>(numSamples, model);
+                = new GibbsSampler<>(NUM_WALKERS * numSamples, model);
         gibbsSampler.setNumSamplesPerLogEntry(NUM_SAMPLES_PER_LOG_ENTRY);
         gibbsSampler.runMCMC();
         //update posterior samples
         concentrationSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.CONCENTRATION,
-                Double.class, numBurnIn));
+                Double.class, NUM_WALKERS * numBurnIn));
         copyRatioNoiseFloorSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FLOOR,
-                Double.class, numBurnIn));
+                Double.class, NUM_WALKERS * numBurnIn));
         copyRatioNoiseFactorSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR,
-                Double.class, numBurnIn));
+                Double.class, NUM_WALKERS * numBurnIn));
         minorAlleleFractionNoiseFactorSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR,
-                Double.class, numBurnIn));
+                Double.class, NUM_WALKERS * numBurnIn));
         populationMixtureSamples.addAll(gibbsSampler.getSamples(TumorHeterogeneityParameter.POPULATION_MIXTURE,
-                PopulationMixture.class, numBurnIn));
+                PopulationMixture.class, NUM_WALKERS * numBurnIn));
     }
 
     /**
@@ -168,7 +170,39 @@ public final class TumorHeterogeneityModeller {
         return Collections.unmodifiableList(populationMixtureSamples.stream().map(pm -> pm.ploidy(data)).collect(Collectors.toList()));
     }
 
-    public void output(final File outputFile) {
+    public void outputSamples(final File outputFile) {
+        if (concentrationSamples.size() == 0) {
+            throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
+        }
+        try (final FileWriter writer = new FileWriter(outputFile)) {
+            outputFile.createNewFile();
+
+            final List<PopulationMixture.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
+            final List<Double> ploidySamples = getPloidySamples();
+
+            final int numPopulations = populationFractionsSamples.get(0).size();
+
+            //column headers
+            for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
+                writer.write("POPULATION_" + populationIndex + "\t");
+            }
+            writer.write("POPULATION_NORMAL\tPLOIDY\n");
+
+            //rows
+            for (int sampleIndex = 0; sampleIndex < populationFractionsSamples.size(); sampleIndex++) {
+                for (int populationIndex = 0; populationIndex < numPopulations; populationIndex++) {
+                    final double populationFraction = populationFractionsSamples.get(sampleIndex).get(populationIndex);
+                    writer.write(String.format("%.4f\t", populationFraction));
+                }
+                final double ploidy = ploidySamples.get(sampleIndex);
+                writer.write(String.format("%.4f\n", ploidy));
+            }
+        } catch (final IOException e) {
+            throw new GATKException("Error writing modeller samples.");
+        }
+    }
+
+    public void outputSummary(final File outputFile) {
         if (concentrationSamples.size() == 0) {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }

@@ -39,7 +39,8 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
 
     //filename tags for output
-    protected static final String CLONAL_RESULT_FILE_SUFFIX = ".th.clonal.tsv";
+    protected static final String CLONAL_SAMPLES_FILE_SUFFIX = ".th.clonal.samples.tsv";
+    protected static final String CLONAL_SUMMARY_FILE_SUFFIX = ".th.clonal.summary.tsv";
     protected static final String RESULT_FILE_SUFFIX = ".th.final.tsv";
 
     //CLI arguments
@@ -297,20 +298,24 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
 
-        final File resultFileClonal = new File(outputPrefix + CLONAL_RESULT_FILE_SUFFIX);
+        final File samplesFileClonal = new File(outputPrefix + CLONAL_SAMPLES_FILE_SUFFIX);
+        final File summaryFileClonal = new File(outputPrefix + CLONAL_SUMMARY_FILE_SUFFIX);
         final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, priorsClonal, NUM_POPULATIONS_CLONAL, rng);
         clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
-        clonalModeller.output(resultFileClonal);
+        clonalModeller.outputSamples(samplesFileClonal);
+        clonalModeller.outputSummary(summaryFileClonal);
 
-        logger.info("Tumor heterogeneity clonal run complete and result output to " + resultFileClonal + ".");
+        logger.info("Tumor heterogeneity clonal run complete.");
+        logger.info("Result samples output to " + samplesFileClonal + ".");
+        logger.info("Result summary output to " + summaryFileClonal + ".");
 
-        final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeStateFromClonalResult(priors, clonalModeller, maxNumPopulations);
-        final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
-        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, rng);
-        modeller.fitMCMC(numSamples, numBurnIn);
-        modeller.output(resultFile);
-
-        logger.info("SUCCESS: Tumor heterogeneity full run complete and result output to " + resultFile + ".");
+//        final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeStateFromClonalResult(priors, clonalModeller, maxNumPopulations);
+//        final File resultFile = new File(outputPrefix + RESULT_FILE_SUFFIX);
+//        final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, rng);
+//        modeller.fitMCMC(numSamples, numBurnIn);
+//        modeller.output(resultFile);
+//
+//        logger.info("SUCCESS: Tumor heterogeneity full run complete and result output to " + resultFile + ".");
     }
 
     private static PloidyStatePrior calculatePloidyStatePrior(final double ploidyStatePriorCompleteDeletionPenalty,
@@ -334,9 +339,9 @@ public class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
         Utils.validateArg(maxNumPopulations >= 2, MAX_NUM_POPULATIONS_LONG_NAME + " must be greater than or equal to 2.");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
-        Utils.validateArg(numBurnInClonal >= 0 && numBurnInClonal <= numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_CLONAL_LONG_NAME);
+        Utils.validateArg(numBurnInClonal >= 0 && numBurnInClonal < numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be non-negative and strictly less than " + NUM_SAMPLES_CLONAL_LONG_NAME);
         Utils.validateArg(numSamples > 0, NUM_SAMPLES_LONG_NAME + " must be positive.");
-        Utils.validateArg(numBurnIn >= 0 && numBurnIn <= numSamples, NUM_BURN_IN_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_LONG_NAME);
+        Utils.validateArg(numBurnIn >= 0 && numBurnIn < numSamples, NUM_BURN_IN_LONG_NAME + " must be non-negative and strictly less than " + NUM_SAMPLES_LONG_NAME);
         Utils.validateArg(concentrationPriorAlpha > 0, CONCENTRATION_PRIOR_ALPHA_LONG_NAME + " must be positive.");
         Utils.validateArg(concentrationPriorBeta > 0, CONCENTRATION_PRIOR_BETA_LONG_NAME + " must be positive.");
         Utils.validateArg(TumorHeterogeneityModeller.CONCENTRATION_MIN < concentrationPriorAlpha / concentrationPriorBeta &&

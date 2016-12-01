@@ -50,7 +50,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final int NUM_MAX_EVAL = 1000;
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
-    private static final double EPSILON = 1E-10;
+    private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
     protected static final double COPY_RATIO_EPSILON = 1E-6; //below this, use flat minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
@@ -70,7 +70,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         numSegments = segments.size();
         this.segments = Collections.unmodifiableList(new ArrayList<>(segments));
 
-        segmentLengths = segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList());
+        segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList()));
         final double totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
         fractionalLengths = Collections.unmodifiableList(segmentLengths.stream().map(l -> (double) l / totalLength).collect(Collectors.toList()));
 
@@ -93,9 +93,13 @@ public final class TumorHeterogeneityData implements DataCollection {
         return fractionalLengths.get(segmentIndex);
     }
 
-    public double length(final int segmentIndex) {
+    public int length(final int segmentIndex) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         return segmentLengths.get(segmentIndex);
+    }
+
+    public List<Integer> segmentLengths() {
+        return segmentLengths;
     }
 
     public List<Integer> segmentIndicesByDecreasingLength() {
