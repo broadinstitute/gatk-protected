@@ -51,7 +51,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
-    protected static final double COPY_RATIO_EPSILON = 1E-6; //below this, use flat minor-allele fraction posterior
+    private static final double COPY_RATIO_EPSILON = 1E-3; //below this, use flat minor-allele fraction posterior
 
     public static final Logger logger = LogManager.getLogger(TumorHeterogeneityData.class);
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
@@ -134,12 +134,12 @@ public final class TumorHeterogeneityData implements DataCollection {
             logger.info("Fitting segment: " + segment.getInterval());
             final List<Double> log2CopyRatioInnerDecilesList = segment.getSegmentMeanPosteriorSummary().getDeciles().getInner();
             final double[] log2CopyRatioInnerDeciles = Doubles.toArray(log2CopyRatioInnerDecilesList);
-            logger.info("Fitting normal distribution to inner deciles:\n" + log2CopyRatioInnerDecilesList);
+            logger.debug("Fitting normal distribution to inner deciles:\n" + log2CopyRatioInnerDecilesList);
             log2CopyRatioPosteriorLogPDF = fitNormalLogPDFToInnerDeciles(log2CopyRatioInnerDeciles);
 
             final List<Double> minorAlleleFractionInnerDecilesList = segment.getMinorAlleleFractionPosteriorSummary().getDeciles().getInner();
             final double[] minorAlleleFractionInnerDeciles = Doubles.toArray(minorAlleleFractionInnerDecilesList);
-            logger.info("Fitting scaled beta distribution to inner deciles:\n" + minorAlleleFractionInnerDecilesList);
+            logger.debug("Fitting scaled beta distribution to inner deciles:\n" + minorAlleleFractionInnerDecilesList);
             final boolean isMinorAlleleFractionNaN = Double.isNaN(segment.getMinorAlleleFractionPosteriorSummary().getCenter());
             minorAlleleFractionPosteriorLogPDF = isMinorAlleleFractionNaN ?
                     point -> LN2 :       //flat over minor-allele fraction if NaN (i.e., no hets in segment) = log(1. / 0.5)
@@ -147,8 +147,8 @@ public final class TumorHeterogeneityData implements DataCollection {
         }
 
         double copyRatioLogDensity(final double copyRatio, final double copyRatioNoiseFloor, final double copyRatioNoiseFactor) {
-            final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + COPY_RATIO_EPSILON) * INV_LN2;
-            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + COPY_RATIO_EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            final double log2CopyRatio = Math.log(copyRatio + copyRatioNoiseFloor + EPSILON) * INV_LN2;
+            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(copyRatio + EPSILON);    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
         }
 
         double minorAlleleFractionLogDensity(final double minorAlleleFraction, final double minorAlleleFractionNoiseFactor) {

@@ -86,6 +86,8 @@ final class TumorHeterogeneityUtils {
         //copy-ratio--minor-allele-fraction likelihood
         final double logLikelihoodSegments = calculateLogLikelihoodSegments(state, data);
 
+//        System.out.println(logPriorConcentration + " " + logPriorCopyRatioNoiseFloor + " " + logPriorCopyRatioNoiseFactor + " " + logPriorMinorAlleleFractionNoiseFactor + " " +
+//                logPriorPopulationFractions + " " + logPriorVariantProfiles + " " + logLikelihoodSegments);
 
         return logPriorConcentration + logPriorCopyRatioNoiseFloor + logPriorCopyRatioNoiseFactor + logPriorMinorAlleleFractionNoiseFactor +
                 logPriorPopulationFractions + logPriorVariantProfiles + logLikelihoodSegments;

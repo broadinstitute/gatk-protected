@@ -274,10 +274,12 @@ final class TumorHeterogeneitySamplers {
 
             final double proposedLogPosterior =
                     TumorHeterogeneityUtils.calculateLogPosterior(proposedState, data)
-                    + TumorHeterogeneityUtils.calculateLogJacobianFactor(proposedPopulationFractions);
+                    + TumorHeterogeneityUtils.calculateLogJacobianFactor(proposedPopulationFractions)
+                    - 100. * Math.abs(proposedInitialPloidy - proposedResultingPloidy);
             final double currentLogPosterior =
                     TumorHeterogeneityUtils.calculateLogPosterior(currentState, data)
-                    + TumorHeterogeneityUtils.calculateLogJacobianFactor(currentPopulationFractions);
+                    + TumorHeterogeneityUtils.calculateLogJacobianFactor(currentPopulationFractions)
+                    - 100. * Math.abs(currentInitialPloidy - currentResultingPloidy);
             final double acceptanceProbability = Math.min(1., Math.exp((numPopulations - 1.) * Math.log(z) + proposedLogPosterior - currentLogPosterior));
             logger.debug("Log posterior of current state: " + currentLogPosterior);
             logger.debug("Log posterior of proposed state: " + proposedLogPosterior);
@@ -289,6 +291,7 @@ final class TumorHeterogeneitySamplers {
             if (rng.nextDouble() < acceptanceProbability) {
                 numAccepted += 1;
                 logger.debug("Proposed state accepted.");
+                System.out.println(proposedInitialPloidy + " " + proposedResultingPloidy + " " + Math.abs(proposedInitialPloidy - proposedResultingPloidy));
                 walkerPositions.set(currentWalkerIndex, proposedWalkerPosition);
                 return proposedPopulationMixture;
             }
