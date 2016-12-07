@@ -1,7 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.germlinehmm;
 
-import org.broadinstitute.hellbender.cmdline.Argument;
-import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.barclay.argparser.Argument;
+import org.broadinstitute.barclay.argparser.CommandLineException;
 
 /**
  * User arguments to compose a custom {@link CopyNumberTriStateHiddenMarkovModel}.
@@ -56,7 +56,7 @@ public final class CopyNumberTriStateHiddenMarkovModelArgumentCollection {
 
     /**
      * Creates a new model instance using the current parameters.
-     * @throws UserException.BadArgumentValue if any of the argument contain an invalid value.
+     * @throws CommandLineException.BadArgumentValue if any of the argument contain an invalid value.
      */
     public CopyNumberTriStateHiddenMarkovModel createModel() {
         return new CopyNumberTriStateHiddenMarkovModel(eventStartProbability, meanEventSize, meanDeletionCoverageShift,

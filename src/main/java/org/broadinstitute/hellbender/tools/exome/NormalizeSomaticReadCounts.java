@@ -1,6 +1,8 @@
 package org.broadinstitute.hellbender.tools.exome;
 
 import org.apache.logging.log4j.Level;
+import org.broadinstitute.barclay.argparser.Argument;
+import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.hdf5.HDF5File;
 import org.broadinstitute.hdf5.HDF5Library;
 import org.broadinstitute.hellbender.cmdline.*;

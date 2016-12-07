@@ -1,11 +1,12 @@
 package org.broadinstitute.hellbender.tools.walkers.haplotypecaller;
 
-import org.broadinstitute.hellbender.cmdline.Advanced;
-import org.broadinstitute.hellbender.cmdline.Argument;
-import org.broadinstitute.hellbender.cmdline.ArgumentCollectionDefinition;
-import org.broadinstitute.hellbender.cmdline.Hidden;
+import org.broadinstitute.barclay.argparser.Advanced;
+import org.broadinstitute.barclay.argparser.Argument;
+import org.broadinstitute.barclay.argparser.Hidden;
 
-public class AssemblyRegionTrimmerArgumentCollection implements ArgumentCollectionDefinition {
+import java.io.Serializable;
+
+public class AssemblyRegionTrimmerArgumentCollection implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Advanced
