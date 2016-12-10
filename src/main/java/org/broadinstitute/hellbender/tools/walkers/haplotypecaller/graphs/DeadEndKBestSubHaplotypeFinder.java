@@ -43,7 +43,7 @@ final class DeadEndKBestSubHaplotypeFinder implements KBestSubHaplotypeFinder {
     }
 
     @Override
-    public int getCount() {
+    public long getCount() {
         return 0;
     }
 

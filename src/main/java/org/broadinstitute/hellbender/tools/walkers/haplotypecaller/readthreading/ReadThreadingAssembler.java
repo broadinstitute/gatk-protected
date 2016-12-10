@@ -21,6 +21,7 @@ import org.broadinstitute.hellbender.utils.param.ParamUtils;
 import org.broadinstitute.hellbender.utils.read.CigarUtils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
+import org.jgrapht.alg.CycleDetector;
 
 import java.io.File;
 import java.io.IOException;
@@ -192,22 +193,19 @@ public final class ReadThreadingAssembler {
         final Set<Haplotype> returnHaplotypes = new LinkedHashSet<>();
 
         final int activeRegionStart = refHaplotype.getAlignmentStartHapwrtRef();
-        final Collection<KBestHaplotypeFinder> finders = new ArrayList<>(graphs.size());
         int failedCigars = 0;
 
         for( final SeqGraph graph : graphs ) {
             final SeqVertex source = graph.getReferenceSourceVertex();
             final SeqVertex sink = graph.getReferenceSinkVertex();
             Utils.validateArg( source != null && sink != null, () -> "Both source and sink cannot be null but got " + source + " and sink " + sink + " for graph " + graph);
-            final KBestHaplotypeFinder haplotypeFinder = new KBestHaplotypeFinder(graph,source,sink);
-            finders.add(haplotypeFinder);
-            final Iterator<KBestHaplotype> bestHaplotypes = haplotypeFinder.iterator(numBestHaplotypesPerGraph);
-
-            while (bestHaplotypes.hasNext()) {
-                final KBestHaplotype kBestHaplotype = bestHaplotypes.next();
-                final Haplotype h = kBestHaplotype.haplotype();
-                if( !returnHaplotypes.contains(h) ) {
-                    final Cigar cigar = CigarUtils.calculateCigar(refHaplotype.getBases(), h.getBases());
+            if (new CycleDetector<>(graph).detectCycles()) {
+                new CycleRemover<>(graph).removeCycles(source, sink);
+            }
+            final HaplotypeEnumerator haplotypeEnumerator = new HaplotypeEnumerator(numBestHaplotypesPerGraph, 100);
+            for (final Haplotype haplotype : haplotypeEnumerator.list(graph)) {
+                if( !returnHaplotypes.contains(haplotype) ) {
+                    final Cigar cigar = CigarUtils.calculateCigar(refHaplotype.getBases(), haplotype.getBases());
 
                     if ( cigar == null ) {
                         failedCigars++; // couldn't produce a meaningful alignment of haplotype to reference, fail quietly
@@ -221,17 +219,17 @@ public final class ReadThreadingAssembler {
                     } else if( cigar.getReferenceLength() != refHaplotype.getCigar().getReferenceLength() ) { // SW failure
                         throw new IllegalStateException("Smith-Waterman alignment failure. Cigar = " + cigar + " with reference length "
                                 + cigar.getReferenceLength() + " but expecting reference length of " + refHaplotype.getCigar().getReferenceLength()
-                                + " ref = " + refHaplotype + " path " + new String(h.getBases()));
+                                + " ref = " + refHaplotype + " path " + new String(haplotype.getBases()));
                     }
 
-                    h.setCigar(cigar);
-                    h.setAlignmentStartHapwrtRef(activeRegionStart);
-                    h.setGenomeLocation(activeRegionWindow);
-                    returnHaplotypes.add(h);
-                    assemblyResultSet.add(h, assemblyResultByGraph.get(graph));
+                    haplotype.setCigar(cigar);
+                    haplotype.setAlignmentStartHapwrtRef(activeRegionStart);
+                    haplotype.setGenomeLocation(activeRegionWindow);
+                    returnHaplotypes.add(haplotype);
+                    assemblyResultSet.add(haplotype, assemblyResultByGraph.get(graph));
 
                     if ( debug ) {
-                        logger.info("Adding haplotype " + h.getCigar() + " from graph with kmer " + graph.getKmerSize());
+                        logger.info("Adding haplotype " + haplotype.getCigar() + " from graph with kmer " + graph.getKmerSize());
                     }
                 }
             }
@@ -240,17 +238,7 @@ public final class ReadThreadingAssembler {
         // Make sure that the ref haplotype is amongst the return haplotypes and calculate its score as
         // the first returned by any finder.
         if (!returnHaplotypes.contains(refHaplotype)) {
-            double refScore = Double.NaN;
-            for (final KBestHaplotypeFinder finder : finders) {
-                final double candidate = finder.score(refHaplotype);
-                if (Double.isNaN(candidate)) {
-                    continue;
-                }
-                refScore = candidate;
-                break;
-            }
-            refHaplotype.setScore(refScore);
-            returnHaplotypes.add(refHaplotype);
+            throw new IllegalStateException("missing reference");
         }
 
         if (failedCigars != 0) {

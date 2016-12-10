@@ -38,7 +38,7 @@ interface KBestSubHaplotypeFinder {
      * Returns the total number of possible sub-haplotypes.
      * @return 0 or greater.
      */
-    public int getCount();
+    public long getCount();
 
     /**
      * Return the k-best sub-haplotype solution.

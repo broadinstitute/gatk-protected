@@ -211,7 +211,7 @@ public final class KBestHaplotypeFinder extends AbstractList<KBestHaplotype> {
     public Iterator<KBestHaplotype> iterator() {
         return new Iterator<KBestHaplotype>() {
             private int nextK = 0;
-            private final int maxK = topFinder.getCount();
+            private final long maxK = topFinder.getCount();
 
             @Override
             public boolean hasNext() {
@@ -235,7 +235,7 @@ public final class KBestHaplotypeFinder extends AbstractList<KBestHaplotype> {
 
     @Override
     public int size() {
-        return topFinder.getCount();
+        return topFinder.getCount() > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) topFinder.getCount();
     }
 
     /**
@@ -419,6 +419,17 @@ public final class KBestHaplotypeFinder extends AbstractList<KBestHaplotype> {
      */
     public double score(final Haplotype haplotype) {
         return score(Utils.nonNull(haplotype).getBases());
+    }
+
+    /**
+     * Possible number of haplotypes.
+     *
+     * <p>
+     *     If the number of haplotypes is larger than then maximum valid long value the result is capped to {@link Long#MAX_VALUE}.
+     * </p>
+     */
+    public long getCount() {
+        return topFinder.getCount();
     }
 
 }

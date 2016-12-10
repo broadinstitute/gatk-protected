@@ -78,7 +78,7 @@ public class AggregatedSubHaplotypeFinder<F extends KBestSubHaplotypeFinder> imp
     }
 
     @Override
-    public int getCount() {
+    public long getCount() {
         processSubFindersIfNeeded();
         return count;
     }
@@ -106,9 +106,13 @@ public class AggregatedSubHaplotypeFinder<F extends KBestSubHaplotypeFinder> imp
         long count = 0;
         nextBestSubHaplotypes = new PriorityQueue<>(subFinders.size());
         for (final KBestSubHaplotypeFinder finder : subFinders) {
-            final int finderCount = finder.getCount();
+            final long finderCount = finder.getCount();
             if (finderCount != 0) {
-                count += finderCount;
+                if (Long.MAX_VALUE - count < finderCount) {
+                    count = Long.MAX_VALUE;
+                } else {
+                    count += finderCount;
+                }
                 nextBestSubHaplotypes.add(new MyKBestHaplotypeResult(finder,0));
             }
         }

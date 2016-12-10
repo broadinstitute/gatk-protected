@@ -159,7 +159,7 @@ final class RecursiveSubHaplotypeFinder extends AggregatedSubHaplotypeFinder<Rec
         }
 
         @Override
-        public int getCount() {
+        public long getCount() {
             return childFinder.getCount();
         }
 

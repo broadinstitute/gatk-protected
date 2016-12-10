@@ -45,7 +45,7 @@ final class EmptyPathHaplotypeFinderNode implements KBestSubHaplotypeFinder {
     }
 
     @Override
-    public int getCount() {
+    public long getCount() {
         return 1;
     }
 
