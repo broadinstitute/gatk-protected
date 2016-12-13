@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.utils.mcmc.posteriorsummary;
 
-import org.broadinstitute.hellbender.utils.mcmc.ParameterEnum;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 

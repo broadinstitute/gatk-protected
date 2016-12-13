@@ -10,6 +10,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Represents a position constrained to lie on the unit simplex and implements transformations to and from
+ * unbounded walker coordinates.
+ * See Sec. 58.6 of the STAN manual at https://github.com/stan-dev/stan/releases/download/v2.12.0/stan-reference-2.12.0.pdf.
+ *
+ * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
+ */
 public class SimplexPosition extends ArrayList<Double> {
     private static final long serialVersionUID = 79454L;
     private static final double NORMALIZATION_EPSILON = 1E-4;

@@ -18,6 +18,8 @@ import java.util.stream.IntStream;
 /**
  * Represents a parameterized model.  The parameterized state of the model is represented by an
  * {@link ParameterizedState}, while the data is represented by an {@link DataCollection}.
+ * Allows for sampling via Gibbs sampling (if {@link ParameterizedModel.GibbsBuilder} is used in construction)
+ * or affine-invariant ensemble sampling (if {@link ParameterizedModel.EnsembleBuilder} is used in construction).
  * See GibbsSamplerSingleGaussianUnitTest and GibbsSamplerCopyRatioUnitTest for examples of Gibbs sampling.
  * @param <S1>  type of the ParameterizedState
  * @param <T1>  type of the DataCollection
@@ -37,11 +39,11 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
     private final UpdateMethod updateMethod;
 
     /**
-     * Builder for constructing a ParameterizedModel to be Gibbs sampled using {@link ModelSampler}.
+     * Builder for constructing a {@link ParameterizedModel} to be Gibbs sampled using {@link ModelSampler}.
      * Given an initial instance "initialState" of a ConcreteParameterizedState (which extends
      * {@link ParameterizedState}) and an instance "dataset" of a ConcreteDataCollection (which extends
      * {@link DataCollection}), as well as i = 1,...,N {@link ParameterSampler} objects SAMPLER_i that return samples
-     * of type TYPE_i, a ParameterizedModel model can be constructed using the Builder pattern as:
+     * of type TYPE_i, a {@link ParameterizedModel} model can be constructed using the Builder pattern as:
      *
      *  ParameterizedModel<ConcreteParameterizedState, ConcreteDataCollection> model =
      *      new ParameterizedModel.GibbsBuilder<>(initialState, dataset, ConcreteParameterizedState.class)
@@ -101,8 +103,8 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         }
 
         /**
-         * Builds the ParameterizedModel as specified via {@link ParameterizedModel.GibbsBuilder}.
-         * @return ParameterizedModel as specified via GibbsBuilder
+         * Builds the {@link ParameterizedModel} as specified via {@link ParameterizedModel.GibbsBuilder}.
+         * @return {@link ParameterizedModel} as specified via GibbsBuilder
          * @throws UnsupportedOperationException if there is not a one-to-one mapping between Parameters in the
          *                                       {@link ParameterizedState} and the {@link ParameterSampler}s
          *                                       specified via GibbsBuilder
@@ -115,7 +117,9 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         }
     }
 
-    //Constructor for GibbsBuilder
+    /**
+     * Constructor using {@link ParameterizedModel.GibbsBuilder}.
+     */
     private ParameterizedModel(final GibbsBuilder<V1, S1, T1> builder) {
         state = builder.state;
         dataCollection = builder.dataCollection;
@@ -124,7 +128,20 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
     }
 
     /**
-     * TODO SL
+     * Builder for constructing a {@link ParameterizedModel} to be ensemble sampled using {@link ModelSampler}.
+     * Given a list of initial walker positions for all walkers in the ensemble, 
+     * an instance "dataset" of a ConcreteDataCollection (which extends {@link DataCollection}), 
+     * a function for transforming walker positions to ConcreteParameterizedStates, 
+     * and a log-target function to be sampled, this builder holds the necessary state for
+     * performing affine-invariant ensemble sampling according to Goodman & Weare 2010.
+     * Walkers in the ensemble are iterated over in turn, with the ConcreteParameterizedState held internally 
+     * by the {@link ParameterizedModel} corresponding to the currently selected walker; thus, a single iteration
+     * over the entire ensemble corresponds to a number of sampled ConcreteParameterizedStates
+     * held by the {@link ModelSampler} equal to the number of walkers.  The ConcreteParameterizedState
+     * at which the maximum value of the log-target function is observed is also stored.
+     * @param <V2>  type of the ParameterEnum
+     * @param <S2>  type of the ParameterizedState
+     * @param <T2>  type of the DataCollection
      */
     public static final class EnsembleBuilder<V2 extends Enum<V2> & ParameterEnum, S2 extends ParameterizedState<V2>, T2 extends DataCollection> {
         private static final double SCALE_PARAMETER = 2.;
@@ -146,9 +163,10 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
 
         /**
          * Constructor for {@link ParameterizedModel.EnsembleBuilder}.
-         * TODO SL
-         * @param initialWalkerPositions    initial positions of the walkers in N-dimensional space
-         * @param dataCollection            DataCollection used by the model
+         * @param initialWalkerPositions            initial positions of the walkers in N-dimensional space
+         * @param dataCollection                    DataCollection used by the model
+         * @param transformWalkerPositionToState    function that transforms a walker position to a state
+         * @param logTarget                         log of the target function to sample
          */
         public EnsembleBuilder(final List<WalkerPosition> initialWalkerPositions,
                                final T2 dataCollection,
@@ -179,20 +197,26 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
             maxLogTargetState = currentStates.get(0);
         }
 
+        /**
+         * Returns the {@link ParameterizedState} at which the maximum value of the log-target function was observed
+         * over the entire sampling run.
+         */
         public S2 getMaxLogTargetState() {
             return maxLogTargetState;
         }
 
         /**
-         * Builds the ParameterizedModel as specified via {@link ParameterizedModel.EnsembleBuilder}.
-         * @return ParameterizedModel as specified via EnsembleBuilder
+         * Builds the {@link ParameterizedModel} as specified via {@link ParameterizedModel.EnsembleBuilder}.
+         * @return {@link ParameterizedModel} as specified via EnsembleBuilder
          */
         public ParameterizedModel<V2, S2, T2> build() {
             return new ParameterizedModel<>(this);
         }
     }
 
-    //Constructor for EnsembleBuilder
+    /**
+     * Constructor using {@link ParameterizedModel.EnsembleBuilder}.
+     */
     private ParameterizedModel(final EnsembleBuilder<V1, S1, T1> builder) {
         state = builder.state;
         dataCollection = builder.dataCollection;
@@ -236,7 +260,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
 
         //propose a stretch move
         final int numDimensions = currentWalkerPosition.numDimensions();
-        final double z = Math.pow((EnsembleBuilder.SCALE_PARAMETER - 1.) * rng.nextDouble() + 1, 2.) / EnsembleBuilder.SCALE_PARAMETER;
+        final double z = Math.pow((EnsembleBuilder.SCALE_PARAMETER - 1.) * rng.nextDouble() + 1, 2.) / EnsembleBuilder.SCALE_PARAMETER; //see Goodman & Weare 2010
         final WalkerPosition proposedWalkerPosition = new WalkerPosition(IntStream.range(0, numDimensions).boxed()
                 .map(i -> selectedWalkerPosition.get(i) + z * (currentWalkerPosition.get(i) - selectedWalkerPosition.get(i)))
                 .collect(Collectors.toList()));
@@ -252,7 +276,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         final double proposedLogTarget = builder.logTarget.apply(proposedState);
 
         //accept or reject
-        final double acceptanceProbability = Math.min(1., Math.exp((numDimensions - 1.) * Math.log(z) + proposedLogTarget - currentLogTarget));
+        final double acceptanceProbability = Math.min(1., Math.exp((numDimensions - 1.) * Math.log(z) + proposedLogTarget - currentLogTarget)); //see Goodman & Weare 2010
         logger.debug("Log target of current state: " + currentLogTarget);
         logger.debug("Log target of proposed state: " + proposedLogTarget);
         builder.numSamples++;

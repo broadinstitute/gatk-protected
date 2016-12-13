@@ -20,7 +20,7 @@ import java.util.stream.IntStream;
 
 /**
  * Performs Markov-Chain Monte Carlo inference for {@link TumorHeterogeneity} and stores the generated samples.
- * Uses affine-invariant ensemble sampling (Goodman and Weare 2010, implemented in {@link EnsembleBuilder})
+ * Uses affine-invariant ensemble sampling (Goodman & Weare 2010, implemented in {@link ParameterizedModel.EnsembleBuilder})
  * to deconvolve a mixture of subclones with copy-number variation from the result of {@link AllelicCNV}.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
@@ -160,7 +160,7 @@ public final class TumorHeterogeneityModeller {
     }
 
     /**
-     * Returns the maximum a posteriori state that was sampled by the {@link EnsembleBuilder} during
+     * Returns the maximum a posteriori state that was sampled by the {@link ParameterizedModel.EnsembleBuilder} over
      * the entire sampling run.  Note that this state may not be contained in the internally held samples
      * if it was sampled during burn-in.
      */

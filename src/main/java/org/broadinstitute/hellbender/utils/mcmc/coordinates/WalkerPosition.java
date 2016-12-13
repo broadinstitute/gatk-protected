@@ -6,6 +6,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Represents a walker position in unbounded N-dimensional space.
+ *
+ * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
+ */
 public final class WalkerPosition extends ArrayList<Double> {
     private static final long serialVersionUID = 79452354L;
     private final int numDimensions;

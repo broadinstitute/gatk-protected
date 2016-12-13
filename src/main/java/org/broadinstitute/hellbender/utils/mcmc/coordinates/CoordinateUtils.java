@@ -5,11 +5,12 @@ import org.apache.commons.math3.analysis.function.Sigmoid;
 import org.broadinstitute.hellbender.utils.Utils;
 
 /**
- * TODO
+ * Implements transformations between unbounded walker coordinates and bounded parameter values.
+ * See Sec. 58.4 of the STAN manual at https://github.com/stan-dev/stan/releases/download/v2.12.0/stan-reference-2.12.0.pdf.
+ *
+ * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class CoordinateUtils {
-    private static final double EPSILON = 1E-10;
-
     private CoordinateUtils() {}
 
     public static double transformWalkerCoordinateToBoundedVariable(final double walkerCoordinate,
