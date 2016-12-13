@@ -217,10 +217,6 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         updateState.accept(rng);
     }
 
-    UpdateMethod getUpdateMethod() {
-        return updateMethod;
-    }
-
     private void doGibbsUpdate(final GibbsBuilder<V1, S1, T1> builder, final RandomGenerator rng) {
         for (final V1 parameterName : state.keySet()) {
             state.update(parameterName, builder.samplerMap.get(parameterName).sample(rng, state, dataCollection));

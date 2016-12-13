@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import com.google.common.base.Objects;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.SimplexPosition;
@@ -79,7 +78,7 @@ public final class PopulationMixture {
     }
 
     /**
-     * Return a new {@link PopulationMixture} with the population fractions
+     * Return a new {@link PopulationMixture}, with the population fractions
      * for variant profiles that are completely normal reassigned to the normal population.
      */
     public PopulationMixture collapseNormalPopulations(final PloidyState normalPloidyState) {

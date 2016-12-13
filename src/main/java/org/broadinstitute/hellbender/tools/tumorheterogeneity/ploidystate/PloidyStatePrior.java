@@ -7,10 +7,11 @@ import java.util.*;
 import java.util.stream.IntStream;
 
 /**
+ * Represents the prior on a set of {@link PloidyState} objects.
+ *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class PloidyStatePrior {
-    private final int numPloidyStates;
     private final List<PloidyState> ploidyStates;
     private final Map<PloidyState, Double> logProbabilityMassFunctionMap;
     private final int maxCopyNumber;
@@ -18,14 +19,9 @@ public final class PloidyStatePrior {
     public PloidyStatePrior(final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap) {
         Utils.nonNull(unnormalizedLogProbabilityMassFunctionMap);
         Utils.validateArg(!unnormalizedLogProbabilityMassFunctionMap.isEmpty(), "Number of ploidy states must be positive.");
-        numPloidyStates = unnormalizedLogProbabilityMassFunctionMap.size();
         ploidyStates = Collections.unmodifiableList(new ArrayList<>(unnormalizedLogProbabilityMassFunctionMap.keySet()));
         logProbabilityMassFunctionMap = normalize(new LinkedHashMap<>(unnormalizedLogProbabilityMassFunctionMap));
         maxCopyNumber = ploidyStates.stream().mapToInt(PloidyState::total).max().getAsInt();
-    }
-
-    public int numPloidyStates() {
-        return numPloidyStates;
     }
 
     public List<PloidyState> ploidyStates() {

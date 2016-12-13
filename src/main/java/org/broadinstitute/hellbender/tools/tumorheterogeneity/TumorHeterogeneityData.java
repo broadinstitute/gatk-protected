@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -36,6 +35,9 @@ import java.util.stream.IntStream;
  * {@link DataCollection} for the tumor-heterogeneity model that allows the calculation of log posterior probabilities
  * for (copy ratio, minor-allele fraction) for each {@link ACNVModeledSegment}.  Fits a normal distribution to
  * the log_2 copy-ratio posterior deciles and a scaled beta distribution to the minor-allele fraction posterior deciles.
+ * Allows for a copy-ratio noise constant (to model a constant contribution from stray reads), as well as
+ * likelihood-softening noise factors for both copy ratio and minor-allele fraction (to absorb unmodeled systematic
+ * noise).  Also stores any necessary prior information in {@link TumorHeterogeneityPriorCollection}.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -54,7 +56,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     private static final double DEFAULT_SIMPLEX_STEP = 0.2;
 
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
-    private static final double COPY_RATIO_EPSILON = 1E-3; //below this, use mirrored minor-allele fraction posterior
+    private static final double COPY_RATIO_EPSILON = TumorHeterogeneityUtils.COPY_RATIO_EPSILON; //below this, use mirrored minor-allele fraction posterior
 
     private static final MultivariateOptimizer optimizer = new SimplexOptimizer(REL_TOLERANCE, ABS_TOLERANCE);
 

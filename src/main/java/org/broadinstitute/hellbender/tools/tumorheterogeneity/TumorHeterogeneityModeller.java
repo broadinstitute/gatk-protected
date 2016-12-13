@@ -1,32 +1,28 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.collect.Sets;
-import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
-import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.tools.exome.AllelicCNV;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.ModelSampler;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterizedModel;
+import org.broadinstitute.hellbender.utils.mcmc.ParameterizedModel.EnsembleBuilder;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummaryWriter;
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummary;
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummaryUtils;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
+ * Performs Markov-Chain Monte Carlo inference for {@link TumorHeterogeneity} and stores the generated samples.
+ * Uses affine-invariant ensemble sampling (Goodman and Weare 2010, implemented in {@link EnsembleBuilder})
+ * to deconvolve a mixture of subclones with copy-number variation from the result of {@link AllelicCNV}.
+ *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityModeller {
@@ -36,7 +32,7 @@ public final class TumorHeterogeneityModeller {
     private static final double INITIAL_BALL_SIZE = 1.;
     private static final int MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL = 25;
 
-    private final ParameterizedModel.EnsembleBuilder<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> builder;
+    private final EnsembleBuilder<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> builder;
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
     private final TumorHeterogeneityData data;
     private final int numWalkers;
@@ -71,24 +67,26 @@ public final class TumorHeterogeneityModeller {
         final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity = state ->
                 TumorHeterogeneityUtils.calculateLogJacobianFactor(state, data) + TumorHeterogeneityUtils.calculateLogPosterior(state, data);
 
-        //define walker transformation
+        //enumerate copy-number product states
         final int numPopulations = initialState.populationMixture().numPopulations();
         final List<PloidyState> ploidyStates = data.priors().ploidyStatePrior().ploidyStates();
         final Set<Integer> totalCopyNumberStates = ploidyStates.stream().map(PloidyState::total).collect(Collectors.toSet());
         final List<List<Integer>> totalCopyNumberProductStates =
                 new ArrayList<>(Sets.cartesianProduct(Collections.nCopies(numPopulations, totalCopyNumberStates)));
+        //enumerate ploidy-state product states for each total-copy-number state
         final Map<Integer, Set<PloidyState>> ploidyStateSetsMap = new HashMap<>();
         for (final int totalCopyNumber : totalCopyNumberStates) {
             final Set<PloidyState> ploidyStateSet = ploidyStates.stream().filter(ps -> ps.total() == totalCopyNumber).collect(Collectors.toSet());
             ploidyStateSetsMap.put(totalCopyNumber, ploidyStateSet);
         }
+        //define walker transformation
         final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState = walkerPosition ->
                 TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, rng, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
-        //initialize walker positions as a ball around initialState
+        //initialize walker positions in a ball around initialState
         final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, logTargetTumorHeterogeneity, transformWalkerPositionToState);
 
-        builder = new ParameterizedModel.EnsembleBuilder<>(initialWalkerPositions, data, transformWalkerPositionToState, logTargetTumorHeterogeneity);
+        builder = new EnsembleBuilder<>(initialWalkerPositions, data, transformWalkerPositionToState, logTargetTumorHeterogeneity);
         model = builder.build();
     }
 
@@ -161,10 +159,19 @@ public final class TumorHeterogeneityModeller {
         return data;
     }
 
-    public TumorHeterogeneityState getMaxAPosterioriState() {
+    /**
+     * Returns the maximum a posteriori state that was sampled by the {@link EnsembleBuilder} during
+     * the entire sampling run.  Note that this state may not be contained in the internally held samples
+     * if it was sampled during burn-in.
+     */
+    public TumorHeterogeneityState getPosteriorMode() {
         return builder.getMaxLogTargetState();
     }
 
+    /**
+     * Given bin sizes in purity and ploidy, returns a list of the indices of the samples falling in the
+     * purity-ploidy bin centered on the posterior mode.
+     */
     public List<Integer> identifySamplesAtMode(final double purityModeBinSize,
                                                final double ploidyModeBinSize) {
         Utils.validateArg(0. <= purityModeBinSize && purityModeBinSize <= 1.,
@@ -175,26 +182,29 @@ public final class TumorHeterogeneityModeller {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
 
-        //get maximum a posteriori state and collapse normal populations
+        //get posterior-mode state and collapse normal populations
         final TumorHeterogeneityState maxLogPosteriorState = new TumorHeterogeneityState(
-                getMaxAPosterioriState().concentration(),
-                getMaxAPosterioriState().copyRatioNoiseConstant(),
-                getMaxAPosterioriState().copyRatioNoiseFactor(),
-                getMaxAPosterioriState().minorAlleleFractionNoiseFactor(),
-                getMaxAPosterioriState().initialPloidy(),
-                getMaxAPosterioriState().ploidy(),
-                getMaxAPosterioriState().populationMixture().collapseNormalPopulations(data.priors().normalPloidyState()));
+                getPosteriorMode().concentration(),
+                getPosteriorMode().copyRatioNoiseConstant(),
+                getPosteriorMode().copyRatioNoiseFactor(),
+                getPosteriorMode().minorAlleleFractionNoiseFactor(),
+                getPosteriorMode().initialPloidy(),
+                getPosteriorMode().ploidy(),
+                getPosteriorMode().populationMixture().collapseNormalPopulations(data.priors().normalPloidyState()));
 
+        //determine purity bin centered on posterior mode
         final double purityMode = maxLogPosteriorState.populationMixture().populationFractions().tumorFraction();
         final double purityModeBinMin = Math.max(0., purityMode - purityModeBinSize / 2);
         final double purityModeBinMax = Math.min(1., purityMode + purityModeBinSize / 2);
         logger.info("Mode purity bin: [" + purityModeBinMin + ", " + purityModeBinMax + ")");
 
+        //determine ploidy bin centered on posterior mode
         final double ploidyMode = maxLogPosteriorState.ploidy();
         final double ploidyModeBinMin = Math.max(TumorHeterogeneityUtils.PLOIDY_MIN, ploidyMode - ploidyModeBinSize / 2);
         final double ploidyModeBinMax = Math.min(data.priors().ploidyStatePrior().maxCopyNumber(), ploidyMode + ploidyModeBinSize / 2);
         logger.info("Mode ploidy bin: [" + ploidyModeBinMin + ", " + ploidyModeBinMax + ")");
 
+        //collect indices of samples falling into purity-ploidy bin
         final List<PopulationMixture.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
         final List<Integer> sampleIndices = IntStream.range(0, getPloidySamples().size()).boxed()
                 .filter(i -> purityModeBinMin <= populationFractionsSamples.get(i).tumorFraction()
@@ -206,6 +216,9 @@ public final class TumorHeterogeneityModeller {
         return sampleIndices;
     }
 
+    /**
+     * Randomly initialize walker positions in a ball around a given initial {@link TumorHeterogeneityState}.
+     */
     private List<WalkerPosition> initializeWalkerBall(final RandomGenerator rng,
                                                       final TumorHeterogeneityState initialState,
                                                       final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity,
@@ -222,12 +235,13 @@ public final class TumorHeterogeneityModeller {
                         IntStream.range(0, numDimensions).boxed()
                                 .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample())
                                 .collect(Collectors.toList()));
+                //only accept the position if its transformed state is within parameter bounds
                 if (Double.isFinite(logTargetTumorHeterogeneity.apply(transformWalkerPositionToState.apply(proposedWalkerPosition)))) {
                     initialWalkerPosition = proposedWalkerPosition;
                     break;
                 }
             }
-            initialWalkerPositions.add(initialWalkerPosition);
+            initialWalkerPositions.add(initialWalkerPosition);  //if no acceptable position was found within the allowed number of iterations, simply take position corresponding to initial state
         }
         return initialWalkerPositions;
     }

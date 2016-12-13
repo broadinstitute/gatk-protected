@@ -9,6 +9,7 @@ import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
 import org.broadinstitute.hellbender.engine.spark.SparkCommandLineProgram;
 import org.broadinstitute.hellbender.tools.exome.ACNVModeledSegment;
+import org.broadinstitute.hellbender.tools.exome.AllelicCNV;
 import org.broadinstitute.hellbender.tools.exome.SegmentUtils;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
@@ -23,15 +24,17 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Detects copy-number events using allelic-count data and GATK CNV output.
- * This version
+ * Model tumor heterogeneity as a Dirichlet mixture of subclones with copy-number variation,
+ * starting from {@link AllelicCNV} output.
+ * (Alpha version: only a single tumor population is assumed.)
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        summary = "Model tumor heterogeneity using a Dirichlet mixture of subclones with copy number variation. " +
-                "(Alpha version: only a single tumor population is assumed.)",
-        oneLineSummary = "Model tumor heterogeneity using a Dirichlet mixture of subclones with copy number variation",
+        summary = "Model tumor heterogeneity as a Dirichlet mixture of subclones with copy-number variation, " +
+                "starting from AllelicCNV output. (Alpha version: only a single tumor population is assumed.)",
+        oneLineSummary = "Model tumor heterogeneity as a Dirichlet mixture of subclones with copy-number variation, " +
+                "starting from AllelicCNV output",
         programGroup = CopyNumberProgramGroup.class
 )
 public final class TumorHeterogeneity extends SparkCommandLineProgram {
@@ -45,7 +48,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     //fixes concentration to practically unity for clonal-only version
     private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;
     private static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E6;
-
 
     private static final double COPY_RATIO_NOISE_CONSTANT_MIN = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MIN;
     private static final double COPY_RATIO_NOISE_CONSTANT_MAX = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MAX;

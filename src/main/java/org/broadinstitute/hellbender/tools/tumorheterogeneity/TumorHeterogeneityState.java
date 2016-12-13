@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Collections;
 
 /**
+ * Represents parameters for the {@link TumorHeterogeneity} model of a mixture of subclones with copy-number variation.
+ *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityState extends ParameterizedState<TumorHeterogeneityParameter> {

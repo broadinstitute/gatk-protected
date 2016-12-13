@@ -5,6 +5,8 @@ import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.Ploidy
 import org.broadinstitute.hellbender.utils.Utils;
 
 /**
+ * Stores prior information for the {@link TumorHeterogeneity} model of a mixture of subclones with copy-number variation..
+ *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class TumorHeterogeneityPriorCollection {
