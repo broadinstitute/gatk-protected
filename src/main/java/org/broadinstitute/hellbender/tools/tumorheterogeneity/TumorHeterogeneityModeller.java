@@ -29,13 +29,13 @@ public final class TumorHeterogeneityModeller {
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneityModeller.class);
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 100;
-    private static final double INITIAL_BALL_SIZE = 1.;
     private static final int MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL = 25;
 
     private final EnsembleBuilder<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> builder;
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
     private final TumorHeterogeneityData data;
     private final int numWalkers;
+    private final double initialWalkerBallSize;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<Double> copyRatioNoiseConstantSamples = new ArrayList<>();
@@ -47,21 +47,25 @@ public final class TumorHeterogeneityModeller {
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
                                       final int numPopulations,
                                       final int numWalkers,
+                                      final double initialWalkerBallSize,
                                       final RandomGenerator rng) {
-        this(data, TumorHeterogeneityState.initializeState(data.priors(), data.numSegments(), numPopulations), numWalkers, rng);
+        this(data, TumorHeterogeneityState.initializeNormalState(data.priors(), data.numSegments(), numPopulations), numWalkers, initialWalkerBallSize, rng);
     }
 
     public TumorHeterogeneityModeller(final TumorHeterogeneityData data,
                                       final TumorHeterogeneityState initialState,
                                       final int numWalkers,
+                                      final double initialWalkerBallSize,
                                       final RandomGenerator rng) {
         Utils.nonNull(data);
         Utils.nonNull(initialState);
         Utils.validateArg(numWalkers >= 2, "Number of walkers must be greater than or equal to two.");
+        Utils.validateArg(initialWalkerBallSize > 0., "Initial walker-ball size must be positive.");
         Utils.nonNull(rng);
 
         this.data = data;
         this.numWalkers = numWalkers;
+        this.initialWalkerBallSize = initialWalkerBallSize;
 
         //define log-target function
         final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity = state ->
@@ -84,7 +88,7 @@ public final class TumorHeterogeneityModeller {
                 TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, rng, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
         //initialize walker positions in a ball around initialState
-        final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, logTargetTumorHeterogeneity, transformWalkerPositionToState);
+        final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, initialWalkerBallSize, logTargetTumorHeterogeneity, transformWalkerPositionToState);
 
         builder = new EnsembleBuilder<>(initialWalkerPositions, data, transformWalkerPositionToState, logTargetTumorHeterogeneity);
         model = builder.build();
@@ -162,10 +166,18 @@ public final class TumorHeterogeneityModeller {
     /**
      * Returns the maximum a posteriori state that was sampled by the {@link ParameterizedModel.EnsembleBuilder} over
      * the entire sampling run.  Note that this state may not be contained in the internally held samples
-     * if it was sampled during burn-in.
+     * if it was sampled during burn-in.  Normal populations are collapsed.
      */
     public TumorHeterogeneityState getPosteriorMode() {
-        return builder.getMaxLogTargetState();
+        final TumorHeterogeneityState posteriorMode = builder.getMaxLogTargetState();
+        return new TumorHeterogeneityState(
+                posteriorMode.concentration(),
+                posteriorMode.copyRatioNoiseConstant(),
+                posteriorMode.copyRatioNoiseFactor(),
+                posteriorMode.minorAlleleFractionNoiseFactor(),
+                posteriorMode.initialPloidy(),
+                posteriorMode.ploidy(),
+                posteriorMode.populationMixture().collapseNormalPopulations(data.priors().normalPloidyState()));
     }
 
     /**
@@ -182,24 +194,16 @@ public final class TumorHeterogeneityModeller {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
 
-        //get posterior-mode state and collapse normal populations
-        final TumorHeterogeneityState maxLogPosteriorState = new TumorHeterogeneityState(
-                getPosteriorMode().concentration(),
-                getPosteriorMode().copyRatioNoiseConstant(),
-                getPosteriorMode().copyRatioNoiseFactor(),
-                getPosteriorMode().minorAlleleFractionNoiseFactor(),
-                getPosteriorMode().initialPloidy(),
-                getPosteriorMode().ploidy(),
-                getPosteriorMode().populationMixture().collapseNormalPopulations(data.priors().normalPloidyState()));
+        final TumorHeterogeneityState posteriorMode = getPosteriorMode();
 
         //determine purity bin centered on posterior mode
-        final double purityMode = maxLogPosteriorState.populationMixture().populationFractions().tumorFraction();
+        final double purityMode = posteriorMode.populationMixture().populationFractions().tumorFraction();
         final double purityModeBinMin = Math.max(0., purityMode - purityModeBinSize / 2);
         final double purityModeBinMax = Math.min(1., purityMode + purityModeBinSize / 2);
         logger.info("Mode purity bin: [" + purityModeBinMin + ", " + purityModeBinMax + ")");
 
         //determine ploidy bin centered on posterior mode
-        final double ploidyMode = maxLogPosteriorState.ploidy();
+        final double ploidyMode = posteriorMode.ploidy();
         final double ploidyModeBinMin = Math.max(TumorHeterogeneityUtils.PLOIDY_MIN, ploidyMode - ploidyModeBinSize / 2);
         final double ploidyModeBinMax = Math.min(data.priors().ploidyStatePrior().maxCopyNumber(), ploidyMode + ploidyModeBinSize / 2);
         logger.info("Mode ploidy bin: [" + ploidyModeBinMin + ", " + ploidyModeBinMax + ")");
@@ -221,11 +225,12 @@ public final class TumorHeterogeneityModeller {
      */
     private List<WalkerPosition> initializeWalkerBall(final RandomGenerator rng,
                                                       final TumorHeterogeneityState initialState,
+                                                      final double initialWalkerBallSize,
                                                       final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity,
                                                       final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState) {
         //number of walker dimensions = 1 concentration parameter + 2 noise parameters + (numPopulations - 1) simplex parameters + 1 ploidy parameter
         final int numDimensions = TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS + initialState.populationMixture().numPopulations() - 1;
-        final NormalDistribution ballGaussian = new NormalDistribution(rng, 0., INITIAL_BALL_SIZE);
+        final NormalDistribution ballGaussian = new NormalDistribution(rng, 0., initialWalkerBallSize);
         final WalkerPosition walkerPositionOfInitialState = TumorHeterogeneityUtils.transformStateToWalkerPosition(initialState, data);
         final List<WalkerPosition> initialWalkerPositions = new ArrayList<>(numWalkers);
         for (int walkerIndex = 0; walkerIndex < numWalkers; walkerIndex++) {

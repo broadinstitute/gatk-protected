@@ -28,12 +28,13 @@ import java.util.stream.IntStream;
 final class TumorHeterogeneityUtils {
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneityUtils.class);
 
+    static final int NUM_POPULATIONS_CLONAL = 2;
+
     static final double EPSILON = 1E-10;
     static final double COPY_RATIO_EPSILON = 1E-3; //below this, use mirrored minor-allele fraction posterior
 
-    //fixes concentration to practically unity for clonal-only version
-    static final double CONCENTRATION_MIN = 1. - EPSILON;
-    static final double CONCENTRATION_MAX = 1. + EPSILON;
+    static final double CONCENTRATION_MIN = EPSILON;
+    static final double CONCENTRATION_MAX = 10.;
 
     static final double COPY_RATIO_NOISE_CONSTANT_MIN = EPSILON;
     static final double COPY_RATIO_NOISE_CONSTANT_MAX = 5E-2;
@@ -213,15 +214,15 @@ final class TumorHeterogeneityUtils {
      * Conditional on the global model parameters, population fractions, and a proposed "initial" ploidy, heuristically
      * samples a {@link VariantProfileCollection} from the posterior distribution.
      */
-    private static VariantProfileCollection proposeVariantProfileCollection(final RandomGenerator rng,
-                                                                            final double copyRatioNoiseConstant,
-                                                                            final double copyRatioNoiseFactor,
-                                                                            final double minorAlleleFractionNoiseFactor,
-                                                                            final double initialPloidy,
-                                                                            final PopulationMixture.PopulationFractions populationFractions,
-                                                                            final TumorHeterogeneityData data,
-                                                                            final List<List<Integer>> totalCopyNumberProductStates,
-                                                                            final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
+    static VariantProfileCollection proposeVariantProfileCollection(final RandomGenerator rng,
+                                                                    final double copyRatioNoiseConstant,
+                                                                    final double copyRatioNoiseFactor,
+                                                                    final double minorAlleleFractionNoiseFactor,
+                                                                    final double initialPloidy,
+                                                                    final PopulationMixture.PopulationFractions populationFractions,
+                                                                    final TumorHeterogeneityData data,
+                                                                    final List<List<Integer>> totalCopyNumberProductStates,
+                                                                    final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
         final int numPopulations = populationFractions.numPopulations();
         final int numSegments = data.numSegments();
         final PloidyState normalPloidyState = data.priors().normalPloidyState();

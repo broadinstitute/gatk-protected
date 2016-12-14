@@ -41,13 +41,21 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final long serialVersionUID = 19738246L;
 
     private static final long RANDOM_SEED = 13;
-    private static final int NUM_POPULATIONS_CLONAL = 2;
+
+    private static final int NUM_POPULATIONS_CLONAL = TumorHeterogeneityUtils.NUM_POPULATIONS_CLONAL;
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
+
+    private static final double INITIAL_WALKER_BALL_SIZE_CLONAL = 1.;
+    private static final double INITIAL_WALKER_BALL_SIZE = 0.1;
+
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
     //fixes concentration to practically unity for clonal-only version
-    private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;
-    private static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E6;
+    private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E10;
+    private static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E10;
+
+    private static final double CONCENTRATION_MIN = TumorHeterogeneityUtils.CONCENTRATION_MIN;
+    private static final double CONCENTRATION_MAX = TumorHeterogeneityUtils.CONCENTRATION_MAX;
 
     private static final double COPY_RATIO_NOISE_CONSTANT_MIN = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MIN;
     private static final double COPY_RATIO_NOISE_CONSTANT_MAX = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MAX;
@@ -59,9 +67,12 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX = TumorHeterogeneityUtils.MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX;
 
     //filename tags for output
-    protected static final String CLONAL_SAMPLES_FILE_SUFFIX = ".th.clonal.samples.tsv";
-    protected static final String CLONAL_PROFILES_FILE_SUFFIX = ".th.clonal.profiles.tsv";
-    protected static final String CLONAL_SUMMARY_FILE_SUFFIX = ".th.clonal.summary.tsv";
+    protected static final String SAMPLES_FILE_SUFFIX_CLONAL = ".th.clonal.samples.tsv";
+    protected static final String PROFILES_FILE_SUFFIX_CLONAL = ".th.clonal.profiles.tsv";
+    protected static final String SUMMARY_FILE_SUFFIX_CLONAL = ".th.clonal.summary.tsv";
+    protected static final String SAMPLES_FILE_SUFFIX = ".th.full.samples.tsv";
+    protected static final String PROFILES_FILE_SUFFIX = ".th.full.profiles.tsv";
+    protected static final String SUMMARY_FILE_SUFFIX = ".th.full.summary.tsv";
 
     //CLI arguments
     protected static final String OUTPUT_PREFIX_LONG_NAME = "outputPrefix";
@@ -70,14 +81,35 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME = "maxAllelicCopyNumberClonal";
     protected static final String MAX_ALLELIC_COPY_NUMBER_CLONAL_SHORT_NAME = "maxACNClonal";
 
+    protected static final String MAX_ALLELIC_COPY_NUMBER_LONG_NAME = "maxAllelicCopyNumber";
+    protected static final String MAX_ALLELIC_COPY_NUMBER_SHORT_NAME = "maxACN";
+
+    protected static final String MAX_NUM_POPULATIONS_LONG_NAME = "maxNumPopulations";
+    protected static final String MAX_NUM_POPULATIONS_SHORT_NAME = "maxNumPop";
+
     protected static final String NUM_WALKERS_CLONAL_LONG_NAME = "numWalkersClonal";
     protected static final String NUM_WALKERS_CLONAL_SHORT_NAME = "numWalkClonal";
+
+    protected static final String NUM_WALKERS_LONG_NAME = "numWalkers";
+    protected static final String NUM_WALKERS_SHORT_NAME = "numWalk";
 
     protected static final String NUM_SAMPLES_CLONAL_LONG_NAME = "numSamplesClonal";
     protected static final String NUM_SAMPLES_CLONAL_SHORT_NAME = "numSampClonal";
 
+    protected static final String NUM_SAMPLES_LONG_NAME = "numSamples";
+    protected static final String NUM_SAMPLES_SHORT_NAME = "numSamp";
+
     protected static final String NUM_BURN_IN_CLONAL_LONG_NAME = "numBurnInClonal";
     protected static final String NUM_BURN_IN_CLONAL_SHORT_NAME = "numBurnClonal";
+
+    protected static final String NUM_BURN_IN_LONG_NAME = "numBurnIn";
+    protected static final String NUM_BURN_IN_SHORT_NAME = "numBurn";
+
+    protected static final String CONCENTRATION_PRIOR_ALPHA_LONG_NAME = "concentrationPriorAlpha";
+    protected static final String CONCENTRATION_PRIOR_ALPHA_SHORT_NAME = "concAlpha";
+
+    protected static final String CONCENTRATION_PRIOR_BETA_LONG_NAME = "concentrationPriorBeta";
+    protected static final String CONCENTRATION_PRIOR_BETA_SHORT_NAME = "concBeta";
 
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseConstantPriorAlpha";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_SHORT_NAME = "crConstAlpha";
@@ -135,21 +167,54 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected int maxAllelicCopyNumberClonal = 5;
 
     @Argument(
-            doc = "Number of walkers for MCMC ensemble.",
+            doc = "Maximum allelic copy number for full model.",
+            fullName = MAX_ALLELIC_COPY_NUMBER_LONG_NAME,
+            shortName = MAX_ALLELIC_COPY_NUMBER_SHORT_NAME,
+            optional = true
+    )
+    protected int maxAllelicCopyNumber = 5;
+
+    @Argument(
+            doc = "Maximum number of populations for full model.",
+            fullName = MAX_NUM_POPULATIONS_LONG_NAME,
+            shortName = MAX_NUM_POPULATIONS_SHORT_NAME,
+            optional = true
+    )
+    protected int maxNumPopulations = 3;
+
+    @Argument(
+            doc = "Number of walkers in MCMC ensemble for clonal model.",
             fullName = NUM_WALKERS_CLONAL_LONG_NAME,
             shortName = NUM_WALKERS_CLONAL_SHORT_NAME,
+            optional = true
+    )
+    protected int numWalkersClonal = 50;
+
+    @Argument(
+            doc = "Number of walkers in MCMC ensemble for full model.",
+            fullName = NUM_WALKERS_LONG_NAME,
+            shortName = NUM_WALKERS_SHORT_NAME,
             optional = true
     )
     protected int numWalkers = 50;
 
     @Argument(
             doc = "Total number of MCMC ensemble samples for clonal model. " +
-                    "(Total number of samples will be number of walkers in ensemble  multiplied by this number.)",
+                    "(Total number of samples will be number of walkers in ensemble multiplied by this number.)",
             fullName = NUM_SAMPLES_CLONAL_LONG_NAME,
             shortName = NUM_SAMPLES_CLONAL_SHORT_NAME,
             optional = true
     )
     protected int numSamplesClonal = 100;
+
+    @Argument(
+            doc = "Total number of MCMC ensemble samples for full model. " +
+                    "(Total number of samples will be number of walkers in ensemble multiplied by this number.)",
+            fullName = NUM_SAMPLES_LONG_NAME,
+            shortName = NUM_SAMPLES_SHORT_NAME,
+            optional = true
+    )
+    protected int numSamples = 100;
 
     @Argument(
             doc = "Number of burn-in ensemble samples to discard for clonal model. " +
@@ -159,6 +224,31 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             optional = true
     )
     protected int numBurnInClonal = 50;
+
+    @Argument(
+            doc = "Number of burn-in ensemble samples to discard for full model. " +
+                    "(Total number of samples will be number of walkers in ensemble multiplied by this number.)",
+            fullName = NUM_BURN_IN_LONG_NAME,
+            shortName = NUM_BURN_IN_SHORT_NAME,
+            optional = true
+    )
+    protected int numBurnIn = 50;
+
+    @Argument(
+            doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter.",
+            fullName = CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
+            shortName = CONCENTRATION_PRIOR_ALPHA_SHORT_NAME,
+            optional = true
+    )
+    protected double concentrationPriorAlpha = 1;
+
+    @Argument(
+            doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter.",
+            fullName = CONCENTRATION_PRIOR_BETA_LONG_NAME,
+            shortName = CONCENTRATION_PRIOR_BETA_SHORT_NAME,
+            optional = true
+    )
+    protected double concentrationPriorBeta = 1E1;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-constant parameter.",
@@ -254,14 +344,15 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     @Override
     protected void runPipeline(final JavaSparkContext ctx) {
         validateArguments();
-
-        //initialize output files
-        final File samplesFileClonal = new File(outputPrefix + CLONAL_SAMPLES_FILE_SUFFIX);
-        final File profilesFileClonal = new File(outputPrefix + CLONAL_PROFILES_FILE_SUFFIX);
-        final File summaryFileClonal = new File(outputPrefix + CLONAL_SUMMARY_FILE_SUFFIX);
+        final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
 
         //load ACNV segments from input file
         final List<ACNVModeledSegment> segments = SegmentUtils.readACNVModeledSegmentFile(allelicCNVFile);
+
+        //initialize output files
+        final File samplesFileClonal = new File(outputPrefix + SAMPLES_FILE_SUFFIX_CLONAL);
+        final File profilesFileClonal = new File(outputPrefix + PROFILES_FILE_SUFFIX_CLONAL);
+        final File summaryFileClonal = new File(outputPrefix + SUMMARY_FILE_SUFFIX_CLONAL);
 
         //construct priors using input parameters
         final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
@@ -272,33 +363,80 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
                 ploidyMismatchPenalty);
+        
         //initialize data collection from ACNV input and priors
-        final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priorsClonal);
+        final TumorHeterogeneityData dataClonal = new TumorHeterogeneityData(segments, priorsClonal);
 
         //initialize modeller and run MCMC
-        final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(RANDOM_SEED));
-        final TumorHeterogeneityModeller clonalModeller = new TumorHeterogeneityModeller(data, NUM_POPULATIONS_CLONAL, numWalkers, rng);
-        clonalModeller.fitMCMC(numSamplesClonal, numBurnInClonal);
+        final TumorHeterogeneityModeller modellerClonal =
+                new TumorHeterogeneityModeller(dataClonal, NUM_POPULATIONS_CLONAL, numWalkersClonal, INITIAL_WALKER_BALL_SIZE_CLONAL, rng);
+        modellerClonal.fitMCMC(numSamplesClonal, numBurnInClonal);
 
         //initialize writer
-        final TumorHeterogeneityModellerWriter writer = new TumorHeterogeneityModellerWriter(clonalModeller);
+        final TumorHeterogeneityModellerWriter writerClonal = new TumorHeterogeneityModellerWriter(modellerClonal);
 
         //write all MCMC samples to file
-        writer.writePopulationFractionAndPloidySamples(samplesFileClonal);
-        logger.info("Population-fraction--ploidy MCMC samples output to " + samplesFileClonal + ".");
+        writerClonal.writePopulationFractionAndPloidySamples(samplesFileClonal);
+        logger.info("Clonal run: Population-fraction--ploidy MCMC samples output to " + samplesFileClonal + ".");
 
         //identify samples in purity-ploidy bin centered on posterior mode
-        final List<Integer> indicesOfSamplesAtMode = clonalModeller.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
+        final List<Integer> indicesOfSamplesAtModeClonal = modellerClonal.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
 
         //average variant profiles of identified samples and write to file
-        logger.info("Calculating averaged variant profiles at posterior mode...");
-        writer.writeAveragedProfiles(profilesFileClonal, indicesOfSamplesAtMode);
-        logger.info("Averaged variant profiles at posterior mode output to " + profilesFileClonal + ".");
+        logger.info("Clonal run: Calculating averaged variant profiles at posterior mode...");
+        writerClonal.writeAveragedProfiles(profilesFileClonal, indicesOfSamplesAtModeClonal);
+        logger.info("Clonal run: Averaged variant profiles at posterior mode output to " + profilesFileClonal + ".");
 
         //calculate posterior summaries for global parameters from identified samples and write to file
-        logger.info("Calculating summary for posterior mode...");
-        writer.writePosteriorSummaries(summaryFileClonal, indicesOfSamplesAtMode, ctx);
-        logger.info("Calculating summary for posterior-mode variant profiles output to " + summaryFileClonal + ".");
+        logger.info("Clonal run: Calculating summary for posterior mode...");
+        writerClonal.writePosteriorSummaries(summaryFileClonal, indicesOfSamplesAtModeClonal, ctx);
+        logger.info("Clonal run: Calculating summary for posterior-mode variant profiles output to " + summaryFileClonal + ".");
+        
+        if (numSamples > 0) {
+            //initialize output files
+            final File samplesFile = new File(outputPrefix + SAMPLES_FILE_SUFFIX);
+            final File profilesFile = new File(outputPrefix + PROFILES_FILE_SUFFIX);
+            final File summaryFile = new File(outputPrefix + SUMMARY_FILE_SUFFIX);
+
+            //construct priors using input parameters
+            final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
+            final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
+                    NORMAL_PLOIDY_STATE, ploidyStatePrior,
+                    concentrationPriorAlpha, concentrationPriorBeta,
+                    copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
+                    copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
+                    minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
+                    ploidyMismatchPenalty);
+
+            //initialize data collection from ACNV input and priors
+            final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priors);
+            
+            //initialize modeller and run MCMC
+            final TumorHeterogeneityState posteriorModeClonal = modellerClonal.getPosteriorMode();
+            final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
+            final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, numWalkers, INITIAL_WALKER_BALL_SIZE, rng);
+            modeller.fitMCMC(numSamples, numBurnIn);
+
+            //initialize writer
+            final TumorHeterogeneityModellerWriter writer = new TumorHeterogeneityModellerWriter(modeller);
+
+            //write all MCMC samples to file
+            writer.writePopulationFractionAndPloidySamples(samplesFile);
+            logger.info("Full run: Population-fraction--ploidy MCMC samples output to " + samplesFile + ".");
+
+            //identify samples in purity-ploidy bin centered on posterior mode
+            final List<Integer> indicesOfSamplesAtMode = modeller.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
+
+            //average variant profiles of identified samples and write to file
+            logger.info("Full run: Calculating averaged variant profiles at posterior mode...");
+            writer.writeAveragedProfiles(profilesFile, indicesOfSamplesAtMode);
+            logger.info("Full run: Averaged variant profiles at posterior mode output to " + profilesFile + ".");
+
+            //calculate posterior summaries for global parameters from identified samples and write to file
+            logger.info("Full run: Calculating summary for posterior mode...");
+            writer.writePosteriorSummaries(summaryFile, indicesOfSamplesAtMode, ctx);
+            logger.info("Full run: Calculating summary for posterior-mode variant profiles output to " + summaryFile + ".");
+        }
 
         logger.info("SUCCESS: TumorHeterogeneity run complete.");
     }
@@ -323,8 +461,17 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private void validateArguments() {
         Utils.regularReadableUserFile(allelicCNVFile);
         Utils.validateArg(maxAllelicCopyNumberClonal > 0, MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME + " must be positive.");
+        Utils.validateArg(maxAllelicCopyNumber > 0, MAX_ALLELIC_COPY_NUMBER_LONG_NAME + " must be positive.");
+        Utils.validateArg(maxNumPopulations > NUM_POPULATIONS_CLONAL, MAX_NUM_POPULATIONS_LONG_NAME + " should be strictly greater than " + NUM_POPULATIONS_CLONAL + ".");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
+        Utils.validateArg(numSamples >= 0, NUM_SAMPLES_LONG_NAME + " must be non-negative.");
         Utils.validateArg(numBurnInClonal >= 0 && numBurnInClonal < numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be non-negative and strictly less than " + NUM_SAMPLES_CLONAL_LONG_NAME);
+        Utils.validateArg(numSamples == 0 ? numBurnIn == 0 : numBurnIn >= 0 && numBurnIn < numSamples, NUM_BURN_IN_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_LONG_NAME);
+        validatePriorHyperparameters(
+                concentrationPriorAlpha, CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
+                concentrationPriorBeta, CONCENTRATION_PRIOR_BETA_LONG_NAME,
+                CONCENTRATION_MIN, CONCENTRATION_MAX,
+                (alpha, beta) -> alpha / beta);
         validatePriorHyperparameters(
                 copyRatioNoiseConstantPriorAlpha, COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME,
                 copyRatioNoiseConstantPriorBeta, COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME,
