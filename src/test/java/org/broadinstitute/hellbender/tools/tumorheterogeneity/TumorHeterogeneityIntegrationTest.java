@@ -137,13 +137,13 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
             final String[] arguments = {
                     "--" + ExomeStandardArgumentDefinitions.SEGMENT_FILE_LONG_NAME, ACNV_SEGMENT_FILE.getAbsolutePath(),
                     "--" + TumorHeterogeneity.OUTPUT_PREFIX_LONG_NAME, OUTPUT_PREFIX,
-                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "4",
+                    "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "3",
                     "--" + TumorHeterogeneity.NUM_WALKERS_CLONAL_LONG_NAME, "20",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "100",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_WALKERS_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "100",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "25",
+                    "--" + TumorHeterogeneity.NUM_WALKERS_LONG_NAME, "100",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "50",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "25",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME, "1E3",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1E3",
@@ -153,9 +153,9 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E4",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-5",
-                    "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.05",
-                    "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.2",
-                    "--verbosity", "INFO"
+                    "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.02",
+                    "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.1",
+                    "--verbosity", "DEBUG"
             };
             runCommandLine(arguments);
         }

@@ -35,7 +35,6 @@ public final class TumorHeterogeneityModeller {
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
     private final TumorHeterogeneityData data;
     private final int numWalkers;
-    private final double initialWalkerBallSize;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<Double> copyRatioNoiseConstantSamples = new ArrayList<>();
@@ -65,7 +64,6 @@ public final class TumorHeterogeneityModeller {
 
         this.data = data;
         this.numWalkers = numWalkers;
-        this.initialWalkerBallSize = initialWalkerBallSize;
 
         //define log-target function
         final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity = state ->
@@ -234,17 +232,25 @@ public final class TumorHeterogeneityModeller {
         final WalkerPosition walkerPositionOfInitialState = TumorHeterogeneityUtils.transformStateToWalkerPosition(initialState, data);
         final List<WalkerPosition> initialWalkerPositions = new ArrayList<>(numWalkers);
         for (int walkerIndex = 0; walkerIndex < numWalkers; walkerIndex++) {
+            boolean acceptedProposedPosition = false;
             WalkerPosition initialWalkerPosition = walkerPositionOfInitialState;
             for (int proposalIndex = 0; proposalIndex < MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL; proposalIndex++) {
                 final WalkerPosition proposedWalkerPosition = new WalkerPosition(
                         IntStream.range(0, numDimensions).boxed()
-                                .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample())
+                                .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample() * (dimensionIndex < TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS ? 0.1 : 1.))
                                 .collect(Collectors.toList()));
+                final TumorHeterogeneityState proposedState = transformWalkerPositionToState.apply(proposedWalkerPosition);
+                proposedState.values().forEach(p -> logger.debug("Proposed " + p.getName().name() + ": " + p.getValue()));
                 //only accept the position if its transformed state is within parameter bounds
-                if (Double.isFinite(logTargetTumorHeterogeneity.apply(transformWalkerPositionToState.apply(proposedWalkerPosition)))) {
+                if (Double.isFinite(logTargetTumorHeterogeneity.apply(proposedState))) {
                     initialWalkerPosition = proposedWalkerPosition;
+                    acceptedProposedPosition = true;
                     break;
                 }
+            }
+            if (!acceptedProposedPosition) {
+                logger.debug("Unable to initialize walker within parameter bounds, using position of initial state. " +
+                        "Reduce walker-ball size.");
             }
             initialWalkerPositions.add(initialWalkerPosition);  //if no acceptable position was found within the allowed number of iterations, simply take position corresponding to initial state
         }

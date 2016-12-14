@@ -123,13 +123,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         final List<PopulationMixture.VariantProfile> initialVariantProfiles = new ArrayList<>();
         final int numVariantPopulations = maxNumPopulations - 1;
         final PopulationMixture.VariantProfile clonalProfile = clonalState.populationMixture().variantProfileCollection().get(0);
-        //add clonal population
-        initialFractions.add(tumorFraction / numVariantPopulations);
-        initialVariantProfiles.add(clonalProfile);
         //initialize additional variant profiles
         for (int i = 0; i < numVariantPopulations; i++) {
             initialFractions.add(tumorFraction / numVariantPopulations);
-            initialVariantProfiles.add(1, new PopulationMixture.VariantProfile(clonalProfile));
+            initialVariantProfiles.add(new PopulationMixture.VariantProfile(clonalProfile));
         }
         //add normal population fraction
         initialFractions.add(normalFraction);

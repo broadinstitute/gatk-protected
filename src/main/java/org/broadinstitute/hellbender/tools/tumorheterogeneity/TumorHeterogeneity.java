@@ -46,7 +46,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
 
     private static final double INITIAL_WALKER_BALL_SIZE_CLONAL = 1.;
-    private static final double INITIAL_WALKER_BALL_SIZE = 0.1;
+    private static final double INITIAL_WALKER_BALL_SIZE = 1.;
 
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
@@ -377,7 +377,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
         //write all MCMC samples to file
         writerClonal.writePopulationFractionAndPloidySamples(samplesFileClonal);
-        logger.info("Clonal run: Population-fraction--ploidy MCMC samples output to " + samplesFileClonal + ".");
+        logger.info("Clonal run: MCMC samples output to " + samplesFileClonal + ".");
 
         //identify samples in purity-ploidy bin centered on posterior mode
         final List<Integer> indicesOfSamplesAtModeClonal = modellerClonal.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
@@ -422,7 +422,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
             //write all MCMC samples to file
             writer.writePopulationFractionAndPloidySamples(samplesFile);
-            logger.info("Full run: Population-fraction--ploidy MCMC samples output to " + samplesFile + ".");
+            logger.info("Full run: MCMC samples output to " + samplesFile + ".");
 
             //identify samples in purity-ploidy bin centered on posterior mode
             final List<Integer> indicesOfSamplesAtMode = modeller.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
