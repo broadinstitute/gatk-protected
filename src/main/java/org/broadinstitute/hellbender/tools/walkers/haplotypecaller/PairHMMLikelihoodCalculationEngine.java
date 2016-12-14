@@ -5,6 +5,7 @@ import htsjdk.samtools.SAMUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.broadinstitute.gatk.nativebindings.pairhmm.PairHMMNativeArguments;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.QualityUtils;
@@ -138,7 +139,13 @@ public final class PairHMMLikelihoodCalculationEngine implements ReadLikelihoodC
         this.constantGCP = constantGCP;
         this.log10globalReadMismappingRate = log10globalReadMismappingRate;
         this.pcrErrorModel = pcrErrorModel;
-        pairHMM = hmmType.makeNewHMM();
+
+        // TODO: remove me once we're ready to expose the new PairHMM args:
+        final PairHMMNativeArguments pairHMMArgs = new PairHMMNativeArguments();
+        pairHMMArgs.maxNumberOfThreads = 1;
+        pairHMMArgs.useDoublePrecision = false;
+
+        pairHMM = hmmType.makeNewHMM(pairHMMArgs);
 
         initializePCRErrorModel();
 
