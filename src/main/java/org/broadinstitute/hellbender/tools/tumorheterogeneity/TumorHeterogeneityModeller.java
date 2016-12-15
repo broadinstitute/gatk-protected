@@ -70,11 +70,11 @@ public final class TumorHeterogeneityModeller {
                 TumorHeterogeneityUtils.calculateLogJacobianFactor(state, data) + TumorHeterogeneityUtils.calculateLogPosterior(state, data);
 
         //enumerate copy-number product states
-        final int numPopulations = initialState.populationMixture().numPopulations();
+        final int numVariantPopulations = initialState.populationMixture().numPopulations() - 1;
         final List<PloidyState> ploidyStates = data.priors().ploidyStatePrior().ploidyStates();
         final Set<Integer> totalCopyNumberStates = ploidyStates.stream().map(PloidyState::total).collect(Collectors.toSet());
         final List<List<Integer>> totalCopyNumberProductStates =
-                new ArrayList<>(Sets.cartesianProduct(Collections.nCopies(numPopulations, totalCopyNumberStates)));
+                new ArrayList<>(Sets.cartesianProduct(Collections.nCopies(numVariantPopulations, totalCopyNumberStates)));
         //enumerate ploidy-state product states for each total-copy-number state
         final Map<Integer, Set<PloidyState>> ploidyStateSetsMap = new HashMap<>();
         for (final int totalCopyNumber : totalCopyNumberStates) {

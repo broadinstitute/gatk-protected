@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Represents parameters for the {@link TumorHeterogeneity} model of a mixture of subclones with copy-number variation.
@@ -141,11 +142,11 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     /**
      * Initialize variant profiles to normal.
      */
-    private static PopulationMixture.VariantProfileCollection initializeNormalProfiles(final int numVariantPopulations,
-                                                                                       final int numSegments,
-                                                                                       final PloidyState normalPloidyState) {
+    static PopulationMixture.VariantProfileCollection initializeNormalProfiles(final int numVariantPopulations,
+                                                                               final int numSegments,
+                                                                               final PloidyState normalPloidyState) {
         return new PopulationMixture.VariantProfileCollection(
-                Collections.nCopies(numVariantPopulations, initializeNormalProfile(numSegments, normalPloidyState)));
+                IntStream.range(0, numVariantPopulations).boxed().map(i -> initializeNormalProfile(numSegments, normalPloidyState)).collect(Collectors.toList()));
     }
 
     /**

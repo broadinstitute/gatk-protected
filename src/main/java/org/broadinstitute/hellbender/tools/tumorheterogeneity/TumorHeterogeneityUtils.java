@@ -223,14 +223,14 @@ final class TumorHeterogeneityUtils {
                                                                             final TumorHeterogeneityData data,
                                                                             final List<List<Integer>> totalCopyNumberProductStates,
                                                                             final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
-        final int numPopulations = populationFractions.numPopulations();
+        final int numVariantPopulations = populationFractions.numPopulations() - 1;
         final int numSegments = data.numSegments();
         final PloidyState normalPloidyState = data.priors().normalPloidyState();
         final PloidyStatePrior ploidyStatePrior = data.priors().ploidyStatePrior();
 
         //initialize a list of variant profiles to store the result
-        final List<PopulationMixture.VariantProfile> variantProfiles = new ArrayList<>(
-                Collections.nCopies(numPopulations - 1, new PopulationMixture.VariantProfile(Collections.nCopies(numSegments, normalPloidyState))));
+        final List<PopulationMixture.VariantProfile> variantProfiles =
+                TumorHeterogeneityState.initializeNormalProfiles(numVariantPopulations, numSegments, normalPloidyState);
 
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
             final int si = segmentIndex;
@@ -260,7 +260,7 @@ final class TumorHeterogeneityUtils {
             final List<PloidyState> ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
 
             //store the sampled ploidy-state product state in the list of variant profiles
-            IntStream.range(0, numPopulations - 1).forEach(i -> variantProfiles.get(i).set(si, ploidyStateProductState.get(i)));
+            IntStream.range(0, numVariantPopulations).forEach(i -> variantProfiles.get(i).set(si, ploidyStateProductState.get(i)));
         }
         //return a new VariantProfileCollection created from the list of variant profiles
         return new VariantProfileCollection(variantProfiles);
