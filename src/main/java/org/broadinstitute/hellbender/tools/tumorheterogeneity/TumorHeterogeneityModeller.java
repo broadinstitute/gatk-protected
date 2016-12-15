@@ -70,7 +70,7 @@ public final class TumorHeterogeneityModeller {
                 TumorHeterogeneityUtils.calculateLogJacobianFactor(state, data) + TumorHeterogeneityUtils.calculateLogPosterior(state, data);
 
         //enumerate copy-number product states
-        final int numVariantPopulations = initialState.populationMixture().numPopulations() - 1;
+        final int numVariantPopulations = initialState.populationMixture().numVariantPopulations();
         final List<PloidyState> ploidyStates = data.priors().ploidyStatePrior().ploidyStates();
         final Set<Integer> totalCopyNumberStates = ploidyStates.stream().map(PloidyState::total).collect(Collectors.toSet());
         final List<List<Integer>> totalCopyNumberProductStates =
@@ -180,41 +180,39 @@ public final class TumorHeterogeneityModeller {
 
     /**
      * Given bin sizes in purity and ploidy, returns a list of the indices of the samples falling in the
-     * purity-ploidy bin centered on the posterior mode.
+     * purity-ploidy bin centered on the given state.
      */
-    public List<Integer> identifySamplesAtMode(final double purityModeBinSize,
-                                               final double ploidyModeBinSize) {
-        Utils.validateArg(0. <= purityModeBinSize && purityModeBinSize <= 1.,
-                "Invalid purity bin size for determining mode.");
-        Utils.validateArg(0. <= ploidyModeBinSize && ploidyModeBinSize <= data.priors().ploidyStatePrior().maxCopyNumber(),
-                "Invalid ploidy bin size for determining mode.");
+    public List<Integer> collectIndicesOfSamplesInBin(final TumorHeterogeneityState binCenter,
+                                                      final double purityBinSize,
+                                                      final double ploidyBinSize) {
+        Utils.validateArg(0. <= purityBinSize && purityBinSize <= 1., "Invalid purity bin size.");
+        Utils.validateArg(0. <= ploidyBinSize && ploidyBinSize <= data.priors().ploidyStatePrior().maxCopyNumber(), "Invalid ploidy bin size.");
         if (getConcentrationSamples().size() == 0) {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
 
-        final TumorHeterogeneityState posteriorMode = getPosteriorMode();
+        //determine purity bins centered on given state
+        final int numVariantPopulations = binCenter.populationMixture().numVariantPopulations();
+        final List<Double> purityBinCenters = binCenter.populationMixture().populationFractions().subList(0, numVariantPopulations);
+        final List<Double> purityBinMins = purityBinCenters.stream().map(c -> Math.max(0., c - purityBinSize / 2)).collect(Collectors.toList());
+        final List<Double> purityBinMaxs = purityBinCenters.stream().map(c -> Math.min(1., c + purityBinSize / 2)).collect(Collectors.toList());
+        IntStream.range(0, numVariantPopulations).forEach(i -> logger.info("Purity bin: [" + purityBinMins.get(i) + ", " + purityBinMaxs.get(i) + ")"));
 
-        //determine purity bin centered on posterior mode
-        final double purityMode = posteriorMode.populationMixture().populationFractions().tumorFraction();
-        final double purityModeBinMin = Math.max(0., purityMode - purityModeBinSize / 2);
-        final double purityModeBinMax = Math.min(1., purityMode + purityModeBinSize / 2);
-        logger.info("Mode purity bin: [" + purityModeBinMin + ", " + purityModeBinMax + ")");
-
-        //determine ploidy bin centered on posterior mode
-        final double ploidyMode = posteriorMode.ploidy();
-        final double ploidyModeBinMin = Math.max(TumorHeterogeneityUtils.PLOIDY_MIN, ploidyMode - ploidyModeBinSize / 2);
-        final double ploidyModeBinMax = Math.min(data.priors().ploidyStatePrior().maxCopyNumber(), ploidyMode + ploidyModeBinSize / 2);
-        logger.info("Mode ploidy bin: [" + ploidyModeBinMin + ", " + ploidyModeBinMax + ")");
+        //determine ploidy bin centered on given state
+        final double ploidyBinCenter = binCenter.ploidy();
+        final double ploidyBinMin = Math.max(TumorHeterogeneityUtils.PLOIDY_MIN, ploidyBinCenter - ploidyBinSize / 2);
+        final double ploidyBinMax = Math.min(data.priors().ploidyStatePrior().maxCopyNumber(), ploidyBinCenter + ploidyBinSize / 2);
+        logger.info("Ploidy bin: [" + ploidyBinMin + ", " + ploidyBinMax + ")");
 
         //collect indices of samples falling into purity-ploidy bin
         final List<PopulationMixture.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
         final List<Integer> sampleIndices = IntStream.range(0, getPloidySamples().size()).boxed()
-                .filter(i -> purityModeBinMin <= populationFractionsSamples.get(i).tumorFraction()
-                        && populationFractionsSamples.get(i).tumorFraction() < purityModeBinMax
-                        && ploidyModeBinMin <= getPloidySamples().get(i)
-                        && getPloidySamples().get(i) < ploidyModeBinMax)
+                .filter(i -> IntStream.range(0, numVariantPopulations).allMatch(pi -> purityBinMins.get(pi) <= populationFractionsSamples.get(i).get(pi)
+                        && populationFractionsSamples.get(i).get(pi) < purityBinMaxs.get(pi))
+                        && ploidyBinMin <= getPloidySamples().get(i)
+                        && getPloidySamples().get(i) < ploidyBinMax)
                 .collect(Collectors.toList());
-        logger.info("Number of samples in mode bin: " + sampleIndices.size());
+        logger.info("Number of samples in bin: " + sampleIndices.size());
         return sampleIndices;
     }
 
@@ -227,7 +225,7 @@ public final class TumorHeterogeneityModeller {
                                                       final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity,
                                                       final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState) {
         //number of walker dimensions = 1 concentration parameter + 2 noise parameters + (numPopulations - 1) simplex parameters + 1 ploidy parameter
-        final int numDimensions = TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS + initialState.populationMixture().numPopulations() - 1;
+        final int numDimensions = TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS + initialState.populationMixture().numVariantPopulations();
         final NormalDistribution ballGaussian = new NormalDistribution(rng, 0., initialWalkerBallSize);
         final WalkerPosition walkerPositionOfInitialState = TumorHeterogeneityUtils.transformStateToWalkerPosition(initialState, data);
         final List<WalkerPosition> initialWalkerPositions = new ArrayList<>(numWalkers);

@@ -51,8 +51,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
     //fixes concentration to practically unity for clonal-only version
-    private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E10;
-    private static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E10;
+    private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;
+    private static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E6;
 
     private static final double CONCENTRATION_MIN = TumorHeterogeneityUtils.CONCENTRATION_MIN;
     private static final double CONCENTRATION_MAX = TumorHeterogeneityUtils.CONCENTRATION_MAX;
@@ -380,7 +380,9 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
         logger.info("Clonal run: MCMC samples output to " + samplesFileClonal + ".");
 
         //identify samples in purity-ploidy bin centered on posterior mode
-        final List<Integer> indicesOfSamplesAtModeClonal = modellerClonal.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
+        final TumorHeterogeneityState posteriorModeClonal = modellerClonal.getPosteriorMode();
+        posteriorModeClonal.values().forEach(p -> logger.info("Clonal run: Posterior mode " + p.getName().name() + ": " + p.getValue()));
+        final List<Integer> indicesOfSamplesAtModeClonal = modellerClonal.collectIndicesOfSamplesInBin(posteriorModeClonal, purityModeBinSize, ploidyModeBinSize);
 
         //average variant profiles of identified samples and write to file
         logger.info("Clonal run: Calculating averaged variant profiles at posterior mode...");
@@ -412,7 +414,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priors);
             
             //initialize modeller and run MCMC
-            final TumorHeterogeneityState posteriorModeClonal = modellerClonal.getPosteriorMode();
             final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
             final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, numWalkers, INITIAL_WALKER_BALL_SIZE, rng);
             modeller.fitMCMC(numSamples, numBurnIn);
@@ -425,7 +426,9 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             logger.info("Full run: MCMC samples output to " + samplesFile + ".");
 
             //identify samples in purity-ploidy bin centered on posterior mode
-            final List<Integer> indicesOfSamplesAtMode = modeller.identifySamplesAtMode(purityModeBinSize, ploidyModeBinSize);
+            final TumorHeterogeneityState posteriorMode = modeller.getPosteriorMode();
+            posteriorMode.values().forEach(p -> logger.info("Full run: Posterior mode " + p.getName().name() + ": " + p.getValue()));
+            final List<Integer> indicesOfSamplesAtMode = modeller.collectIndicesOfSamplesInBin(posteriorMode, purityModeBinSize, ploidyModeBinSize);
 
             //average variant profiles of identified samples and write to file
             logger.info("Full run: Calculating averaged variant profiles at posterior mode...");

@@ -18,6 +18,7 @@ import java.util.stream.IntStream;
  */
 public final class PopulationMixture {
     private final int numPopulations;   //variant populations + normal population
+    private final int numVariantPopulations;   //variant populations + normal population
     private final int numSegments;
 
     private final PopulationFractions populationFractions;
@@ -33,6 +34,7 @@ public final class PopulationMixture {
         this.populationFractions = new PopulationFractions(populationFractions);
         this.variantProfileCollection = new VariantProfileCollection(variantProfileCollection);
         numPopulations = this.populationFractions.numPopulations();
+        numVariantPopulations = this.populationFractions.numVariantPopulations();
         Utils.validateArg(numPopulations == this.variantProfileCollection.numVariantPopulations + 1,
                 "Number of populations must be equal to number of variant populations + 1.");
         numSegments = this.variantProfileCollection.numSegments;
@@ -41,6 +43,10 @@ public final class PopulationMixture {
 
     public int numPopulations() {
         return numPopulations;
+    }
+
+    public int numVariantPopulations() {
+        return numVariantPopulations;
     }
 
     public int numSegments() {
@@ -146,14 +152,20 @@ public final class PopulationMixture {
         //normal population is last element
         private static final long serialVersionUID = 723562368L;
         private final int numPopulations;
+        private final int numVariantPopulations;
 
         public PopulationFractions(final List<Double> populationFractions) {
             super(populationFractions);
             numPopulations = populationFractions.size();
+            numVariantPopulations = numPopulations - 1;
         }
 
         public int numPopulations() {
             return numPopulations;
+        }
+
+        public int numVariantPopulations() {
+            return numVariantPopulations;
         }
 
         public double normalFraction() {

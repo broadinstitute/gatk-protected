@@ -34,7 +34,7 @@ final class TumorHeterogeneityUtils {
     static final double COPY_RATIO_EPSILON = 1E-3; //below this, use mirrored minor-allele fraction posterior
 
     static final double CONCENTRATION_MIN = EPSILON;
-    static final double CONCENTRATION_MAX = 10.;
+    static final double CONCENTRATION_MAX = 1. + EPSILON;
 
     static final double COPY_RATIO_NOISE_CONSTANT_MIN = EPSILON;
     static final double COPY_RATIO_NOISE_CONSTANT_MAX = 5E-2;
@@ -223,7 +223,7 @@ final class TumorHeterogeneityUtils {
                                                                             final TumorHeterogeneityData data,
                                                                             final List<List<Integer>> totalCopyNumberProductStates,
                                                                             final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
-        final int numVariantPopulations = populationFractions.numPopulations() - 1;
+        final int numVariantPopulations = populationFractions.numVariantPopulations();
         final int numSegments = data.numSegments();
         final PloidyState normalPloidyState = data.priors().normalPloidyState();
         final PloidyStatePrior ploidyStatePrior = data.priors().ploidyStatePrior();
@@ -269,7 +269,7 @@ final class TumorHeterogeneityUtils {
     private static double calculateTotalCopyNumber(final PopulationMixture.PopulationFractions populationFractions,
                                                    final List<Integer> totalCopyNumberProductState,
                                                    final PloidyState normalPloidyState) {
-        final int numVariantPopulations = populationFractions.numPopulations() - 1;
+        final int numVariantPopulations = populationFractions.numVariantPopulations();
         //loop performs better than stream
         double totalCopyNumber = 0.;
         for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
@@ -282,7 +282,7 @@ final class TumorHeterogeneityUtils {
     private static double calculateMinorAlleleFraction(final PopulationMixture.PopulationFractions populationFractions,
                                                        final List<PloidyState> ploidyStateProductState,
                                                        final PloidyState normalPloidyState) {
-        final int numVariantPopulations = populationFractions.numPopulations() - 1;
+        final int numVariantPopulations = populationFractions.numVariantPopulations();
         //performance is not as critical here, so we use streams
         final double mAlleleCopyNumber = IntStream.range(0, numVariantPopulations)
                 .mapToDouble(i -> ploidyStateProductState.get(i).m() * populationFractions.get(i))
