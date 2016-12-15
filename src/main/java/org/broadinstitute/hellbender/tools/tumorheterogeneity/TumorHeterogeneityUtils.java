@@ -214,15 +214,15 @@ final class TumorHeterogeneityUtils {
      * Conditional on the global model parameters, population fractions, and a proposed "initial" ploidy, heuristically
      * samples a {@link VariantProfileCollection} from the posterior distribution.
      */
-    static VariantProfileCollection proposeVariantProfileCollection(final RandomGenerator rng,
-                                                                    final double copyRatioNoiseConstant,
-                                                                    final double copyRatioNoiseFactor,
-                                                                    final double minorAlleleFractionNoiseFactor,
-                                                                    final double initialPloidy,
-                                                                    final PopulationMixture.PopulationFractions populationFractions,
-                                                                    final TumorHeterogeneityData data,
-                                                                    final List<List<Integer>> totalCopyNumberProductStates,
-                                                                    final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
+    private static VariantProfileCollection proposeVariantProfileCollection(final RandomGenerator rng,
+                                                                            final double copyRatioNoiseConstant,
+                                                                            final double copyRatioNoiseFactor,
+                                                                            final double minorAlleleFractionNoiseFactor,
+                                                                            final double initialPloidy,
+                                                                            final PopulationMixture.PopulationFractions populationFractions,
+                                                                            final TumorHeterogeneityData data,
+                                                                            final List<List<Integer>> totalCopyNumberProductStates,
+                                                                            final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
         final int numPopulations = populationFractions.numPopulations();
         final int numSegments = data.numSegments();
         final PloidyState normalPloidyState = data.priors().normalPloidyState();
@@ -236,35 +236,28 @@ final class TumorHeterogeneityUtils {
             final int si = segmentIndex;
 
             //for all possible copy-number product states, calculate the copy-ratio likelihood given the proposed ploidy
-            final double[] log10ProbabilitiesCopyRatio = totalCopyNumberProductStates.stream()
-                    .mapToDouble(tcnps -> calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy))
+            final List<Double> logProbabilitiesCopyRatio = totalCopyNumberProductStates.stream()
+                    .map(tcnps -> calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy))
                     .map(cr -> data.copyRatioLogDensity(si, cr, copyRatioNoiseConstant, copyRatioNoiseFactor))
-                    .map(MathUtils::logToLog10)
-                    .toArray();
-            //randomly sample from these copy-number product states according to their copy-ratio--only likelihoods
-            final double[] probabilitiesCopyRatio = MathUtils.normalizeFromLog10ToLinearSpace(log10ProbabilitiesCopyRatio);
-            final Map<List<Integer>, Double> probabilityMapCopyRatio = new HashMap<>(totalCopyNumberProductStates.size());
-            IntStream.range(0, totalCopyNumberProductStates.size()).forEach(i -> probabilityMapCopyRatio.put(totalCopyNumberProductStates.get(i), probabilitiesCopyRatio[i]));
-            final Function<List<Integer>, Double> probabilityFunctionCopyRatio = probabilityMapCopyRatio::get;
-            final List<Integer> totalCopyNumberProductState = GATKProtectedMathUtils.randomSelect(totalCopyNumberProductStates, probabilityFunctionCopyRatio, rng);
+                    .collect(Collectors.toList());
+            //take maximum likelihood copy-number product states according to their copy-ratio--only likelihoods
+            final int maxLikelihoodCopyNumberProductStateIndex = IntStream.range(0, totalCopyNumberProductStates.size()).boxed()
+                    .max((i, j) -> Double.compare(logProbabilitiesCopyRatio.get(i), logProbabilitiesCopyRatio.get(j))).get();
+            final List<Integer> totalCopyNumberProductState = totalCopyNumberProductStates.get(maxLikelihoodCopyNumberProductStateIndex);
             //calculate the copy ratio of the sampled copy-number product state
             final double totalCopyRatio = calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
 
             //for all ploidy-state product states consistent with the sampled copy-number product state, calculate the copy-ratio--minor-allele-fraction posteriors
             final List<List<PloidyState>> ploidyStateProductStates =
                     new ArrayList<>(Sets.cartesianProduct(totalCopyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
-            final double[] log10ProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                    .mapToDouble(psps ->
-                            data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor)
-                                    + psps.stream().mapToDouble(ps -> data.length(si) * ploidyStatePrior.logProbability(ps)).sum())
-                    .map(MathUtils::logToLog10)
-                    .toArray();
-            //randomly sample from these ploidy-state product states according to their copy-ratio--minor-allele-fraction posteriors
-            final double[] probabilitiesPloidyStateProductStates = MathUtils.normalizeFromLog10ToLinearSpace(log10ProbabilitiesPloidyStateProductStates);
-            final Map<List<PloidyState>, Double> probabilityMapPloidyStateProductStates = new HashMap<>(ploidyStateProductStates.size());
-            IntStream.range(0, ploidyStateProductStates.size()).forEach(i -> probabilityMapPloidyStateProductStates.put(ploidyStateProductStates.get(i), probabilitiesPloidyStateProductStates[i]));
-            final Function<List<PloidyState>, Double> probabilityFunctionPloidyStateProductStates = probabilityMapPloidyStateProductStates::get;
-            final List<PloidyState> ploidyStateProductState = GATKProtectedMathUtils.randomSelect(ploidyStateProductStates, probabilityFunctionPloidyStateProductStates, rng);
+            final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
+                    .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor)
+                            + psps.stream().mapToDouble(ps -> data.length(si) * ploidyStatePrior.logProbability(ps)).sum())
+                    .collect(Collectors.toList());
+            //take maximum a posteriori ploidy-state product state according to their copy-ratio--minor-allele-fraction posteriors
+            final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
+                    .max((i, j) -> Double.compare(logProbabilitiesPloidyStateProductStates.get(i), logProbabilitiesPloidyStateProductStates.get(j))).get();
+            final List<PloidyState> ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
 
             //store the sampled ploidy-state product state in the list of variant profiles
             IntStream.range(0, numPopulations - 1).forEach(i -> variantProfiles.get(i).set(si, ploidyStateProductState.get(i)));
@@ -276,20 +269,25 @@ final class TumorHeterogeneityUtils {
     private static double calculateTotalCopyNumber(final PopulationMixture.PopulationFractions populationFractions,
                                                    final List<Integer> totalCopyNumberProductState,
                                                    final PloidyState normalPloidyState) {
-        final int numPopulations = populationFractions.numPopulations();
-        return IntStream.range(0, numPopulations - 1).boxed()
-                .mapToDouble(i -> totalCopyNumberProductState.get(i) * populationFractions.get(i))
-                .sum() + normalPloidyState.total() * populationFractions.normalFraction();
+        final int numVariantPopulations = populationFractions.numPopulations() - 1;
+        //loop performs better than stream
+        double totalCopyNumber = 0.;
+        for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
+            totalCopyNumber += totalCopyNumberProductState.get(populationIndex) * populationFractions.get(populationIndex);
+        }
+        totalCopyNumber += normalPloidyState.total() * populationFractions.normalFraction();
+        return totalCopyNumber;
     }
 
     private static double calculateMinorAlleleFraction(final PopulationMixture.PopulationFractions populationFractions,
                                                        final List<PloidyState> ploidyStateProductState,
                                                        final PloidyState normalPloidyState) {
-        final int numPopulations = populationFractions.numPopulations();
-        final double mAlleleCopyNumber = IntStream.range(0, numPopulations - 1).boxed()
+        final int numVariantPopulations = populationFractions.numPopulations() - 1;
+        //performance is not as critical here, so we use streams
+        final double mAlleleCopyNumber = IntStream.range(0, numVariantPopulations)
                 .mapToDouble(i -> ploidyStateProductState.get(i).m() * populationFractions.get(i))
                 .sum() + normalPloidyState.m() * populationFractions.normalFraction();
-        final double nAlleleCopyNumber = IntStream.range(0, numPopulations - 1).boxed()
+        final double nAlleleCopyNumber = IntStream.range(0, numVariantPopulations)
                 .mapToDouble(i -> ploidyStateProductState.get(i).n() * populationFractions.get(i))
                 .sum() + normalPloidyState.n() * populationFractions.normalFraction();
         return calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);

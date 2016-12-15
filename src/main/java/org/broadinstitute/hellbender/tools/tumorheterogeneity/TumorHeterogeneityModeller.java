@@ -237,7 +237,7 @@ public final class TumorHeterogeneityModeller {
             for (int proposalIndex = 0; proposalIndex < MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL; proposalIndex++) {
                 final WalkerPosition proposedWalkerPosition = new WalkerPosition(
                         IntStream.range(0, numDimensions).boxed()
-                                .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample() * (dimensionIndex < TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS ? 0.1 : 1.))
+                                .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample())
                                 .collect(Collectors.toList()));
                 final TumorHeterogeneityState proposedState = transformWalkerPositionToState.apply(proposedWalkerPosition);
                 proposedState.values().forEach(p -> logger.debug("Proposed " + p.getName().name() + ": " + p.getValue()));
