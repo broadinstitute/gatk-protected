@@ -83,7 +83,7 @@ public final class TumorHeterogeneityModeller {
         }
         //define walker transformation
         final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState = walkerPosition ->
-                TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, rng, data, totalCopyNumberProductStates, ploidyStateSetsMap);
+                TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
         //initialize walker positions in a ball around initialState
         final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, initialWalkerBallSize, logTargetTumorHeterogeneity, transformWalkerPositionToState);
@@ -121,6 +121,7 @@ public final class TumorHeterogeneityModeller {
                 Double.class, numWalkers * numBurnIn));
         populationMixtureSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.POPULATION_MIXTURE,
                 PopulationMixture.class, numWalkers * numBurnIn));
+        logger.info("Final acceptance rate: " + builder.calculateAcceptanceRate());
     }
 
     public List<Double> getConcentrationSamples() {

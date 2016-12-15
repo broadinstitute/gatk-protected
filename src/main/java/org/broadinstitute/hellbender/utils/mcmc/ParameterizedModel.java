@@ -206,6 +206,13 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         }
 
         /**
+         * Calculates and returns the current acceptance rate.
+         */
+        public double calculateAcceptanceRate() {
+            return (double) numAccepted / numSamples;
+        }
+
+        /**
          * Builds the {@link ParameterizedModel} as specified via {@link ParameterizedModel.EnsembleBuilder}.
          * @return {@link ParameterizedModel} as specified via EnsembleBuilder
          */

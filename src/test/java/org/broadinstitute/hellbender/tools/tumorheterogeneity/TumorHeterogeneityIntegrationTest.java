@@ -117,7 +117,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-6",
                     "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.05",
-                    "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.2",
+                    "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.1",
                     "--verbosity", "INFO"
             };
             runCommandLine(arguments);
@@ -143,19 +143,19 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.NUM_WALKERS_CLONAL_LONG_NAME, "50",
                     "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "100",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "50",
-                    "--" + TumorHeterogeneity.NUM_WALKERS_LONG_NAME, "100",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "400",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "200",
+                    "--" + TumorHeterogeneity.NUM_WALKERS_LONG_NAME, "500",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "100",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "50",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME, "1E3",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1E4",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME, "1E4",
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1",
-                    "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E4",
+                    "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E2",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "0",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-6",
-                    "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.025",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "5E-6",
+                    "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.02",
                     "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.02",
                     "--verbosity", "INFO"
             };

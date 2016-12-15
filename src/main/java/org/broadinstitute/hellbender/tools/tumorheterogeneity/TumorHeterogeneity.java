@@ -240,7 +240,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = CONCENTRATION_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double concentrationPriorAlpha = 1;
+    protected double concentrationPriorAlpha = 1.;
 
     @Argument(
             doc = "Beta hyperparameter for Gamma-distribution prior on concentration parameter.",
@@ -264,7 +264,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseConstantPriorBeta = 1E2;
+    protected double copyRatioNoiseConstantPriorBeta = 1E1;
 
     @Argument(
             doc = "Alpha hyperparameter for Beta-distribution prior on copy-ratio noise-factor parameter.",

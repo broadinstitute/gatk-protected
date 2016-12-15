@@ -63,12 +63,22 @@ final class TumorHeterogeneityUtils {
             return Double.NEGATIVE_INFINITY;
         }
 
+        //concentration prior
+        final double concentrationPriorAlpha = data.priors().concentrationPriorHyperparameterValues().getAlpha();
+        final double concentrationPriorBeta = data.priors().concentrationPriorHyperparameterValues().getBeta();
+        final double concentration = state.concentration();
+        final double logPriorConcentration =
+                concentrationPriorAlpha * Math.log(Math.max(EPSILON, concentrationPriorBeta))
+                        + (concentrationPriorAlpha - 1.) * Math.log(Math.max(EPSILON, concentration))
+                        - concentrationPriorBeta * concentration
+                        - Gamma.logGamma(concentrationPriorAlpha);
+
         //copy-ratio noise-constant prior
         final double copyRatioNoiseConstantPriorAlpha = data.priors().copyRatioNoiseConstantPriorHyperparameterValues().getAlpha();
         final double copyRatioNoiseConstantPriorBeta = data.priors().copyRatioNoiseConstantPriorHyperparameterValues().getBeta();
         final double copyRatioNoiseConstant = state.copyRatioNoiseConstant();
         final double logPriorCopyRatioNoiseConstant =
-                copyRatioNoiseConstantPriorAlpha * Math.log(copyRatioNoiseConstantPriorBeta)
+                copyRatioNoiseConstantPriorAlpha * Math.log(Math.max(EPSILON, copyRatioNoiseConstantPriorBeta))
                         + (copyRatioNoiseConstantPriorAlpha - 1.) * Math.log(copyRatioNoiseConstant)
                         - copyRatioNoiseConstantPriorBeta * copyRatioNoiseConstant
                         - Gamma.logGamma(copyRatioNoiseConstantPriorAlpha);
@@ -88,6 +98,16 @@ final class TumorHeterogeneityUtils {
         final double logPriorMinorAlleleFractionNoiseFactor =
                 (minorAlleleFractionNoiseFactorPriorAlpha - 1.) * Math.log(Math.max(EPSILON, minorAlleleFractionNoiseFactor))
                         + (minorAlleleFractionNoiseFactorPriorBeta - 1.) * Math.log(Math.max(EPSILON, 1. - minorAlleleFractionNoiseFactor));
+
+        //population-fractions prior
+        final int numPopulations = state.populationMixture().numPopulations();
+        final double logPriorPopulationFractionsSum = IntStream.range(0, numPopulations)
+                .mapToDouble(i -> (concentration - 1.) * Math.log(Math.max(EPSILON, state.populationMixture().populationFraction(i))))
+                .sum();
+        final double logPriorPopulationFractions =
+                Gamma.logGamma(concentration * numPopulations)
+                        - numPopulations * Gamma.logGamma(concentration)
+                        + logPriorPopulationFractionsSum;
 
         //variant-profiles prior
         final VariantProfileCollection variantProfileCollection = state.populationMixture().variantProfileCollection();
@@ -117,15 +137,17 @@ final class TumorHeterogeneityUtils {
         double logPloidyMismatchPenalty = -data.priors().ploidyMismatchPenalty() * Math.abs(state.initialPloidy() - state.ploidy());
 
         logger.debug("Log-posterior components:"
+                + " " + logPriorConcentration
                 + " " + logPriorCopyRatioNoiseConstant
                 + " " + logPriorCopyRatioNoiseFactor
                 + " " + logPriorMinorAlleleFractionNoiseFactor
+                + " " + logPriorPopulationFractions
                 + " " + logPriorVariantProfiles
                 + " " + logLikelihoodSegments
                 + " " + logPloidyMismatchPenalty);
 
-        return logPriorCopyRatioNoiseConstant + logPriorCopyRatioNoiseFactor  + logPriorMinorAlleleFractionNoiseFactor
-                + logPriorVariantProfiles + logLikelihoodSegments + logPloidyMismatchPenalty;
+        return logPriorConcentration + logPriorCopyRatioNoiseConstant + logPriorCopyRatioNoiseFactor  + logPriorMinorAlleleFractionNoiseFactor
+                + logPriorPopulationFractions + logPriorVariantProfiles + logLikelihoodSegments + logPloidyMismatchPenalty;
     }
 
     /**
@@ -145,13 +167,11 @@ final class TumorHeterogeneityUtils {
     /**
      * Transforms a walker position (i.e., a point in unbounded N-dimensional space) to
      * a {@link TumorHeterogeneityState} (which is composed of parameters that may be bounded or confined to the
-     * unit simplex).  This transformation includes a proposal step to randomly sample a {@link VariantProfileCollection}
-     * conditional on the other model parameters and a proposed "initial" ploidy
-     * using {@link TumorHeterogeneityUtils#proposeVariantProfileCollection}, so the transformation is not
-     * deterministic.
+     * unit simplex).  This transformation includes a proposal step to find the maximum a posteriori
+     * {@link VariantProfileCollection} conditional on the other model parameters and a proposed "initial" ploidy
+     * using {@link TumorHeterogeneityUtils#proposeVariantProfileCollection}.
      */
     static TumorHeterogeneityState transformWalkerPositionToState(final WalkerPosition walkerPosition,
-                                                                  final RandomGenerator rng,
                                                                   final TumorHeterogeneityData data,
                                                                   final List<List<Integer>> totalCopyNumberProductStates,
                                                                   final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
@@ -172,7 +192,7 @@ final class TumorHeterogeneityUtils {
                         new WalkerPosition(walkerPosition.subList(POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX, walkerPosition.numDimensions()))));
 
         final VariantProfileCollection variantProfileCollection = proposeVariantProfileCollection(
-                rng, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPloidy,
+                copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPloidy,
                 populationFractions, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
         final PopulationMixture populationMixture = new PopulationMixture(populationFractions, variantProfileCollection, data.priors().normalPloidyState());
@@ -214,8 +234,7 @@ final class TumorHeterogeneityUtils {
      * Conditional on the global model parameters, population fractions, and a proposed "initial" ploidy, heuristically
      * samples a {@link VariantProfileCollection} from the posterior distribution.
      */
-    private static VariantProfileCollection proposeVariantProfileCollection(final RandomGenerator rng,
-                                                                            final double copyRatioNoiseConstant,
+    private static VariantProfileCollection proposeVariantProfileCollection(final double copyRatioNoiseConstant,
                                                                             final double copyRatioNoiseFactor,
                                                                             final double minorAlleleFractionNoiseFactor,
                                                                             final double initialPloidy,
@@ -250,14 +269,20 @@ final class TumorHeterogeneityUtils {
             //for all ploidy-state product states consistent with the sampled copy-number product state, calculate the copy-ratio--minor-allele-fraction posteriors
             final List<List<PloidyState>> ploidyStateProductStates =
                     new ArrayList<>(Sets.cartesianProduct(totalCopyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
-            final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                    .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor)
-                            + psps.stream().mapToDouble(ps -> data.length(si) * ploidyStatePrior.logProbability(ps)).sum())
-                    .collect(Collectors.toList());
-            //take maximum a posteriori ploidy-state product state according to their copy-ratio--minor-allele-fraction posteriors
-            final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
-                    .max((i, j) -> Double.compare(logProbabilitiesPloidyStateProductStates.get(i), logProbabilitiesPloidyStateProductStates.get(j))).get();
-            final List<PloidyState> ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
+            final List<PloidyState> ploidyStateProductState;
+            if (ploidyStateProductStates.size() == 1) {
+                //if only one consistent ploidy-state product, not necessary to perform maximum a posteriori calculations
+                ploidyStateProductState = ploidyStateProductStates.get(0);
+            } else {
+                final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
+                        .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor)
+                                + data.length(si) * psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
+                        .collect(Collectors.toList());
+                //take maximum a posteriori ploidy-state product state according to their copy-ratio--minor-allele-fraction posteriors
+                final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
+                        .max((i, j) -> Double.compare(logProbabilitiesPloidyStateProductStates.get(i), logProbabilitiesPloidyStateProductStates.get(j))).get();
+                ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
+            }
 
             //store the sampled ploidy-state product state in the list of variant profiles
             IntStream.range(0, numVariantPopulations).forEach(i -> variantProfiles.get(i).set(si, ploidyStateProductState.get(i)));
