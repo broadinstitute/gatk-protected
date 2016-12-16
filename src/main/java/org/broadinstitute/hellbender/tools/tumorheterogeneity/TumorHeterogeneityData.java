@@ -106,7 +106,7 @@ public final class TumorHeterogeneityData implements DataCollection {
     public double copyRatioLogDensity(final int segmentIndex, final double copyRatio,
                                       final double copyRatioNoiseConstant, final double copyRatioNoiseFactor) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
-        Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
+        Utils.validateArg(copyRatio >= 0., "Copy ratio must be non-negative.");
         Utils.validateArg(copyRatioNoiseConstant >= 0., "Copy-ratio noise constant must be non-negative.");
         Utils.validateArg(copyRatioNoiseFactor > 0., "Copy-ratio noise factor must be positive.");
         return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant, copyRatioNoiseFactor);
@@ -115,8 +115,8 @@ public final class TumorHeterogeneityData implements DataCollection {
     public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction,
                              final double copyRatioNoiseConstant, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
-        Utils.validateArg(copyRatio >= 0, "Copy ratio must be non-negative.");
-        Utils.validateArg(0 <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
+        Utils.validateArg(copyRatio >= 0., "Copy ratio must be non-negative.");
+        Utils.validateArg(0. <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
         Utils.validateArg(copyRatioNoiseConstant >= 0., "Copy-ratio noise constant must be non-negative.");
         Utils.validateArg(copyRatioNoiseFactor > 0., "Copy-ratio noise factor must be positive.");
         Utils.validateArg(minorAlleleFractionNoiseFactor > 0., "Minor-allele-fraction noise factor must be positive.");

@@ -152,8 +152,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     /**
      * Initialize a variant profile to normal.
      */
-    private static PopulationMixture.VariantProfile initializeNormalProfile(final int numSegments,
-                                                                            final PloidyState normalPloidyState) {
+    static PopulationMixture.VariantProfile initializeNormalProfile(final int numSegments,
+                                                                    final PloidyState normalPloidyState) {
         final PopulationMixture.VariantProfile ploidyStateIndicators =
                 new PopulationMixture.VariantProfile(Collections.nCopies(numSegments, normalPloidyState));
         return new PopulationMixture.VariantProfile(ploidyStateIndicators);

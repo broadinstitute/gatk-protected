@@ -40,10 +40,10 @@ final class TumorHeterogeneityUtils {
     static final double COPY_RATIO_NOISE_CONSTANT_MAX = 5E-2;
 
     static final double COPY_RATIO_NOISE_FACTOR_MIN = EPSILON;
-    static final double COPY_RATIO_NOISE_FACTOR_MAX = 1.;
+    static final double COPY_RATIO_NOISE_FACTOR_MAX = 1. - EPSILON;
 
     static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN = EPSILON;
-    static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX = 1.;
+    static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX = 1. - EPSILON;
 
     static final double PLOIDY_MIN = EPSILON;
 
@@ -51,7 +51,7 @@ final class TumorHeterogeneityUtils {
     private static final int COPY_RATIO_NOISE_CONSTANT_WALKER_DIMENSION_INDEX = 1;
     private static final int COPY_RATIO_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 2;
     private static final int MINOR_ALLELE_FRACTION_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 3;
-    private static final int INITIAL_PLOIDY_WALKER_DIMENSION_INDEX = 4;
+    static final int INITIAL_PLOIDY_WALKER_DIMENSION_INDEX = 4;
     private static final int POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX = 5;
     static final int NUM_GLOBAL_PARAMETERS = 5;
 

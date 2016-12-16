@@ -16,10 +16,7 @@ import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.Ploidy
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -46,7 +43,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
 
     private static final double INITIAL_WALKER_BALL_SIZE_CLONAL = 1.;
-    private static final double INITIAL_WALKER_BALL_SIZE = 1.;
+    private static final double INITIAL_WALKER_BALL_SIZE = 0.1;
 
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
@@ -414,7 +411,16 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priors);
             
             //initialize modeller and run MCMC
-            final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
+//            final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
+            final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
+                    0.1, 0.001, 0.99, 0.99, 2.036, 2.036,
+                    new PopulationMixture(
+                            Arrays.asList(0.166, 0.034, 0.8),
+                            Arrays.asList(TumorHeterogeneityState.initializeNormalProfile(data.numSegments(), NORMAL_PLOIDY_STATE),
+                                    TumorHeterogeneityState.initializeNormalProfile(data.numSegments(), NORMAL_PLOIDY_STATE)),
+                            NORMAL_PLOIDY_STATE
+                    )
+            );
             final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, numWalkers, INITIAL_WALKER_BALL_SIZE, rng);
             modeller.fitMCMC(numSamples, numBurnIn);
 
@@ -452,8 +458,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                         Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
                                 + Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
-        for (int n = 0; n <= maxAllelicCopyNumber; n++) {
-            for (int m = 0; m <= n; m++) {
+        for (int m = 0; m <= maxAllelicCopyNumber; m++) {
+            for (int n = 0; n <= maxAllelicCopyNumber; n++) {
                 unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
             }
         }
