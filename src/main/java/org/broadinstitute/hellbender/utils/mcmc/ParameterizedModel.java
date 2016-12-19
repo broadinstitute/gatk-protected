@@ -163,7 +163,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         /**
          * Constructor for {@link ParameterizedModel.EnsembleBuilder}.
          * @param scaleParameter                    scale parameter for stretch-move proposal;
-         *                                          see Goodman and Weare 2010, which recommends setting this to 2
+         *                                          see Goodman & Weare 2010, which recommends setting this to 2
          * @param initialWalkerPositions            initial positions of the walkers in N-dimensional space
          * @param dataCollection                    DataCollection used by the model
          * @param transformWalkerPositionToState    function that transforms a walker position to a state
@@ -295,11 +295,11 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         final double proposedLogTarget = builder.logTarget.apply(proposedState);
 
         //accept or reject
-        final double acceptanceProbability = Math.min(1., Math.exp((numDimensions - 1.) * Math.log(z) + proposedLogTarget - currentLogTarget)); //see Goodman & Weare 2010
+        final double acceptanceLogProbability = Math.min(0., (numDimensions - 1.) * Math.log(z) + proposedLogTarget - currentLogTarget); //see Goodman & Weare 2010
         logger.debug("Log target of current state: " + currentLogTarget);
         logger.debug("Log target of proposed state: " + proposedLogTarget);
         builder.numSamples++;
-        if (rng.nextDouble() < acceptanceProbability) {
+        if (Math.log(rng.nextDouble()) < acceptanceLogProbability) {
             builder.numAccepted++;
             logger.debug("Proposed state accepted.");
             //update the walker position for the current walker
