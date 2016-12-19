@@ -96,19 +96,21 @@ public final class TumorHeterogeneityModellerWriter {
         Utils.nonNull(outputFile);
         Utils.nonNull(sampleIndices);
 
-        final List<PopulationMixture.VariantProfileCollection> variantProfileCollectionSamples =
-                sampleIndices.stream().map(i -> modeller.getVariantProfileCollectionSamples().get(i)).collect(Collectors.toList());
+        final List<PopulationMixture.VariantProfileCollection> variantProfileCollectionSamples = modeller.getVariantProfileCollectionSamples();
+        final List<PopulationMixture.VariantProfileCollection> selectedVariantProfileCollectionSamples =
+                sampleIndices.stream().map(variantProfileCollectionSamples::get).collect(Collectors.toList());
 
-        if (sampleIndices.size() == 0) {
+        final int numSamples = sampleIndices.size();
+        if (numSamples == 0) {
             logger.warn("Sample of posterior mode was discarded with burn-in samples and no other samples were present in purity-ploidy bin. " +
                     "Adjust burn-in and total number of samples accordingly. Using posterior mode only...");
             final PopulationMixture.VariantProfileCollection variantProfileCollectionMode =
-                    modeller.getPosteriorMode().populationMixture().collapseNormalPopulations(modeller.getData().priors().normalPloidyState()).variantProfileCollection();
-            variantProfileCollectionSamples.add(variantProfileCollectionMode);
+                    modeller.getPosteriorMode().populationMixture().variantProfileCollection();
+            selectedVariantProfileCollectionSamples.add(variantProfileCollectionMode);
         }
 
         try (final FileWriter writer = new FileWriter(outputFile)) {
-            final int numVariantPopulations = variantProfileCollectionSamples.get(0).numVariantPopulations();
+            final int numVariantPopulations = selectedVariantProfileCollectionSamples.get(0).numVariantPopulations();
             final TumorHeterogeneityData data = modeller.getData();
 
             //column headers
@@ -141,10 +143,10 @@ public final class TumorHeterogeneityModellerWriter {
                     final int si = segmentIndex;
                     for (int ploidyStateIndex = 0; ploidyStateIndex < numPloidyStates; ploidyStateIndex++) {
                         final int vpsi = ploidyStateIndex;
-                        final double[] isPloidyStateSamples = variantProfileCollectionSamples.stream()
-                                .mapToDouble(vpc -> vpc.get(pi).ploidyState(si).equals(ploidyStates.get(vpsi)) ? 1. : 0)
-                                .toArray();
-                        final double ploidyStatePosteriorMean = new Mean().evaluate(isPloidyStateSamples);
+                        final double numPloidyStateSamples = selectedVariantProfileCollectionSamples.stream()
+                                .filter(vpc -> vpc.get(pi).ploidyState(si).equals(ploidyStates.get(vpsi)))
+                                .count();
+                        final double ploidyStatePosteriorMean = numPloidyStateSamples / numSamples;
                         writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT, ploidyStatePosteriorMean));
                         if (ploidyStateIndex != numPloidyStates - 1) {
                             writer.write("\t");
@@ -177,18 +179,26 @@ public final class TumorHeterogeneityModellerWriter {
     private Map<String, PosteriorSummary> getGlobalParameterPosteriorSummaries(final List<Integer> sampleIndices,
                                                                                final double credibleIntervalAlpha,
                                                                                final JavaSparkContext ctx) {
+        //get samples for all indices
+        final List<Double> concentrationSamples = modeller.getConcentrationSamples();
+        final List<Double> copyRatioNoiseConstantSamples = modeller.getCopyRatioNoiseConstantSamples();
+        final List<Double> copyRatioNoiseFactorSamples = modeller.getCopyRatioNoiseFactorSamples();
+        final List<Double> minorAlleleFractionNoiseFactorSamples = modeller.getMinorAlleleFractionNoiseFactorSamples();
+        final List<PopulationMixture.PopulationFractions> populationFractionsSamples = modeller.getPopulationFractionsSamples();
+        final List<Double> ploidySamples = modeller.getPloidySamples();
+
         //collect samples for selected indices
         final int numVariantPopulations = modeller.getVariantProfileCollectionSamples().get(0).numVariantPopulations();
-        final List<Double> selectedConcentrationSamples = sampleIndices.stream().map(modeller.getConcentrationSamples()::get).collect(Collectors.toList());
-        final List<Double> selectedCopyRatioNoiseConstantSamples = sampleIndices.stream().map(modeller.getCopyRatioNoiseConstantSamples()::get).collect(Collectors.toList());
-        final List<Double> selectedCopyRatioNoiseFactorSamples = sampleIndices.stream().map(modeller.getCopyRatioNoiseFactorSamples()::get).collect(Collectors.toList());
-        final List<Double> selectedMinorAlleleFractionNoiseFactorSamples = sampleIndices.stream().map(modeller.getMinorAlleleFractionNoiseFactorSamples()::get).collect(Collectors.toList());
+        final List<Double> selectedConcentrationSamples = sampleIndices.stream().map(concentrationSamples::get).collect(Collectors.toList());
+        final List<Double> selectedCopyRatioNoiseConstantSamples = sampleIndices.stream().map(copyRatioNoiseConstantSamples::get).collect(Collectors.toList());
+        final List<Double> selectedCopyRatioNoiseFactorSamples = sampleIndices.stream().map(copyRatioNoiseFactorSamples::get).collect(Collectors.toList());
+        final List<Double> selectedMinorAlleleFractionNoiseFactorSamples = sampleIndices.stream().map(minorAlleleFractionNoiseFactorSamples::get).collect(Collectors.toList());
         final List<List<Double>> selectedVariantPopulationFractionsSamples = IntStream.range(0, numVariantPopulations).boxed()
-                .map(populationIndex -> sampleIndices.stream().map(sampleIndex -> modeller.getPopulationFractionsSamples().get(sampleIndex).get(populationIndex)).collect(Collectors.toList()))
+                .map(populationIndex -> sampleIndices.stream().map(sampleIndex -> populationFractionsSamples.get(sampleIndex).get(populationIndex)).collect(Collectors.toList()))
                 .collect(Collectors.toList());
         final List<Double> selectedNormalPopulationFractionSamples = sampleIndices.stream()
-                .map(sampleIndex -> modeller.getPopulationFractionsSamples().get(sampleIndex).normalFraction()).collect(Collectors.toList());
-        final List<Double> selectedPloidySamples = sampleIndices.stream().map(modeller.getPloidySamples()::get).collect(Collectors.toList());
+                .map(sampleIndex -> populationFractionsSamples.get(sampleIndex).normalFraction()).collect(Collectors.toList());
+        final List<Double> selectedPloidySamples = sampleIndices.stream().map(ploidySamples::get).collect(Collectors.toList());
 
         //if there are no selected indices, then use only the posterior mode and log a warning
         if (sampleIndices.size() == 0) {

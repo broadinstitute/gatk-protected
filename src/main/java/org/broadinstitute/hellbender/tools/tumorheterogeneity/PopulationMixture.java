@@ -100,10 +100,7 @@ public final class PopulationMixture {
             }
         }
         adjustedPopulationFractions.add(normalFraction);
-        return new PopulationMixture(
-                new PopulationFractions(adjustedPopulationFractions),
-                new VariantProfileCollection(variantProfileCollection),
-                normalPloidyState);
+        return new PopulationMixture(new PopulationFractions(adjustedPopulationFractions), variantProfileCollection, normalPloidyState);
     }
 
     @Override

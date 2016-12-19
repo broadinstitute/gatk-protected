@@ -144,8 +144,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
      * @param <T2>  type of the DataCollection
      */
     public static final class EnsembleBuilder<V2 extends Enum<V2> & ParameterEnum, S2 extends ParameterizedState<V2>, T2 extends DataCollection> {
-        private static final double SCALE_PARAMETER = 2.;
-
+        private final double scaleParameter;
         private final S2 state;
         private final T2 dataCollection;
 
@@ -163,15 +162,20 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
 
         /**
          * Constructor for {@link ParameterizedModel.EnsembleBuilder}.
+         * @param scaleParameter                    scale parameter for stretch-move proposal;
+         *                                          see Goodman and Weare 2010, which recommends setting this to 2
          * @param initialWalkerPositions            initial positions of the walkers in N-dimensional space
          * @param dataCollection                    DataCollection used by the model
          * @param transformWalkerPositionToState    function that transforms a walker position to a state
          * @param logTarget                         log of the target function to sample
          */
-        public EnsembleBuilder(final List<WalkerPosition> initialWalkerPositions,
+        public EnsembleBuilder(final double scaleParameter,
+                               final List<WalkerPosition> initialWalkerPositions,
                                final T2 dataCollection,
                                final Function<WalkerPosition, S2> transformWalkerPositionToState,
                                final Function<S2, Double> logTarget) {
+            Utils.validateArg(scaleParameter > 1.,
+                    "Scale parameter should be strictly greater than 1.");
             Utils.nonNull(initialWalkerPositions);
             Utils.nonNull(dataCollection);
             Utils.nonNull(transformWalkerPositionToState);
@@ -182,6 +186,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
                     .map(WalkerPosition::numDimensions).allMatch(n -> n.equals(initialWalkerPositions.get(0).numDimensions())),
                     "Dimension of walker space must be identical for all walkers.");
 
+            this.scaleParameter = scaleParameter;
             state = transformWalkerPositionToState.apply(initialWalkerPositions.get(0));
             this.dataCollection = dataCollection;
             currentWalkerIndex = 0;
@@ -203,6 +208,13 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
          */
         public S2 getMaxLogTargetState() {
             return maxLogTargetState;
+        }
+
+        /**
+         * Returns the maximum value of the log-target function that was observed over the entire sampling run.
+         */
+        public double getMaxLogTarget() {
+            return maxLogTarget;
         }
 
         /**
@@ -267,7 +279,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
 
         //propose a stretch move
         final int numDimensions = currentWalkerPosition.numDimensions();
-        final double z = Math.pow((EnsembleBuilder.SCALE_PARAMETER - 1.) * rng.nextDouble() + 1, 2.) / EnsembleBuilder.SCALE_PARAMETER; //see Goodman & Weare 2010
+        final double z = Math.pow((builder.scaleParameter - 1.) * rng.nextDouble() + 1, 2.) / builder.scaleParameter; //see Goodman & Weare 2010
         final WalkerPosition proposedWalkerPosition = new WalkerPosition(IntStream.range(0, numDimensions).boxed()
                 .map(i -> selectedWalkerPosition.get(i) + z * (currentWalkerPosition.get(i) - selectedWalkerPosition.get(i)))
                 .collect(Collectors.toList()));

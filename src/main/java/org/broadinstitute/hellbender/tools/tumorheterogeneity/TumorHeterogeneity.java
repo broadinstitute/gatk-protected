@@ -42,8 +42,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final int NUM_POPULATIONS_CLONAL = TumorHeterogeneityUtils.NUM_POPULATIONS_CLONAL;
     private static final PloidyState NORMAL_PLOIDY_STATE = new PloidyState(1, 1);
 
-    private static final double INITIAL_WALKER_BALL_SIZE_CLONAL = 1.;
-    private static final double INITIAL_WALKER_BALL_SIZE = 0.1;
+    private static final double INITIAL_WALKER_BALL_SIZE_CLONAL = TumorHeterogeneityUtils.INITIAL_WALKER_BALL_SIZE_CLONAL;
+    private static final double INITIAL_WALKER_BALL_SIZE = TumorHeterogeneityUtils.INITIAL_WALKER_BALL_SIZE;
 
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
@@ -336,7 +336,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MODE_PLOIDY_BIN_SIZE_SHORT_NAME,
             optional = true
     )
-    protected double ploidyModeBinSize = 0.1;
+    protected double ploidyModeBinSize = 0.025;
 
     @Override
     protected void runPipeline(final JavaSparkContext ctx) {
@@ -411,16 +411,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priors);
             
             //initialize modeller and run MCMC
-//            final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
-            final TumorHeterogeneityState initialState = new TumorHeterogeneityState(
-                    0.1, 0.001, 0.99, 0.99, 2.036, 2.036,
-                    new PopulationMixture(
-                            Arrays.asList(0.166, 0.034, 0.8),
-                            Arrays.asList(TumorHeterogeneityState.initializeNormalProfile(data.numSegments(), NORMAL_PLOIDY_STATE),
-                                    TumorHeterogeneityState.initializeNormalProfile(data.numSegments(), NORMAL_PLOIDY_STATE)),
-                            NORMAL_PLOIDY_STATE
-                    )
-            );
+            final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
             final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, numWalkers, INITIAL_WALKER_BALL_SIZE, rng);
             modeller.fitMCMC(numSamples, numBurnIn);
 

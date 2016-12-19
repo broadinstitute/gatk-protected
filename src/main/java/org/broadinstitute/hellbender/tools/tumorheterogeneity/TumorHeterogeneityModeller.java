@@ -30,6 +30,7 @@ public final class TumorHeterogeneityModeller {
 
     private static final int NUM_SAMPLES_PER_LOG_ENTRY = 100;
     private static final int MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL = 25;
+    private static final double SCALE_PARAMETER = 2.;
 
     private final EnsembleBuilder<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> builder;
     private final ParameterizedModel<TumorHeterogeneityParameter, TumorHeterogeneityState, TumorHeterogeneityData> model;
@@ -83,12 +84,12 @@ public final class TumorHeterogeneityModeller {
         }
         //define walker transformation
         final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState = walkerPosition ->
-                TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, data, totalCopyNumberProductStates, ploidyStateSetsMap);
+                TumorHeterogeneityUtils.transformWalkerPositionToState(rng, walkerPosition, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
         //initialize walker positions in a ball around initialState
         final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, initialWalkerBallSize, logTargetTumorHeterogeneity, transformWalkerPositionToState);
 
-        builder = new EnsembleBuilder<>(initialWalkerPositions, data, transformWalkerPositionToState, logTargetTumorHeterogeneity);
+        builder = new EnsembleBuilder<>(SCALE_PARAMETER, initialWalkerPositions, data, transformWalkerPositionToState, logTargetTumorHeterogeneity);
         model = builder.build();
     }
 
@@ -122,6 +123,7 @@ public final class TumorHeterogeneityModeller {
         populationMixtureSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.POPULATION_MIXTURE,
                 PopulationMixture.class, numWalkers * numBurnIn));
         logger.info("Final acceptance rate: " + builder.calculateAcceptanceRate());
+        logger.info("Maximum log posterior: " + builder.getMaxLogTarget());
     }
 
     public List<Double> getConcentrationSamples() {
@@ -188,7 +190,8 @@ public final class TumorHeterogeneityModeller {
                                                       final double ploidyBinSize) {
         Utils.validateArg(0. <= purityBinSize && purityBinSize <= 1., "Invalid purity bin size.");
         Utils.validateArg(0. <= ploidyBinSize && ploidyBinSize <= data.priors().ploidyStatePrior().maxCopyNumber(), "Invalid ploidy bin size.");
-        if (getConcentrationSamples().size() == 0) {
+        final int numSamples = getConcentrationSamples().size();
+        if (numSamples == 0) {
             throw new IllegalStateException("Cannot output modeller result before samples have been generated.");
         }
 
@@ -197,7 +200,7 @@ public final class TumorHeterogeneityModeller {
         final List<Double> purityBinCenters = binCenter.populationMixture().populationFractions().subList(0, numVariantPopulations);
         final List<Double> purityBinMins = purityBinCenters.stream().map(c -> Math.max(0., c - purityBinSize / 2)).collect(Collectors.toList());
         final List<Double> purityBinMaxs = purityBinCenters.stream().map(c -> Math.min(1., c + purityBinSize / 2)).collect(Collectors.toList());
-        IntStream.range(0, numVariantPopulations).forEach(i -> logger.info("Purity bin: [" + purityBinMins.get(i) + ", " + purityBinMaxs.get(i) + ")"));
+        IntStream.range(0, numVariantPopulations).forEach(i -> logger.info("Population fraction " + i + " bin: [" + purityBinMins.get(i) + ", " + purityBinMaxs.get(i) + ")"));
 
         //determine ploidy bin centered on given state
         final double ploidyBinCenter = binCenter.ploidy();
@@ -207,12 +210,14 @@ public final class TumorHeterogeneityModeller {
 
         //collect indices of samples falling into purity-ploidy bin
         final List<PopulationMixture.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
+
         final List<Integer> sampleIndices = IntStream.range(0, getPloidySamples().size()).boxed()
                 .filter(i -> IntStream.range(0, numVariantPopulations).allMatch(pi -> purityBinMins.get(pi) <= populationFractionsSamples.get(i).get(pi)
                         && populationFractionsSamples.get(i).get(pi) < purityBinMaxs.get(pi))
                         && ploidyBinMin <= getPloidySamples().get(i)
                         && getPloidySamples().get(i) < ploidyBinMax)
                 .collect(Collectors.toList());
+
         logger.info("Number of samples in bin: " + sampleIndices.size());
         return sampleIndices;
     }
@@ -226,7 +231,8 @@ public final class TumorHeterogeneityModeller {
                                                       final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity,
                                                       final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState) {
         //number of walker dimensions = 1 concentration parameter + 2 noise parameters + (numPopulations - 1) simplex parameters + 1 ploidy parameter
-        final int numDimensions = TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS + initialState.populationMixture().numVariantPopulations();
+        final int numVariantPopulations = initialState.populationMixture().numVariantPopulations();
+        final int numDimensions = TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS + numVariantPopulations;
         final NormalDistribution ballGaussian = new NormalDistribution(rng, 0., initialWalkerBallSize);
         final WalkerPosition walkerPositionOfInitialState = TumorHeterogeneityUtils.transformStateToWalkerPosition(initialState, data);
         final List<WalkerPosition> initialWalkerPositions = new ArrayList<>(numWalkers);
@@ -234,10 +240,20 @@ public final class TumorHeterogeneityModeller {
             boolean acceptedProposedPosition = false;
             WalkerPosition initialWalkerPosition = walkerPositionOfInitialState;
             for (int proposalIndex = 0; proposalIndex < MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL; proposalIndex++) {
-                final WalkerPosition proposedWalkerPosition = new WalkerPosition(
-                        IntStream.range(0, numDimensions).boxed()
-                                .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample() * (dimensionIndex == TumorHeterogeneityUtils.INITIAL_PLOIDY_WALKER_DIMENSION_INDEX ? 0.1 : 1.))
-                                .collect(Collectors.toList()));
+                final WalkerPosition proposedWalkerPosition;
+                if (numVariantPopulations == 1) {
+                     proposedWalkerPosition = new WalkerPosition(
+                            IntStream.range(0, numDimensions).boxed()
+                                    .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample())
+                                    .collect(Collectors.toList()));
+                } else {
+                    proposedWalkerPosition = new WalkerPosition(
+                            IntStream.range(0, numDimensions).boxed()
+                                    .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex)
+                                            + ballGaussian.sample() * (dimensionIndex == TumorHeterogeneityUtils.INITIAL_PLOIDY_WALKER_DIMENSION_INDEX ? 0.05 : 1.))
+                                    .collect(Collectors.toList()));
+                }
+
                 final TumorHeterogeneityState proposedState = transformWalkerPositionToState.apply(proposedWalkerPosition);
                 proposedState.values().forEach(p -> logger.debug("Proposed " + p.getName().name() + ": " + p.getValue()));
                 //only accept the position if its transformed state is within parameter bounds
