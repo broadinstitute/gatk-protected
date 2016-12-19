@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static java.lang.Math.pow;
+import static org.broadinstitute.hellbender.utils.variant.GATKVCFConstants.LOW_QUAL_FILTER_NAME;
 
 /**
  * Created by davidben on 9/15/16.
@@ -198,9 +199,12 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.IN_COSMIC_VCF_ATTRIBUTE, 0, VCFHeaderLineType.Flag, "site found in COSMIC database"));
         headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.IN_DBSNP_VCF_ATTRIBUTE, 0, VCFHeaderLineType.Flag, "site found in dbSNP database"));
         headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.IN_PON_VCF_ATTRIBUTE, 0, VCFHeaderLineType.Flag, "site found in panel of normals"));
+        headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "log odds of artifact in normal with same allele fraction as tumor"));
+
 
         headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.ALLELE_FRACTION_KEY));
         M_2_FILTER_NAMES.stream().map(GATKVCFHeaderLines::getFilterLine).forEach(headerInfo::add);
+        headerInfo.add(new VCFFilterHeaderLine(Mutect2FilteringEngine.ARTIFACT_IN_NORMAL_FILTER_NAME, "artifact_in_normal"));
 
         if ( ! MTAC.doNotRunPhysicalPhasing ) {
             headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.HAPLOTYPE_CALLER_PHASING_ID_KEY));

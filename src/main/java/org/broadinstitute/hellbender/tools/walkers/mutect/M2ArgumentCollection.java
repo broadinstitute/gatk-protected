@@ -71,6 +71,13 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public double NORMAL_LOD_THRESHOLD = 2.2;
 
     /**
+     * This is a measure of the minimum evidence to support that a variant observed in the tumor is not also present in the normal
+     * as an artifact i.e. not as a germline event.
+     */
+    @Argument(fullName = "normal_artifact_lod", optional = true, doc = "LOD threshold for calling normal artifacts")
+    public double NORMAL_ARTIFACT_LOD_THRESHOLD = 0.0;
+
+    /**
      * The LOD threshold for the normal is typically made more strict if the variant has been seen in dbSNP (i.e. another
      * normal sample). We thus require MORE evidence that a variant is NOT seen in this tumor's normal if it has been observed as a germline variant before.
      */

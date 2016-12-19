@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.walkers.mutect;
 
 import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.hellbender.utils.GATKProtectedVariantContextUtils;
+import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 
 import java.util.*;
@@ -10,6 +11,8 @@ import java.util.*;
  * Created by davidben on 9/15/16.
  */
 public class Mutect2FilteringEngine {
+
+    public final static String ARTIFACT_IN_NORMAL_FILTER_NAME = "artifact_in_normal";
 
     private Mutect2FilteringEngine() { }
 
@@ -71,6 +74,20 @@ public class Mutect2FilteringEngine {
         }
     }
 
+    // filter out anything called in tumor that would also be called in the normal if it were treated as a tumor.
+    // this handles shared artifacts, such as ones due to alignment and any shared aspects of sequencing
+    private static void applyArtifactInNormalFilter(final M2ArgumentCollection MTAC, final VariantContext vc, final Collection<String> filters) {
+        if (!vc.hasAttribute(SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE)) {
+            return;
+        }
+
+        // take maximum of artifact-in-normal log odds
+        final double normalArtifactLod = MathUtils.arrayMax(GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(vc, SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE, () -> null, -1));
+        if (normalArtifactLod > MTAC.NORMAL_ARTIFACT_LOD_THRESHOLD) {
+            filters.add(ARTIFACT_IN_NORMAL_FILTER_NAME);
+        }
+    }
+
     private static void applyStrandBiasFilter(final M2ArgumentCollection MTAC, final VariantContext vc, final Collection<String> filters) {
         if (MTAC.ENABLE_STRAND_ARTIFACT_FILTER) {
             if (vc.hasAttribute(GATKVCFConstants.TLOD_FWD_KEY) && vc.hasAttribute(GATKVCFConstants.TLOD_REV_KEY)
@@ -101,6 +118,7 @@ public class Mutect2FilteringEngine {
         applyTriallelicFilter(vc, filters);
         applyPanelOfNormalsFilter(MTAC, vc, filters);
         applyGermlineVariantFilter(MTAC, vc, filters);
+        applyArtifactInNormalFilter(MTAC, vc, filters);
         applyClusteredReadPositionFilter(MTAC, vc, filters);
         applyStrandBiasFilter(MTAC, vc, filters);
         applySTRFilter(vc, filters);
