@@ -465,8 +465,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(maxNumPopulations > NUM_POPULATIONS_CLONAL, MAX_NUM_POPULATIONS_LONG_NAME + " should be strictly greater than " + NUM_POPULATIONS_CLONAL + ".");
         Utils.validateArg(numSamplesClonal > 0, NUM_SAMPLES_CLONAL_LONG_NAME + " must be positive.");
         Utils.validateArg(numSamples >= 0, NUM_SAMPLES_LONG_NAME + " must be non-negative.");
-        Utils.validateArg(numBurnInClonal >= 0 && numBurnInClonal < numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be non-negative and strictly less than " + NUM_SAMPLES_CLONAL_LONG_NAME);
-        Utils.validateArg(numSamples == 0 ? numBurnIn == 0 : numBurnIn >= 0 && numBurnIn < numSamples, NUM_BURN_IN_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_LONG_NAME);
+        Utils.validateArg(numBurnInClonal >= 0 && numBurnInClonal < numSamplesClonal, NUM_BURN_IN_CLONAL_LONG_NAME + " must be non-negative and strictly less than " + NUM_SAMPLES_CLONAL_LONG_NAME + ".");
+        Utils.validateArg(numSamples == 0 ? numBurnIn == 0 : numBurnIn >= 0 && numBurnIn < numSamples, NUM_BURN_IN_LONG_NAME + " must be non-negative and less than or equal to " + NUM_SAMPLES_LONG_NAME + ".");
         validatePriorHyperparameters(
                 concentrationPriorAlpha, CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
                 concentrationPriorBeta, CONCENTRATION_PRIOR_BETA_LONG_NAME,

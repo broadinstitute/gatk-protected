@@ -100,14 +100,14 @@ public final class TumorHeterogeneityModellerWriter {
         final List<PopulationMixture.VariantProfileCollection> selectedVariantProfileCollectionSamples =
                 sampleIndices.stream().map(variantProfileCollectionSamples::get).collect(Collectors.toList());
 
-        final int numSamples = sampleIndices.size();
-        if (numSamples == 0) {
+        if (sampleIndices.size() == 0) {
             logger.warn("Sample of posterior mode was discarded with burn-in samples and no other samples were present in purity-ploidy bin. " +
                     "Adjust burn-in and total number of samples accordingly. Using posterior mode only...");
             final PopulationMixture.VariantProfileCollection variantProfileCollectionMode =
                     modeller.getPosteriorMode().populationMixture().variantProfileCollection();
             selectedVariantProfileCollectionSamples.add(variantProfileCollectionMode);
         }
+        final int numSamples = selectedVariantProfileCollectionSamples.size();
 
         try (final FileWriter writer = new FileWriter(outputFile)) {
             final int numVariantPopulations = selectedVariantProfileCollectionSamples.get(0).numVariantPopulations();
