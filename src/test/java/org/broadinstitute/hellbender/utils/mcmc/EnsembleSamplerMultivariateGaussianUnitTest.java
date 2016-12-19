@@ -49,22 +49,22 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
     private static final double MEAN_TRUTH_Y = 1.;
     private static final double COVARIANCE_TRUTH_XX = 1.;
     private static final double COVARIANCE_TRUTH_XY = 0.;
-    private static final double COVARIANCE_TRUTH_YY = 1.;
+    private static final double COVARIANCE_TRUTH_YY = 0.25;
     private static final double[] MEAN_TRUTH = new double[]
             {MEAN_TRUTH_X, MEAN_TRUTH_Y};
     private static final double[][] COVARIANCE_TRUTH = new double[][]{
             {COVARIANCE_TRUTH_XX, COVARIANCE_TRUTH_XY},
             {COVARIANCE_TRUTH_XY, COVARIANCE_TRUTH_YY}};
 
-    private static final double INITIAL_WALKER_BALL_SIZE = 2.;
+    private static final double INITIAL_WALKER_BALL_SIZE = 0.1;
     private static final double[] INITIAL_WALKER_BALL_MEAN = new double[]{MEAN_TRUTH_X, MEAN_TRUTH_Y};
     private static final double[][] INITIAL_WALKER_BALL_COVARIANCE = new double[][]{
             {INITIAL_WALKER_BALL_SIZE, 0.},
             {0, INITIAL_WALKER_BALL_SIZE}};
 
-    private static final int NUM_WALKERS = 50;
-    private static final int NUM_SAMPLES = 1000;
-    private static final int NUM_BURN_IN = 500;
+    private static final int NUM_WALKERS = 100;
+    private static final int NUM_SAMPLES = 100;
+    private static final int NUM_BURN_IN = 50;
 
     private static final double RELATIVE_ERROR_THRESHOLD_FOR_CENTERS = 0.01;
 
@@ -110,7 +110,6 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
                     wp -> new ParameterizedState<>(Arrays.asList(
                             new Parameter<>(PointCoordinate.X, wp.get(0)),
                             new Parameter<>(PointCoordinate.Y, wp.get(1))));
-
 
             //Build the ParameterizedModel using the EnsembleBuilder pattern.
             model = new EnsembleBuilder<>(SCALE_PARAMETER, initialWalkerPositions, dataCollection, transformWalkerPositionToState, logDensity)

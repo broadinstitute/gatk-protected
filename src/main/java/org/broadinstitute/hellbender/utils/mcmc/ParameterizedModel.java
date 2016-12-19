@@ -269,10 +269,10 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
 
     private void doEnsembleUpdate(final EnsembleBuilder<V1, S1, T1> builder, final RandomGenerator rng) {
         //select a walker other than the one currently under consideration for an update
-        final int selectedWalkerIndex = IntStream.range(0, builder.numWalkers).boxed()
-                .filter(i -> i != builder.currentWalkerIndex)
-                .collect(Collectors.toList())
-                .get(rng.nextInt(builder.numWalkers - 1));
+        int selectedWalkerIndex;
+        do {
+            selectedWalkerIndex = rng.nextInt(builder.numWalkers);
+        } while (selectedWalkerIndex == builder.currentWalkerIndex);
 
         //get relevant walker positions
         final WalkerPosition currentWalkerPosition = builder.walkerPositions.get(builder.currentWalkerIndex);
@@ -280,7 +280,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
 
         //propose a stretch move
         final int numDimensions = currentWalkerPosition.numDimensions();
-        final double z = Math.pow((builder.scaleParameter - 1.) * rng.nextDouble() + 1, 2.) / builder.scaleParameter; //see Goodman & Weare 2010
+        final double z = FastMath.pow((builder.scaleParameter - 1.) * rng.nextDouble() + 1, 2.) / builder.scaleParameter; //see Goodman & Weare 2010
         final WalkerPosition proposedWalkerPosition = new WalkerPosition(IntStream.range(0, numDimensions).boxed()
                 .map(i -> selectedWalkerPosition.get(i) + z * (currentWalkerPosition.get(i) - selectedWalkerPosition.get(i)))
                 .collect(Collectors.toList()));
