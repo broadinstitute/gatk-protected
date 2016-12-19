@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.utils.mcmc.coordinates;
 
 import org.apache.commons.math3.analysis.function.Logit;
 import org.apache.commons.math3.analysis.function.Sigmoid;
+import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ public class SimplexPosition extends ArrayList<Double> {
     public static double calculateLogJacobianFactor(final SimplexPosition simplexPosition) {
         final List<Double> breakProportions = calculateBreakProportionsFromSimplexPosition(simplexPosition);
         return IntStream.range(0, simplexPosition.size() - 1).boxed()
-                .mapToDouble(i -> Math.log(Math.max(EPSILON, simplexPosition.get(i))) + Math.log(Math.max(EPSILON, 1. - breakProportions.get(i)))).sum();
+                .mapToDouble(i -> FastMath.log(Math.max(EPSILON, simplexPosition.get(i))) + FastMath.log(Math.max(EPSILON, 1. - breakProportions.get(i)))).sum();
     }
 
     public static WalkerPosition calculateWalkerPositionFromSimplexPosition(final SimplexPosition simplexPosition) {
@@ -81,14 +82,14 @@ public class SimplexPosition extends ArrayList<Double> {
     private static List<Double> calculateBreakProportionsFromWalkerPosition(final WalkerPosition walkerPosition) {
         final int numDimensions = walkerPosition.size() + 1;
         return IntStream.range(0, numDimensions - 1).boxed()
-                .map(i -> new Sigmoid().value(walkerPosition.get(i) + Math.log(1. / (numDimensions - (i + 1)))))
+                .map(i -> new Sigmoid().value(walkerPosition.get(i) + FastMath.log(1. / (numDimensions - (i + 1)))))
                 .collect(Collectors.toList());
     }
 
     private static List<Double> calculateWalkerPositionFromBreakProportions(final List<Double> breakProportions) {
         final int numDimensions = breakProportions.size() + 1;
         return IntStream.range(0, numDimensions - 1).boxed()
-                .map(i -> new Logit().value(breakProportions.get(i)) - Math.log(1. / (numDimensions - (i + 1))))
+                .map(i -> new Logit().value(breakProportions.get(i)) - FastMath.log(1. / (numDimensions - (i + 1))))
                 .map(x -> Math.max(-Double.MAX_VALUE, Math.min(Double.MAX_VALUE, x)))
                 .collect(Collectors.toList());
     }

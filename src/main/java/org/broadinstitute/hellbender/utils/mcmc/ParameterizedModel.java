@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.utils.mcmc;
 
 import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -295,11 +296,11 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         final double proposedLogTarget = builder.logTarget.apply(proposedState);
 
         //accept or reject
-        final double acceptanceLogProbability = Math.min(0., (numDimensions - 1.) * Math.log(z) + proposedLogTarget - currentLogTarget); //see Goodman & Weare 2010
+        final double acceptanceLogProbability = Math.min(0., (numDimensions - 1.) * FastMath.log(z) + proposedLogTarget - currentLogTarget); //see Goodman & Weare 2010
         logger.debug("Log target of current state: " + currentLogTarget);
         logger.debug("Log target of proposed state: " + proposedLogTarget);
         builder.numSamples++;
-        if (Math.log(rng.nextDouble()) < acceptanceLogProbability) {
+        if (FastMath.log(rng.nextDouble()) < acceptanceLogProbability) {
             builder.numAccepted++;
             logger.debug("Proposed state accepted.");
             //update the walker position for the current walker

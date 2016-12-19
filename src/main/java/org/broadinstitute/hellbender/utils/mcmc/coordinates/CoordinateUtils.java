@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.utils.mcmc.coordinates;
 
 import org.apache.commons.math3.analysis.function.Logit;
 import org.apache.commons.math3.analysis.function.Sigmoid;
+import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.utils.Utils;
 
 /**
@@ -34,6 +35,6 @@ public final class CoordinateUtils {
         Utils.validateArg(min < max, "Minimum bound must be strictly less than maximum bound.");
         return boundedVariable < min || boundedVariable > max ?
                 Double.NEGATIVE_INFINITY :
-                Math.log(boundedVariable - min) + Math.log(max - boundedVariable) - Math.log(max - min);
+                FastMath.log(boundedVariable - min) + FastMath.log(max - boundedVariable) - FastMath.log(max - min);
     }
 }

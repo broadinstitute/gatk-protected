@@ -1,22 +1,28 @@
 package org.broadinstitute.hellbender.utils.mcmc;
 
 import com.google.common.primitives.Doubles;
+import htsjdk.samtools.util.Log;
 import org.apache.commons.math3.distribution.MultivariateNormalDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.util.FastMath;
+import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterizedModel.EnsembleBuilder;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Unit test for affine-invariant ensemble sampling (Goodman & Weare 2010).  Demonstrates application of
@@ -32,20 +38,25 @@ import java.util.stream.Collectors;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest {
+    @BeforeTest
+    public void setTestVerbosity(){
+        LoggingUtils.setLoggingLevel(Log.LogLevel.DEBUG);
+    }
+
     private static final double SCALE_PARAMETER = 2.;   //value recommended by Goodman & Weare 2010
 
     private static final double MEAN_TRUTH_X = 1.;
     private static final double MEAN_TRUTH_Y = 1.;
     private static final double COVARIANCE_TRUTH_XX = 1.;
     private static final double COVARIANCE_TRUTH_XY = 0.;
-    private static final double COVARIANCE_TRUTH_YY = 0.1;
+    private static final double COVARIANCE_TRUTH_YY = 1.;
     private static final double[] MEAN_TRUTH = new double[]
             {MEAN_TRUTH_X, MEAN_TRUTH_Y};
     private static final double[][] COVARIANCE_TRUTH = new double[][]{
             {COVARIANCE_TRUTH_XX, COVARIANCE_TRUTH_XY},
             {COVARIANCE_TRUTH_XY, COVARIANCE_TRUTH_YY}};
 
-    private static final double INITIAL_WALKER_BALL_SIZE = 0.1;
+    private static final double INITIAL_WALKER_BALL_SIZE = 2.;
     private static final double[] INITIAL_WALKER_BALL_MEAN = new double[]{MEAN_TRUTH_X, MEAN_TRUTH_Y};
     private static final double[][] INITIAL_WALKER_BALL_COVARIANCE = new double[][]{
             {INITIAL_WALKER_BALL_SIZE, 0.},
@@ -66,7 +77,7 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
 
     //Calculates the log likelihood to be sampled
     private static double logDensity(final ParameterizedState<PointCoordinate> point) {
-        return Math.log(multivariateNormalDistribution.density(new double[]{point.get(PointCoordinate.X, Double.class), point.get(PointCoordinate.Y, Double.class)}));
+        return FastMath.log(multivariateNormalDistribution.density(new double[]{point.get(PointCoordinate.X, Double.class), point.get(PointCoordinate.Y, Double.class)}));
     }
 
     //Calculates relative error between value and truth, with respect to truth; used for checking statistics of
@@ -125,8 +136,8 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
         ParamUtils.writeValuesToFile(Doubles.toArray(modelSampler.getSamples(PointCoordinate.Y, Double.class, NUM_BURN_IN * NUM_WALKERS)), new File("/home/slee/working/ipython/y.txt"));
 
         final double[][] trueSamples = multivariateNormalDistribution.sample((NUM_SAMPLES - NUM_BURN_IN) * NUM_WALKERS);
-        ParamUtils.writeValuesToFile(Stream.of(trueSamples).ma, new File("/home/slee/working/ipython/x_true.txt"));
-        ParamUtils.writeValuesToFile(Doubles.toArray(modelSampler.getSamples(PointCoordinate.Y, Double.class, NUM_BURN_IN * NUM_WALKERS)), new File("/home/slee/working/ipython/y_true.txt"));
+        ParamUtils.writeValuesToFile(Stream.of(trueSamples).mapToDouble(s -> s[0]).toArray(), new File("/home/slee/working/ipython/x_true.txt"));
+        ParamUtils.writeValuesToFile(Stream.of(trueSamples).mapToDouble(s -> s[1]).toArray(), new File("/home/slee/working/ipython/y_true.txt"));
 
         //Get the samples of each of the parameter posteriors (discarding burn-in samples) by passing the
         //parameter name, type, and burn-in number to the getSamples method.

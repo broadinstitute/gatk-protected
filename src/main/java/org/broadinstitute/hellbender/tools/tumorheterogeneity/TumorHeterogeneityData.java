@@ -123,9 +123,9 @@ public final class TumorHeterogeneityData implements DataCollection {
         if (copyRatio < COPY_RATIO_EPSILON) {
             //if copy ratio is below threshold, use mirrored minor-allele fraction posterior
             return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant, copyRatioNoiseFactor)
-                    + Math.log(Math.max(EPSILON,
-                    0.5 * (Math.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction, minorAlleleFractionNoiseFactor))
-                            + Math.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(0.5 - minorAlleleFraction, minorAlleleFractionNoiseFactor)))));
+                    + FastMath.log(Math.max(EPSILON,
+                    0.5 * (FastMath.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction, minorAlleleFractionNoiseFactor))
+                            + FastMath.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(0.5 - minorAlleleFraction, minorAlleleFractionNoiseFactor)))));
         }
         return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant, copyRatioNoiseFactor)
                 + segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction, minorAlleleFractionNoiseFactor);
@@ -156,8 +156,8 @@ public final class TumorHeterogeneityData implements DataCollection {
         }
 
         double copyRatioLogDensity(final double copyRatio, final double copyRatioNoiseConstant, final double copyRatioNoiseFactor) {
-            final double log2CopyRatio = Math.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
-            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - Math.log(Math.max(EPSILON, copyRatio));    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            final double log2CopyRatio = FastMath.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
+            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - FastMath.log(Math.max(EPSILON, copyRatio));    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
         }
 
         double minorAlleleFractionLogDensity(final double minorAlleleFraction, final double minorAlleleFractionNoiseFactor) {
@@ -170,7 +170,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         private MultivariateFunction fitNormalLogPDFToInnerDeciles(final double[] innerDeciles) {
             final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
                 final double mean = point[0];
-                final double standardDeviation = Math.abs(point[1]);
+                final double standardDeviation = FastMath.abs(point[1]);
                 final NormalDistribution normalDistribution = new NormalDistribution(mean, standardDeviation);
                 final List<Double> normalInnerDeciles = IntStream.range(1, DecileCollection.NUM_DECILES - 1).boxed()
                         .map(i -> normalDistribution.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
@@ -187,7 +187,7 @@ public final class TumorHeterogeneityData implements DataCollection {
                             new InitialGuess(new double[]{meanInitial, standardDeviationInitial}),
                             new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
             final double mean = optimum.getPoint()[0];
-            final double standardDeviation = Math.abs(optimum.getPoint()[1]);
+            final double standardDeviation = FastMath.abs(optimum.getPoint()[1]);
             logger.debug(String.format("Final (mean, standard deviation) for normal distribution: (%f, %f)", mean, standardDeviation));
             return point -> {
                 final double log2cr = point[0];
@@ -202,8 +202,8 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double[] scaledInnerDeciles = Arrays.stream(innerDeciles).map(d -> 2. * d).toArray();
             //scale minor-allele fraction deciles to [0, 1] and fit a beta distribution
             final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
-                final double alpha = Math.abs(point[0]);
-                final double beta = Math.abs(point[1]);
+                final double alpha = FastMath.abs(point[0]);
+                final double beta = FastMath.abs(point[1]);
                 final BetaDistribution betaDistribution = new BetaDistribution(alpha, beta);
                 final List<Double> betaInnerDeciles = IntStream.range(1, DecileCollection.NUM_DECILES - 1).boxed()
                         .map(i -> betaDistribution.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
@@ -213,7 +213,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             //use moment matching of deciles to initialize
             final double meanInitial = new Mean().evaluate(scaledInnerDeciles);
             final double varianceInitial = new Variance().evaluate(scaledInnerDeciles);
-            final double commonFactor = Math.abs((meanInitial - meanInitial * meanInitial) / varianceInitial - 1.);
+            final double commonFactor = FastMath.abs((meanInitial - meanInitial * meanInitial) / varianceInitial - 1.);
             final double alphaInitial = meanInitial * commonFactor;
             final double betaInitial = (1. - meanInitial) * commonFactor;
             logger.debug(String.format("Initial (alpha, beta) for scaled beta distribution: (%f, %f)", alphaInitial, betaInitial));
@@ -223,8 +223,8 @@ public final class TumorHeterogeneityData implements DataCollection {
                     GoalType.MINIMIZE,
                     new InitialGuess(new double[]{alphaInitial, betaInitial}),
                     new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
-            final double alpha = Math.abs(optimum.getPoint()[0]);
-            final double beta = Math.abs(optimum.getPoint()[1]);
+            final double alpha = FastMath.abs(optimum.getPoint()[0]);
+            final double beta = FastMath.abs(optimum.getPoint()[1]);
             logger.debug(String.format("Final (alpha, beta) for scaled beta distribution: (%f, %f)", alpha, beta));
             return point -> {
                 final double maf = point[0];

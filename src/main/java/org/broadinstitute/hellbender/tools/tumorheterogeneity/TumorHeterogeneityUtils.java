@@ -7,6 +7,7 @@ import org.apache.commons.math3.special.Gamma;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
+import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.PopulationMixture.VariantProfileCollection;
@@ -74,8 +75,8 @@ final class TumorHeterogeneityUtils {
         final double concentrationPriorBeta = data.priors().concentrationPriorHyperparameterValues().getBeta();
         final double concentration = state.concentration();
         final double logPriorConcentration =
-                concentrationPriorAlpha * Math.log(Math.max(EPSILON, concentrationPriorBeta))
-                        + (concentrationPriorAlpha - 1.) * Math.log(Math.max(EPSILON, concentration))
+                concentrationPriorAlpha * FastMath.log(Math.max(EPSILON, concentrationPriorBeta))
+                        + (concentrationPriorAlpha - 1.) * FastMath.log(Math.max(EPSILON, concentration))
                         - concentrationPriorBeta * concentration
                         - Gamma.logGamma(concentrationPriorAlpha);
 
@@ -84,8 +85,8 @@ final class TumorHeterogeneityUtils {
         final double copyRatioNoiseConstantPriorBeta = data.priors().copyRatioNoiseConstantPriorHyperparameterValues().getBeta();
         final double copyRatioNoiseConstant = state.copyRatioNoiseConstant();
         final double logPriorCopyRatioNoiseConstant =
-                copyRatioNoiseConstantPriorAlpha * Math.log(Math.max(EPSILON, copyRatioNoiseConstantPriorBeta))
-                        + (copyRatioNoiseConstantPriorAlpha - 1.) * Math.log(copyRatioNoiseConstant)
+                copyRatioNoiseConstantPriorAlpha * FastMath.log(Math.max(EPSILON, copyRatioNoiseConstantPriorBeta))
+                        + (copyRatioNoiseConstantPriorAlpha - 1.) * FastMath.log(copyRatioNoiseConstant)
                         - copyRatioNoiseConstantPriorBeta * copyRatioNoiseConstant
                         - Gamma.logGamma(copyRatioNoiseConstantPriorAlpha);
 
@@ -94,21 +95,21 @@ final class TumorHeterogeneityUtils {
         final double copyRatioNoiseFactorPriorBeta = data.priors().copyRatioNoiseFactorPriorHyperparameterValues().getBeta();
         final double copyRatioNoiseFactor = state.copyRatioNoiseFactor();
         final double logPriorCopyRatioNoiseFactor =
-                (copyRatioNoiseFactorPriorAlpha - 1.) * Math.log(Math.max(EPSILON, copyRatioNoiseFactor))
-                        + (copyRatioNoiseFactorPriorBeta - 1.) * Math.log(Math.max(EPSILON, 1. - copyRatioNoiseFactor));
+                (copyRatioNoiseFactorPriorAlpha - 1.) * FastMath.log(Math.max(EPSILON, copyRatioNoiseFactor))
+                        + (copyRatioNoiseFactorPriorBeta - 1.) * FastMath.log(Math.max(EPSILON, 1. - copyRatioNoiseFactor));
 
         //minor-allele-fraction noise-factor prior
         final double minorAlleleFractionNoiseFactorPriorAlpha = data.priors().minorAlleleFractionNoiseFactorPriorHyperparameterValues().getAlpha();
         final double minorAlleleFractionNoiseFactorPriorBeta = data.priors().minorAlleleFractionNoiseFactorPriorHyperparameterValues().getBeta();
         final double minorAlleleFractionNoiseFactor = state.minorAlleleFractionNoiseFactor();
         final double logPriorMinorAlleleFractionNoiseFactor =
-                (minorAlleleFractionNoiseFactorPriorAlpha - 1.) * Math.log(Math.max(EPSILON, minorAlleleFractionNoiseFactor))
-                        + (minorAlleleFractionNoiseFactorPriorBeta - 1.) * Math.log(Math.max(EPSILON, 1. - minorAlleleFractionNoiseFactor));
+                (minorAlleleFractionNoiseFactorPriorAlpha - 1.) * FastMath.log(Math.max(EPSILON, minorAlleleFractionNoiseFactor))
+                        + (minorAlleleFractionNoiseFactorPriorBeta - 1.) * FastMath.log(Math.max(EPSILON, 1. - minorAlleleFractionNoiseFactor));
 
         //population-fractions prior
         final int numPopulations = state.populationMixture().numPopulations();
         final double logPriorPopulationFractionsSum = IntStream.range(0, numPopulations)
-                .mapToDouble(i -> (concentration - 1.) * Math.log(Math.max(EPSILON, state.populationMixture().populationFraction(i))))
+                .mapToDouble(i -> (concentration - 1.) * FastMath.log(Math.max(EPSILON, state.populationMixture().populationFraction(i))))
                 .sum();
         final double logPriorPopulationFractions =
                 Gamma.logGamma(concentration * numPopulations)
