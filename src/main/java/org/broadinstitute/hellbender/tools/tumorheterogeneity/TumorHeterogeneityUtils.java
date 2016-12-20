@@ -121,12 +121,15 @@ final class TumorHeterogeneityUtils {
         final int numVariantPopulations = variantProfileCollection.numVariantPopulations();
         double logPriorVariantProfiles = 0.;
 //        final double[] populationPloidies = new double[numVariantPopulations];
-        for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
 //            populationPloidies[populationIndex] = variantProfileCollection.get(populationIndex).ploidy(data);
-            for (int segmentIndex = 0; segmentIndex < variantProfileCollection.numSegments(); segmentIndex++) {
+        for (int segmentIndex = 0; segmentIndex < variantProfileCollection.numSegments(); segmentIndex++) {
+            final Set <PloidyState> ploidyStatesInSegment = new HashSet<>();
+            for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
                 final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
                 logPriorVariantProfiles += data.length(segmentIndex) * data.priors().ploidyStatePrior().logProbability(ploidyState);
+                ploidyStatesInSegment.add(ploidyState);
             }
+            logPriorVariantProfiles -= 1E-6 * data.length(segmentIndex) * ploidyStatesInSegment.size();
         }
 //        final double ploidyStandardDeviation = new StandardDeviation().evaluate(populationPloidies);
 //        final double ploidyMean = new Mean().evaluate(populationPloidies);
