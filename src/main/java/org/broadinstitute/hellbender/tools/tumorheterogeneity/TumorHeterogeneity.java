@@ -127,7 +127,10 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "mafFactorBeta";
 
     protected static final String PLOIDY_MISMATCH_PENALTY_LONG_NAME = "ploidyMismatchPenalty";
-    protected static final String PLOIDY_MISMATCH_PENALTY_SHORT_NAME = "mismatchPen";
+    protected static final String PLOIDY_MISMATCH_PENALTY_SHORT_NAME = "ploidyPen";
+
+    protected static final String SUBCLONE_VARIANCE_PENALTY_LONG_NAME = "subcloneVariancePenalty";
+    protected static final String SUBCLONE_VARIANCE_PENALTY_SHORT_NAME = "subVarPen";
 
     protected static final String PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME = "homozygousDeletionPenalty";
     protected static final String PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_SHORT_NAME = "homDelPen";
@@ -193,7 +196,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_WALKERS_SHORT_NAME,
             optional = true
     )
-    protected int numWalkers = 50;
+    protected int numWalkers = 100;
 
     @Argument(
             doc = "Total number of MCMC ensemble samples for clonal model. " +
@@ -211,7 +214,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_SAMPLES_SHORT_NAME,
             optional = true
     )
-    protected int numSamples = 100;
+    protected int numSamples = 200;
 
     @Argument(
             doc = "Number of burn-in ensemble samples to discard for clonal model. " +
@@ -229,7 +232,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = NUM_BURN_IN_SHORT_NAME,
             optional = true
     )
-    protected int numBurnIn = 50;
+    protected int numBurnIn = 100;
 
     @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on concentration parameter.",
@@ -297,12 +300,21 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
     @Argument(
             doc = "Penalty factor for ploidy mismatch in proposal of variant profiles. " +
-                    "(A strong (i.e., large) penalty factor will reduce the number of solutions found.)",
+                    "(A strong (i.e., large) penalty factor prefers correct solutions at the expense of increased mixing time.)",
             fullName = PLOIDY_MISMATCH_PENALTY_LONG_NAME,
             shortName = PLOIDY_MISMATCH_PENALTY_SHORT_NAME,
             optional = true
     )
     protected double ploidyMismatchPenalty = 1E4;
+
+    @Argument(
+            doc = "Penalty factor for number of subclones with unique ploidy states per base. " +
+                    "(A strong (i.e., large) penalty factor prefers solutions with fewer unique ploidy states per segment.)",
+            fullName = SUBCLONE_VARIANCE_PENALTY_LONG_NAME,
+            shortName = SUBCLONE_VARIANCE_PENALTY_SHORT_NAME,
+            optional = true
+    )
+    protected double subcloneVariancePenalty = 1E-6;
 
     @Argument(
         doc = "Penalty factor for homozygous deletion per base in ploidy-state prior. " +
@@ -359,7 +371,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
-                ploidyMismatchPenalty);
+                ploidyMismatchPenalty, subcloneVariancePenalty);
         
         //initialize data collection from ACNV input and priors
         final TumorHeterogeneityData dataClonal = new TumorHeterogeneityData(segments, priorsClonal);
@@ -405,7 +417,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                     copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
                     copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                     minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
-                    ploidyMismatchPenalty);
+                    ploidyMismatchPenalty, subcloneVariancePenalty);
 
             //initialize data collection from ACNV input and priors
             final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priors);
@@ -487,15 +499,12 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 minorAlleleFractionNoiseFactorPriorBeta, MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
                 MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN, MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX,
                 (alpha, beta) -> alpha / (alpha + beta));
-        Utils.validateArg(0. <= ploidyMismatchPenalty, PLOIDY_MISMATCH_PENALTY_LONG_NAME + " must be non-negative.");
-        Utils.validateArg(0. <= ploidyStatePriorCompleteDeletionPenalty && ploidyStatePriorCompleteDeletionPenalty <= 1.,
-                PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME + " must be in [0, 1].");
-        Utils.validateArg(0. <= ploidyStatePriorChangePenalty && ploidyStatePriorChangePenalty <= 1.,
-                PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME + " must be in [0, 1].");
-        Utils.validateArg(0. <= purityModeBinSize && purityModeBinSize <= 1.,
-                "Invalid purity bin size for determining mode.");
-        Utils.validateArg(0. <= ploidyModeBinSize && ploidyModeBinSize <= 2 * maxAllelicCopyNumberClonal,
-                "Invalid ploidy bin size for determining mode.");
+        Utils.validateArg(ploidyMismatchPenalty >= 0., PLOIDY_MISMATCH_PENALTY_LONG_NAME + " must be non-negative.");
+        Utils.validateArg(subcloneVariancePenalty >= 0., SUBCLONE_VARIANCE_PENALTY_LONG_NAME + " must be non-negative.");
+        Utils.validateArg(0. <= ploidyStatePriorCompleteDeletionPenalty && ploidyStatePriorCompleteDeletionPenalty <= 1., PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME + " must be in [0, 1].");
+        Utils.validateArg(0. <= ploidyStatePriorChangePenalty && ploidyStatePriorChangePenalty <= 1., PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME + " must be in [0, 1].");
+        Utils.validateArg(0. <= purityModeBinSize && purityModeBinSize <= 1., "Invalid purity bin size for determining mode.");
+        Utils.validateArg(0. <= ploidyModeBinSize && ploidyModeBinSize <= 2 * maxAllelicCopyNumberClonal, "Invalid ploidy bin size for determining mode.");
     }
 
     //validate hyperparameters for Beta or Gamma distributions

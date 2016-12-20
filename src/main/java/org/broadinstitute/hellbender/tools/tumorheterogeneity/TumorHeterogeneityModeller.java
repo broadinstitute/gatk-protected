@@ -120,8 +120,11 @@ public final class TumorHeterogeneityModeller {
                 Double.class, numWalkers * numBurnIn));
         ploidySamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.PLOIDY,
                 Double.class, numWalkers * numBurnIn));
+        //collapse populations
         populationMixtureSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.POPULATION_MIXTURE,
-                PopulationMixture.class, numWalkers * numBurnIn));
+                PopulationMixture.class, numWalkers * numBurnIn).stream()
+                .map(pm -> pm.collapseNormalPopulations(data.priors().normalPloidyState()))
+                .collect(Collectors.toList()));
         logger.info("Final acceptance rate: " + builder.calculateAcceptanceRate());
         logger.info("Maximum log posterior: " + builder.getMaxLogTarget());
     }
@@ -147,16 +150,12 @@ public final class TumorHeterogeneityModeller {
     }
 
     public List<PopulationMixture.PopulationFractions> getPopulationFractionsSamples() {
-        final PloidyState normalPloidyState = data.priors().normalPloidyState();
         return Collections.unmodifiableList(populationMixtureSamples.stream()
-                .map(pm -> pm.collapseNormalPopulations(normalPloidyState))
                 .map(PopulationMixture::populationFractions).collect(Collectors.toList()));
     }
 
     public List<PopulationMixture.VariantProfileCollection> getVariantProfileCollectionSamples() {
-        final PloidyState normalPloidyState = data.priors().normalPloidyState();
         return Collections.unmodifiableList(populationMixtureSamples.stream()
-                .map(pm -> pm.collapseNormalPopulations(normalPloidyState))
                 .map(PopulationMixture::variantProfileCollection).collect(Collectors.toList()));
     }
 
@@ -211,7 +210,7 @@ public final class TumorHeterogeneityModeller {
         //collect indices of samples falling into purity-ploidy bin
         final List<PopulationMixture.PopulationFractions> populationFractionsSamples = getPopulationFractionsSamples();
 
-        final List<Integer> sampleIndices = IntStream.range(0, getPloidySamples().size()).boxed()
+        final List<Integer> sampleIndices = IntStream.range(0, numSamples).boxed()
                 .filter(i -> IntStream.range(0, numVariantPopulations).allMatch(pi -> purityBinMins.get(pi) <= populationFractionsSamples.get(i).get(pi)
                         && populationFractionsSamples.get(i).get(pi) < purityBinMaxs.get(pi))
                         && ploidyBinMin <= getPloidySamples().get(i)
@@ -240,20 +239,10 @@ public final class TumorHeterogeneityModeller {
             boolean acceptedProposedPosition = false;
             WalkerPosition initialWalkerPosition = walkerPositionOfInitialState;
             for (int proposalIndex = 0; proposalIndex < MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL; proposalIndex++) {
-                final WalkerPosition proposedWalkerPosition;
-//                if (numVariantPopulations == 1) {
-                     proposedWalkerPosition = new WalkerPosition(
+                final WalkerPosition proposedWalkerPosition = new WalkerPosition(
                             IntStream.range(0, numDimensions).boxed()
                                     .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample())
                                     .collect(Collectors.toList()));
-//                } else {
-//                    proposedWalkerPosition = new WalkerPosition(
-//                            IntStream.range(0, numDimensions).boxed()
-//                                    .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex)
-//                                            + ballGaussian.sample() * (dimensionIndex == TumorHeterogeneityUtils.INITIAL_PLOIDY_WALKER_DIMENSION_INDEX ? 0.1 : 1.))
-//                                    .collect(Collectors.toList()));
-//                }
-
                 final TumorHeterogeneityState proposedState = transformWalkerPositionToState.apply(proposedWalkerPosition);
                 proposedState.values().forEach(p -> logger.debug("Proposed " + p.getName().name() + ": " + p.getValue()));
                 //only accept the position if its transformed state is within parameter bounds

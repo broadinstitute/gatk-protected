@@ -19,6 +19,7 @@ public final class TumorHeterogeneityPriorCollection {
     private final HyperparameterValues minorAlleleFractionNoiseFactorPriorHyperparameterValues;
 
     private final double ploidyMismatchPenalty;
+    private final double subcloneVariancePenalty;
 
     public TumorHeterogeneityPriorCollection(final PloidyState normalPloidyState,
                                              final PloidyStatePrior ploidyStatePrior,
@@ -30,12 +31,14 @@ public final class TumorHeterogeneityPriorCollection {
                                              final double copyRatioNoiseFactorPriorBeta,
                                              final double minorAlleleFractionNoiseFactorPriorAlpha,
                                              final double minorAlleleFractionNoiseFactorPriorBeta,
-                                             final double ploidyMismatchPenalty) {
+                                             final double ploidyMismatchPenalty,
+                                             final double subcloneVariancePenalty) {
         Utils.nonNull(normalPloidyState);
         Utils.nonNull(ploidyStatePrior);
         Utils.validateArg(ploidyStatePrior.ploidyStates().contains(normalPloidyState),
                 "Ploidy-state prior must contain normal ploidy state.");
         Utils.validateArg(ploidyMismatchPenalty >= 0, "Ploidy-mismatch penalty must be non-negative.");
+        Utils.validateArg(subcloneVariancePenalty >= 0, "Subclone-variance penalty must be non-negative.");
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
         concentrationPriorHyperparameterValues = new HyperparameterValues(concentrationPriorAlpha, concentrationPriorBeta);
@@ -43,6 +46,7 @@ public final class TumorHeterogeneityPriorCollection {
         copyRatioNoiseFactorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta);
         minorAlleleFractionNoiseFactorPriorHyperparameterValues = new HyperparameterValues(minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
         this.ploidyMismatchPenalty = ploidyMismatchPenalty;
+        this.subcloneVariancePenalty = subcloneVariancePenalty;
     }
 
     public PloidyState normalPloidyState() {
@@ -71,6 +75,10 @@ public final class TumorHeterogeneityPriorCollection {
 
     public double ploidyMismatchPenalty() {
         return ploidyMismatchPenalty;
+    }
+
+    public double subcloneVariancePenalty() {
+        return subcloneVariancePenalty;
     }
 
     public static class HyperparameterValues {
