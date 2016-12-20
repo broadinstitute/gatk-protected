@@ -1,28 +1,24 @@
 package org.broadinstitute.hellbender.utils.mcmc;
 
 import com.google.common.primitives.Doubles;
-import htsjdk.samtools.util.Log;
 import org.apache.commons.math3.distribution.MultivariateNormalDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
+import org.apache.commons.math3.stat.correlation.Covariance;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.commons.math3.util.FastMath;
-import org.broadinstitute.hellbender.utils.LoggingUtils;
 import org.broadinstitute.hellbender.utils.mcmc.ParameterizedModel.EnsembleBuilder;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
-import org.broadinstitute.hellbender.utils.param.ParamUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
-import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
 /**
  * Unit test for affine-invariant ensemble sampling (Goodman & Weare 2010).  Demonstrates application of
@@ -38,18 +34,13 @@ import java.util.stream.Stream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest {
-    @BeforeTest
-    public void setTestVerbosity(){
-        LoggingUtils.setLoggingLevel(Log.LogLevel.DEBUG);
-    }
-
     private static final double SCALE_PARAMETER = 2.;   //value recommended by Goodman & Weare 2010
 
     private static final double MEAN_TRUTH_X = 1.;
     private static final double MEAN_TRUTH_Y = 1.;
-    private static final double COVARIANCE_TRUTH_XX = 1.;
-    private static final double COVARIANCE_TRUTH_XY = 0.;
-    private static final double COVARIANCE_TRUTH_YY = 0.25;
+    private static final double COVARIANCE_TRUTH_XX = 2.;
+    private static final double COVARIANCE_TRUTH_XY = 0.5;
+    private static final double COVARIANCE_TRUTH_YY = 0.5;
     private static final double[] MEAN_TRUTH = new double[]
             {MEAN_TRUTH_X, MEAN_TRUTH_Y};
     private static final double[][] COVARIANCE_TRUTH = new double[][]{
@@ -63,10 +54,10 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
             {0, INITIAL_WALKER_BALL_SIZE}};
 
     private static final int NUM_WALKERS = 100;
-    private static final int NUM_SAMPLES = 100;
-    private static final int NUM_BURN_IN = 50;
+    private static final int NUM_SAMPLES = 10000;
+    private static final int NUM_BURN_IN = 1000;
 
-    private static final double RELATIVE_ERROR_THRESHOLD_FOR_CENTERS = 0.01;
+    private static final double RELATIVE_ERROR_THRESHOLD = 0.02;
 
     //Create truth distribution to sample
     private static final int RANDOM_SEED = 42;
@@ -102,7 +93,7 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
 
         private MultivariateGaussianModeller(final Function<ParameterizedState<PointCoordinate>, Double> logDensity) {
             final List<WalkerPosition> initialWalkerPositions =
-                    Arrays.asList(new MultivariateNormalDistribution(rng, INITIAL_WALKER_BALL_MEAN, INITIAL_WALKER_BALL_COVARIANCE).sample(NUM_WALKERS)).stream()
+                    Arrays.stream(new MultivariateNormalDistribution(rng, INITIAL_WALKER_BALL_MEAN, INITIAL_WALKER_BALL_COVARIANCE).sample(NUM_WALKERS))
                     .map(doubleArray -> new WalkerPosition(Doubles.asList(doubleArray))).collect(Collectors.toList());
             final GaussianDataCollection dataCollection = new GaussianDataCollection();
             //Use identity transformation (we take walker space to be equivalent to the parameter space)
@@ -131,12 +122,6 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
                 new ModelSampler<>(NUM_SAMPLES * NUM_WALKERS, modeller.model);
         //Run the MCMC.
         modelSampler.runMCMC();
-        ParamUtils.writeValuesToFile(Doubles.toArray(modelSampler.getSamples(PointCoordinate.X, Double.class, NUM_BURN_IN * NUM_WALKERS)), new File("/home/slee/working/ipython/x.txt"));
-        ParamUtils.writeValuesToFile(Doubles.toArray(modelSampler.getSamples(PointCoordinate.Y, Double.class, NUM_BURN_IN * NUM_WALKERS)), new File("/home/slee/working/ipython/y.txt"));
-
-        final double[][] trueSamples = multivariateNormalDistribution.sample((NUM_SAMPLES - NUM_BURN_IN) * NUM_WALKERS);
-        ParamUtils.writeValuesToFile(Stream.of(trueSamples).mapToDouble(s -> s[0]).toArray(), new File("/home/slee/working/ipython/x_true.txt"));
-        ParamUtils.writeValuesToFile(Stream.of(trueSamples).mapToDouble(s -> s[1]).toArray(), new File("/home/slee/working/ipython/y_true.txt"));
 
         //Get the samples of each of the parameter posteriors (discarding burn-in samples) by passing the
         //parameter name, type, and burn-in number to the getSamples method.
@@ -145,8 +130,18 @@ public final class EnsembleSamplerMultivariateGaussianUnitTest extends BaseTest 
 
         //Check that the mean and covariance of the samples agree with the input quantities.
         final double xMean = new Mean().evaluate(xSamples);
+        Assert.assertEquals(relativeError(xMean, MEAN_TRUTH_X), 0., RELATIVE_ERROR_THRESHOLD);
+
         final double yMean = new Mean().evaluate(ySamples);
-        Assert.assertEquals(relativeError(xMean, MEAN_TRUTH_X), 0., RELATIVE_ERROR_THRESHOLD_FOR_CENTERS);
-        Assert.assertEquals(relativeError(yMean, MEAN_TRUTH_Y), 0., RELATIVE_ERROR_THRESHOLD_FOR_CENTERS);
+        Assert.assertEquals(relativeError(yMean, MEAN_TRUTH_Y), 0., RELATIVE_ERROR_THRESHOLD);
+
+        final double xxCovariance = new Covariance().covariance(xSamples, xSamples);
+        Assert.assertEquals(relativeError(xxCovariance, COVARIANCE_TRUTH_XX), 0., RELATIVE_ERROR_THRESHOLD);
+
+        final double xyCovariance = new Covariance().covariance(xSamples, ySamples);
+        Assert.assertEquals(relativeError(xyCovariance, COVARIANCE_TRUTH_XY), 0., RELATIVE_ERROR_THRESHOLD);
+
+        final double yyCovariance = new Covariance().covariance(ySamples, ySamples);
+        Assert.assertEquals(relativeError(yyCovariance, COVARIANCE_TRUTH_YY), 0., RELATIVE_ERROR_THRESHOLD);
     }
 }

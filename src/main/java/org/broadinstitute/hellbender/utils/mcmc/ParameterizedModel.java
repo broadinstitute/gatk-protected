@@ -7,7 +7,6 @@ import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,18 +25,11 @@ import java.util.stream.IntStream;
  * @param <T1>  type of the DataCollection
  */
 public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 extends ParameterizedState<V1>, T1 extends DataCollection> {
-    //enums for specifying method of updating ParameterizedState
-    //updateMethod should be implemented accordingly within Builders and constructors corresponding to each update method
-    private enum UpdateMethod {
-        GIBBS, ENSEMBLE
-    }
-
     private static final Logger logger = LogManager.getLogger(ParameterizedModel.class);
 
     private final S1 state;
     private final T1 dataCollection;
     private final Consumer<RandomGenerator> updateState;
-    private final UpdateMethod updateMethod;
 
     /**
      * Builder for constructing a {@link ParameterizedModel} to be Gibbs sampled using {@link ModelSampler}.
@@ -124,7 +116,6 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
     private ParameterizedModel(final GibbsBuilder<V1, S1, T1> builder) {
         state = builder.state;
         dataCollection = builder.dataCollection;
-        updateMethod = UpdateMethod.GIBBS;
         updateState = rng -> doGibbsUpdate(builder, rng);
     }
 
@@ -149,17 +140,15 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
         private final S2 state;
         private final T2 dataCollection;
 
-        private int currentWalkerIndex;
+        private int selectedWalkerIndex;
         private int numAccepted;
         private int numSamples;
         private final int numWalkers;
-        private final List<WalkerPosition> walkerPositions;
         private final Function<WalkerPosition, S2> transformWalkerPositionToState;
         private final Function<S2, Double> logTarget;
-        private final List<S2> currentStates;
-        private final List<Double> currentLogTargetValues;
-        private double maxLogTarget = Double.NEGATIVE_INFINITY;
-        private S2 maxLogTargetState;
+        private final List<WalkerTuple<V2, S2>> currentWalkerTuples;
+        private final List<WalkerTuple<V2, S2>> nextWalkerTuples;
+        private WalkerTuple<V2, S2> maxWalkerTuple;
 
         /**
          * Constructor for {@link ParameterizedModel.EnsembleBuilder}.
@@ -190,17 +179,34 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
             this.scaleParameter = scaleParameter;
             state = transformWalkerPositionToState.apply(initialWalkerPositions.get(0));
             this.dataCollection = dataCollection;
-            currentWalkerIndex = 0;
+            selectedWalkerIndex = 0;
             numAccepted = 0;
             numSamples = 0;
             numWalkers = initialWalkerPositions.size();
-            walkerPositions = new ArrayList<>(initialWalkerPositions);
             this.transformWalkerPositionToState = transformWalkerPositionToState;
             this.logTarget = logTarget;
-            //initialize current states and log target values using initial walker positions
-            currentStates = walkerPositions.stream().map(transformWalkerPositionToState).collect(Collectors.toList());
-            currentLogTargetValues = currentStates.stream().map(logTarget).collect(Collectors.toList());
-            maxLogTargetState = currentStates.get(0);
+
+            //initialize both current and next WalkerTuples using initial WalkerPositions;
+            //next WalkerTuples will be updated on first iteration
+            currentWalkerTuples = initialWalkerPositions.stream().map(wp -> new WalkerTuple<>(wp, transformWalkerPositionToState, logTarget)).collect(Collectors.toList());
+            nextWalkerTuples = initialWalkerPositions.stream().map(wp -> new WalkerTuple<>(wp, transformWalkerPositionToState, logTarget)).collect(Collectors.toList());
+
+            //set maxWalkerTuple (walker with maximum log target value) to first walker
+            maxWalkerTuple = currentWalkerTuples.get(0);
+        }
+
+        private static final class WalkerTuple<V extends Enum<V> & ParameterEnum, S extends ParameterizedState<V>> {
+            private final WalkerPosition walkerPosition;
+            private final S state;
+            private final double logTargetValue;
+
+            WalkerTuple(final WalkerPosition walkerPosition,
+                        final Function<WalkerPosition, S> transformWalkerPositionToState,
+                        final Function<S, Double> logTarget) {
+                this.walkerPosition = walkerPosition;
+                state = transformWalkerPositionToState.apply(walkerPosition);
+                logTargetValue = logTarget.apply(state);
+            }
         }
 
         /**
@@ -208,14 +214,14 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
          * over the entire sampling run.
          */
         public S2 getMaxLogTargetState() {
-            return maxLogTargetState;
+            return maxWalkerTuple.state.copy();
         }
 
         /**
          * Returns the maximum value of the log-target function that was observed over the entire sampling run.
          */
         public double getMaxLogTarget() {
-            return maxLogTarget;
+            return maxWalkerTuple.logTargetValue;
         }
 
         /**
@@ -240,7 +246,6 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
     private ParameterizedModel(final EnsembleBuilder<V1, S1, T1> builder) {
         state = builder.state;
         dataCollection = builder.dataCollection;
-        updateMethod = UpdateMethod.ENSEMBLE;
         updateState = rng -> doEnsembleUpdate(builder, rng);
     }
 
@@ -268,61 +273,67 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
     }
 
     private void doEnsembleUpdate(final EnsembleBuilder<V1, S1, T1> builder, final RandomGenerator rng) {
-        //select a walker other than the one currently under consideration for an update
-        int selectedWalkerIndex;
+        //pick a walker other than the one selected for an update
+        int otherWalkerIndex;
         do {
-            selectedWalkerIndex = rng.nextInt(builder.numWalkers);
-        } while (selectedWalkerIndex == builder.currentWalkerIndex);
+            otherWalkerIndex = rng.nextInt(builder.numWalkers);
+        } while (otherWalkerIndex == builder.selectedWalkerIndex);
 
-        //get relevant walker positions
-        final WalkerPosition currentWalkerPosition = builder.walkerPositions.get(builder.currentWalkerIndex);
-        final WalkerPosition selectedWalkerPosition = builder.walkerPositions.get(selectedWalkerIndex);
+        //get relevant current WalkerTuples
+        final EnsembleBuilder.WalkerTuple<V1, S1> currentWalkerTupleSelected = builder.currentWalkerTuples.get(builder.selectedWalkerIndex);
+        final EnsembleBuilder.WalkerTuple<V1, S1> currentWalkerTupleOther = builder.currentWalkerTuples.get(otherWalkerIndex);
 
         //propose a stretch move
-        final int numDimensions = currentWalkerPosition.numDimensions();
+        final int numDimensions = currentWalkerTupleSelected.walkerPosition.numDimensions();
         final double z = FastMath.pow((builder.scaleParameter - 1.) * rng.nextDouble() + 1, 2.) / builder.scaleParameter; //see Goodman & Weare 2010
         final WalkerPosition proposedWalkerPosition = new WalkerPosition(IntStream.range(0, numDimensions).boxed()
-                .map(i -> selectedWalkerPosition.get(i) + z * (currentWalkerPosition.get(i) - selectedWalkerPosition.get(i)))
+                .map(i -> currentWalkerTupleOther.walkerPosition.get(i) + z * (currentWalkerTupleSelected.walkerPosition.get(i) - currentWalkerTupleOther.walkerPosition.get(i)))
                 .collect(Collectors.toList()));
 
-        //transform to states
-        final S1 currentState = builder.currentStates.get(builder.currentWalkerIndex);
+        //create proposed WalkerTuple (calculates state and log target
+        final EnsembleBuilder.WalkerTuple<V1, S1> proposedWalkerTuple = new EnsembleBuilder.WalkerTuple<>(
+                proposedWalkerPosition, builder.transformWalkerPositionToState, builder.logTarget);
+
+        //get states and output parameter values
+        final S1 currentState = currentWalkerTupleSelected.state;
         currentState.values().forEach(p -> logger.debug("Current " + p.getName().name() + ": " + p.getValue()));
-        final S1 proposedState = builder.transformWalkerPositionToState.apply(proposedWalkerPosition);
+        final S1 proposedState = proposedWalkerTuple.state;
         proposedState.values().forEach(p -> logger.debug("Proposed " + p.getName().name() + ": " + p.getValue()));
 
-        //calculate log targets
-        final double currentLogTarget = builder.currentLogTargetValues.get(builder.currentWalkerIndex);
-        final double proposedLogTarget = builder.logTarget.apply(proposedState);
+        //get log targets and output
+        final double currentLogTarget = currentWalkerTupleSelected.logTargetValue;
+        logger.debug("Log target of current state: " + currentLogTarget);
+        final double proposedLogTarget = proposedWalkerTuple.logTargetValue;
+        logger.debug("Log target of proposed state: " + proposedLogTarget);
 
         //accept or reject
         final double acceptanceLogProbability = Math.min(0., (numDimensions - 1.) * FastMath.log(z) + proposedLogTarget - currentLogTarget); //see Goodman & Weare 2010
-        logger.debug("Log target of current state: " + currentLogTarget);
-        logger.debug("Log target of proposed state: " + proposedLogTarget);
         builder.numSamples++;
         if (FastMath.log(rng.nextDouble()) < acceptanceLogProbability) {
             builder.numAccepted++;
             logger.debug("Proposed state accepted.");
-            //update the walker position for the current walker
-            builder.walkerPositions.set(builder.currentWalkerIndex, proposedWalkerPosition);
-            //update the current log target value for the current walker
-            builder.currentLogTargetValues.set(builder.currentWalkerIndex, proposedLogTarget);
-            //update the state held by the model using the accepted proposed state for the current walker
+            //update the next WalkerTuple for the selected walker
+            builder.nextWalkerTuples.set(builder.selectedWalkerIndex, proposedWalkerTuple);
+            //update the state held by the model using the accepted proposed state for the selected walker
             proposedState.values().forEach(p -> state.update(p.getName(), p.getValue()));
             //update the maximum target state if appropriate
-            if (proposedLogTarget > builder.maxLogTarget) {
+            if (proposedLogTarget > builder.maxWalkerTuple.logTargetValue) {
                 logger.debug("New maximum found.");
-                builder.maxLogTarget = proposedLogTarget;
-                builder.maxLogTargetState = proposedState;
+                builder.maxWalkerTuple = proposedWalkerTuple;
             }
         } else {
-            //update the state held by the model using the previous state for the current walker
+            //update the state held by the model using the previous state for the selected walker
             currentState.values().forEach(p -> state.update(p.getName(), p.getValue()));
         }
         logger.debug("Acceptance rate: " + (double) builder.numAccepted / builder.numSamples);
         state.values().forEach(p -> logger.debug("Sampled " + p.getName().name() + ": " + p.getValue()));
 
         //move to the next walker
-        builder.currentWalkerIndex = (builder.currentWalkerIndex + 1) % builder.numWalkers;
+        builder.selectedWalkerIndex = (builder.selectedWalkerIndex + 1) % builder.numWalkers;
+
+        //if we have iterated over the entire ensemble, update all of the current WalkerTuples
+        if (builder.selectedWalkerIndex == 0) {
+            IntStream.range(0, builder.numWalkers).forEach(i -> builder.currentWalkerTuples.set(i, builder.nextWalkerTuples.get(i)));
+        }
     }
 }
