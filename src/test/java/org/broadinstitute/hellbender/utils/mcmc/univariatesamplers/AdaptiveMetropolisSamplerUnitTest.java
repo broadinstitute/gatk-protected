@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.utils.mcmc.univariatesamplers;
 
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
-import org.broadinstitute.hellbender.utils.mcmc.univariatesamplers.AdaptiveMetropolisSampler;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

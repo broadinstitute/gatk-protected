@@ -84,7 +84,7 @@ public final class TumorHeterogeneityModeller {
         }
         //define walker transformation
         final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState = walkerPosition ->
-                TumorHeterogeneityUtils.transformWalkerPositionToState(rng, walkerPosition, data, totalCopyNumberProductStates, ploidyStateSetsMap);
+                TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
         //initialize walker positions in a ball around initialState
         final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, initialWalkerBallSize, logTargetTumorHeterogeneity, transformWalkerPositionToState);

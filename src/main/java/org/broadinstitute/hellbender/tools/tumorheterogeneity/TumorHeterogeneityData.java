@@ -75,13 +75,21 @@ public final class TumorHeterogeneityData implements DataCollection {
         logger.info("Fitting copy-ratio and minor-allele-fraction posteriors to deciles...");
         numSegments = segments.size();
         this.segments = Collections.unmodifiableList(new ArrayList<>(segments));
-
         segmentLengths = Collections.unmodifiableList(segments.stream().map(s -> s.getInterval().size()).collect(Collectors.toList()));
         final double totalLength = segmentLengths.stream().mapToLong(Integer::longValue).sum();
         fractionalLengths = Collections.unmodifiableList(segmentLengths.stream().map(l -> (double) l / totalLength).collect(Collectors.toList()));
-
         segmentPosteriors = Collections.unmodifiableList(segments.stream().map(ACNVSegmentPosterior::new).collect(Collectors.toList()));
+        this.priors = priors;
+    }
 
+    public TumorHeterogeneityData(final TumorHeterogeneityData data,
+                                  final TumorHeterogeneityPriorCollection priors) {
+        Utils.nonNull(data);
+        numSegments = data.segments.size();
+        this.segments = Collections.unmodifiableList(new ArrayList<>(data.segments));
+        segmentLengths = Collections.unmodifiableList(new ArrayList<>(data.segmentLengths));
+        fractionalLengths = Collections.unmodifiableList(new ArrayList<>(data.fractionalLengths));
+        segmentPosteriors = Collections.unmodifiableList(new ArrayList<>(data.segmentPosteriors));
         this.priors = priors;
     }
 

@@ -122,10 +122,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E4",
                     "--" + TumorHeterogeneity.SUBCLONE_VARIANCE_PENALTY_LONG_NAME, "1E-6",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "1E-6",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-6",
-                    "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.05",
-                    "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.05",
+                    "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.025",
+                    "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.025",
                     "--verbosity", "INFO"
             };
             runCommandLine(arguments);
@@ -135,10 +135,10 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
     @Test
     public void testTumorHeterogeneity2Clone() {
         final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.4/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.2/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.4/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.6/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
+//                new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-0.8/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg"),
                 new File("/home/slee/working/ipython/purity-ploidy/integration-test/2_clone/seed-3/purity-1.0/total_segments-log2cr_sd-0.001-maf_sd-0.001.acnv.seg")
         );
 

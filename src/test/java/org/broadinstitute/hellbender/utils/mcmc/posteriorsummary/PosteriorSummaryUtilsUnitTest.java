@@ -7,8 +7,6 @@ import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummary;
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.PosteriorSummaryUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;

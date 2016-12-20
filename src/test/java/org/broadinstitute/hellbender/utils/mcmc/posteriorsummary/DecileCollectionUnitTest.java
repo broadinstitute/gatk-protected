@@ -1,7 +1,5 @@
 package org.broadinstitute.hellbender.utils.mcmc.posteriorsummary;
 
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.Decile;
-import org.broadinstitute.hellbender.utils.mcmc.posteriorsummary.DecileCollection;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

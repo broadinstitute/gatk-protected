@@ -8,7 +8,6 @@ import org.apache.commons.math3.optim.univariate.SearchInterval;
 import org.apache.commons.math3.optim.univariate.UnivariateObjectiveFunction;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.mllib.stat.KernelDensity;
 import org.broadinstitute.hellbender.utils.Utils;

@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
-import org.apache.commons.math3.random.RandomGenerator;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.mcmc.Parameter;

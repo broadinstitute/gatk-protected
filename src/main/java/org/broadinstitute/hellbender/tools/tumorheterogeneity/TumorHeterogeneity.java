@@ -16,7 +16,10 @@ import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.Ploidy
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -47,9 +50,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
     private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
 
-    //fixes concentration to practically unity for clonal-only version
-    private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;
-    private static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E6;
+    private static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = TumorHeterogeneityUtils.CONCENTRATION_PRIOR_ALPHA_CLONAL;
+    private static final double CONCENTRATION_PRIOR_BETA_CLONAL = TumorHeterogeneityUtils.CONCENTRATION_PRIOR_BETA_CLONAL;
 
     private static final double CONCENTRATION_MIN = TumorHeterogeneityUtils.CONCENTRATION_MIN;
     private static final double CONCENTRATION_MAX = TumorHeterogeneityUtils.CONCENTRATION_MAX;
@@ -419,8 +421,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                     minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
                     ploidyMismatchPenalty, subcloneVariancePenalty);
 
-            //initialize data collection from ACNV input and priors
-            final TumorHeterogeneityData data = new TumorHeterogeneityData(segments, priors);
+            //initialize data collection from using clonal data and full priors
+            final TumorHeterogeneityData data = new TumorHeterogeneityData(dataClonal, priors);
             
             //initialize modeller and run MCMC
             final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);

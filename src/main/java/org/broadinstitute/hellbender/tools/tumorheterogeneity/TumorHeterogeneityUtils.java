@@ -2,30 +2,23 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.collect.Sets;
 import org.apache.commons.collections4.ListUtils;
-import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.special.Gamma;
-import org.apache.commons.math3.stat.descriptive.moment.Mean;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
-import org.apache.commons.math3.stat.descriptive.moment.Variance;
 import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.PopulationMixture.VariantProfileCollection;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
-import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
-import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.CoordinateUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.SimplexPosition;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
 
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Helper class containing package-private methods used in org.broadinstitute.hellbender.tools.tumorheterogeneity.
+ * Helper class containing package-private constants and methods used in org.broadinstitute.hellbender.tools.tumorheterogeneity.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -39,6 +32,10 @@ final class TumorHeterogeneityUtils {
 
     static final double EPSILON = 1E-10;
     static final double COPY_RATIO_EPSILON = 1E-3; //below this, use mirrored minor-allele fraction posterior
+
+    //fixes concentration to practically unity for clonal-only version
+    static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;
+    static final double CONCENTRATION_PRIOR_BETA_CLONAL = 1E6;
 
     static final double CONCENTRATION_MIN = EPSILON;
     static final double CONCENTRATION_MAX = 1. + EPSILON;
@@ -58,7 +55,7 @@ final class TumorHeterogeneityUtils {
     private static final int COPY_RATIO_NOISE_CONSTANT_WALKER_DIMENSION_INDEX = 1;
     private static final int COPY_RATIO_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 2;
     private static final int MINOR_ALLELE_FRACTION_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 3;
-    static final int INITIAL_PLOIDY_WALKER_DIMENSION_INDEX = 4;
+    private static final int INITIAL_PLOIDY_WALKER_DIMENSION_INDEX = 4;
     private static final int POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX = 5;
     static final int NUM_GLOBAL_PARAMETERS = 5;
 
@@ -182,8 +179,7 @@ final class TumorHeterogeneityUtils {
      * {@link VariantProfileCollection} conditional on the other model parameters and a proposed "initial" ploidy
      * using {@link TumorHeterogeneityUtils#proposeVariantProfileCollection}.
      */
-    static TumorHeterogeneityState transformWalkerPositionToState(final RandomGenerator rng,
-                                                                  final WalkerPosition walkerPosition,
+    static TumorHeterogeneityState transformWalkerPositionToState(final WalkerPosition walkerPosition,
                                                                   final TumorHeterogeneityData data,
                                                                   final List<List<Integer>> totalCopyNumberProductStates,
                                                                   final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
@@ -203,7 +199,7 @@ final class TumorHeterogeneityUtils {
                 SimplexPosition.calculateSimplexPositionFromWalkerPosition(
                         new WalkerPosition(walkerPosition.subList(POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX, walkerPosition.numDimensions()))));
 
-        final VariantProfileCollection variantProfileCollection = proposeVariantProfileCollection(rng,
+        final VariantProfileCollection variantProfileCollection = proposeVariantProfileCollection(
                 copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPloidy,
                 populationFractions, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
@@ -247,8 +243,7 @@ final class TumorHeterogeneityUtils {
      * Conditional on the global model parameters, population fractions, and a proposed "initial" ploidy, heuristically
      * samples a {@link VariantProfileCollection} from the posterior distribution.
      */
-    private static VariantProfileCollection proposeVariantProfileCollection(final RandomGenerator rng,
-                                                                            final double copyRatioNoiseConstant,
+    private static VariantProfileCollection proposeVariantProfileCollection(final double copyRatioNoiseConstant,
                                                                             final double copyRatioNoiseFactor,
                                                                             final double minorAlleleFractionNoiseFactor,
                                                                             final double initialPloidy,
