@@ -241,18 +241,18 @@ public final class TumorHeterogeneityModeller {
             WalkerPosition initialWalkerPosition = walkerPositionOfInitialState;
             for (int proposalIndex = 0; proposalIndex < MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL; proposalIndex++) {
                 final WalkerPosition proposedWalkerPosition;
-//                if (numVariantPopulations == 1) {
+                if (numVariantPopulations == 1) {
                      proposedWalkerPosition = new WalkerPosition(
                             IntStream.range(0, numDimensions).boxed()
                                     .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex) + ballGaussian.sample())
                                     .collect(Collectors.toList()));
-//                } else {
-//                    proposedWalkerPosition = new WalkerPosition(
-//                            IntStream.range(0, numDimensions).boxed()
-//                                    .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex)
-//                                            + ballGaussian.sample() * (dimensionIndex == TumorHeterogeneityUtils.INITIAL_PLOIDY_WALKER_DIMENSION_INDEX ? 0.05 : 1.))
-//                                    .collect(Collectors.toList()));
-//                }
+                } else {
+                    proposedWalkerPosition = new WalkerPosition(
+                            IntStream.range(0, numDimensions).boxed()
+                                    .map(dimensionIndex -> walkerPositionOfInitialState.get(dimensionIndex)
+                                            + ballGaussian.sample() * (dimensionIndex == TumorHeterogeneityUtils.INITIAL_PLOIDY_WALKER_DIMENSION_INDEX ? 0.1 : 1.))
+                                    .collect(Collectors.toList()));
+                }
 
                 final TumorHeterogeneityState proposedState = transformWalkerPositionToState.apply(proposedWalkerPosition);
                 proposedState.values().forEach(p -> logger.debug("Proposed " + p.getName().name() + ": " + p.getValue()));

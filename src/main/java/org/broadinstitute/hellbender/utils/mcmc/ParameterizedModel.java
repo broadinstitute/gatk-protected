@@ -214,7 +214,7 @@ public final class ParameterizedModel<V1 extends Enum<V1> & ParameterEnum, S1 ex
          * over the entire sampling run.
          */
         public S2 getMaxLogTargetState() {
-            return maxWalkerTuple.state.copy();
+            return maxWalkerTuple.state;
         }
 
         /**

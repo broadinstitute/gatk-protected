@@ -120,17 +120,17 @@ final class TumorHeterogeneityUtils {
         final VariantProfileCollection variantProfileCollection = state.populationMixture().variantProfileCollection();
         final int numVariantPopulations = variantProfileCollection.numVariantPopulations();
         double logPriorVariantProfiles = 0.;
-        final double[] populationPloidies = new double[numVariantPopulations];
+//        final double[] populationPloidies = new double[numVariantPopulations];
         for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
-            populationPloidies[populationIndex] = variantProfileCollection.get(populationIndex).ploidy(data);
+//            populationPloidies[populationIndex] = variantProfileCollection.get(populationIndex).ploidy(data);
             for (int segmentIndex = 0; segmentIndex < variantProfileCollection.numSegments(); segmentIndex++) {
                 final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
                 logPriorVariantProfiles += data.length(segmentIndex) * data.priors().ploidyStatePrior().logProbability(ploidyState);
             }
         }
-        final double ploidyStandardDeviation = new StandardDeviation().evaluate(populationPloidies);
-        final double ploidyMean = new Mean().evaluate(populationPloidies);
-        logPriorVariantProfiles += -data.priors().ploidyMismatchPenalty() * ploidyStandardDeviation / ploidyMean;
+//        final double ploidyStandardDeviation = new StandardDeviation().evaluate(populationPloidies);
+//        final double ploidyMean = new Mean().evaluate(populationPloidies);
+//        logPriorVariantProfiles += -data.priors().ploidyMismatchPenalty() * ploidyStandardDeviation / ploidyMean;
 
         //copy-ratio--minor-allele-fraction likelihood
         double logLikelihoodSegments = 0.;
