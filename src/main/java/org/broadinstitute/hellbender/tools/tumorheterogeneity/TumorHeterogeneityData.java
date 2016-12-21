@@ -237,7 +237,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             return point -> {
                 final double maf = point[0];
                 final double minorAlleleFractionNoiseFactor = point[1];
-                return new BetaDistribution(null, alpha * minorAlleleFractionNoiseFactor, beta * minorAlleleFractionNoiseFactor).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
+                return new BetaDistribution(null, alpha, beta * minorAlleleFractionNoiseFactor).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
             };
         }
     }

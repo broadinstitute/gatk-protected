@@ -160,7 +160,7 @@ public class TumorHeterogeneityDataUnitTest {
         final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
                 new NormalDistribution(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant), standardDeviationTruth / copyRatioNoiseFactor);
         final BetaDistribution scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor =
-                new BetaDistribution(alphaTruth * minorAlleleFractionNoiseFactor, betaTruth * minorAlleleFractionNoiseFactor);
+                new BetaDistribution(alphaTruth, betaTruth * minorAlleleFractionNoiseFactor);
         final double expectedLogDensity =
                 Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) +
                         Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor.density(2. * minorAlleleFraction));

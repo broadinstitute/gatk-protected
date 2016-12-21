@@ -295,7 +295,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorAlpha = 1E3;
+    protected double copyRatioNoiseFactorPriorAlpha = 1E2;
 
     @Argument(
             doc = "Beta hyperparameter for Beta-distribution prior on copy-ratio noise-factor parameter.",
@@ -311,7 +311,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double minorAlleleFractionNoiseFactorPriorAlpha = 1E3;
+    protected double minorAlleleFractionNoiseFactorPriorAlpha = 1E2;
 
     @Argument(
             doc = "Beta hyperparameter for Beta-distribution prior on minor-allele-fraction noise-factor parameter.",

@@ -28,7 +28,7 @@ import java.util.stream.IntStream;
 public final class TumorHeterogeneityModeller {
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneityModeller.class);
 
-    private static final int NUM_SAMPLES_PER_LOG_ENTRY = 100;
+    private static final int NUM_SAMPLES_PER_LOG_ENTRY = 500;
     private static final int MAX_NUM_PROPOSALS_INITIAL_WALKER_BALL = 25;
     private static final double SCALE_PARAMETER = 2.;
 
