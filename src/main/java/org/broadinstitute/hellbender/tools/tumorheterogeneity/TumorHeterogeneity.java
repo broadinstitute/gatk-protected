@@ -266,7 +266,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseConstantPriorBeta = 1E1;
+    protected double copyRatioNoiseConstantPriorBeta = 1E2;
 
     @Argument(
             doc = "Alpha hyperparameter for Beta-distribution prior on copy-ratio noise-factor parameter.",
@@ -425,6 +425,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             final TumorHeterogeneityData data = new TumorHeterogeneityData(dataClonal, priors);
             
             //initialize modeller and run MCMC
+            logger.info("Full run: Initializing MCMC from clonal result...");
             final TumorHeterogeneityState initialState = TumorHeterogeneityState.initializeFromClonalState(priors, posteriorModeClonal, maxNumPopulations);
             final TumorHeterogeneityModeller modeller = new TumorHeterogeneityModeller(data, initialState, numWalkers, INITIAL_WALKER_BALL_SIZE, rng);
             modeller.fitMCMC(numSamples, numBurnIn);
@@ -517,6 +518,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
         Utils.validateArg(alpha > 0, alphaName + " must be positive.");
         Utils.validateArg(beta > 0, betaName + " must be positive.");
         final double boundedQuantity = calculateMeanFromHyperparameters.apply(alpha, beta);
-        Utils.validateArg(min < boundedQuantity && boundedQuantity < max, "Mean calculated from hyperparameters alpha and beta must be in (" + min + ", " + max + ").");
+        Utils.validateArg(min < boundedQuantity && boundedQuantity < max, "Mean calculated from hyperparameters " + alphaName + " and " + betaName + " must be in (" + min + ", " + max + ").");
     }
 }

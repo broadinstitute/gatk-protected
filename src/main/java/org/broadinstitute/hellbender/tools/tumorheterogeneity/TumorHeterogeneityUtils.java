@@ -268,7 +268,7 @@ final class TumorHeterogeneityUtils {
                     .map(tcnps -> calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy))
                     .map(cr -> data.copyRatioLogDensity(si, cr, copyRatioNoiseConstant, copyRatioNoiseFactor))
                     .collect(Collectors.toList());
-            //take maximum likelihood copy-number product states according to their copy-ratio--only likelihoods
+            //find maximum-likelihood copy-number product state using copy-ratio--only likelihoods
             final int maxLikelihoodCopyNumberProductStateIndex = IntStream.range(0, totalCopyNumberProductStates.size()).boxed()
                     .max((i, j) -> Double.compare(logProbabilitiesCopyRatio.get(i), logProbabilitiesCopyRatio.get(j))).get();
             final List<Integer> totalCopyNumberProductState = totalCopyNumberProductStates.get(maxLikelihoodCopyNumberProductStateIndex);
@@ -287,7 +287,7 @@ final class TumorHeterogeneityUtils {
                         .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor)
                                 + data.length(si) * psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
                         .collect(Collectors.toList());
-                //take maximum a posteriori ploidy-state product state according to their copy-ratio--minor-allele-fraction posteriors
+                //find maximum-a-posteriori ploidy-state product state using copy-ratio--minor-allele-fraction posteriors
                 final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
                         .max((i, j) -> Double.compare(logProbabilitiesPloidyStateProductStates.get(i), logProbabilitiesPloidyStateProductStates.get(j))).get();
                 ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
