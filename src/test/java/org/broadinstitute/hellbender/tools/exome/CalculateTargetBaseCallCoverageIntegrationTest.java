@@ -495,7 +495,7 @@ public class CalculateTargetBaseCallCoverageIntegrationTest extends CommandLineP
         return result;
     }
 
-    @Test(expectedExceptions = UserException.class)
+    @Test(expectedExceptions = CommandLineException.class)
     public void testWithoutTargetFile() throws IOException {
         final File outputFile = createTempFile("ctc-test-", ".tsv");
         runCommandLine(
