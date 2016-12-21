@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.utils.mcmc.ParameterEnum;
  */
 public enum TumorHeterogeneityParameter implements ParameterEnum {
     CONCENTRATION("CONCENTRATION"),
+    COPY_RATIO_NORMALIZATION("CR_NORMALIZATION"),
     COPY_RATIO_NOISE_CONSTANT("CR_NOISE_CONSTANT"),
     COPY_RATIO_NOISE_FACTOR("CR_NOISE_FACTOR"),
     MINOR_ALLELE_FRACTION_NOISE_FACTOR("MAF_NOISE_FACTOR"),

@@ -56,6 +56,9 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final double CONCENTRATION_MIN = TumorHeterogeneityUtils.CONCENTRATION_MIN;
     private static final double CONCENTRATION_MAX = TumorHeterogeneityUtils.CONCENTRATION_MAX;
 
+    private static final double COPY_RATIO_NORMALIZATION_MIN = TumorHeterogeneityUtils.COPY_RATIO_NORMALIZATION_MIN;
+    private static final double COPY_RATIO_NORMALIZATION_MAX = TumorHeterogeneityUtils.COPY_RATIO_NORMALIZATION_MAX;
+
     private static final double COPY_RATIO_NOISE_CONSTANT_MIN = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MIN;
     private static final double COPY_RATIO_NOISE_CONSTANT_MAX = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MAX;
 
@@ -110,21 +113,23 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String CONCENTRATION_PRIOR_BETA_LONG_NAME = "concentrationPriorBeta";
     protected static final String CONCENTRATION_PRIOR_BETA_SHORT_NAME = "concBeta";
 
+    protected static final String COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_LONG_NAME = "copyRatioNormalizationPriorAlpha";
+    protected static final String COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_SHORT_NAME = "crNormAlpha";
+    protected static final String COPY_RATIO_NORMALIZATION_PRIOR_BETA_LONG_NAME = "copyRatioNormalizationPriorBeta";
+    protected static final String COPY_RATIO_NORMALIZATION_PRIOR_BETA_SHORT_NAME = "crNormBeta";
+
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseConstantPriorAlpha";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_SHORT_NAME = "crConstAlpha";
-
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME = "copyRatioNoiseConstantPriorBeta";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_SHORT_NAME = "crConstBeta";
 
     protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseFactorPriorAlpha";
     protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "crFactorAlpha";
-
     protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME = "copyRatioNoiseFactorPriorBeta";
     protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "crFactorBeta";
 
     protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "minorAlleleFractionNoiseFactorPriorAlpha";
     protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "mafFactorAlpha";
-
     protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME = "minorAlleleFractionNoiseFactorPriorBeta";
     protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "mafFactorBeta";
 
@@ -253,6 +258,22 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double concentrationPriorBeta = 1E1;
 
     @Argument(
+            doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio normalization parameter.",
+            fullName = COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_LONG_NAME,
+            shortName = COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_SHORT_NAME,
+            optional = true
+    )
+    protected double copyRatioNormalizationPriorAlpha = 1.;
+
+    @Argument(
+            doc = "Beta hyperparameter for Gamma-distribution prior on copy-ratio normalization parameter.",
+            fullName = COPY_RATIO_NORMALIZATION_PRIOR_BETA_LONG_NAME,
+            shortName = COPY_RATIO_NORMALIZATION_PRIOR_BETA_SHORT_NAME,
+            optional = true
+    )
+    protected double copyRatioNormalizationPriorBeta = 1.;
+
+    @Argument(
             doc = "Alpha hyperparameter for Gamma-distribution prior on copy-ratio noise-constant parameter.",
             fullName = COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME,
             shortName = COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_SHORT_NAME,
@@ -307,7 +328,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PLOIDY_MISMATCH_PENALTY_SHORT_NAME,
             optional = true
     )
-    protected double ploidyMismatchPenalty = 1E4;
+    protected double ploidyMismatchPenalty = 1E6;
 
     @Argument(
             doc = "Penalty factor for number of subclones with unique ploidy states per base. " +
@@ -370,6 +391,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, ploidyStatePriorClonal,
                 CONCENTRATION_PRIOR_ALPHA_CLONAL, CONCENTRATION_PRIOR_BETA_CLONAL,
+                copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta,
                 copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
                 copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                 minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
@@ -416,6 +438,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
                     NORMAL_PLOIDY_STATE, ploidyStatePrior,
                     concentrationPriorAlpha, concentrationPriorBeta,
+                    copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta,
                     copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
                     copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
                     minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
@@ -486,6 +509,11 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 concentrationPriorAlpha, CONCENTRATION_PRIOR_ALPHA_LONG_NAME,
                 concentrationPriorBeta, CONCENTRATION_PRIOR_BETA_LONG_NAME,
                 CONCENTRATION_MIN, CONCENTRATION_MAX,
+                (alpha, beta) -> alpha / beta);
+        validatePriorHyperparameters(
+                copyRatioNormalizationPriorAlpha, COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_LONG_NAME,
+                copyRatioNormalizationPriorBeta, COPY_RATIO_NORMALIZATION_PRIOR_BETA_LONG_NAME,
+                COPY_RATIO_NORMALIZATION_MIN, COPY_RATIO_NORMALIZATION_MAX,
                 (alpha, beta) -> alpha / beta);
         validatePriorHyperparameters(
                 copyRatioNoiseConstantPriorAlpha, COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME,

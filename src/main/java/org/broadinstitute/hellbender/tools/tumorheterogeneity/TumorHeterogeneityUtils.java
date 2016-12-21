@@ -40,24 +40,28 @@ final class TumorHeterogeneityUtils {
     static final double CONCENTRATION_MIN = EPSILON;
     static final double CONCENTRATION_MAX = 1. + EPSILON;
 
+    static final double COPY_RATIO_NORMALIZATION_MIN = 0.5;
+    static final double COPY_RATIO_NORMALIZATION_MAX = 2.;
+
     static final double COPY_RATIO_NOISE_CONSTANT_MIN = EPSILON;
     static final double COPY_RATIO_NOISE_CONSTANT_MAX = 5E-2;
 
-    static final double COPY_RATIO_NOISE_FACTOR_MIN = EPSILON;
+    static final double COPY_RATIO_NOISE_FACTOR_MIN = 1E-2;
     static final double COPY_RATIO_NOISE_FACTOR_MAX = 1. - EPSILON;
 
-    static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN = EPSILON;
+    static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN = 1E-2;
     static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX = 1. - EPSILON;
 
     static final double PLOIDY_MIN = EPSILON;
 
     private static final int CONCENTRATION_WALKER_DIMENSION_INDEX = 0;
-    private static final int COPY_RATIO_NOISE_CONSTANT_WALKER_DIMENSION_INDEX = 1;
-    private static final int COPY_RATIO_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 2;
-    private static final int MINOR_ALLELE_FRACTION_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 3;
-    private static final int INITIAL_PLOIDY_WALKER_DIMENSION_INDEX = 4;
-    private static final int POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX = 5;
-    static final int NUM_GLOBAL_PARAMETERS = 5;
+    private static final int COPY_RATIO_NORMALIZATION_WALKER_DIMENSION_INDEX = 1;
+    private static final int COPY_RATIO_NOISE_CONSTANT_WALKER_DIMENSION_INDEX = 2;
+    private static final int COPY_RATIO_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 3;
+    private static final int MINOR_ALLELE_FRACTION_NOISE_FACTOR_WALKER_DIMENSION_INDEX = 4;
+    private static final int INITIAL_PLOIDY_WALKER_DIMENSION_INDEX = 5;
+    private static final int POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX = 6;
+    static final int NUM_GLOBAL_PARAMETERS = 6;
 
     private TumorHeterogeneityUtils() {}
 
@@ -76,6 +80,16 @@ final class TumorHeterogeneityUtils {
                         + (concentrationPriorAlpha - 1.) * FastMath.log(Math.max(EPSILON, concentration))
                         - concentrationPriorBeta * concentration
                         - Gamma.logGamma(concentrationPriorAlpha);
+
+        //copy-ratio normalization prior
+        final double copyRatioNormalizationPriorAlpha = data.priors().copyRatioNormalizationPriorHyperparameterValues().getAlpha();
+        final double copyRatioNormalizationPriorBeta = data.priors().copyRatioNormalizationPriorHyperparameterValues().getBeta();
+        final double copyRatioNormalization = state.copyRatioNormalization();
+        final double logPriorCopyRatioNormalization =
+                copyRatioNormalizationPriorAlpha * FastMath.log(Math.max(EPSILON, copyRatioNormalizationPriorBeta))
+                        + (copyRatioNormalizationPriorAlpha - 1.) * FastMath.log(copyRatioNormalization)
+                        - copyRatioNormalizationPriorBeta * copyRatioNormalization
+                        - Gamma.logGamma(copyRatioNormalizationPriorAlpha);
 
         //copy-ratio noise-constant prior
         final double copyRatioNoiseConstantPriorAlpha = data.priors().copyRatioNoiseConstantPriorHyperparameterValues().getAlpha();
@@ -134,7 +148,7 @@ final class TumorHeterogeneityUtils {
             final double mAlleleCopyNumber = state.populationMixture().calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::m);
             final double nAlleleCopyNumber = state.populationMixture().calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::n);
             final double totalCopyNumber = mAlleleCopyNumber + nAlleleCopyNumber;
-            final double copyRatio = totalCopyNumber / Math.max(EPSILON, ploidy);
+            final double copyRatio = state.copyRatioNormalization() * totalCopyNumber / Math.max(EPSILON, ploidy);
             final double minorAlleleFraction = calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);
             logLikelihoodSegments += data.logDensity(
                     segmentIndex, copyRatio, minorAlleleFraction,
@@ -146,6 +160,7 @@ final class TumorHeterogeneityUtils {
 
         logger.debug("Log-posterior components:"
                 + " " + logPriorConcentration
+                + " " + logPriorCopyRatioNormalization
                 + " " + logPriorCopyRatioNoiseConstant
                 + " " + logPriorCopyRatioNoiseFactor
                 + " " + logPriorMinorAlleleFractionNoiseFactor
@@ -154,7 +169,7 @@ final class TumorHeterogeneityUtils {
                 + " " + logLikelihoodSegments
                 + " " + logPloidyMismatchPenalty);
 
-        return logPriorConcentration + logPriorCopyRatioNoiseConstant + logPriorCopyRatioNoiseFactor  + logPriorMinorAlleleFractionNoiseFactor
+        return logPriorConcentration + logPriorCopyRatioNormalization + logPriorCopyRatioNoiseConstant + logPriorCopyRatioNoiseFactor  + logPriorMinorAlleleFractionNoiseFactor
                 + logPriorPopulationFractions + logPriorVariantProfiles + logLikelihoodSegments + logPloidyMismatchPenalty;
     }
 
@@ -165,6 +180,7 @@ final class TumorHeterogeneityUtils {
                                              final TumorHeterogeneityData data) {
         final double ploidyMax = data.priors().ploidyStatePrior().maxCopyNumber();
         return CoordinateUtils.calculateLogJacobianFactor(state.concentration(), CONCENTRATION_MIN, CONCENTRATION_MAX)
+                + CoordinateUtils.calculateLogJacobianFactor(state.copyRatioNormalization(), COPY_RATIO_NORMALIZATION_MIN, COPY_RATIO_NORMALIZATION_MAX)
                 + CoordinateUtils.calculateLogJacobianFactor(state.copyRatioNoiseConstant(), COPY_RATIO_NOISE_CONSTANT_MIN, COPY_RATIO_NOISE_CONSTANT_MAX)
                 + CoordinateUtils.calculateLogJacobianFactor(state.copyRatioNoiseFactor(), COPY_RATIO_NOISE_FACTOR_MIN, COPY_RATIO_NOISE_FACTOR_MAX)
                 + CoordinateUtils.calculateLogJacobianFactor(state.minorAlleleFractionNoiseFactor(), MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN, MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX)
@@ -185,6 +201,8 @@ final class TumorHeterogeneityUtils {
                                                                   final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
         final double concentration = CoordinateUtils.transformWalkerCoordinateToBoundedVariable(
                 walkerPosition.get(CONCENTRATION_WALKER_DIMENSION_INDEX), CONCENTRATION_MIN, CONCENTRATION_MAX);
+        final double copyRatioNormalization = CoordinateUtils.transformWalkerCoordinateToBoundedVariable(
+                walkerPosition.get(COPY_RATIO_NORMALIZATION_WALKER_DIMENSION_INDEX), COPY_RATIO_NORMALIZATION_MIN, COPY_RATIO_NORMALIZATION_MAX);
         final double copyRatioNoiseConstant = CoordinateUtils.transformWalkerCoordinateToBoundedVariable(
                 walkerPosition.get(COPY_RATIO_NOISE_CONSTANT_WALKER_DIMENSION_INDEX), COPY_RATIO_NOISE_CONSTANT_MIN, COPY_RATIO_NOISE_CONSTANT_MAX);
         final double copyRatioNoiseFactor = CoordinateUtils.transformWalkerCoordinateToBoundedVariable(
@@ -200,14 +218,14 @@ final class TumorHeterogeneityUtils {
                         new WalkerPosition(walkerPosition.subList(POPULATION_FRACTIONS_WALKER_DIMENSION_START_INDEX, walkerPosition.numDimensions()))));
 
         final VariantProfileCollection variantProfileCollection = proposeVariantProfileCollection(
-                copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPloidy,
+                copyRatioNoiseConstant, copyRatioNoiseFactor, copyRatioNoiseConstant, minorAlleleFractionNoiseFactor, initialPloidy,
                 populationFractions, data, totalCopyNumberProductStates, ploidyStateSetsMap);
 
         final PloidyState normalPloidyState = data.priors().normalPloidyState();
         final PopulationMixture populationMixture = new PopulationMixture(populationFractions, variantProfileCollection, normalPloidyState);
         final double ploidy = populationMixture.ploidy(data);
 
-        return new TumorHeterogeneityState(concentration, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPloidy, ploidy, populationMixture);
+        return new TumorHeterogeneityState(concentration, copyRatioNormalization, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, initialPloidy, ploidy, populationMixture);
     }
 
     /**
@@ -218,6 +236,8 @@ final class TumorHeterogeneityUtils {
                                                          final TumorHeterogeneityData data) {
         final double concentrationWalkerCoordinate = CoordinateUtils.transformBoundedVariableToWalkerCoordinate(
                 state.concentration(), CONCENTRATION_MIN, CONCENTRATION_MAX);
+        final double copyRatioNormalizationWalkerCoordinate = CoordinateUtils.transformBoundedVariableToWalkerCoordinate(
+                state.copyRatioNormalization(), COPY_RATIO_NORMALIZATION_MIN, COPY_RATIO_NORMALIZATION_MAX);
         final double copyRatioNoiseConstantWalkerCoordinate = CoordinateUtils.transformBoundedVariableToWalkerCoordinate(
                 state.copyRatioNoiseConstant(), COPY_RATIO_NOISE_CONSTANT_MIN, COPY_RATIO_NOISE_CONSTANT_MAX);
         final double copyRatioNoiseFactorWalkerCoordinate = CoordinateUtils.transformBoundedVariableToWalkerCoordinate(
@@ -232,6 +252,7 @@ final class TumorHeterogeneityUtils {
         return new WalkerPosition(ListUtils.union(
                 Arrays.asList(
                         concentrationWalkerCoordinate,
+                        copyRatioNormalizationWalkerCoordinate,
                         copyRatioNoiseConstantWalkerCoordinate,
                         copyRatioNoiseFactorWalkerCoordinate,
                         minorAlleleFractionNoiseFactorWalkerCoordinate,
@@ -244,6 +265,7 @@ final class TumorHeterogeneityUtils {
      * samples a {@link VariantProfileCollection} from the posterior distribution.
      */
     private static VariantProfileCollection proposeVariantProfileCollection(final double copyRatioNoiseConstant,
+                                                                            final double copyRatioNormalization,
                                                                             final double copyRatioNoiseFactor,
                                                                             final double minorAlleleFractionNoiseFactor,
                                                                             final double initialPloidy,
@@ -265,7 +287,7 @@ final class TumorHeterogeneityUtils {
 
             //for all possible copy-number product states, calculate the copy-ratio likelihood given the proposed ploidy
             final List<Double> logProbabilitiesCopyRatio = totalCopyNumberProductStates.stream()
-                    .map(tcnps -> calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy))
+                    .map(tcnps -> copyRatioNormalization * calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy))
                     .map(cr -> data.copyRatioLogDensity(si, cr, copyRatioNoiseConstant, copyRatioNoiseFactor))
                     .collect(Collectors.toList());
             //find maximum-likelihood copy-number product state using copy-ratio--only likelihoods
@@ -273,7 +295,7 @@ final class TumorHeterogeneityUtils {
                     .max((i, j) -> Double.compare(logProbabilitiesCopyRatio.get(i), logProbabilitiesCopyRatio.get(j))).get();
             final List<Integer> totalCopyNumberProductState = totalCopyNumberProductStates.get(maxLikelihoodCopyNumberProductStateIndex);
             //calculate the copy ratio of the sampled copy-number product state
-            final double totalCopyRatio = calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
+            final double totalCopyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
 
             //for all ploidy-state product states consistent with the sampled copy-number product state, calculate the copy-ratio--minor-allele-fraction posteriors
             final List<List<PloidyState>> ploidyStateProductStates =
@@ -335,6 +357,7 @@ final class TumorHeterogeneityUtils {
                                            final TumorHeterogeneityData data) {
         final double ploidyMax = data.priors().ploidyStatePrior().maxCopyNumber();
         return state.concentration() < CONCENTRATION_MIN || state.concentration() > CONCENTRATION_MAX ||
+                state.copyRatioNormalization() < COPY_RATIO_NORMALIZATION_MIN || state.copyRatioNoiseConstant() > COPY_RATIO_NORMALIZATION_MAX ||
                 state.copyRatioNoiseConstant() < COPY_RATIO_NOISE_CONSTANT_MIN || state.copyRatioNoiseConstant() > COPY_RATIO_NOISE_CONSTANT_MAX ||
                 state.copyRatioNoiseFactor() < COPY_RATIO_NOISE_FACTOR_MIN || state.copyRatioNoiseFactor() > COPY_RATIO_NOISE_FACTOR_MAX ||
                 state.minorAlleleFractionNoiseFactor() < MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN || state.minorAlleleFractionNoiseFactor() > MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX ||

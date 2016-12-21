@@ -30,7 +30,7 @@ public final class TumorHeterogeneityModellerWriter {
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneityModellerWriter.class);
 
     private static final double CREDIBLE_INTERVAL_ALPHA = 0.05;
-    private static final String TUMOR_HETEROGENEITY_DOUBLE_FORMAT = "%6.8f";
+    private static final String TUMOR_HETEROGENEITY_DOUBLE_FORMAT = "%4.6f";
 
     private static final String POPULATION_FRACTION_NAME_PREFIX = "POPULATION_FRACTION_";
     private static final String NORMAL_FRACTION_NAME = "NORMAL_FRACTION";
@@ -56,6 +56,7 @@ public final class TumorHeterogeneityModellerWriter {
 
             //column headers
             writer.write(TumorHeterogeneityParameter.CONCENTRATION.name + "\t");
+            writer.write(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION.name + "\t");
             writer.write(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT.name + "\t");
             writer.write(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR.name + "\t");
             writer.write(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR.name + "\t");
@@ -69,12 +70,14 @@ public final class TumorHeterogeneityModellerWriter {
             //rows
             for (int sampleIndex = 0; sampleIndex < populationFractionsSamples.size(); sampleIndex++) {
                 final double concentration = modeller.getConcentrationSamples().get(sampleIndex);
+                final double copyRatioNormalization = modeller.getCopyRatioNormalizationSamples().get(sampleIndex);
                 final double copyRatioNoiseConstant = modeller.getCopyRatioNoiseConstantSamples().get(sampleIndex);
                 final double copyRatioNoiseFactor = modeller.getCopyRatioNoiseFactorSamples().get(sampleIndex);
                 final double minorAlleleFractionNoiseFactor = modeller.getMinorAlleleFractionNoiseFactorSamples().get(sampleIndex);
                 final double ploidy = modeller.getPloidySamples().get(sampleIndex);
 
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", concentration));
+                writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", copyRatioNormalization));
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", copyRatioNoiseConstant));
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", copyRatioNoiseFactor));
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", minorAlleleFractionNoiseFactor));
@@ -180,6 +183,7 @@ public final class TumorHeterogeneityModellerWriter {
                                                                                final JavaSparkContext ctx) {
         //get samples for all indices
         final List<Double> concentrationSamples = modeller.getConcentrationSamples();
+        final List<Double> copyRatioNormalizationSamples = modeller.getCopyRatioNormalizationSamples();
         final List<Double> copyRatioNoiseConstantSamples = modeller.getCopyRatioNoiseConstantSamples();
         final List<Double> copyRatioNoiseFactorSamples = modeller.getCopyRatioNoiseFactorSamples();
         final List<Double> minorAlleleFractionNoiseFactorSamples = modeller.getMinorAlleleFractionNoiseFactorSamples();
@@ -189,6 +193,7 @@ public final class TumorHeterogeneityModellerWriter {
         //collect samples for selected indices
         final int numVariantPopulations = modeller.getVariantProfileCollectionSamples().get(0).numVariantPopulations();
         final List<Double> selectedConcentrationSamples = sampleIndices.stream().map(concentrationSamples::get).collect(Collectors.toList());
+        final List<Double> selectedCopyRatioNormalizationSamples = sampleIndices.stream().map(copyRatioNormalizationSamples::get).collect(Collectors.toList());
         final List<Double> selectedCopyRatioNoiseConstantSamples = sampleIndices.stream().map(copyRatioNoiseConstantSamples::get).collect(Collectors.toList());
         final List<Double> selectedCopyRatioNoiseFactorSamples = sampleIndices.stream().map(copyRatioNoiseFactorSamples::get).collect(Collectors.toList());
         final List<Double> selectedMinorAlleleFractionNoiseFactorSamples = sampleIndices.stream().map(minorAlleleFractionNoiseFactorSamples::get).collect(Collectors.toList());
@@ -204,6 +209,7 @@ public final class TumorHeterogeneityModellerWriter {
             logger.warn("Sample of posterior mode was discarded with burn-in samples and no other samples were present in purity-ploidy bin. " +
                     "Adjust burn-in and total number of samples accordingly. Using posterior mode only...");
             final double concentrationMode = modeller.getPosteriorMode().concentration();
+            final double copyRatioNormalizationMode = modeller.getPosteriorMode().copyRatioNormalization();
             final double copyRatioNoiseConstantMode = modeller.getPosteriorMode().copyRatioNoiseConstant();
             final double copyRatioNoiseFactorMode = modeller.getPosteriorMode().copyRatioNoiseFactor();
             final double minorAlleleFractionNoiseFactorMode = modeller.getPosteriorMode().minorAlleleFractionNoiseFactor();
@@ -213,6 +219,7 @@ public final class TumorHeterogeneityModellerWriter {
             final double normalPopulationFractionMode = modeller.getPosteriorMode().populationMixture().populationFractions().normalFraction();
             final double ploidyMode = modeller.getPosteriorMode().ploidy();
             selectedConcentrationSamples.add(concentrationMode);
+            selectedCopyRatioNormalizationSamples.add(copyRatioNormalizationMode);
             selectedCopyRatioNoiseConstantSamples.add(copyRatioNoiseConstantMode);
             selectedCopyRatioNoiseFactorSamples.add(copyRatioNoiseFactorMode);
             selectedMinorAlleleFractionNoiseFactorSamples.add(minorAlleleFractionNoiseFactorMode);
@@ -226,6 +233,8 @@ public final class TumorHeterogeneityModellerWriter {
         final Map<String, PosteriorSummary> posteriorSummaries = new LinkedHashMap<>();
         posteriorSummaries.put(TumorHeterogeneityParameter.CONCENTRATION.name,
                 PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedConcentrationSamples, credibleIntervalAlpha, ctx));
+        posteriorSummaries.put(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION.name,
+                PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedCopyRatioNormalizationSamples, credibleIntervalAlpha, ctx));
         posteriorSummaries.put(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT.name,
                 PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedCopyRatioNoiseConstantSamples, credibleIntervalAlpha, ctx));
         posteriorSummaries.put(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR.name,

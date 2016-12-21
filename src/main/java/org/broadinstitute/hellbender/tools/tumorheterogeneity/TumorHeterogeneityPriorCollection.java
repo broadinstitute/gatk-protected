@@ -14,6 +14,7 @@ public final class TumorHeterogeneityPriorCollection {
     private final PloidyStatePrior ploidyStatePrior;
 
     private final HyperparameterValues concentrationPriorHyperparameterValues;
+    private final HyperparameterValues copyRatioNormalizationPriorHyperparameterValues;
     private final HyperparameterValues copyRatioNoiseConstantPriorHyperparameterValues;
     private final HyperparameterValues copyRatioNoiseFactorPriorHyperparameterValues;
     private final HyperparameterValues minorAlleleFractionNoiseFactorPriorHyperparameterValues;
@@ -25,6 +26,8 @@ public final class TumorHeterogeneityPriorCollection {
                                              final PloidyStatePrior ploidyStatePrior,
                                              final double concentrationPriorAlpha,
                                              final double concentrationPriorBeta,
+                                             final double copyRatioNormalizationPriorAlpha,
+                                             final double copyRatioNormalizationPriorBeta,
                                              final double copyRatioNoiseConstantPriorAlpha,
                                              final double copyRatioNoiseConstantPriorBeta,
                                              final double copyRatioNoiseFactorPriorAlpha,
@@ -42,6 +45,7 @@ public final class TumorHeterogeneityPriorCollection {
         this.normalPloidyState = normalPloidyState;
         this.ploidyStatePrior = ploidyStatePrior;
         concentrationPriorHyperparameterValues = new HyperparameterValues(concentrationPriorAlpha, concentrationPriorBeta);
+        copyRatioNormalizationPriorHyperparameterValues = new HyperparameterValues(copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta);
         copyRatioNoiseConstantPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta);
         copyRatioNoiseFactorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta);
         minorAlleleFractionNoiseFactorPriorHyperparameterValues = new HyperparameterValues(minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
@@ -59,6 +63,10 @@ public final class TumorHeterogeneityPriorCollection {
 
     public HyperparameterValues concentrationPriorHyperparameterValues() {
         return concentrationPriorHyperparameterValues;
+    }
+
+    public HyperparameterValues copyRatioNormalizationPriorHyperparameterValues() {
+        return copyRatioNormalizationPriorHyperparameterValues;
     }
 
     public HyperparameterValues copyRatioNoiseConstantPriorHyperparameterValues() {

@@ -38,6 +38,7 @@ public final class TumorHeterogeneityModeller {
     private final int numWalkers;
 
     private final List<Double> concentrationSamples = new ArrayList<>();
+    private final List<Double> copyRatioNormalizationSamples = new ArrayList<>();
     private final List<Double> copyRatioNoiseConstantSamples = new ArrayList<>();
     private final List<Double> copyRatioNoiseFactorSamples = new ArrayList<>();
     private final List<Double> minorAlleleFractionNoiseFactorSamples = new ArrayList<>();
@@ -112,6 +113,8 @@ public final class TumorHeterogeneityModeller {
         //update posterior samples
         concentrationSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.CONCENTRATION,
                 Double.class, numWalkers * numBurnIn));
+        copyRatioNormalizationSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION,
+                Double.class, numWalkers * numBurnIn));
         copyRatioNoiseConstantSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT,
                 Double.class, numWalkers * numBurnIn));
         copyRatioNoiseFactorSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR,
@@ -133,6 +136,10 @@ public final class TumorHeterogeneityModeller {
         return Collections.unmodifiableList(concentrationSamples);
     }
 
+    public List<Double> getCopyRatioNormalizationSamples() {
+        return Collections.unmodifiableList(copyRatioNormalizationSamples);
+    }
+    
     public List<Double> getCopyRatioNoiseConstantSamples() {
         return Collections.unmodifiableList(copyRatioNoiseConstantSamples);
     }
@@ -172,6 +179,7 @@ public final class TumorHeterogeneityModeller {
         final TumorHeterogeneityState posteriorMode = builder.getMaxLogTargetState();
         return new TumorHeterogeneityState(
                 posteriorMode.concentration(),
+                posteriorMode.copyRatioNormalization(),
                 posteriorMode.copyRatioNoiseConstant(),
                 posteriorMode.copyRatioNoiseFactor(),
                 posteriorMode.minorAlleleFractionNoiseFactor(),

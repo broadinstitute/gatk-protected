@@ -19,6 +19,7 @@ import java.util.stream.IntStream;
  */
 public final class TumorHeterogeneityState extends ParameterizedState<TumorHeterogeneityParameter> {
     public TumorHeterogeneityState(final double concentration,
+                                   final double copyRatioNormalization,
                                    final double copyRatioNoiseConstant,
                                    final double copyRatioNoiseFactor,
                                    final double minorAlleleFractionNoiseFactor,
@@ -27,6 +28,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                                    final PopulationMixture populationMixture) {
         super(Arrays.asList(
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
+                new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION, copyRatioNormalization),
                 new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT, copyRatioNoiseConstant),
                 new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, copyRatioNoiseFactor),
                 new Parameter<>(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, minorAlleleFractionNoiseFactor),
@@ -35,6 +37,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_MIXTURE,
                         new PopulationMixture(populationMixture.populationFractions(), populationMixture.variantProfileCollection(), populationMixture.normalPloidyState()))));
         Utils.validateArg(concentration > 0., "Concentration must be positive.");
+        Utils.validateArg(copyRatioNormalization > 0., "Copy-ratio normalization must be positive.");
         Utils.validateArg(copyRatioNoiseConstant >= 0., "Copy-ratio noise constant must be non-negative.");
         Utils.validateArg(copyRatioNoiseFactor > 0., "Copy-ratio noise factor must be positive.");
         Utils.validateArg(minorAlleleFractionNoiseFactor > 0., "Minor-allele-fraction noise factor must be positive.");
@@ -45,6 +48,10 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
     public double concentration() {
         return get(TumorHeterogeneityParameter.CONCENTRATION, Double.class);
+    }
+
+    public double copyRatioNormalization() {
+        return get(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION, Double.class);
     }
 
     public double copyRatioNoiseConstant() {
@@ -78,6 +85,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                                                          final int numSegments,
                                                          final int numPopulations) {
         final double concentration = priors.concentrationPriorHyperparameterValues().getAlpha() / priors.concentrationPriorHyperparameterValues().getBeta();
+        final double copyRatioNormalization = priors.copyRatioNormalizationPriorHyperparameterValues().getAlpha() / priors.copyRatioNormalizationPriorHyperparameterValues().getBeta();
         final double copyRatioNoiseConstant = priors.copyRatioNoiseConstantPriorHyperparameterValues().getAlpha() / priors.copyRatioNoiseConstantPriorHyperparameterValues().getBeta();
         final double copyRatioNoiseFactor = priors.copyRatioNoiseFactorPriorHyperparameterValues().getAlpha() /
                 (priors.copyRatioNoiseFactorPriorHyperparameterValues().getAlpha() + priors.copyRatioNoiseFactorPriorHyperparameterValues().getBeta());
@@ -94,7 +102,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 initializeNormalProfiles(numVariantPopulations, numSegments, normalPloidyState);
         final PopulationMixture populationMixture = new PopulationMixture(populationFractions, variantProfileCollection, normalPloidyState);
         return new TumorHeterogeneityState(
-                concentration, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, normalPloidy, normalPloidy, populationMixture);
+                concentration, copyRatioNormalization, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, normalPloidy, normalPloidy, populationMixture);
     }
 
     /**
@@ -109,6 +117,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
 
         //initialize global parameters
         final double concentration = priors.concentrationPriorHyperparameterValues().getAlpha() / priors.concentrationPriorHyperparameterValues().getBeta();
+        final double copyRatioNormalization = clonalState.copyRatioNormalization();
         final double copyRatioNoiseConstant = clonalState.copyRatioNoiseConstant();
         final double copyRatioNoiseFactor = clonalState.copyRatioNoiseFactor();
         final double minorAlleleFractionNoiseFactor = clonalState.minorAlleleFractionNoiseFactor();
@@ -135,7 +144,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         final double ploidy = clonalState.ploidy();
 
         return new TumorHeterogeneityState(
-                concentration, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, ploidy, ploidy, populationMixture);
+                concentration, copyRatioNormalization, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, ploidy, ploidy, populationMixture);
     }
 
     /**
@@ -151,8 +160,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     /**
      * Initialize a variant profile to normal.
      */
-    static PopulationMixture.VariantProfile initializeNormalProfile(final int numSegments,
-                                                                    final PloidyState normalPloidyState) {
+    private static PopulationMixture.VariantProfile initializeNormalProfile(final int numSegments,
+                                                                            final PloidyState normalPloidyState) {
         final PopulationMixture.VariantProfile ploidyStateIndicators =
                 new PopulationMixture.VariantProfile(Collections.nCopies(numSegments, normalPloidyState));
         return new PopulationMixture.VariantProfile(ploidyStateIndicators);
