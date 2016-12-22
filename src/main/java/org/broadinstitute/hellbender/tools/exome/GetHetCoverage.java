@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountTableColumn.AllelicCountTableVerbosity;
 import org.broadinstitute.hellbender.tools.exome.pulldown.HetPulldownCalculator;
 import org.broadinstitute.hellbender.tools.exome.pulldown.Pulldown;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.read.ReadConstants;
 
 import java.io.File;
@@ -132,6 +133,10 @@ public final class GetHetCoverage extends CommandLineProgram {
             throw new UserException.CommandLineException("Must specify both BAM and output files for tumor pulldown.");
         } else {
             doTumorPulldown = false;
+        }
+        Utils.regularReadableUserFile(normalBAMFile);
+        if (doTumorPulldown) {
+            Utils.regularReadableUserFile(tumorBAMFile);
         }
 
         final HetPulldownCalculator hetPulldown = new HetPulldownCalculator(REFERENCE_ARGUMENTS.getReferenceFile(),
