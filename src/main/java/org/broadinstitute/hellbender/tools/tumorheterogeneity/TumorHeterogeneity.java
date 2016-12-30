@@ -120,7 +120,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME = "copyRatioNoiseConstantPriorBeta";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_SHORT_NAME = "crConstBeta";
 
-    protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA = "outlierProbabilityPriorAlpha";
+    protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA_LONG_NAME = "outlierProbabilityPriorAlpha";
     protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA_SHORT_NAME = "outProbAlpha";
     protected static final String OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME = "outlierProbabilityPriorBeta";
     protected static final String OUTLIER_PROBABILITY_PRIOR_BETA_SHORT_NAME = "outProbBeta";
@@ -283,7 +283,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
     @Argument(
             doc = "Alpha hyperparameter for Beta-distribution prior on outlier probability.",
-            fullName = OUTLIER_PROBABILITY_PRIOR_ALPHA,
+            fullName = OUTLIER_PROBABILITY_PRIOR_ALPHA_LONG_NAME,
             shortName = OUTLIER_PROBABILITY_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
@@ -495,7 +495,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 COPY_RATIO_NOISE_CONSTANT_MIN, COPY_RATIO_NOISE_CONSTANT_MAX,
                 (alpha, beta) -> alpha / beta);
         validatePriorHyperparameters(
-                outlierProbabilityPriorAlpha, OUTLIER_PROBABILITY_PRIOR_ALPHA,
+                outlierProbabilityPriorAlpha, OUTLIER_PROBABILITY_PRIOR_ALPHA_LONG_NAME,
                 outlierProbabilityPriorBeta, OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME,
                 OUTLIER_PROBABILITY_MIN, OUTLIER_PROBABILITY_MAX,
                 (alpha, beta) -> alpha / (alpha + beta));
