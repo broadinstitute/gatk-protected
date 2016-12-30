@@ -21,8 +21,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
     public TumorHeterogeneityState(final double concentration,
                                    final double copyRatioNormalization,
                                    final double copyRatioNoiseConstant,
-                                   final double copyRatioNoiseFactor,
-                                   final double minorAlleleFractionNoiseFactor,
+                                   final double outlierProbability,
                                    final double initialPloidy,
                                    final double ploidy,
                                    final PopulationMixture populationMixture) {
@@ -30,8 +29,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 new Parameter<>(TumorHeterogeneityParameter.CONCENTRATION, concentration),
                 new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION, copyRatioNormalization),
                 new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT, copyRatioNoiseConstant),
-                new Parameter<>(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, copyRatioNoiseFactor),
-                new Parameter<>(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, minorAlleleFractionNoiseFactor),
+                new Parameter<>(TumorHeterogeneityParameter.OUTLIER_PROBABILITY, outlierProbability),
                 new Parameter<>(TumorHeterogeneityParameter.INITIAL_PLOIDY, initialPloidy),
                 new Parameter<>(TumorHeterogeneityParameter.PLOIDY, ploidy),
                 new Parameter<>(TumorHeterogeneityParameter.POPULATION_MIXTURE,
@@ -39,8 +37,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         Utils.validateArg(concentration > 0., "Concentration must be positive.");
         Utils.validateArg(copyRatioNormalization > 0., "Copy-ratio normalization must be positive.");
         Utils.validateArg(copyRatioNoiseConstant >= 0., "Copy-ratio noise constant must be non-negative.");
-        Utils.validateArg(copyRatioNoiseFactor > 0., "Copy-ratio noise factor must be positive.");
-        Utils.validateArg(minorAlleleFractionNoiseFactor > 0., "Minor-allele-fraction noise factor must be positive.");
+        Utils.validateArg(0. <= outlierProbability && outlierProbability <= 1., "Outlier probability must be in [0, 1].");
         Utils.validateArg(initialPloidy >= 0, "Initial ploidy must be non-negative.");
         Utils.validateArg(ploidy >= 0, "Ploidy must be non-negative.");
         Utils.nonNull(populationMixture);
@@ -58,12 +55,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         return get(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT, Double.class);
     }
 
-    public double copyRatioNoiseFactor() {
-        return get(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR, Double.class);
-    }
-
-    public double minorAlleleFractionNoiseFactor() {
-        return get(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR, Double.class);
+    public double outlierProbability() {
+        return get(TumorHeterogeneityParameter.OUTLIER_PROBABILITY, Double.class);
     }
 
     public double initialPloidy() {
@@ -87,10 +80,8 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         final double concentration = priors.concentrationPriorHyperparameterValues().getAlpha() / priors.concentrationPriorHyperparameterValues().getBeta();
         final double copyRatioNormalization = priors.copyRatioNormalizationPriorHyperparameterValues().getAlpha() / priors.copyRatioNormalizationPriorHyperparameterValues().getBeta();
         final double copyRatioNoiseConstant = priors.copyRatioNoiseConstantPriorHyperparameterValues().getAlpha() / priors.copyRatioNoiseConstantPriorHyperparameterValues().getBeta();
-        final double copyRatioNoiseFactor = priors.copyRatioNoiseFactorPriorHyperparameterValues().getAlpha() /
-                (priors.copyRatioNoiseFactorPriorHyperparameterValues().getAlpha() + priors.copyRatioNoiseFactorPriorHyperparameterValues().getBeta());
-        final double minorAlleleFractionNoiseFactor = priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getAlpha() /
-                (priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getAlpha() + priors.minorAlleleFractionNoiseFactorPriorHyperparameterValues().getBeta());
+        final double outlierProbability = priors.outlierProbabilityPriorHyperparameterValues().getAlpha() /
+                (priors.outlierProbabilityPriorHyperparameterValues().getAlpha() + priors.outlierProbabilityPriorHyperparameterValues().getBeta());
         //initialize population fractions to be evenly distributed
         final PopulationMixture.PopulationFractions populationFractions =
                 new PopulationMixture.PopulationFractions(Collections.nCopies(numPopulations, 1. / numPopulations));
@@ -102,7 +93,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
                 initializeNormalProfiles(numVariantPopulations, numSegments, normalPloidyState);
         final PopulationMixture populationMixture = new PopulationMixture(populationFractions, variantProfileCollection, normalPloidyState);
         return new TumorHeterogeneityState(
-                concentration, copyRatioNormalization, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, normalPloidy, normalPloidy, populationMixture);
+                concentration, copyRatioNormalization, copyRatioNoiseConstant, outlierProbability, normalPloidy, normalPloidy, populationMixture);
     }
 
     /**
@@ -119,8 +110,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         final double concentration = priors.concentrationPriorHyperparameterValues().getAlpha() / priors.concentrationPriorHyperparameterValues().getBeta();
         final double copyRatioNormalization = clonalState.copyRatioNormalization();
         final double copyRatioNoiseConstant = clonalState.copyRatioNoiseConstant();
-        final double copyRatioNoiseFactor = clonalState.copyRatioNoiseFactor();
-        final double minorAlleleFractionNoiseFactor = clonalState.minorAlleleFractionNoiseFactor();
+        final double outlierProbability = clonalState.outlierProbability();
 
         //initialize normal fraction to clonal result
         final double normalFraction = clonalState.populationMixture().populationFractions().normalFraction();
@@ -144,7 +134,7 @@ public final class TumorHeterogeneityState extends ParameterizedState<TumorHeter
         final double ploidy = clonalState.ploidy();
 
         return new TumorHeterogeneityState(
-                concentration, copyRatioNormalization, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor, ploidy, ploidy, populationMixture);
+                concentration, copyRatioNormalization, copyRatioNoiseConstant, outlierProbability, ploidy, ploidy, populationMixture);
     }
 
     /**

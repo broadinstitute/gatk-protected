@@ -1,7 +1,6 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.primitives.Doubles;
-import org.apache.commons.math3.analysis.MultivariateFunction;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.optim.InitialGuess;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -35,9 +35,8 @@ import java.util.stream.IntStream;
  * {@link DataCollection} for the tumor-heterogeneity model that allows the calculation of log posterior probabilities
  * for (copy ratio, minor-allele fraction) for each {@link ACNVModeledSegment}.  Fits a normal distribution to
  * the log_2 copy-ratio posterior deciles and a scaled beta distribution to the minor-allele fraction posterior deciles.
- * Allows for a copy-ratio noise constant (to model a constant contribution from stray reads), as well as
- * likelihood-softening noise factors for both copy ratio and minor-allele fraction (to absorb unmodeled systematic
- * noise).  Also stores any necessary prior information in {@link TumorHeterogeneityPriorCollection}.
+ * Allows for a copy-ratio noise constant (to model a constant contribution from stray reads).
+ * Also stores any necessary prior information in {@link TumorHeterogeneityPriorCollection}.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -111,32 +110,27 @@ public final class TumorHeterogeneityData implements DataCollection {
         return segmentLengths.get(segmentIndex);
     }
 
-    public double copyRatioLogDensity(final int segmentIndex, final double copyRatio,
-                                      final double copyRatioNoiseConstant, final double copyRatioNoiseFactor) {
+    public double copyRatioLogDensity(final int segmentIndex, final double copyRatio, final double copyRatioNoiseConstant) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         Utils.validateArg(copyRatio >= 0., "Copy ratio must be non-negative.");
         Utils.validateArg(copyRatioNoiseConstant >= 0., "Copy-ratio noise constant must be non-negative.");
-        Utils.validateArg(copyRatioNoiseFactor > 0., "Copy-ratio noise factor must be positive.");
-        return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant, copyRatioNoiseFactor);
+        return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant);
     }
 
-    public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction,
-                             final double copyRatioNoiseConstant, final double copyRatioNoiseFactor, final double minorAlleleFractionNoiseFactor) {
+    public double logDensity(final int segmentIndex, final double copyRatio, final double minorAlleleFraction, final double copyRatioNoiseConstant) {
         Utils.validateArg(0 <= segmentIndex && segmentIndex < numSegments, "Segment index is not in valid range.");
         Utils.validateArg(copyRatio >= 0., "Copy ratio must be non-negative.");
         Utils.validateArg(0. <= minorAlleleFraction && minorAlleleFraction <= 0.5, "Minor-allele fraction must be in [0, 0.5].");
         Utils.validateArg(copyRatioNoiseConstant >= 0., "Copy-ratio noise constant must be non-negative.");
-        Utils.validateArg(copyRatioNoiseFactor > 0., "Copy-ratio noise factor must be positive.");
-        Utils.validateArg(minorAlleleFractionNoiseFactor > 0., "Minor-allele-fraction noise factor must be positive.");
         if (copyRatio < COPY_RATIO_EPSILON) {
             //if copy ratio is below threshold, use mirrored minor-allele fraction posterior
-            return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant, copyRatioNoiseFactor)
+            return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant)
                     + FastMath.log(Math.max(EPSILON,
-                    0.5 * (FastMath.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction, minorAlleleFractionNoiseFactor))
-                            + FastMath.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(0.5 - minorAlleleFraction, minorAlleleFractionNoiseFactor)))));
+                    0.5 * (FastMath.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction))
+                            + FastMath.exp(segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(0.5 - minorAlleleFraction)))));
         }
-        return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant, copyRatioNoiseFactor)
-                + segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction, minorAlleleFractionNoiseFactor);
+        return segmentPosteriors.get(segmentIndex).copyRatioLogDensity(copyRatio, copyRatioNoiseConstant)
+                + segmentPosteriors.get(segmentIndex).minorAlleleFractionLogDensity(minorAlleleFraction);
     }
 
     public TumorHeterogeneityPriorCollection priors() {
@@ -144,8 +138,8 @@ public final class TumorHeterogeneityData implements DataCollection {
     }
 
     private final class ACNVSegmentPosterior {
-        private final MultivariateFunction log2CopyRatioPosteriorLogPDF;
-        private final MultivariateFunction minorAlleleFractionPosteriorLogPDF;
+        private final Function<Double, Double> log2CopyRatioPosteriorLogPDF;
+        private final Function<Double, Double> minorAlleleFractionPosteriorLogPDF;
 
         ACNVSegmentPosterior(final ACNVModeledSegment segment) {
             logger.debug("Fitting segment: " + segment.getInterval());
@@ -163,19 +157,19 @@ public final class TumorHeterogeneityData implements DataCollection {
                     fitScaledBetaLogPDFToInnerDeciles(minorAlleleFractionInnerDeciles);
         }
 
-        double copyRatioLogDensity(final double copyRatio, final double copyRatioNoiseConstant, final double copyRatioNoiseFactor) {
+        double copyRatioLogDensity(final double copyRatio, final double copyRatioNoiseConstant) {
             final double log2CopyRatio = FastMath.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
-            return log2CopyRatioPosteriorLogPDF.value(new double[]{log2CopyRatio, copyRatioNoiseFactor}) - LN_LN2 - FastMath.log(Math.max(EPSILON, copyRatio));    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
+            return log2CopyRatioPosteriorLogPDF.apply(log2CopyRatio) - LN_LN2 - FastMath.log(Math.max(EPSILON, copyRatio));    //includes Jacobian: p(c) = p(log_2(c)) / (c * ln 2)
         }
 
-        double minorAlleleFractionLogDensity(final double minorAlleleFraction, final double minorAlleleFractionNoiseFactor) {
+        double minorAlleleFractionLogDensity(final double minorAlleleFraction) {
             final double minorAlleleFractionBounded = Math.max(EPSILON, Math.min(0.5 - EPSILON, minorAlleleFraction));
-            return minorAlleleFractionPosteriorLogPDF.value(new double[]{minorAlleleFractionBounded, minorAlleleFractionNoiseFactor});
+            return minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFractionBounded);
         }
 
         //fit a normal distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares
         //and return the log PDF (for use as a posterior for log_2 copy ratio)
-        private MultivariateFunction fitNormalLogPDFToInnerDeciles(final double[] innerDeciles) {
+        private Function<Double, Double> fitNormalLogPDFToInnerDeciles(final double[] innerDeciles) {
             final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
                 final double mean = point[0];
                 final double standardDeviation = FastMath.abs(point[1]);
@@ -197,16 +191,12 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double mean = optimum.getPoint()[0];
             final double standardDeviation = FastMath.abs(optimum.getPoint()[1]);
             logger.debug(String.format("Final (mean, standard deviation) for normal distribution: (%f, %f)", mean, standardDeviation));
-            return point -> {
-                final double log2cr = point[0];
-                final double copyRatioNoiseFactor = point[1];
-                return new NormalDistribution(null, mean, standardDeviation / copyRatioNoiseFactor).logDensity(log2cr);
-            };
+            return log2cr -> new NormalDistribution(null, mean, standardDeviation).logDensity(log2cr);
         }
 
         //fit a beta distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares
         //and return the log PDF (scaled appropriately for use as a posterior for minor-allele fraction)
-        private MultivariateFunction fitScaledBetaLogPDFToInnerDeciles(final double[] innerDeciles) {
+        private Function<Double, Double> fitScaledBetaLogPDFToInnerDeciles(final double[] innerDeciles) {
             final double[] scaledInnerDeciles = Arrays.stream(innerDeciles).map(d -> 2. * d).toArray();
             //scale minor-allele fraction deciles to [0, 1] and fit a beta distribution
             final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
@@ -234,11 +224,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final double alpha = FastMath.abs(optimum.getPoint()[0]);
             final double beta = FastMath.abs(optimum.getPoint()[1]);
             logger.debug(String.format("Final (alpha, beta) for scaled beta distribution: (%f, %f)", alpha, beta));
-            return point -> {
-                final double maf = point[0];
-                final double minorAlleleFractionNoiseFactor = point[1];
-                return new BetaDistribution(null, alpha * minorAlleleFractionNoiseFactor, beta * minorAlleleFractionNoiseFactor).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
-            };
+            return maf -> new BetaDistribution(null, alpha, beta).logDensity(2. * maf) + LN2; //scale minor-allele fraction to [0, 1], including Jacobian factor
         }
     }
 }

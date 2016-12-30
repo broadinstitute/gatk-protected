@@ -62,11 +62,8 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final double COPY_RATIO_NOISE_CONSTANT_MIN = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MIN;
     private static final double COPY_RATIO_NOISE_CONSTANT_MAX = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MAX;
 
-    private static final double COPY_RATIO_NOISE_FACTOR_MIN = TumorHeterogeneityUtils.COPY_RATIO_NOISE_FACTOR_MIN;
-    private static final double COPY_RATIO_NOISE_FACTOR_MAX = TumorHeterogeneityUtils.COPY_RATIO_NOISE_FACTOR_MAX;
-
-    private static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN = TumorHeterogeneityUtils.MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN;
-    private static final double MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX = TumorHeterogeneityUtils.MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX;
+    private static final double OUTLIER_PROBABILITY_MIN = TumorHeterogeneityUtils.OUTLIER_PROBABILITY_MIN;
+    private static final double OUTLIER_PROBABILITY_MAX = TumorHeterogeneityUtils.OUTLIER_PROBABILITY_MAX;
 
     //filename tags for output
     protected static final String SAMPLES_FILE_SUFFIX_CLONAL = ".th.clonal.samples.tsv";
@@ -123,15 +120,10 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME = "copyRatioNoiseConstantPriorBeta";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_SHORT_NAME = "crConstBeta";
 
-    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "copyRatioNoiseFactorPriorAlpha";
-    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "crFactorAlpha";
-    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME = "copyRatioNoiseFactorPriorBeta";
-    protected static final String COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "crFactorBeta";
-
-    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME = "minorAlleleFractionNoiseFactorPriorAlpha";
-    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME = "mafFactorAlpha";
-    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME = "minorAlleleFractionNoiseFactorPriorBeta";
-    protected static final String MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME = "mafFactorBeta";
+    protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA = "outlierProbabilityPriorAlpha";
+    protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA_SHORT_NAME = "outProbAlpha";
+    protected static final String OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME = "outlierProbabilityPriorBeta";
+    protected static final String OUTLIER_PROBABILITY_PRIOR_BETA_SHORT_NAME = "outProbBeta";
 
     protected static final String PLOIDY_MISMATCH_PENALTY_LONG_NAME = "ploidyMismatchPenalty";
     protected static final String PLOIDY_MISMATCH_PENALTY_SHORT_NAME = "ploidyPen";
@@ -290,36 +282,20 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double copyRatioNoiseConstantPriorBeta = 1E2;
 
     @Argument(
-            doc = "Alpha hyperparameter for Beta-distribution prior on copy-ratio noise-factor parameter.",
-            fullName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
-            shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
+            doc = "Alpha hyperparameter for Beta-distribution prior on outlier probability.",
+            fullName = OUTLIER_PROBABILITY_PRIOR_ALPHA,
+            shortName = OUTLIER_PROBABILITY_PRIOR_ALPHA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorAlpha = 1E4;
+    protected double outlierProbabilityPriorAlpha = 1;
 
     @Argument(
-            doc = "Beta hyperparameter for Beta-distribution prior on copy-ratio noise-factor parameter.",
-            fullName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
-            shortName = COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
+            doc = "Beta hyperparameter for Beta-distribution prior on outlier probability.",
+            fullName = OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME,
+            shortName = OUTLIER_PROBABILITY_PRIOR_BETA_SHORT_NAME,
             optional = true
     )
-    protected double copyRatioNoiseFactorPriorBeta = 1;
-
-    @Argument(
-            doc = "Alpha hyperparameter for Beta-distribution prior on minor-allele-fraction noise-factor parameter.",
-            fullName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
-            shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_SHORT_NAME,
-            optional = true
-    )
-    protected double minorAlleleFractionNoiseFactorPriorAlpha = 1E4;
-
-    @Argument(
-            doc = "Beta hyperparameter for Beta-distribution prior on minor-allele-fraction noise-factor parameter.",
-            fullName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
-            shortName = MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_SHORT_NAME,
-            optional = true
-    )
-    protected double minorAlleleFractionNoiseFactorPriorBeta = 1;
+    protected double outlierProbabilityPriorBeta = 1E2;
 
     @Argument(
             doc = "Penalty factor for ploidy mismatch in proposal of variant profiles. " +
@@ -393,8 +369,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 CONCENTRATION_PRIOR_ALPHA_CLONAL, CONCENTRATION_PRIOR_BETA_CLONAL,
                 copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta,
                 copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
-                copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
-                minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
+                outlierProbabilityPriorAlpha, outlierProbabilityPriorBeta,
                 ploidyMismatchPenalty, subcloneVariancePenalty);
         
         //initialize data collection from ACNV input and priors
@@ -440,8 +415,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                     concentrationPriorAlpha, concentrationPriorBeta,
                     copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta,
                     copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
-                    copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta,
-                    minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta,
+                    outlierProbabilityPriorAlpha, outlierProbabilityPriorBeta,
                     ploidyMismatchPenalty, subcloneVariancePenalty);
 
             //initialize data collection from using clonal data and full priors
@@ -521,14 +495,9 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 COPY_RATIO_NOISE_CONSTANT_MIN, COPY_RATIO_NOISE_CONSTANT_MAX,
                 (alpha, beta) -> alpha / beta);
         validatePriorHyperparameters(
-                copyRatioNoiseFactorPriorAlpha, COPY_RATIO_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
-                copyRatioNoiseFactorPriorBeta, COPY_RATIO_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
-                COPY_RATIO_NOISE_FACTOR_MIN, COPY_RATIO_NOISE_FACTOR_MAX,
-                (alpha, beta) -> alpha / (alpha + beta));
-        validatePriorHyperparameters(
-                minorAlleleFractionNoiseFactorPriorAlpha, MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_ALPHA_LONG_NAME,
-                minorAlleleFractionNoiseFactorPriorBeta, MINOR_ALLELE_FRACTION_NOISE_FACTOR_PRIOR_BETA_LONG_NAME,
-                MINOR_ALLELE_FRACTION_NOISE_FACTOR_MIN, MINOR_ALLELE_FRACTION_NOISE_FACTOR_MAX,
+                outlierProbabilityPriorAlpha, OUTLIER_PROBABILITY_PRIOR_ALPHA,
+                outlierProbabilityPriorBeta, OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME,
+                OUTLIER_PROBABILITY_MIN, OUTLIER_PROBABILITY_MAX,
                 (alpha, beta) -> alpha / (alpha + beta));
         Utils.validateArg(ploidyMismatchPenalty >= 0., PLOIDY_MISMATCH_PENALTY_LONG_NAME + " must be non-negative.");
         Utils.validateArg(subcloneVariancePenalty >= 0., SUBCLONE_VARIANCE_PENALTY_LONG_NAME + " must be non-negative.");

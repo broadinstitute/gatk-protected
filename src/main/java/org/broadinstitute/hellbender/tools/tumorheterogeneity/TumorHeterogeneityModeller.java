@@ -40,8 +40,7 @@ public final class TumorHeterogeneityModeller {
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<Double> copyRatioNormalizationSamples = new ArrayList<>();
     private final List<Double> copyRatioNoiseConstantSamples = new ArrayList<>();
-    private final List<Double> copyRatioNoiseFactorSamples = new ArrayList<>();
-    private final List<Double> minorAlleleFractionNoiseFactorSamples = new ArrayList<>();
+    private final List<Double> outlierProbabilitySamples = new ArrayList<>();
     private final List<Double> ploidySamples = new ArrayList<>();
     private final List<PopulationMixture> populationMixtureSamples = new ArrayList<>();
 
@@ -117,9 +116,7 @@ public final class TumorHeterogeneityModeller {
                 Double.class, numWalkers * numBurnIn));
         copyRatioNoiseConstantSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT,
                 Double.class, numWalkers * numBurnIn));
-        copyRatioNoiseFactorSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_FACTOR,
-                Double.class, numWalkers * numBurnIn));
-        minorAlleleFractionNoiseFactorSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.MINOR_ALLELE_FRACTION_NOISE_FACTOR,
+        outlierProbabilitySamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.OUTLIER_PROBABILITY,
                 Double.class, numWalkers * numBurnIn));
         ploidySamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.PLOIDY,
                 Double.class, numWalkers * numBurnIn));
@@ -144,12 +141,8 @@ public final class TumorHeterogeneityModeller {
         return Collections.unmodifiableList(copyRatioNoiseConstantSamples);
     }
 
-    public List<Double> getCopyRatioNoiseFactorSamples() {
-        return Collections.unmodifiableList(copyRatioNoiseFactorSamples);
-    }
-
-    public List<Double> getMinorAlleleFractionNoiseFactorSamples() {
-        return Collections.unmodifiableList(minorAlleleFractionNoiseFactorSamples);
+    public List<Double> getOutlierProbabilitySamples() {
+        return Collections.unmodifiableList(outlierProbabilitySamples);
     }
 
     public List<Double> getPloidySamples() {
@@ -181,8 +174,7 @@ public final class TumorHeterogeneityModeller {
                 posteriorMode.concentration(),
                 posteriorMode.copyRatioNormalization(),
                 posteriorMode.copyRatioNoiseConstant(),
-                posteriorMode.copyRatioNoiseFactor(),
-                posteriorMode.minorAlleleFractionNoiseFactor(),
+                posteriorMode.outlierProbability(),
                 posteriorMode.initialPloidy(),
                 posteriorMode.ploidy(),
                 posteriorMode.populationMixture().collapseNormalPopulations(data.priors().normalPloidyState()));

@@ -52,7 +52,7 @@ public class TumorHeterogeneityDataUnitTest {
         DUMMY_PLOIDY_STATE_PRIOR = new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
         DUMMY_PRIORS = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, DUMMY_PLOIDY_STATE_PRIOR,
-                DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER);
+                DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER, DUMMY_PARAMETER);
     }
 
     @DataProvider(name = "dataNormal")
@@ -90,8 +90,6 @@ public class TumorHeterogeneityDataUnitTest {
         //test the fitting of a normal distribution to log_2 copy-ratio deciles by setting minor-allele fraction deciles to NaN
 
         final double copyRatioNoiseConstant = 0.02;
-        final double copyRatioNoiseFactor = 0.95;
-        final double minorAlleleFractionNoiseFactor = 0.9;
 
         //calculate deciles for true copy-ratio posterior (normal)
         final NormalDistribution log2CopyRatioPosteriorDensityTruth =
@@ -111,13 +109,13 @@ public class TumorHeterogeneityDataUnitTest {
         final double minorAlleleFraction = 0.25;
         final double log2CopyRatio = Math.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
         final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
-                new NormalDistribution(Math.max(EPSILON, meanTruth + copyRatioNoiseConstant), standardDeviationTruth / copyRatioNoiseFactor);
+                new NormalDistribution(Math.max(EPSILON, meanTruth + copyRatioNoiseConstant), standardDeviationTruth);
         final double expectedLogDensity =
                 Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) + LN2;
 
         //check against log density from TumorHeterogeneityData fit to true deciles
         final int segmentIndex = 0;
-        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
+        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseConstant);
 
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
     }
@@ -130,8 +128,6 @@ public class TumorHeterogeneityDataUnitTest {
         final double copyRatio = 1.;
         final double standardDeviationTruth = 1.;
         final double copyRatioNoiseConstant = 0.02;
-        final double copyRatioNoiseFactor = 0.95;
-        final double minorAlleleFractionNoiseFactor = 0.9;
 
         //calculate deciles for true copy-ratio posterior (normal)
         final NormalDistribution log2CopyRatioPosteriorDensityTruth =
@@ -158,16 +154,15 @@ public class TumorHeterogeneityDataUnitTest {
         final double minorAlleleFraction = 0.25;
         final double log2CopyRatio = Math.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
         final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
-                new NormalDistribution(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant), standardDeviationTruth / copyRatioNoiseFactor);
-        final BetaDistribution scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor =
-                new BetaDistribution(alphaTruth * minorAlleleFractionNoiseFactor, betaTruth * minorAlleleFractionNoiseFactor);
+                new NormalDistribution(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant), standardDeviationTruth);
+        final BetaDistribution scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor = new BetaDistribution(alphaTruth, betaTruth);
         final double expectedLogDensity =
                 Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) +
                         Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor.density(2. * minorAlleleFraction));
 
         //test log density at a point
         final int segmentIndex = 0;
-        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseConstant, copyRatioNoiseFactor, minorAlleleFractionNoiseFactor);
+        final double resultLogDensity = data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, copyRatioNoiseConstant);
 
         Assert.assertTrue(relativeError(resultLogDensity, expectedLogDensity) < REL_ERROR_THRESHOLD);
     }

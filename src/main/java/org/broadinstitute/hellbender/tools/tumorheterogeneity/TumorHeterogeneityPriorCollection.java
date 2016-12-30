@@ -16,8 +16,7 @@ public final class TumorHeterogeneityPriorCollection {
     private final HyperparameterValues concentrationPriorHyperparameterValues;
     private final HyperparameterValues copyRatioNormalizationPriorHyperparameterValues;
     private final HyperparameterValues copyRatioNoiseConstantPriorHyperparameterValues;
-    private final HyperparameterValues copyRatioNoiseFactorPriorHyperparameterValues;
-    private final HyperparameterValues minorAlleleFractionNoiseFactorPriorHyperparameterValues;
+    private final HyperparameterValues outlierProbabilityPriorHyperparameterValues;
 
     private final double ploidyMismatchPenalty;
     private final double subcloneVariancePenalty;
@@ -30,10 +29,8 @@ public final class TumorHeterogeneityPriorCollection {
                                              final double copyRatioNormalizationPriorBeta,
                                              final double copyRatioNoiseConstantPriorAlpha,
                                              final double copyRatioNoiseConstantPriorBeta,
-                                             final double copyRatioNoiseFactorPriorAlpha,
-                                             final double copyRatioNoiseFactorPriorBeta,
-                                             final double minorAlleleFractionNoiseFactorPriorAlpha,
-                                             final double minorAlleleFractionNoiseFactorPriorBeta,
+                                             final double outlierProbabilityPriorAlpha,
+                                             final double outlierProbabilityPriorBeta,
                                              final double ploidyMismatchPenalty,
                                              final double subcloneVariancePenalty) {
         Utils.nonNull(normalPloidyState);
@@ -47,8 +44,7 @@ public final class TumorHeterogeneityPriorCollection {
         concentrationPriorHyperparameterValues = new HyperparameterValues(concentrationPriorAlpha, concentrationPriorBeta);
         copyRatioNormalizationPriorHyperparameterValues = new HyperparameterValues(copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta);
         copyRatioNoiseConstantPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta);
-        copyRatioNoiseFactorPriorHyperparameterValues = new HyperparameterValues(copyRatioNoiseFactorPriorAlpha, copyRatioNoiseFactorPriorBeta);
-        minorAlleleFractionNoiseFactorPriorHyperparameterValues = new HyperparameterValues(minorAlleleFractionNoiseFactorPriorAlpha, minorAlleleFractionNoiseFactorPriorBeta);
+        outlierProbabilityPriorHyperparameterValues = new HyperparameterValues(outlierProbabilityPriorAlpha, outlierProbabilityPriorBeta);
         this.ploidyMismatchPenalty = ploidyMismatchPenalty;
         this.subcloneVariancePenalty = subcloneVariancePenalty;
     }
@@ -73,12 +69,8 @@ public final class TumorHeterogeneityPriorCollection {
         return copyRatioNoiseConstantPriorHyperparameterValues;
     }
 
-    public HyperparameterValues copyRatioNoiseFactorPriorHyperparameterValues() {
-        return copyRatioNoiseFactorPriorHyperparameterValues;
-    }
-
-    public HyperparameterValues minorAlleleFractionNoiseFactorPriorHyperparameterValues() {
-        return minorAlleleFractionNoiseFactorPriorHyperparameterValues;
+    public HyperparameterValues outlierProbabilityPriorHyperparameterValues() {
+        return outlierProbabilityPriorHyperparameterValues;
     }
 
     public double ploidyMismatchPenalty() {
