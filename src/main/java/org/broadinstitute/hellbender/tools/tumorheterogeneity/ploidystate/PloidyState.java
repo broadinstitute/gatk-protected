@@ -8,6 +8,8 @@ import org.broadinstitute.hellbender.utils.Utils;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class PloidyState {
+    public static final PloidyState OUTLIER_PLOIDY_STATE = new PloidyState(Integer.MAX_VALUE, Integer.MAX_VALUE);
+
     private final int m;
     private final int n;
     private final int total;
@@ -21,15 +23,28 @@ public final class PloidyState {
     }
 
     public int m() {
+        if (isOutlier()) {
+            throw new IllegalStateException("Allele count for outlier state is undefined.");
+        }
         return m;
     }
 
     public int n() {
+        if (isOutlier()) {
+            throw new IllegalStateException("Allele count for outlier state is undefined.");
+        }
         return n;
     }
 
     public int total() {
+        if (isOutlier()) {
+            throw new IllegalStateException("Total count for outlier state is undefined.");
+        }
         return total;
+    }
+
+    public boolean isOutlier() {
+        return this == OUTLIER_PLOIDY_STATE;
     }
 
     @Override

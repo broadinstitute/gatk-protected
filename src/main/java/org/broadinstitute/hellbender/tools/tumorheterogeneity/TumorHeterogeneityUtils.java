@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.PopulationMixture.VariantProfileCollection;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
+import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.CoordinateUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.SimplexPosition;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
@@ -24,6 +25,9 @@ import java.util.stream.IntStream;
  */
 final class TumorHeterogeneityUtils {
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneityUtils.class);
+
+    //mathematical constants
+    private static final double LN2 = GATKProtectedMathUtils.LN2;
 
     static final int NUM_POPULATIONS_CLONAL = 2;
 
@@ -116,29 +120,41 @@ final class TumorHeterogeneityUtils {
                         + logPriorPopulationFractionsSum;
 
         //variant-profiles prior
+        double logPriorVariantProfiles = 0.;
         final VariantProfileCollection variantProfileCollection = state.populationMixture().variantProfileCollection();
         final int numVariantPopulations = variantProfileCollection.numVariantPopulations();
-        double logPriorVariantProfiles = 0.;
+        final double logOutlierProbability = FastMath.log(outlierProbability);
+        final double logNonOutlierProbability = FastMath.log(1. - outlierProbability);
         for (int segmentIndex = 0; segmentIndex < variantProfileCollection.numSegments(); segmentIndex++) {
-            final Set <PloidyState> ploidyStatesInSegment = new HashSet<>();
-            for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
-                final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
-                logPriorVariantProfiles += data.length(segmentIndex) * data.priors().ploidyStatePrior().logProbability(ploidyState);
-                ploidyStatesInSegment.add(ploidyState);
+            if (variantProfileCollection.isOutlier(segmentIndex)) {
+                logPriorVariantProfiles += numVariantPopulations * data.length(segmentIndex) * logOutlierProbability;
+            } else {
+                final Set <PloidyState> ploidyStatesInSegment = new HashSet<>();
+                for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
+                    final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
+                    logPriorVariantProfiles += data.length(segmentIndex) * (logNonOutlierProbability + data.priors().ploidyStatePrior().logProbability(ploidyState));
+                    ploidyStatesInSegment.add(ploidyState);
+                }
+                logPriorVariantProfiles += -data.priors().subcloneVariancePenalty() * data.length(segmentIndex) * ploidyStatesInSegment.size();
             }
-            logPriorVariantProfiles += -data.priors().subcloneVariancePenalty() * data.length(segmentIndex) * ploidyStatesInSegment.size();
         }
 
         //copy-ratio--minor-allele-fraction likelihood
         double logLikelihoodSegments = 0.;
         final double ploidy = state.ploidy();
+        final int maxCopyNumber = data.priors().ploidyStatePrior().maxCopyNumber();
+        final double outlierLogLikelihood = -FastMath.log(maxCopyNumber) + LN2;
         for (int segmentIndex = 0; segmentIndex < data.numSegments(); segmentIndex++) {
-            final double mAlleleCopyNumber = state.populationMixture().calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::m);
-            final double nAlleleCopyNumber = state.populationMixture().calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::n);
-            final double totalCopyNumber = mAlleleCopyNumber + nAlleleCopyNumber;
-            final double copyRatio = state.copyRatioNormalization() * totalCopyNumber / Math.max(EPSILON, ploidy);
-            final double minorAlleleFraction = calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);
-            logLikelihoodSegments += data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, state.copyRatioNoiseConstant());
+            if (state.populationMixture().variantProfileCollection().isOutlier(segmentIndex)) {
+                logLikelihoodSegments += logOutlierProbability + outlierLogLikelihood;
+            } else {
+                final double mAlleleCopyNumber = state.populationMixture().calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::m);
+                final double nAlleleCopyNumber = state.populationMixture().calculatePopulationAveragedCopyNumberFunction(segmentIndex, PloidyState::n);
+                final double totalCopyNumber = mAlleleCopyNumber + nAlleleCopyNumber;
+                final double copyRatio = state.copyRatioNormalization() * totalCopyNumber / Math.max(EPSILON, ploidy);
+                final double minorAlleleFraction = calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);
+                logLikelihoodSegments += logNonOutlierProbability + data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, state.copyRatioNoiseConstant());
+            }
         }
 
         //log penalty for mismatch between initial ploidy and ploidy resulting from proposeVariantProfileCollection
@@ -255,6 +271,10 @@ final class TumorHeterogeneityUtils {
         final int numSegments = data.numSegments();
         final PloidyState normalPloidyState = data.priors().normalPloidyState();
         final PloidyStatePrior ploidyStatePrior = data.priors().ploidyStatePrior();
+        final double logOutlierProbability = FastMath.log(outlierProbability);
+        final double logNonOutlierProbability = FastMath.log(1. - outlierProbability);
+        final int maxCopyNumber = data.priors().ploidyStatePrior().maxCopyNumber();
+        final double outlierLogLikelihoodCopyRatio = -FastMath.log(maxCopyNumber);
 
         //initialize a list of variant profiles to store the result
         final List<PopulationMixture.VariantProfile> variantProfiles =
@@ -264,37 +284,42 @@ final class TumorHeterogeneityUtils {
             final int si = segmentIndex;
 
             //for all possible copy-number product states, calculate the copy-ratio likelihood given the proposed ploidy
-            final List<Double> logProbabilitiesCopyRatio = totalCopyNumberProductStates.stream()
-                    .map(tcnps -> copyRatioNormalization * calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy))
-                    .map(cr -> data.copyRatioLogDensity(si, cr, copyRatioNoiseConstant))
+            final List<Double> logLikelihoodsCopyRatio = totalCopyNumberProductStates.stream()
+                    .map(tcnps -> data.copyRatioLogDensity(si, copyRatioNormalization * calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy), copyRatioNoiseConstant))
                     .collect(Collectors.toList());
             //find maximum-likelihood copy-number product state using copy-ratio--only likelihoods
-            final int maxLikelihoodCopyNumberProductStateIndex = IntStream.range(0, totalCopyNumberProductStates.size()).boxed()
-                    .max((i, j) -> Double.compare(logProbabilitiesCopyRatio.get(i), logProbabilitiesCopyRatio.get(j))).get();
-            final List<Integer> totalCopyNumberProductState = totalCopyNumberProductStates.get(maxLikelihoodCopyNumberProductStateIndex);
-            //calculate the copy ratio of the sampled copy-number product state
-            final double totalCopyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
+            final int maxLogLikelihoodCopyNumberProductStateIndex = IntStream.range(0, totalCopyNumberProductStates.size()).boxed()
+                    .max((i, j) -> Double.compare(logLikelihoodsCopyRatio.get(i), logLikelihoodsCopyRatio.get(j))).get();
+            final double maxLogLikelihood = logLikelihoodsCopyRatio.get(maxLogLikelihoodCopyNumberProductStateIndex);
 
-            //for all ploidy-state product states consistent with the sampled copy-number product state, calculate the copy-ratio--minor-allele-fraction posteriors
-            final List<List<PloidyState>> ploidyStateProductStates =
-                    new ArrayList<>(Sets.cartesianProduct(totalCopyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
-            final List<PloidyState> ploidyStateProductState;
-            if (ploidyStateProductStates.size() == 1) {
-                //if only one consistent ploidy-state product, not necessary to perform maximum a posteriori calculations
-                ploidyStateProductState = ploidyStateProductStates.get(0);
+            if (logOutlierProbability + outlierLogLikelihoodCopyRatio > logNonOutlierProbability + maxLogLikelihood) {
+                IntStream.range(0, numVariantPopulations).forEach(i -> variantProfiles.get(i).set(si, PloidyState.OUTLIER_PLOIDY_STATE));
             } else {
-                final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                        .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant)
-                                + data.length(si) * psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
-                        .collect(Collectors.toList());
-                //find maximum-a-posteriori ploidy-state product state using copy-ratio--minor-allele-fraction posteriors
-                final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
-                        .max((i, j) -> Double.compare(logProbabilitiesPloidyStateProductStates.get(i), logProbabilitiesPloidyStateProductStates.get(j))).get();
-                ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
-            }
+                final List<Integer> totalCopyNumberProductState = totalCopyNumberProductStates.get(maxLogLikelihoodCopyNumberProductStateIndex);
 
-            //store the sampled ploidy-state product state in the list of variant profiles
-            IntStream.range(0, numVariantPopulations).forEach(i -> variantProfiles.get(i).set(si, ploidyStateProductState.get(i)));
+                //for all ploidy-state product states consistent with the sampled copy-number product state, calculate the copy-ratio--minor-allele-fraction posteriors
+                final List<List<PloidyState>> ploidyStateProductStates =
+                        new ArrayList<>(Sets.cartesianProduct(totalCopyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
+                final List<PloidyState> ploidyStateProductState;
+                if (ploidyStateProductStates.size() == 1) {
+                    //if only one consistent ploidy-state product, not necessary to perform maximum a posteriori calculations
+                    ploidyStateProductState = ploidyStateProductStates.get(0);
+                } else {
+                    //calculate the copy ratio of the sampled copy-number product state
+                    final double totalCopyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
+                    final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
+                            .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant)
+                                    + data.length(si) * psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
+                            .collect(Collectors.toList());
+                    //find maximum-a-posteriori ploidy-state product state using copy-ratio--minor-allele-fraction posteriors
+                    final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
+                            .max((i, j) -> Double.compare(logProbabilitiesPloidyStateProductStates.get(i), logProbabilitiesPloidyStateProductStates.get(j))).get();
+                    ploidyStateProductState = ploidyStateProductStates.get(maxPosteriorPloidyStateProductStateIndex);
+                }
+
+                //store the sampled ploidy-state product state in the list of variant profiles
+                IntStream.range(0, numVariantPopulations).forEach(i -> variantProfiles.get(i).set(si, ploidyStateProductState.get(i)));
+            }
         }
         //return a new VariantProfileCollection created from the list of variant profiles
         return new VariantProfileCollection(variantProfiles);
