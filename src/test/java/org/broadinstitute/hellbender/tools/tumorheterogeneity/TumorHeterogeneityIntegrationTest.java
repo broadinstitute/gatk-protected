@@ -71,7 +71,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME, "1E3",
                     "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E4",
                     "--" + TumorHeterogeneity.SUBCLONE_VARIANCE_PENALTY_LONG_NAME, "1E-6",
-                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "1E-3",
+                    "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME, "1E-3",
                     "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.025",
                     "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.025",

@@ -17,8 +17,6 @@ import java.util.stream.IntStream;
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 public final class PopulationMixture {
-    private static final double EPSILON = TumorHeterogeneityUtils.EPSILON;
-
     private final int numPopulations;   //variant populations + normal population
     private final int numVariantPopulations;   //variant populations + normal population
     private final int numSegments;
