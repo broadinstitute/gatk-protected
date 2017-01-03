@@ -62,9 +62,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static final double COPY_RATIO_NOISE_CONSTANT_MIN = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MIN;
     private static final double COPY_RATIO_NOISE_CONSTANT_MAX = TumorHeterogeneityUtils.COPY_RATIO_NOISE_CONSTANT_MAX;
 
-    private static final double OUTLIER_PROBABILITY_MIN = TumorHeterogeneityUtils.OUTLIER_PROBABILITY_MIN;
-    private static final double OUTLIER_PROBABILITY_MAX = TumorHeterogeneityUtils.OUTLIER_PROBABILITY_MAX;
-
     //filename tags for output
     protected static final String SAMPLES_FILE_SUFFIX_CLONAL = ".th.clonal.samples.tsv";
     protected static final String PROFILES_FILE_SUFFIX_CLONAL = ".th.clonal.profiles.tsv";
@@ -119,11 +116,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_SHORT_NAME = "crConstAlpha";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME = "copyRatioNoiseConstantPriorBeta";
     protected static final String COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_SHORT_NAME = "crConstBeta";
-
-    protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA_LONG_NAME = "outlierProbabilityPriorAlpha";
-    protected static final String OUTLIER_PROBABILITY_PRIOR_ALPHA_SHORT_NAME = "outProbAlpha";
-    protected static final String OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME = "outlierProbabilityPriorBeta";
-    protected static final String OUTLIER_PROBABILITY_PRIOR_BETA_SHORT_NAME = "outProbBeta";
 
     protected static final String PLOIDY_MISMATCH_PENALTY_LONG_NAME = "ploidyMismatchPenalty";
     protected static final String PLOIDY_MISMATCH_PENALTY_SHORT_NAME = "ploidyPen";
@@ -282,22 +274,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double copyRatioNoiseConstantPriorBeta = 1E2;
 
     @Argument(
-            doc = "Alpha hyperparameter for Beta-distribution prior on outlier probability.",
-            fullName = OUTLIER_PROBABILITY_PRIOR_ALPHA_LONG_NAME,
-            shortName = OUTLIER_PROBABILITY_PRIOR_ALPHA_SHORT_NAME,
-            optional = true
-    )
-    protected double outlierProbabilityPriorAlpha = 1;
-
-    @Argument(
-            doc = "Beta hyperparameter for Beta-distribution prior on outlier probability.",
-            fullName = OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME,
-            shortName = OUTLIER_PROBABILITY_PRIOR_BETA_SHORT_NAME,
-            optional = true
-    )
-    protected double outlierProbabilityPriorBeta = 1E2;
-
-    @Argument(
             doc = "Penalty factor for ploidy mismatch in proposal of variant profiles. " +
                     "(A strong (i.e., large) penalty factor prefers correct solutions at the expense of increased mixing time.)",
             fullName = PLOIDY_MISMATCH_PENALTY_LONG_NAME,
@@ -369,7 +345,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 CONCENTRATION_PRIOR_ALPHA_CLONAL, CONCENTRATION_PRIOR_BETA_CLONAL,
                 copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta,
                 copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
-                outlierProbabilityPriorAlpha, outlierProbabilityPriorBeta,
                 ploidyMismatchPenalty, subcloneVariancePenalty);
         
         //initialize data collection from ACNV input and priors
@@ -415,7 +390,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                     concentrationPriorAlpha, concentrationPriorBeta,
                     copyRatioNormalizationPriorAlpha, copyRatioNormalizationPriorBeta,
                     copyRatioNoiseConstantPriorAlpha, copyRatioNoiseConstantPriorBeta,
-                    outlierProbabilityPriorAlpha, outlierProbabilityPriorBeta,
                     ploidyMismatchPenalty, subcloneVariancePenalty);
 
             //initialize data collection from using clonal data and full priors
@@ -494,11 +468,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 copyRatioNoiseConstantPriorBeta, COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME,
                 COPY_RATIO_NOISE_CONSTANT_MIN, COPY_RATIO_NOISE_CONSTANT_MAX,
                 (alpha, beta) -> alpha / beta);
-        validatePriorHyperparameters(
-                outlierProbabilityPriorAlpha, OUTLIER_PROBABILITY_PRIOR_ALPHA_LONG_NAME,
-                outlierProbabilityPriorBeta, OUTLIER_PROBABILITY_PRIOR_BETA_LONG_NAME,
-                OUTLIER_PROBABILITY_MIN, OUTLIER_PROBABILITY_MAX,
-                (alpha, beta) -> alpha / (alpha + beta));
         Utils.validateArg(ploidyMismatchPenalty >= 0., PLOIDY_MISMATCH_PENALTY_LONG_NAME + " must be non-negative.");
         Utils.validateArg(subcloneVariancePenalty >= 0., SUBCLONE_VARIANCE_PENALTY_LONG_NAME + " must be non-negative.");
         Utils.validateArg(0. <= ploidyStatePriorCompleteDeletionPenalty && ploidyStatePriorCompleteDeletionPenalty <= 1., PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME + " must be in [0, 1].");

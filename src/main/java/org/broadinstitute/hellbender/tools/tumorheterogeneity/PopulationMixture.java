@@ -73,11 +73,6 @@ public final class PopulationMixture {
         return populationIndex == numPopulations - 1;
     }
 
-    public boolean isOutlier(final int segmentIndex) {
-        validateSegmentIndex(segmentIndex, numSegments);
-        return variantProfileCollection.isOutlier(segmentIndex);
-    }
-
     public PloidyState ploidyState(final int populationIndex, final int segmentIndex) {
         validatePopulationIndex(populationIndex, numPopulations);
         validateSegmentIndex(segmentIndex, numSegments);
@@ -121,12 +116,8 @@ public final class PopulationMixture {
 
     public double ploidy(final TumorHeterogeneityData data) {
         validateData(data, numSegments);
-        final double nonOutlierTotalCopyNumberSum = IntStream.range(0, numSegments)
-                .filter(si -> !isOutlier(si))
-                .mapToDouble(i -> calculatePopulationAveragedLengthAndCopyNumberFunctionProduct(i, PloidyState::total, data))
-                .sum();
-        final int nonOutlierLength = IntStream.range(0, numSegments).filter(si -> !isOutlier(si)).map(data::length).sum();
-        return nonOutlierTotalCopyNumberSum / Math.max(EPSILON, nonOutlierLength);
+        return IntStream.range(0, numSegments).mapToDouble(i -> calculateLengthAndPopulationAveragedCopyNumberFunctionProduct(i, PloidyState::total, data)).sum();
+
     }
 
     double calculatePopulationAveragedCopyNumberFunction(final int segmentIndex,
@@ -146,7 +137,7 @@ public final class PopulationMixture {
                 copyNumberFunction.apply(ploidyState(populationIndex, segmentIndex));
     }
 
-    private double calculatePopulationAveragedLengthAndCopyNumberFunctionProduct(final int segmentIndex,
+    private double calculateLengthAndPopulationAveragedCopyNumberFunctionProduct(final int segmentIndex,
                                                                                  final Function<PloidyState, Integer> copyNumberFunction,
                                                                                  final TumorHeterogeneityData data) {
         return data.length(segmentIndex) * calculatePopulationAveragedCopyNumberFunction(segmentIndex, copyNumberFunction);
@@ -191,7 +182,6 @@ public final class PopulationMixture {
         private static final long serialVersionUID = 76498L;
         private final int numSegments;
         private final int numVariantPopulations;
-        private final List<Boolean> isOutlier;
 
         public VariantProfileCollection(final List<VariantProfile> variantProfiles) {
             super(Collections.unmodifiableList(Utils.nonNull(variantProfiles).stream().map(VariantProfile::new).collect(Collectors.toList())));
@@ -202,14 +192,6 @@ public final class PopulationMixture {
                     "Number of segments must be same for all variants.");
             numSegments = numSegmentsForFirstVariant;
             numVariantPopulations = variantProfiles.size();
-            isOutlier = new ArrayList<>(numSegments);
-            for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
-                final int si = segmentIndex;
-                final boolean isOutlierForFirstVariant = ploidyState(0, si).isOutlier();
-                Utils.validateArg(IntStream.range(0, numVariantPopulations).allMatch(pi -> ploidyState(pi, si).isOutlier() == isOutlierForFirstVariant),
-                        "Outlier state must be identical for all variant populations.");
-                isOutlier.add(isOutlierForFirstVariant);
-            }
         }
 
         public int numSegments() {
@@ -218,11 +200,6 @@ public final class PopulationMixture {
 
         public int numVariantPopulations() {
             return numVariantPopulations;
-        }
-
-        public boolean isOutlier(final int segmentIndex) {
-            validateSegmentIndex(segmentIndex, numSegments);
-            return isOutlier.get(segmentIndex);
         }
 
         public PloidyState ploidyState(final int populationIndex, final int segmentIndex) {

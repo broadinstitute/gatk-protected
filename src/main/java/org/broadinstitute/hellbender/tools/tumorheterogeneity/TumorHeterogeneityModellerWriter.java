@@ -58,7 +58,6 @@ public final class TumorHeterogeneityModellerWriter {
             writer.write(TumorHeterogeneityParameter.CONCENTRATION.name + "\t");
             writer.write(TumorHeterogeneityParameter.COPY_RATIO_NORMALIZATION.name + "\t");
             writer.write(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT.name + "\t");
-            writer.write(TumorHeterogeneityParameter.OUTLIER_PROBABILITY.name + "\t");
             writer.write(TumorHeterogeneityParameter.PLOIDY.name + "\t");
             for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
                 writer.write(POPULATION_FRACTION_NAME_PREFIX + populationIndex + "\t");
@@ -71,13 +70,11 @@ public final class TumorHeterogeneityModellerWriter {
                 final double concentration = modeller.getConcentrationSamples().get(sampleIndex);
                 final double copyRatioNormalization = modeller.getCopyRatioNormalizationSamples().get(sampleIndex);
                 final double copyRatioNoiseConstant = modeller.getCopyRatioNoiseConstantSamples().get(sampleIndex);
-                final double outlierProbability = modeller.getOutlierProbabilitySamples().get(sampleIndex);
                 final double ploidy = modeller.getPloidySamples().get(sampleIndex);
 
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", concentration));
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", copyRatioNormalization));
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", copyRatioNoiseConstant));
-                writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", outlierProbability));
                 writer.write(String.format(TUMOR_HETEROGENEITY_DOUBLE_FORMAT + "\t", ploidy));
                 for (int populationIndex = 0; populationIndex < numPopulations - 1; populationIndex++) {
                     final double populationFraction = populationFractionsSamples.get(sampleIndex).get(populationIndex);
@@ -182,7 +179,6 @@ public final class TumorHeterogeneityModellerWriter {
         final List<Double> concentrationSamples = modeller.getConcentrationSamples();
         final List<Double> copyRatioNormalizationSamples = modeller.getCopyRatioNormalizationSamples();
         final List<Double> copyRatioNoiseConstantSamples = modeller.getCopyRatioNoiseConstantSamples();
-        final List<Double> outlierProbabilitySamples = modeller.getOutlierProbabilitySamples();
         final List<PopulationMixture.PopulationFractions> populationFractionsSamples = modeller.getPopulationFractionsSamples();
         final List<Double> ploidySamples = modeller.getPloidySamples();
 
@@ -191,7 +187,6 @@ public final class TumorHeterogeneityModellerWriter {
         final List<Double> selectedConcentrationSamples = sampleIndices.stream().map(concentrationSamples::get).collect(Collectors.toList());
         final List<Double> selectedCopyRatioNormalizationSamples = sampleIndices.stream().map(copyRatioNormalizationSamples::get).collect(Collectors.toList());
         final List<Double> selectedCopyRatioNoiseConstantSamples = sampleIndices.stream().map(copyRatioNoiseConstantSamples::get).collect(Collectors.toList());
-        final List<Double> selectedOutlierProbabilitySamples = sampleIndices.stream().map(outlierProbabilitySamples::get).collect(Collectors.toList());
         final List<List<Double>> selectedVariantPopulationFractionsSamples = IntStream.range(0, numVariantPopulations).boxed()
                 .map(populationIndex -> sampleIndices.stream().map(sampleIndex -> populationFractionsSamples.get(sampleIndex).get(populationIndex)).collect(Collectors.toList()))
                 .collect(Collectors.toList());
@@ -206,7 +201,6 @@ public final class TumorHeterogeneityModellerWriter {
             final double concentrationMode = modeller.getPosteriorMode().concentration();
             final double copyRatioNormalizationMode = modeller.getPosteriorMode().copyRatioNormalization();
             final double copyRatioNoiseConstantMode = modeller.getPosteriorMode().copyRatioNoiseConstant();
-            final double outlierProbabilityMode = modeller.getPosteriorMode().outlierProbability();
             final List<Double> variantPopulationFractionsMode = IntStream.range(0, numVariantPopulations).boxed()
                     .map(populationIndex -> modeller.getPosteriorMode().populationMixture().populationFraction(populationIndex))
                     .collect(Collectors.toList());
@@ -215,7 +209,6 @@ public final class TumorHeterogeneityModellerWriter {
             selectedConcentrationSamples.add(concentrationMode);
             selectedCopyRatioNormalizationSamples.add(copyRatioNormalizationMode);
             selectedCopyRatioNoiseConstantSamples.add(copyRatioNoiseConstantMode);
-            selectedOutlierProbabilitySamples.add(outlierProbabilityMode);
             IntStream.range(0, numVariantPopulations)
                     .forEach(populationIndex -> selectedVariantPopulationFractionsSamples.get(populationIndex).add(variantPopulationFractionsMode.get(populationIndex)));
             selectedNormalPopulationFractionSamples.add(normalPopulationFractionMode);
@@ -230,8 +223,6 @@ public final class TumorHeterogeneityModellerWriter {
                 PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedCopyRatioNormalizationSamples, credibleIntervalAlpha, ctx));
         posteriorSummaries.put(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT.name,
                 PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedCopyRatioNoiseConstantSamples, credibleIntervalAlpha, ctx));
-        posteriorSummaries.put(TumorHeterogeneityParameter.OUTLIER_PROBABILITY.name,
-                PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedOutlierProbabilitySamples, credibleIntervalAlpha, ctx));
         IntStream.range(0, numVariantPopulations).forEach(populationIndex ->
                 posteriorSummaries.put(POPULATION_FRACTION_NAME_PREFIX + populationIndex,
                         PosteriorSummaryUtils.calculateHighestPosteriorDensityAndDecilesSummary(selectedVariantPopulationFractionsSamples.get(populationIndex), credibleIntervalAlpha, ctx)));

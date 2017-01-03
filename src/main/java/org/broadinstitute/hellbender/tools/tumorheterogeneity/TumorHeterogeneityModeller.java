@@ -40,7 +40,6 @@ public final class TumorHeterogeneityModeller {
     private final List<Double> concentrationSamples = new ArrayList<>();
     private final List<Double> copyRatioNormalizationSamples = new ArrayList<>();
     private final List<Double> copyRatioNoiseConstantSamples = new ArrayList<>();
-    private final List<Double> outlierProbabilitySamples = new ArrayList<>();
     private final List<Double> ploidySamples = new ArrayList<>();
     private final List<PopulationMixture> populationMixtureSamples = new ArrayList<>();
 
@@ -116,8 +115,6 @@ public final class TumorHeterogeneityModeller {
                 Double.class, numWalkers * numBurnIn));
         copyRatioNoiseConstantSamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.COPY_RATIO_NOISE_CONSTANT,
                 Double.class, numWalkers * numBurnIn));
-        outlierProbabilitySamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.OUTLIER_PROBABILITY,
-                Double.class, numWalkers * numBurnIn));
         ploidySamples.addAll(modelSampler.getSamples(TumorHeterogeneityParameter.PLOIDY,
                 Double.class, numWalkers * numBurnIn));
         //collapse populations
@@ -139,10 +136,6 @@ public final class TumorHeterogeneityModeller {
     
     public List<Double> getCopyRatioNoiseConstantSamples() {
         return Collections.unmodifiableList(copyRatioNoiseConstantSamples);
-    }
-
-    public List<Double> getOutlierProbabilitySamples() {
-        return Collections.unmodifiableList(outlierProbabilitySamples);
     }
 
     public List<Double> getPloidySamples() {
@@ -174,7 +167,6 @@ public final class TumorHeterogeneityModeller {
                 posteriorMode.concentration(),
                 posteriorMode.copyRatioNormalization(),
                 posteriorMode.copyRatioNoiseConstant(),
-                posteriorMode.outlierProbability(),
                 posteriorMode.initialPloidy(),
                 posteriorMode.ploidy(),
                 posteriorMode.populationMixture().collapseNormalPopulations(data.priors().normalPloidyState()));
@@ -229,7 +221,7 @@ public final class TumorHeterogeneityModeller {
                                                       final double initialWalkerBallSize,
                                                       final Function<TumorHeterogeneityState, Double> logTargetTumorHeterogeneity,
                                                       final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState) {
-        //number of walker dimensions = 1 concentration parameter + 2 noise parameters + (numPopulations - 1) simplex parameters + 1 ploidy parameter
+        //number of walker dimensions = number of global parameters + (numPopulations - 1) simplex parameters
         final int numVariantPopulations = initialState.populationMixture().numVariantPopulations();
         final int numDimensions = TumorHeterogeneityUtils.NUM_GLOBAL_PARAMETERS + numVariantPopulations;
         final NormalDistribution ballGaussian = new NormalDistribution(rng, 0., initialWalkerBallSize);
