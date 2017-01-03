@@ -9,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.PopulationMixture.VariantProfileCollection;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
-import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.CoordinateUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.SimplexPosition;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
@@ -25,9 +24,6 @@ import java.util.stream.IntStream;
  */
 final class TumorHeterogeneityUtils {
     private static final Logger logger = LogManager.getLogger(TumorHeterogeneityUtils.class);
-
-    //mathematical constants
-    private static final double LN2 = GATKProtectedMathUtils.LN2;
 
     static final int NUM_POPULATIONS_CLONAL = 2;
 

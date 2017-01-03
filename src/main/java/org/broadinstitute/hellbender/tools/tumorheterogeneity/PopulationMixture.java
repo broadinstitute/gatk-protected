@@ -116,7 +116,7 @@ public final class PopulationMixture {
 
     public double ploidy(final TumorHeterogeneityData data) {
         validateData(data, numSegments);
-        return IntStream.range(0, numSegments).mapToDouble(i -> calculateLengthAndPopulationAveragedCopyNumberFunctionProduct(i, PloidyState::total, data)).sum();
+        return IntStream.range(0, numSegments).mapToDouble(i -> calculateLengthAndPopulationAveragedCopyNumberFunction(i, PloidyState::total, data)).sum();
 
     }
 
@@ -137,10 +137,10 @@ public final class PopulationMixture {
                 copyNumberFunction.apply(ploidyState(populationIndex, segmentIndex));
     }
 
-    private double calculateLengthAndPopulationAveragedCopyNumberFunctionProduct(final int segmentIndex,
-                                                                                 final Function<PloidyState, Integer> copyNumberFunction,
-                                                                                 final TumorHeterogeneityData data) {
-        return data.length(segmentIndex) * calculatePopulationAveragedCopyNumberFunction(segmentIndex, copyNumberFunction);
+    private double calculateLengthAndPopulationAveragedCopyNumberFunction(final int segmentIndex,
+                                                                          final Function<PloidyState, Integer> copyNumberFunction,
+                                                                          final TumorHeterogeneityData data) {
+        return data.fractionalLength(segmentIndex) * calculatePopulationAveragedCopyNumberFunction(segmentIndex, copyNumberFunction);
     }
 
     /*===============================================================================================================*
