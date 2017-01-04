@@ -301,7 +301,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double ploidyStatePriorCompleteDeletionPenalty = 1E-6;
 
     @Argument(
-            doc = "Penalty factor for copy change per base  in ploidy-state prior. " +
+            doc = "Penalty factor for copy change per base in ploidy-state prior. " +
                     "(A strong (i.e., large) penalty factor will decrease sensitivity at low purity.)",
             fullName = PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME,
             shortName = PLOIDY_STATE_PRIOR_CHANGE_PENALTY_SHORT_NAME,
@@ -431,8 +431,9 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     private static PloidyStatePrior calculatePloidyStatePrior(final double ploidyStatePriorCompleteDeletionPenalty,
                                                               final double ploidyStatePriorChangePenalty,
                                                               final int maxAllelicCopyNumber) {
-        final Function<PloidyState, Double> ploidyLogPDF = ps -> ps.equals(NORMAL_PLOIDY_STATE) ? 10. : 1.; //Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
-                                //+ Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
+        final Function<PloidyState, Double> ploidyLogPDF = ps ->
+                Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
+                        + Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         for (int m = 0; m <= maxAllelicCopyNumber; m++) {
             for (int n = 0; n <= maxAllelicCopyNumber; n++) {

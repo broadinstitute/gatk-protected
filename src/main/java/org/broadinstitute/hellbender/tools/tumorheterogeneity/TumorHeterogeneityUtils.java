@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.PopulationMixture.VariantProfileCollection;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyState;
 import org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate.PloidyStatePrior;
+import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.CoordinateUtils;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.SimplexPosition;
 import org.broadinstitute.hellbender.utils.mcmc.coordinates.WalkerPosition;
@@ -32,6 +33,7 @@ final class TumorHeterogeneityUtils {
 
     static final double EPSILON = 1E-10;
     static final double COPY_RATIO_EPSILON = 1E-3; //below this, use mirrored minor-allele fraction posterior
+    static final double LOG_LIKELIHOOD_EPSILON = Math.log(1E-10);
 
     //fixes concentration to practically unity for clonal-only version
     static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;
@@ -111,10 +113,10 @@ final class TumorHeterogeneityUtils {
             final Set<PloidyState> ploidyStatesInSegment = new HashSet<>();
             for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
                 final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
-                logPriorVariantProfiles += data.priors().ploidyStatePrior().logProbability(ploidyState);
+                logPriorVariantProfiles += data.length(segmentIndex) * data.priors().ploidyStatePrior().logProbability(ploidyState);
                 ploidyStatesInSegment.add(ploidyState);
             }
-            logPriorVariantProfiles += -data.priors().subcloneVariancePenalty() * ploidyStatesInSegment.size();
+            logPriorVariantProfiles += -data.priors().subcloneVariancePenalty() * data.length(segmentIndex) * ploidyStatesInSegment.size();
         }
 
         //copy-ratio--minor-allele-fraction likelihood
@@ -126,7 +128,7 @@ final class TumorHeterogeneityUtils {
             final double totalCopyNumber = mAlleleCopyNumber + nAlleleCopyNumber;
             final double copyRatio = state.copyRatioNormalization() * totalCopyNumber / Math.max(EPSILON, ploidy);
             final double minorAlleleFraction = calculateMinorAlleleFraction(mAlleleCopyNumber, nAlleleCopyNumber);
-            logLikelihoodSegments += FastMath.log(FastMath.exp(data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, state.copyRatioNoiseConstant() + EPSILON)));
+            logLikelihoodSegments += GATKProtectedMathUtils.logSumExp(Arrays.asList(data.logDensity(segmentIndex, copyRatio, minorAlleleFraction, state.copyRatioNoiseConstant()), LOG_LIKELIHOOD_EPSILON));
         }
 
         //log penalty for mismatch between initial ploidy and ploidy resulting from proposeVariantProfileCollection
@@ -246,7 +248,7 @@ final class TumorHeterogeneityUtils {
             //for all possible copy-number product states, calculate the copy-ratio likelihood given the proposed ploidy
             final List<Double> logLikelihoodsCopyRatio = totalCopyNumberProductStates.stream()
                     .map(tcnps -> data.copyRatioLogDensity(si, copyRatioNormalization * calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy), copyRatioNoiseConstant))
-                    .map(logDensity -> FastMath.log(FastMath.exp(logDensity + EPSILON)))
+                    .map(logDensity -> GATKProtectedMathUtils.logSumExp(logDensity, LOG_LIKELIHOOD_EPSILON))
                     .collect(Collectors.toList());
             //find maximum-likelihood copy-number product state using copy-ratio--only likelihoods
             final int maxLogLikelihoodCopyNumberProductStateIndex = IntStream.range(0, totalCopyNumberProductStates.size()).boxed()
@@ -264,8 +266,8 @@ final class TumorHeterogeneityUtils {
                 //calculate the copy ratio of the sampled copy-number product state
                 final double totalCopyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
                 final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                        .map(psps -> FastMath.log(FastMath.exp(data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant)) + EPSILON)
-                                + psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
+                        .map(psps -> GATKProtectedMathUtils.logSumExp(Arrays.asList(data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant), LOG_LIKELIHOOD_EPSILON))
+                                + data.length(si) * psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
                         .collect(Collectors.toList());
                 //find maximum-a-posteriori ploidy-state product state using copy-ratio--minor-allele-fraction posteriors
                 final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()
