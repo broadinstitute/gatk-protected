@@ -71,7 +71,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.COPY_RATIO_NORMALIZATION_PRIOR_BETA_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME, "1E3",
-                    "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E4",
+                    "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E6",
                     "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.025",
                     "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.025",
                     "--verbosity", "INFO"
@@ -104,11 +104,11 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.CONCENTRATION_PRIOR_BETA_LONG_NAME, "1E1",
-                    "--" + TumorHeterogeneity.COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_LONG_NAME, "1",
-                    "--" + TumorHeterogeneity.COPY_RATIO_NORMALIZATION_PRIOR_BETA_LONG_NAME, "1",
+                    "--" + TumorHeterogeneity.COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_LONG_NAME, "1E1",
+                    "--" + TumorHeterogeneity.COPY_RATIO_NORMALIZATION_PRIOR_BETA_LONG_NAME, "1E1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_ALPHA_LONG_NAME, "1",
                     "--" + TumorHeterogeneity.COPY_RATIO_NOISE_CONSTANT_PRIOR_BETA_LONG_NAME, "1E2",
-                    "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E4",
+                    "--" + TumorHeterogeneity.PLOIDY_MISMATCH_PENALTY_LONG_NAME, "1E6",
                     "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.025",
                     "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.025",
                     "--verbosity", "INFO"
