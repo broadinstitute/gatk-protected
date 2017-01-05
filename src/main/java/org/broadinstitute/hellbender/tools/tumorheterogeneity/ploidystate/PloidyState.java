@@ -3,7 +3,7 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate;
 import org.broadinstitute.hellbender.utils.Utils;
 
 /**
- * Represents an allelic copy number state (m, n).
+ * Represents an allelic copy-number state (m, n).
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */

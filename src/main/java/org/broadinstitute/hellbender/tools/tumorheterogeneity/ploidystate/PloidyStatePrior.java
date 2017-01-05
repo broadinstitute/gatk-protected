@@ -71,9 +71,7 @@ public final class PloidyStatePrior {
         final double[] log10Probabilities = states.stream()
                 .mapToDouble(s -> MathUtils.logToLog10(stateToUnnormalizedLogProbabilityMap.get(s))).toArray();
         final double[] probabilities = MathUtils.normalizeFromLog10ToLinearSpace(log10Probabilities);
-        final LinkedHashMap<T, Double> stateToLogProbabilityMap = new LinkedHashMap<>();
-        IntStream.range(0, stateToUnnormalizedLogProbabilityMap.size())
-                .forEach(i -> stateToLogProbabilityMap.put(states.get(i), Math.log(probabilities[i])));
-        return stateToLogProbabilityMap;
+        return IntStream.range(0, stateToUnnormalizedLogProbabilityMap.size()).boxed()
+                .collect(Collectors.toMap(states::get, i -> Math.log(probabilities[i])));
     }
 }
