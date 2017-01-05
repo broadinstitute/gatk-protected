@@ -73,7 +73,7 @@ public final class TumorHeterogeneityModeller {
         final int numVariantPopulations = initialState.populationMixture().numVariantPopulations();
         final List<PloidyState> ploidyStates = data.priors().ploidyStatePrior().ploidyStates();
         final Set<Integer> totalCopyNumberStates = ploidyStates.stream().map(PloidyState::total).collect(Collectors.toSet());
-        final List<List<Integer>> totalCopyNumberProductStates =
+        final List<List<Integer>> copyNumberProductStates =
                 new ArrayList<>(Sets.cartesianProduct(Collections.nCopies(numVariantPopulations, totalCopyNumberStates)));
         //enumerate ploidy-state product states for each total-copy-number state
         final Map<Integer, Set<PloidyState>> ploidyStateSetsMap = new HashMap<>();
@@ -83,7 +83,7 @@ public final class TumorHeterogeneityModeller {
         }
         //define walker transformation
         final Function<WalkerPosition, TumorHeterogeneityState> transformWalkerPositionToState = walkerPosition ->
-                TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, data, totalCopyNumberProductStates, ploidyStateSetsMap);
+                TumorHeterogeneityUtils.transformWalkerPositionToState(walkerPosition, data, copyNumberProductStates, ploidyStateSetsMap);
 
         //initialize walker positions in a ball around initialState
         final List<WalkerPosition> initialWalkerPositions = initializeWalkerBall(rng, initialState, initialWalkerBallSize, logTargetTumorHeterogeneity, transformWalkerPositionToState);

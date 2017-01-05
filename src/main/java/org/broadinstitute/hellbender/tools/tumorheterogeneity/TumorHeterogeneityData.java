@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.tumorheterogeneity;
 
 import com.google.common.primitives.Doubles;
 import org.apache.commons.math3.distribution.BetaDistribution;
-import org.apache.commons.math3.distribution.CauchyDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.optim.InitialGuess;
 import org.apache.commons.math3.optim.MaxEval;
@@ -147,7 +146,7 @@ public final class TumorHeterogeneityData implements DataCollection {
             final List<Double> log2CopyRatioInnerDecilesList = segment.getSegmentMeanPosteriorSummary().getDeciles().getInner();
             final double[] log2CopyRatioInnerDeciles = Doubles.toArray(log2CopyRatioInnerDecilesList);
             logger.debug("Fitting normal distribution to inner deciles:\n" + log2CopyRatioInnerDecilesList);
-            log2CopyRatioPosteriorLogPDF = fitCauchyLogPDFToInnerDeciles(log2CopyRatioInnerDeciles);
+            log2CopyRatioPosteriorLogPDF = fitNormalLogPDFToInnerDeciles(log2CopyRatioInnerDeciles);
 
             final List<Double> minorAlleleFractionInnerDecilesList = segment.getMinorAlleleFractionPosteriorSummary().getDeciles().getInner();
             final double[] minorAlleleFractionInnerDeciles = Doubles.toArray(minorAlleleFractionInnerDecilesList);
@@ -168,31 +167,31 @@ public final class TumorHeterogeneityData implements DataCollection {
             return minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFractionBounded);
         }
 
-        //fit a Cauchy distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares
+        //fit a normal distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares
         //and return the log PDF (for use as a posterior for log_2 copy ratio)
-        private Function<Double, Double> fitCauchyLogPDFToInnerDeciles(final double[] innerDeciles) {
+        private Function<Double, Double> fitNormalLogPDFToInnerDeciles(final double[] innerDeciles) {
             final ObjectiveFunction innerDecilesL2LossFunction = new ObjectiveFunction(point -> {
-                final double median = point[0];
-                final double scale = FastMath.abs(point[1]);
-                final CauchyDistribution cauchyDistribution = new CauchyDistribution(median, scale);
-                final List<Double> cauchyInnerDeciles = IntStream.range(1, DecileCollection.NUM_DECILES - 1).boxed()
-                        .map(i -> cauchyDistribution.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
+                final double mean = point[0];
+                final double standardDeviation = FastMath.abs(point[1]);
+                final NormalDistribution normalDistribution = new NormalDistribution(mean, standardDeviation);
+                final List<Double> normalInnerDeciles = IntStream.range(1, DecileCollection.NUM_DECILES - 1).boxed()
+                        .map(i -> normalDistribution.inverseCumulativeProbability(i / 10.)).collect(Collectors.toList());
                 return IntStream.range(0, DecileCollection.NUM_DECILES - 2)
-                        .mapToDouble(i -> FastMath.pow(innerDeciles[i] - cauchyInnerDeciles.get(i), 2)).sum();
+                        .mapToDouble(i -> FastMath.pow(innerDeciles[i] - normalInnerDeciles.get(i), 2)).sum();
             });
-            final double medianInitial = new Mean().evaluate(innerDeciles);
-            final double scaleInitial = new StandardDeviation().evaluate(innerDeciles);
-            logger.debug(String.format("Initial (median, scale) for Cauchy distribution: (%f, %f)", medianInitial, scaleInitial));
+            final double meanInitial = new Mean().evaluate(innerDeciles);
+            final double standardDeviationInitial = new StandardDeviation().evaluate(innerDeciles);
+            logger.debug(String.format("Initial (mean, standard deviation) for normal distribution: (%f, %f)", meanInitial, standardDeviationInitial));
             final PointValuePair optimum = optimizer.optimize(
                             new MaxEval(NUM_MAX_EVAL),
                             innerDecilesL2LossFunction,
                             GoalType.MINIMIZE,
-                            new InitialGuess(new double[]{medianInitial, scaleInitial}),
+                            new InitialGuess(new double[]{meanInitial, standardDeviationInitial}),
                             new NelderMeadSimplex(new double[]{DEFAULT_SIMPLEX_STEP, DEFAULT_SIMPLEX_STEP}));
-            final double median = optimum.getPoint()[0];
-            final double scale = FastMath.abs(optimum.getPoint()[1]);
-            logger.debug(String.format("Final (median, scale) for Cauchy distribution: (%f, %f)", median, scale));
-            return log2cr -> new CauchyDistribution(null, median, scale).logDensity(log2cr);
+            final double mean = optimum.getPoint()[0];
+            final double standardDeviation = FastMath.abs(optimum.getPoint()[1]);
+            logger.debug(String.format("Final (mean, standard deviation) for normal distribution: (%f, %f)", mean, standardDeviation));
+            return log2cr -> new NormalDistribution(null, mean, standardDeviation).logDensity(log2cr);
         }
 
         //fit a beta distribution to inner deciles (10th, 20th, ..., 90th percentiles) using least squares

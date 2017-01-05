@@ -1,9 +1,11 @@
 package org.broadinstitute.hellbender.tools.tumorheterogeneity.ploidystate;
 
+import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -13,14 +15,16 @@ import java.util.stream.IntStream;
  */
 public final class PloidyStatePrior {
     private final List<PloidyState> ploidyStates;
-    private final Map<PloidyState, Double> logProbabilityMassFunctionMap;
+    private final Map<PloidyState, Double> ploidyStateToLogProbabilityMap;
+    private final Map<Integer, Double> copyNumberToLogProbabilityMap;
     private final int maxCopyNumber;
 
-    public PloidyStatePrior(final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap) {
-        Utils.nonNull(unnormalizedLogProbabilityMassFunctionMap);
-        Utils.validateArg(!unnormalizedLogProbabilityMassFunctionMap.isEmpty(), "Number of ploidy states must be positive.");
-        ploidyStates = Collections.unmodifiableList(new ArrayList<>(unnormalizedLogProbabilityMassFunctionMap.keySet()));
-        logProbabilityMassFunctionMap = normalize(new LinkedHashMap<>(unnormalizedLogProbabilityMassFunctionMap));
+    public PloidyStatePrior(final Map<PloidyState, Double> ploidyStateToUnnormalizedLogProbabilityMap) {
+        Utils.nonNull(ploidyStateToUnnormalizedLogProbabilityMap);
+        Utils.validateArg(!ploidyStateToUnnormalizedLogProbabilityMap.isEmpty(), "Number of ploidy states must be positive.");
+        ploidyStates = Collections.unmodifiableList(new ArrayList<>(ploidyStateToUnnormalizedLogProbabilityMap.keySet()));
+        ploidyStateToLogProbabilityMap = normalize(new LinkedHashMap<>(ploidyStateToUnnormalizedLogProbabilityMap));
+        copyNumberToLogProbabilityMap = calculateCopyNumberToLogProbabilityMap(ploidyStateToLogProbabilityMap);
         maxCopyNumber = ploidyStates.stream().mapToInt(PloidyState::total).max().getAsInt();
     }
 
@@ -34,21 +38,42 @@ public final class PloidyStatePrior {
 
     public double logProbability(final PloidyState ploidyState) {
         Utils.nonNull(ploidyState);
-        if (!logProbabilityMassFunctionMap.containsKey(ploidyState)) {
-            throw new IllegalArgumentException("Ploidy-state prior not specified for given ploidy state.");
+        if (!ploidyStateToLogProbabilityMap.containsKey(ploidyState)) {
+            throw new IllegalArgumentException("Prior not specified for given ploidy state.");
         }
-        return logProbabilityMassFunctionMap.get(ploidyState);
+        return ploidyStateToLogProbabilityMap.get(ploidyState);
     }
 
-    //normalize log probabilities in mass function (which may be unnormalized)
-    private Map<PloidyState, Double> normalize(final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap) {
-        final List<PloidyState> states = new ArrayList<>(unnormalizedLogProbabilityMassFunctionMap.keySet());
+    public double logProbabilityCopyNumber(final int copyNumber) {
+        if (!copyNumberToLogProbabilityMap.containsKey(copyNumber)) {
+            throw new IllegalArgumentException("Prior not specified for given copy number.");
+        }
+        return copyNumberToLogProbabilityMap.get(copyNumber);
+    }
+
+    private static Map<Integer, Double> calculateCopyNumberToLogProbabilityMap(final Map<PloidyState, Double> ploidyStateToLogProbabilityMap) {
+        final Map<Integer, List<Double>> copyNumberToLogProbabilitiesMap = new HashMap<>();
+        for (final PloidyState ploidyState : ploidyStateToLogProbabilityMap.keySet()) {
+            final int copyNumber = ploidyState.total();
+            if (!copyNumberToLogProbabilitiesMap.keySet().contains(copyNumber)) {
+                copyNumberToLogProbabilitiesMap.put(copyNumber, new ArrayList<>());
+            }
+            final double logProbability = ploidyStateToLogProbabilityMap.get(ploidyState);
+            copyNumberToLogProbabilitiesMap.get(copyNumber).add(logProbability);
+        }
+        return normalize(copyNumberToLogProbabilitiesMap.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> GATKProtectedMathUtils.logSumExp(e.getValue()))));
+    }
+
+    //normalize log probabilities in map (which may be unnormalized)
+    private static <T> Map<T, Double> normalize(final Map<T, Double> stateToUnnormalizedLogProbabilityMap) {
+        final List<T> states = new ArrayList<>(stateToUnnormalizedLogProbabilityMap.keySet());
         final double[] log10Probabilities = states.stream()
-                .mapToDouble(s -> MathUtils.logToLog10(unnormalizedLogProbabilityMassFunctionMap.get(s))).toArray();
+                .mapToDouble(s -> MathUtils.logToLog10(stateToUnnormalizedLogProbabilityMap.get(s))).toArray();
         final double[] probabilities = MathUtils.normalizeFromLog10ToLinearSpace(log10Probabilities);
-        final LinkedHashMap<PloidyState, Double> logProbabilityMassFunctionMap = new LinkedHashMap<>();
-        IntStream.range(0, unnormalizedLogProbabilityMassFunctionMap.size())
-                .forEach(i -> logProbabilityMassFunctionMap.put(states.get(i), Math.log(probabilities[i])));
-        return logProbabilityMassFunctionMap;
+        final LinkedHashMap<T, Double> stateToLogProbabilityMap = new LinkedHashMap<>();
+        IntStream.range(0, stateToUnnormalizedLogProbabilityMap.size())
+                .forEach(i -> stateToLogProbabilityMap.put(states.get(i), Math.log(probabilities[i])));
+        return stateToLogProbabilityMap;
     }
 }

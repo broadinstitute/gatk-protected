@@ -111,10 +111,10 @@ final class TumorHeterogeneityUtils {
             final Set<PloidyState> ploidyStatesInSegment = new HashSet<>();
             for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
                 final PloidyState ploidyState = variantProfileCollection.ploidyState(populationIndex, segmentIndex);
-                logPriorVariantProfiles += data.length(segmentIndex) * data.priors().ploidyStatePrior().logProbability(ploidyState);
+                logPriorVariantProfiles += data.priors().ploidyStatePrior().logProbability(ploidyState);
                 ploidyStatesInSegment.add(ploidyState);
             }
-            logPriorVariantProfiles += -data.priors().subcloneVariancePenalty() * data.length(segmentIndex) * ploidyStatesInSegment.size();
+            logPriorVariantProfiles += -data.priors().subcloneVariancePenalty() * ploidyStatesInSegment.size();
         }
 
         //copy-ratio--minor-allele-fraction likelihood
@@ -167,7 +167,7 @@ final class TumorHeterogeneityUtils {
      */
     static TumorHeterogeneityState transformWalkerPositionToState(final WalkerPosition walkerPosition,
                                                                   final TumorHeterogeneityData data,
-                                                                  final List<List<Integer>> totalCopyNumberProductStates,
+                                                                  final List<List<Integer>> copyNumberProductStates,
                                                                   final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
         final double concentration = CoordinateUtils.transformWalkerCoordinateToBoundedVariable(
                 walkerPosition.get(CONCENTRATION_WALKER_DIMENSION_INDEX), CONCENTRATION_MIN, CONCENTRATION_MAX);
@@ -185,7 +185,7 @@ final class TumorHeterogeneityUtils {
 
         final VariantProfileCollection variantProfileCollection = proposeVariantProfileCollection(
                 copyRatioNormalization, copyRatioNoiseConstant,  initialPloidy,
-                populationFractions, data, totalCopyNumberProductStates, ploidyStateSetsMap);
+                populationFractions, data, copyNumberProductStates, ploidyStateSetsMap);
 
         final PloidyState normalPloidyState = data.priors().normalPloidyState();
         final PopulationMixture populationMixture = new PopulationMixture(populationFractions, variantProfileCollection, normalPloidyState);
@@ -229,7 +229,7 @@ final class TumorHeterogeneityUtils {
                                                                             final double initialPloidy,
                                                                             final PopulationMixture.PopulationFractions populationFractions,
                                                                             final TumorHeterogeneityData data,
-                                                                            final List<List<Integer>> totalCopyNumberProductStates,
+                                                                            final List<List<Integer>> copyNumberProductStates,
                                                                             final Map<Integer, Set<PloidyState>> ploidyStateSetsMap) {
         final int numVariantPopulations = populationFractions.numVariantPopulations();
         final int numSegments = data.numSegments();
@@ -243,28 +243,30 @@ final class TumorHeterogeneityUtils {
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
             final int si = segmentIndex;
 
-            //for all possible copy-number product states, calculate the copy-ratio likelihood given the proposed ploidy
-            final List<Double> logLikelihoodsCopyRatio = totalCopyNumberProductStates.stream()
-                    .map(tcnps -> data.copyRatioLogDensity(si, copyRatioNormalization * calculateTotalCopyNumber(populationFractions, tcnps, normalPloidyState) / Math.max(EPSILON, initialPloidy), copyRatioNoiseConstant))
+            //for all possible copy-number product states, calculate the copy-ratio posterior given the proposed ploidy
+            final List<Double> logProbabilitiesCopyNumberProductStates = copyNumberProductStates.stream()
+                    .map(cnps -> data.copyRatioLogDensity(si, copyRatioNormalization * calculateTotalCopyNumber(populationFractions, cnps, normalPloidyState) / Math.max(EPSILON, initialPloidy), copyRatioNoiseConstant)
+                            + cnps.stream().mapToDouble(ploidyStatePrior::logProbabilityCopyNumber).sum())
                     .collect(Collectors.toList());
-            //find maximum-likelihood copy-number product state using copy-ratio--only likelihoods
-            final int maxLogLikelihoodCopyNumberProductStateIndex = IntStream.range(0, totalCopyNumberProductStates.size()).boxed()
-                    .max((i, j) -> Double.compare(logLikelihoodsCopyRatio.get(i), logLikelihoodsCopyRatio.get(j))).get();
-            final List<Integer> totalCopyNumberProductState = totalCopyNumberProductStates.get(maxLogLikelihoodCopyNumberProductStateIndex);
+            //find maximum-a-posteriori copy-number product state using copy-ratio--only posteriors
+            final int maxPosteriorCopyNumberProductStateIndex = IntStream.range(0, copyNumberProductStates.size()).boxed()
+                    .max((i, j) -> Double.compare(logProbabilitiesCopyNumberProductStates.get(i), logProbabilitiesCopyNumberProductStates.get(j))).get();
+            final List<Integer> copyNumberProductState = copyNumberProductStates.get(maxPosteriorCopyNumberProductStateIndex);
 
             //for all ploidy-state product states consistent with the sampled copy-number product state, calculate the copy-ratio--minor-allele-fraction posteriors
             final List<List<PloidyState>> ploidyStateProductStates =
-                    new ArrayList<>(Sets.cartesianProduct(totalCopyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
+                    new ArrayList<>(Sets.cartesianProduct(copyNumberProductState.stream().map(ploidyStateSetsMap::get).collect(Collectors.toList())));
             final List<PloidyState> ploidyStateProductState;
             if (ploidyStateProductStates.size() == 1) {
                 //if only one consistent ploidy-state product, not necessary to perform maximum a posteriori calculations
                 ploidyStateProductState = ploidyStateProductStates.get(0);
             } else {
                 //calculate the copy ratio of the sampled copy-number product state
-                final double totalCopyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, totalCopyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
+                final double copyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, copyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
+                //for all possible ploidy-state product states, calculate the copy-ratio--minor-allele-fraction posterior
                 final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                        .map(psps -> data.logDensity(si, totalCopyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant)
-                                + data.length(si) * psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
+                        .map(psps -> data.logDensity(si, copyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant)
+                                + psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
                         .collect(Collectors.toList());
                 //find maximum-a-posteriori ploidy-state product state using copy-ratio--minor-allele-fraction posteriors
                 final int maxPosteriorPloidyStateProductStateIndex = IntStream.range(0, ploidyStateProductStates.size()).boxed()

@@ -123,12 +123,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected static final String SUBCLONE_VARIANCE_PENALTY_LONG_NAME = "subcloneVariancePenalty";
     protected static final String SUBCLONE_VARIANCE_PENALTY_SHORT_NAME = "subVarPen";
 
-    protected static final String PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME = "homozygousDeletionPenalty";
-    protected static final String PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_SHORT_NAME = "homDelPen";
-
-    protected static final String PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME = "changePenalty";
-    protected static final String PLOIDY_STATE_PRIOR_CHANGE_PENALTY_SHORT_NAME = "changePen";
-
     protected static final String MODE_PURITY_BIN_SIZE_LONG_NAME = "purityBinSize";
     protected static final String MODE_PURITY_BIN_SIZE_SHORT_NAME = "purityBin";
 
@@ -292,24 +286,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     protected double subcloneVariancePenalty = 1E-6;
 
     @Argument(
-        doc = "Penalty factor for homozygous deletion per base in ploidy-state prior. " +
-                "(A strong (i.e., large) penalty factor will decrease sensitivity at low purity.)",
-        fullName = PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME,
-        shortName = PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_SHORT_NAME,
-        optional = true
-    )
-    protected double ploidyStatePriorCompleteDeletionPenalty = 1E-6;
-
-    @Argument(
-            doc = "Penalty factor for copy change per base in ploidy-state prior. " +
-                    "(A strong (i.e., large) penalty factor will decrease sensitivity at low purity.)",
-            fullName = PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME,
-            shortName = PLOIDY_STATE_PRIOR_CHANGE_PENALTY_SHORT_NAME,
-            optional = true
-    )
-    protected double ploidyStatePriorChangePenalty = 1E-6;
-
-    @Argument(
             doc = "Purity bin size for identifying samples at posterior mode.",
             fullName = MODE_PURITY_BIN_SIZE_LONG_NAME,
             shortName = MODE_PURITY_BIN_SIZE_SHORT_NAME,
@@ -339,7 +315,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
         final File summaryFileClonal = new File(outputPrefix + SUMMARY_FILE_SUFFIX_CLONAL);
 
         //construct priors using input parameters
-        final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumberClonal);
+        final PloidyStatePrior ploidyStatePriorClonal = calculatePloidyStatePrior(maxAllelicCopyNumberClonal);
         final TumorHeterogeneityPriorCollection priorsClonal = new TumorHeterogeneityPriorCollection(
                 NORMAL_PLOIDY_STATE, ploidyStatePriorClonal,
                 CONCENTRATION_PRIOR_ALPHA_CLONAL, CONCENTRATION_PRIOR_BETA_CLONAL,
@@ -384,7 +360,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             final File summaryFile = new File(outputPrefix + SUMMARY_FILE_SUFFIX);
 
             //construct priors using input parameters
-            final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(ploidyStatePriorCompleteDeletionPenalty, ploidyStatePriorChangePenalty, maxAllelicCopyNumber);
+            final PloidyStatePrior ploidyStatePrior = calculatePloidyStatePrior(maxAllelicCopyNumber);
             final TumorHeterogeneityPriorCollection priors = new TumorHeterogeneityPriorCollection(
                     NORMAL_PLOIDY_STATE, ploidyStatePrior,
                     concentrationPriorAlpha, concentrationPriorBeta,
@@ -428,12 +404,10 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
     }
 
     //we implement a simple prior on ploidy states that penalizes copy-number changes, with an additional penalty for homozygous deletions
-    private static PloidyStatePrior calculatePloidyStatePrior(final double ploidyStatePriorCompleteDeletionPenalty,
-                                                              final double ploidyStatePriorChangePenalty,
-                                                              final int maxAllelicCopyNumber) {
-        final Function<PloidyState, Double> ploidyLogPDF = ps ->
-                Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
-                        + Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
+    private static PloidyStatePrior calculatePloidyStatePrior(final int maxAllelicCopyNumber) {
+        final Function<PloidyState, Double> ploidyLogPDF = ps -> ps.equals(NORMAL_PLOIDY_STATE) ? Math.log(100.) : 0.;
+//                Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
+//                        + Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
         final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
         for (int m = 0; m <= maxAllelicCopyNumber; m++) {
             for (int n = 0; n <= maxAllelicCopyNumber; n++) {
@@ -470,8 +444,6 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
                 (alpha, beta) -> alpha / beta);
         Utils.validateArg(ploidyMismatchPenalty >= 0., PLOIDY_MISMATCH_PENALTY_LONG_NAME + " must be non-negative.");
         Utils.validateArg(subcloneVariancePenalty >= 0., SUBCLONE_VARIANCE_PENALTY_LONG_NAME + " must be non-negative.");
-        Utils.validateArg(0. <= ploidyStatePriorCompleteDeletionPenalty && ploidyStatePriorCompleteDeletionPenalty <= 1., PLOIDY_STATE_PRIOR_HOMOZYGOUS_DELETION_PENALTY_LONG_NAME + " must be in [0, 1].");
-        Utils.validateArg(0. <= ploidyStatePriorChangePenalty && ploidyStatePriorChangePenalty <= 1., PLOIDY_STATE_PRIOR_CHANGE_PENALTY_LONG_NAME + " must be in [0, 1].");
         Utils.validateArg(0. <= purityModeBinSize && purityModeBinSize <= 1., "Invalid purity bin size for determining mode.");
         Utils.validateArg(0. <= ploidyModeBinSize && ploidyModeBinSize <= 2 * maxAllelicCopyNumberClonal, "Invalid ploidy bin size for determining mode.");
     }
