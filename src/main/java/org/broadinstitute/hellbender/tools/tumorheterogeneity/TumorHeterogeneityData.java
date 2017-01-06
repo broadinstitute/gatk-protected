@@ -163,6 +163,7 @@ public final class TumorHeterogeneityData implements DataCollection {
         }
 
         double minorAlleleFractionLogDensity(final double minorAlleleFraction) {
+            //BetaDistribution evaluates to -Infinity at exactly 0. and 1., so we adjust by EPSILON at boundaries
             final double minorAlleleFractionBounded = Math.max(EPSILON, Math.min(0.5 - EPSILON, minorAlleleFraction));
             return minorAlleleFractionPosteriorLogPDF.apply(minorAlleleFractionBounded);
         }

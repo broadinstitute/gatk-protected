@@ -31,7 +31,7 @@ final class TumorHeterogeneityUtils {
     static final double INITIAL_WALKER_BALL_SIZE = 1.;
 
     static final double EPSILON = 1E-10;
-    static final double COPY_RATIO_EPSILON = 1E-3; //below this, use mirrored minor-allele fraction posterior
+    static final double COPY_RATIO_EPSILON = 1E-2; //below this, use mirrored minor-allele fraction posterior
 
     //fixes concentration to practically unity for clonal-only version
     static final double CONCENTRATION_PRIOR_ALPHA_CLONAL = 1E6;

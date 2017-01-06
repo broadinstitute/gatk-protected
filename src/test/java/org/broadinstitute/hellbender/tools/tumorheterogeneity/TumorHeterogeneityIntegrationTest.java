@@ -93,8 +93,8 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_CLONAL_LONG_NAME, "6",
                     "--" + TumorHeterogeneity.MAX_ALLELIC_COPY_NUMBER_LONG_NAME, "6",
                     "--" + TumorHeterogeneity.NUM_WALKERS_CLONAL_LONG_NAME, "100",
-                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "200",
-                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "100",
+                    "--" + TumorHeterogeneity.NUM_SAMPLES_CLONAL_LONG_NAME, "500",
+                    "--" + TumorHeterogeneity.NUM_BURN_IN_CLONAL_LONG_NAME, "250",
                     "--" + TumorHeterogeneity.NUM_SAMPLES_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.NUM_BURN_IN_LONG_NAME, "0",
                     "--" + TumorHeterogeneity.COPY_RATIO_NORMALIZATION_PRIOR_ALPHA_LONG_NAME, "1E1",
@@ -113,9 +113,9 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
     @Test
     public void testTumorHeterogeneityWES() {
         final List<File> ACNV_SEGMENT_FILES = Arrays.asList(
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/wes/TCGA-05-4396-01A-21D-1855-08-sim-final.seg"),
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/wes/TCGA-05-4432-01A-01D-1265-08-sim-final.seg"),
-                new File("/home/slee/working/ipython/purity-ploidy/integration-test/wes/TCGA-38-4628-01A-01D-1265-08-sim-final.seg")
+                new File("/home/slee/working/ipython/purity-ploidy/integration-test/wes/TCGA-05-4396-01A-21D-1855-08-sim-final.seg")//,
+//                new File("/home/slee/working/ipython/purity-ploidy/integration-test/wes/TCGA-05-4432-01A-01D-1265-08-sim-final.seg"),
+//                new File("/home/slee/working/ipython/purity-ploidy/integration-test/wes/TCGA-38-4628-01A-01D-1265-08-sim-final.seg")
         );
 
         for (final File ACNV_SEGMENT_FILE : ACNV_SEGMENT_FILES) {
@@ -220,7 +220,7 @@ public final class TumorHeterogeneityIntegrationTest extends CommandLineProgramT
                     "--" + TumorHeterogeneity.SUBCLONE_VARIANCE_PENALTY_LONG_NAME, "1E-6",
                     "--" + TumorHeterogeneity.MODE_PURITY_BIN_SIZE_LONG_NAME, "0.025",
                     "--" + TumorHeterogeneity.MODE_PLOIDY_BIN_SIZE_LONG_NAME, "0.025",
-                    "--verbosity", "INFO"
+                    "--verbosity", "DEBUG"
             };
             runCommandLine(arguments);
         }
