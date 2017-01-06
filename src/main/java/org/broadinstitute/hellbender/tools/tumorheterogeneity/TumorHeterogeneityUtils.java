@@ -245,8 +245,12 @@ final class TumorHeterogeneityUtils {
 
             //for all possible copy-number product states, calculate the copy-ratio posterior given the proposed ploidy
             final List<Double> logProbabilitiesCopyNumberProductStates = copyNumberProductStates.stream()
-                    .map(cnps -> data.copyRatioLogDensity(si, copyRatioNormalization * calculateTotalCopyNumber(populationFractions, cnps, normalPloidyState) / Math.max(EPSILON, initialPloidy), copyRatioNoiseConstant)
-                            + cnps.stream().mapToDouble(ploidyStatePrior::logProbabilityCopyNumber).sum())
+                    .map(cnps ->
+                            data.copyRatioLogDensity(
+                                    si,
+                                    copyRatioNormalization * calculateTotalCopyNumber(populationFractions, cnps, normalPloidyState) / Math.max(EPSILON, initialPloidy),
+                                    copyRatioNoiseConstant)
+                            + cnps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
                     .collect(Collectors.toList());
             //find maximum-a-posteriori copy-number product state using copy-ratio--only posteriors
             final int maxPosteriorCopyNumberProductStateIndex = IntStream.range(0, copyNumberProductStates.size()).boxed()
@@ -265,7 +269,12 @@ final class TumorHeterogeneityUtils {
                 final double copyRatio = copyRatioNormalization * calculateTotalCopyNumber(populationFractions, copyNumberProductState, normalPloidyState) / Math.max(EPSILON, initialPloidy);
                 //for all possible ploidy-state product states, calculate the copy-ratio--minor-allele-fraction posterior
                 final List<Double> logProbabilitiesPloidyStateProductStates = ploidyStateProductStates.stream()
-                        .map(psps -> data.logDensity(si, copyRatio, calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState), copyRatioNoiseConstant)
+                        .map(psps ->
+                                data.logDensity(
+                                        si,
+                                        copyRatio,
+                                        calculateMinorAlleleFraction(populationFractions, psps, normalPloidyState),
+                                        copyRatioNoiseConstant)
                                 + psps.stream().mapToDouble(ploidyStatePrior::logProbability).sum())
                         .collect(Collectors.toList());
                 //find maximum-a-posteriori ploidy-state product state using copy-ratio--minor-allele-fraction posteriors
@@ -319,6 +328,6 @@ final class TumorHeterogeneityUtils {
                 state.copyRatioNormalization() < COPY_RATIO_NORMALIZATION_MIN || state.copyRatioNoiseConstant() > COPY_RATIO_NORMALIZATION_MAX ||
                 state.copyRatioNoiseConstant() < COPY_RATIO_NOISE_CONSTANT_MIN || state.copyRatioNoiseConstant() > COPY_RATIO_NOISE_CONSTANT_MAX ||
                 state.ploidy() < PLOIDY_MIN || state.ploidy() > ploidyMax ||
-                state.populationMixture().variantProfileCollection().stream().anyMatch(PopulationMixture.VariantProfile::isCompleteDeletion);
+                state.populationMixture().variantProfileCollection().stream().anyMatch(PopulationMixture.VariantProfile::isTotalDeletion);
     }
 }

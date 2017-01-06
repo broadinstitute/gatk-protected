@@ -108,10 +108,8 @@ public class TumorHeterogeneityDataUnitTest {
         final double copyRatio = 1.;
         final double minorAlleleFraction = 0.25;
         final double log2CopyRatio = Math.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
-        final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
-                new NormalDistribution(Math.max(EPSILON, meanTruth + copyRatioNoiseConstant), standardDeviationTruth);
         final double expectedLogDensity =
-                Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) + LN2;
+                Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) + LN2;
 
         //check against log density from TumorHeterogeneityData fit to true deciles
         final int segmentIndex = 0;
@@ -153,12 +151,9 @@ public class TumorHeterogeneityDataUnitTest {
         //calculate expected log density from true distribution at point
         final double minorAlleleFraction = 0.25;
         final double log2CopyRatio = Math.log(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant)) * INV_LN2;
-        final NormalDistribution log2CopyRatioPosteriorDensityTruthWithNoiseFactor =
-                new NormalDistribution(Math.max(EPSILON, copyRatio + copyRatioNoiseConstant), standardDeviationTruth);
-        final BetaDistribution scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor = new BetaDistribution(alphaTruth, betaTruth);
         final double expectedLogDensity =
-                Math.log(log2CopyRatioPosteriorDensityTruthWithNoiseFactor.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) +
-                        Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruthWithNoiseFactor.density(2. * minorAlleleFraction));
+                Math.log(log2CopyRatioPosteriorDensityTruth.density(log2CopyRatio) * INV_LN2 / Math.max(EPSILON, copyRatio)) +
+                        Math.log(2. * scaledMinorAlleleFractionPosteriorDensityTruth.density(2. * minorAlleleFraction));
 
         //test log density at a point
         final int segmentIndex = 0;

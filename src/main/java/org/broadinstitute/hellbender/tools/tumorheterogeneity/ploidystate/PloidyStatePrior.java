@@ -44,13 +44,14 @@ public final class PloidyStatePrior {
         return ploidyStateToLogProbabilityMap.get(ploidyState);
     }
 
-    public double logProbabilityCopyNumber(final int copyNumber) {
+    public double logProbability(final int copyNumber) {
         if (!copyNumberToLogProbabilityMap.containsKey(copyNumber)) {
             throw new IllegalArgumentException("Prior not specified for given copy number.");
         }
         return copyNumberToLogProbabilityMap.get(copyNumber);
     }
 
+    //marginalize over ploidy states with the same total copy number
     private static Map<Integer, Double> calculateCopyNumberToLogProbabilityMap(final Map<PloidyState, Double> ploidyStateToLogProbabilityMap) {
         final Map<Integer, List<Double>> copyNumberToLogProbabilitiesMap = new HashMap<>();
         for (final PloidyState ploidyState : ploidyStateToLogProbabilityMap.keySet()) {
@@ -65,7 +66,7 @@ public final class PloidyStatePrior {
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> GATKProtectedMathUtils.logSumExp(e.getValue()))));
     }
 
-    //normalize log probabilities in map (which may be unnormalized)
+    //normalize log probabilities in map
     private static <T> Map<T, Double> normalize(final Map<T, Double> stateToUnnormalizedLogProbabilityMap) {
         final List<T> states = new ArrayList<>(stateToUnnormalizedLogProbabilityMap.keySet());
         final double[] log10Probabilities = states.stream()

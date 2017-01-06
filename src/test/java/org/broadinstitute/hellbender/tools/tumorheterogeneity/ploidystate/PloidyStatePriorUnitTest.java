@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import static org.testng.Assert.*;
-
 public class PloidyStatePriorUnitTest {
     private static final double EPSILON = 1E-10;
 
@@ -36,8 +34,8 @@ public class PloidyStatePriorUnitTest {
         Assert.assertEquals(ploidyStatePrior.logProbability(new PloidyState(0, 1)), Math.log(0.1), EPSILON);
         Assert.assertEquals(ploidyStatePrior.logProbability(new PloidyState(1, 0)), Math.log(0.1), EPSILON);
         Assert.assertEquals(ploidyStatePrior.logProbability(new PloidyState(1, 1)), Math.log(0.75), EPSILON);
-        Assert.assertEquals(ploidyStatePrior.logProbabilityCopyNumber(0), Math.log(0.05), EPSILON);
-        Assert.assertEquals(ploidyStatePrior.logProbabilityCopyNumber(1), Math.log(0.2), EPSILON);
-        Assert.assertEquals(ploidyStatePrior.logProbabilityCopyNumber(2), Math.log(0.75), EPSILON);
+        Assert.assertEquals(ploidyStatePrior.logProbability(0), Math.log(0.05), EPSILON);
+        Assert.assertEquals(ploidyStatePrior.logProbability(1), Math.log(0.2), EPSILON);
+        Assert.assertEquals(ploidyStatePrior.logProbability(2), Math.log(0.75), EPSILON);
     }
 }

@@ -205,23 +205,12 @@ public final class PopulationMixture {
             validateSegmentIndex(segmentIndex, numSegments);
             return get(populationIndex).ploidyState(segmentIndex);
         }
-
-        public boolean equals(final VariantProfileCollection other) {
-            for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
-                for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
-                    if (!get(populationIndex).get(segmentIndex).equals(other.get(populationIndex).get(segmentIndex))) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
     }
 
     public static class VariantProfile extends ArrayList<PloidyState> {
         //list of integers, size = number of segments, i-th element = ploidy state of segment i
         private static final long serialVersionUID = 78476L;
-        private static final PloidyState COMPLETE_DELETION_PLOIDY_STATE = new PloidyState(0, 0);
+        private static final PloidyState HOMOZYGOUS_DELETION_PLOIDY_STATE = new PloidyState(0, 0);
         private final int numSegments;
 
         public VariantProfile(final List<PloidyState> ploidyStates) {
@@ -248,8 +237,8 @@ public final class PopulationMixture {
             return stream().allMatch(ps -> ps.equals(normalPloidyState));
         }
 
-        public boolean isCompleteDeletion() {
-            return stream().allMatch(ps -> ps.equals(COMPLETE_DELETION_PLOIDY_STATE));
+        public boolean isTotalDeletion() {
+            return stream().allMatch(ps -> ps.equals(HOMOZYGOUS_DELETION_PLOIDY_STATE));
         }
     }
 

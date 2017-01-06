@@ -405,16 +405,16 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
     //we implement a simple prior on ploidy states that penalizes copy-number changes, with an additional penalty for homozygous deletions
     private static PloidyStatePrior calculatePloidyStatePrior(final int maxAllelicCopyNumber) {
-        final Function<PloidyState, Double> ploidyLogPDF = ps -> ps.equals(NORMAL_PLOIDY_STATE) ? Math.log(100.) : 0.;
+        final Function<PloidyState, Double> ploidyLogPDF = ps -> ps.equals(NORMAL_PLOIDY_STATE) ? Math.log(50.) : Math.log(1.);
 //                Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
 //                        + Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
-        final Map<PloidyState, Double> unnormalizedLogProbabilityMassFunctionMap = new LinkedHashMap<>();
+        final Map<PloidyState, Double> ploidyStateToUnnormalizedLogProbabilityMap = new LinkedHashMap<>();
         for (int m = 0; m <= maxAllelicCopyNumber; m++) {
             for (int n = 0; n <= maxAllelicCopyNumber; n++) {
-                unnormalizedLogProbabilityMassFunctionMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
+                ploidyStateToUnnormalizedLogProbabilityMap.put(new PloidyState(m, n), ploidyLogPDF.apply(new PloidyState(m, n)));
             }
         }
-        return new PloidyStatePrior(unnormalizedLogProbabilityMassFunctionMap);
+        return new PloidyStatePrior(ploidyStateToUnnormalizedLogProbabilityMap);
     }
 
     //validate CLI arguments
