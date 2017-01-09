@@ -205,6 +205,17 @@ public final class PopulationMixture {
             validateSegmentIndex(segmentIndex, numSegments);
             return get(populationIndex).ploidyState(segmentIndex);
         }
+
+        public boolean equals(final VariantProfileCollection other) {
+            for (int populationIndex = 0; populationIndex < numVariantPopulations; populationIndex++) {
+                for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
+                    if (!get(populationIndex).get(segmentIndex).equals(other.get(populationIndex).get(segmentIndex))) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
     }
 
     public static class VariantProfile extends ArrayList<PloidyState> {

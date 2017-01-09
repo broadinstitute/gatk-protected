@@ -274,7 +274,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = PLOIDY_MISMATCH_PENALTY_SHORT_NAME,
             optional = true
     )
-    protected double ploidyMismatchPenalty = 1E6;
+    protected double ploidyMismatchPenalty = 1E3;
 
     @Argument(
             doc = "Penalty factor for number of subclones with unique ploidy states per base. " +
@@ -283,7 +283,7 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
             shortName = SUBCLONE_VARIANCE_PENALTY_SHORT_NAME,
             optional = true
     )
-    protected double subcloneVariancePenalty = 1E-6;
+    protected double subcloneVariancePenalty = 1E3;
 
     @Argument(
             doc = "Purity bin size for identifying samples at posterior mode.",
@@ -405,7 +405,15 @@ public final class TumorHeterogeneity extends SparkCommandLineProgram {
 
     //we implement a simple prior on ploidy states that penalizes copy-number changes, with an additional penalty for homozygous deletions
     private static PloidyStatePrior calculatePloidyStatePrior(final int maxAllelicCopyNumber) {
-        final Function<PloidyState, Double> ploidyLogPDF = ps -> ps.equals(NORMAL_PLOIDY_STATE) ? Math.log(50.) : Math.log(1.);
+        final Function<PloidyState, Double> ploidyLogPDF = ps -> {
+            if (ps.equals(NORMAL_PLOIDY_STATE)) {
+                return Math.log(50.);
+            }
+//            if (ps.total() % 2 == 0) {
+//                return Math.log(2.);
+//            }
+            return Math.log(1.);
+        };
 //                Math.log(Math.max(EPSILON, 1. - ploidyStatePriorCompleteDeletionPenalty)) * (ps.m() == 0 && ps.n() == 0 ? 1 : 0)
 //                        + Math.log(Math.max(EPSILON, 1. - ploidyStatePriorChangePenalty)) * (Math.abs(NORMAL_PLOIDY_STATE.m() - ps.m()) + Math.abs(NORMAL_PLOIDY_STATE.n() - ps.n()));
         final Map<PloidyState, Double> ploidyStateToUnnormalizedLogProbabilityMap = new LinkedHashMap<>();
