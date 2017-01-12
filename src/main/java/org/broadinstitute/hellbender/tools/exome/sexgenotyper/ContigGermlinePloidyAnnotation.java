@@ -4,7 +4,8 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
+import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -13,9 +14,13 @@ import java.util.stream.Collectors;
  * A class for storing contig germline ploidy annotations for sex genotyping
  * (see {@link TargetCoverageSexGenotypeCalculator)}).
  *
+ * TODO remove unmodifiable for serialization
+ *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class ContigGermlinePloidyAnnotation {
+public final class ContigGermlinePloidyAnnotation implements Serializable {
+
+    private static final long serialVersionUID = 8602151666467744545L;
 
     private final String contigName;
 
@@ -59,8 +64,8 @@ public final class ContigGermlinePloidyAnnotation {
             }
         }
 
-        this.ploidyMap = Collections.unmodifiableMap(ploidyMap);
-        genotypesSet = ploidyMap.keySet();
+        this.ploidyMap = ploidyMap;
+        genotypesSet = new HashSet<>(ploidyMap.keySet());
     }
 
     public String getContigName() {
@@ -86,6 +91,6 @@ public final class ContigGermlinePloidyAnnotation {
      * @return a set of strings
      */
     public Set<String> getGenotypesSet() {
-        return Collections.unmodifiableSet(genotypesSet);
+        return genotypesSet;
     }
 }
