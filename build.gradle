@@ -30,7 +30,7 @@ def customJarPath = hasProperty("custom.jar.dir") ? property("custom.jar.dir") :
 repositories {
     mavenCentral()
     maven {
-      url "https://oss.sonatype.org/content/groups/public"
+        url "https://oss.sonatype.org/content/groups/public"
     }
     maven {
         url "https://repository.cloudera.com/artifactory/cloudera-repos/" // spark-dataflow
@@ -66,11 +66,11 @@ jacoco {
 
 //NOTE: we ignore contracts for now
 compileJava {
-   options.compilerArgs = ['-proc:none', '-Xlint:all', '-Werror']
+    options.compilerArgs = ['-proc:none', '-Xlint:all', '-Werror']
 }
 
 compileTestJava {
-   options.compilerArgs = ['-proc:none', '-Xlint:all', '-Werror']
+    options.compilerArgs = ['-proc:none', '-Xlint:all', '-Werror']
 }
 
 build.dependsOn installDist
@@ -80,6 +80,10 @@ dependencies {
     compile files("${System.properties['java.home']}/../lib/tools.jar")
     compile 'org.broadinstitute:gatk:4.alpha.2-130-g6a23efd-20170103.175407-1'
     compile 'org.broadinstitute:hdf5-java-bindings:1.1.0-hdf5_2.11.0'
+    compile 'com.github.wendykierp:JTransforms:3.1'
+    compile 'org.nd4j:nd4j-native-platform:0.7.2'
+    compile 'org.nd4j:nd4j-kryo_2.11:0.7.2'
+    compile 'de.javakaffee:kryo-serializers:0.41'
 
     testCompile 'org.testng:testng:6.8.8'
 }
@@ -193,6 +197,11 @@ test {
     systemProperty "gatk.spark.debug", System.getProperty("gatk.spark.debug")
 
     environment "SPARK_LOCAL_IP","127.0.0.1"
+
+    // Nd4j
+    systemProperty "dtype", "double"
+    environment "OMP_NUM_THREADS", "4"
+
     // enable TestNG support (default is JUnit)
     useTestNG{
         excludeGroups 'cloud', 'bucket'
@@ -216,7 +225,7 @@ test {
         beforeTest { descriptor ->
             count++
             if( count % 100 == 0) {
-                logger.lifecycle("Finished " + Integer.toString(count++) + " tests")
+                logger.lifecycle("Finished "+ Integer.toString(count++) + " tests")
             }
         }
     } else {

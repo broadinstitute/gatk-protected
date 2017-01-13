@@ -5,6 +5,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import org.testng.internal.junit.ArrayAsserts;
 
 import java.util.Arrays;
 import java.util.List;
@@ -285,6 +286,36 @@ public class GATKProtectedMathUtilsTest {
         Assert.assertEquals(GATKProtectedMathUtils.secondSmallestMinusSmallest(new int[] { -10, -23, 3}, -1), 13);
         Assert.assertEquals(GATKProtectedMathUtils.secondSmallestMinusSmallest(new int[] { -10, -23, 3}, -1), 13);
     }
+
+    @Test
+    public void testSmallestPowerOfTwoGreaterThan() {
+        Assert.assertEquals(GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(0), 1);
+        Assert.assertEquals(GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(1), 1);
+        Assert.assertEquals(GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(8), 8);
+        Assert.assertEquals(GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(10), 16);
+        Assert.assertEquals(GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(1023), 1024);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testSmallestPowerOfTwoGreaterThanExceptions_0() {
+        GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(-1);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testSmallestPowerOfTwoGreaterThanExceptions_1() {
+        GATKProtectedMathUtils.smallestPowerOfTwoGreaterThan(Integer.MAX_VALUE/2 + 1);
+    }
+
+    @Test
+    public void testNearestNeighborUniform1DInterpolate() {
+        ArrayAsserts.assertArrayEquals(new double[]{0.0, 1.0, 2.0},
+                GATKProtectedMathUtils.nearestNeighborUniform1DInterpolate(new double[]{0.0, 1.0, 2.0}, 3), 1e-6);
+        ArrayAsserts.assertArrayEquals(new double[]{0.0, 1.0, 1.0, 2.0},
+                GATKProtectedMathUtils.nearestNeighborUniform1DInterpolate(new double[]{0.0, 1.0, 2.0}, 4), 1e-6);
+        ArrayAsserts.assertArrayEquals(new double[]{0.0, 0.0, 1.0, 1.0, 2.0, 2.0},
+                GATKProtectedMathUtils.nearestNeighborUniform1DInterpolate(new double[]{0.0, 1.0, 2.0}, 6), 1e-6);
+    }
+
 
     @Test
     public void testMaxDifference() {
