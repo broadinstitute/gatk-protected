@@ -266,7 +266,8 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
                                                                      final String sampleNameForLikelihoods,
                                                                      final OptionalDouble givenAltAlleleFraction,
                                                                      final Strand strand) {
-        final PerAlleleCollection<Double> alleleFractions = getAlleleFractions(likelihoods, sampleNameForAlleleFractions, strand);
+        final Optional<PerAlleleCollection<Double>> alleleFractions = givenAltAlleleFraction.isPresent() ?
+                Optional.empty() : Optional.of(getAlleleFractions(likelihoods, sampleNameForAlleleFractions, strand));
         final PerAlleleCollection<MutableDouble> genotypeLogLikelihoods = new PerAlleleCollection<>(PerAlleleCollection.Type.REF_AND_ALT);
         genotypeLogLikelihoods.set(likelihoods.alleles(), a -> new MutableDouble(0));
 
@@ -282,7 +283,7 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
                 continue;
             }
             final Allele altAllele = matrix.getAllele(alleleIndex);
-            final double altAlleleFraction = givenAltAlleleFraction.orElseGet(() -> alleleFractions.getAlt(altAllele));
+            final double altAlleleFraction = givenAltAlleleFraction.orElseGet(() -> alleleFractions.get().getAlt(altAllele));
 
             for (int readIndex = 0; readIndex < numReads; readIndex++) {
                 final GATKRead read = matrix.getRead(readIndex);

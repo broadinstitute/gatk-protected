@@ -153,14 +153,14 @@ workflow Mutect2 {
     input:
       picard_jar = picard_jar,
       input_vcfs = M2.output_vcf,
-      output_vcf_name = "${tumor_sample_name}-vs-${normal_sample_name}_unfiltered"
+      output_vcf_name = "${tumor_sample_name}-vs-${normal_sample_name}-unfiltered"
   }
 
 call Filter {
     input:
       gatk4_jar = gatk4_jar,
       unfiltered_calls = GatherVCFs.output_vcf,
-      output_vcf_name = "${tumor_sample_name}-vs-${normal_sample_name}_filtered"
+      output_vcf_name = "${tumor_sample_name}-vs-${normal_sample_name}-filtered"
   }
 
   output {

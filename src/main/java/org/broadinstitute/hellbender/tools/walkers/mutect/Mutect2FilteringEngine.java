@@ -72,7 +72,7 @@ public class Mutect2FilteringEngine {
         final boolean siteInDbsnp = vc.hasAttribute(SomaticGenotypingEngine.IN_DBSNP_VCF_ATTRIBUTE);
         if (siteInDbsnp && !siteInCosmic ) {
             // take the normal LOD of the first alt allele, which has the highest tumor LOD
-            final double normalLod = GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(vc, GATKVCFConstants.NORMAL_LOD_KEY, () -> null, -1)[0];
+            final double normalLod = getArrayAttribute(vc, GATKVCFConstants.NORMAL_LOD_KEY)[0];
             if (normalLod < MTFAC.NORMAL_DBSNP_LOD_THRESHOLD) {
                 filters.add(GATKVCFConstants.GERMLINE_RISK_FILTER_NAME);
             }
@@ -82,15 +82,22 @@ public class Mutect2FilteringEngine {
     // filter out anything called in tumor that would also be called in the normal if it were treated as a tumor.
     // this handles shared artifacts, such as ones due to alignment and any shared aspects of sequencing
     private static void applyArtifactInNormalFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final Collection<String> filters) {
-        if (!vc.hasAttribute(SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE)) {
+        if (!( vc.hasAttribute(SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE)
+                && vc.hasAttribute(GATKVCFConstants.TUMOR_LOD_KEY))) {
             return;
         }
 
-        // take maximum of artifact-in-normal log odds
-        final double normalArtifactLod = MathUtils.arrayMax(GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(vc, SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE, () -> null, -1));
-        if (normalArtifactLod > MTFAC.NORMAL_ARTIFACT_LOD_THRESHOLD) {
+        final double[] normalArtifactLods = getArrayAttribute(vc, SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE);
+        final double[] tumorLods = getArrayAttribute(vc, GATKVCFConstants.TUMOR_LOD_KEY);
+        final int indexOfMaxTumorLod = MathUtils.maxElementIndex(tumorLods);
+
+        if (normalArtifactLods[indexOfMaxTumorLod] > MTFAC.NORMAL_ARTIFACT_LOD_THRESHOLD) {
             filters.add(ARTIFACT_IN_NORMAL_FILTER_NAME);
         }
+    }
+
+    private static double[] getArrayAttribute(final VariantContext vc, final String attribute) {
+        return GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(vc, attribute, () -> null, -1);
     }
 
     private static void applyStrandBiasFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final Collection<String> filters) {

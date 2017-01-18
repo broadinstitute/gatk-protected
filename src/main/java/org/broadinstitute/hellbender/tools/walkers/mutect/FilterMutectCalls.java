@@ -52,6 +52,7 @@ public final class FilterMutectCalls extends VariantWalker {
 
     @Override
     public Object onTraversalSuccess() {
+        // TODO: implement sophisticated filtering
         for (final VariantContext vc : unfilteredCalls) {
             final VariantContextBuilder vcb = new VariantContextBuilder(vc);
             vcb.filters(Mutect2FilteringEngine.calculateFilters(MTFAC, vc));
