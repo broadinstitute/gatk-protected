@@ -2,8 +2,8 @@ package org.broadinstitute.hellbender.tools.exome;
 
 import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
-import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.tools.copynumber.coverage.readcount.ReadCountFileHeaderKey;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
@@ -11,9 +11,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 /**
  * Integration tests for {@link CalculateTargetCoverage}.
@@ -22,7 +20,7 @@ import java.util.List;
  */
 public final class CalculateTargetCoverageIntegrationTest extends CommandLineProgramTest {
 
-    private static final File TEST_DIR = new File("src/test/resources/org/broadinstitute/hellbender/tools/exome/calculatetargetcoverage");
+    private static final File TEST_DIR = new File("src/test/resources/org/broadinstitute/hellbender/tools/exome/calculatetargetcoverage/temp/");
     private static File testFile(final String fileName) {
         return new File(TEST_DIR, fileName);
     }
@@ -35,19 +33,15 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
 
     private final static File INTERVALS_BED = testFile("exome-read-counts-intervals.tsv");
 
-    private final static File VCF_FEATURE_FILE = testFile("random-variant-file.vcf");
-
-    private final static File INTERVALS_BED_MISSING_NAMES = testFile("exome-read-counts-intervals-missing-names.tsv");
-
     private final static File NA12878_BAM = testFile("exome-read-counts-NA12878.bam");
 
     private final static File NA12778_BAM = testFile("exome-read-counts-NA12778.bam");
 
     private final static File NA12872_BAM = testFile("exome-read-counts-NA12872.bam");
 
-    private final static File[] ALL_BAMS = new File[] {NA12878_BAM,NA12778_BAM,NA12872_BAM};
+    private final static File NA12878_NA12778_BAM_MERGED = testFile("exome-read-counts-NA12878-NA12778-merged.bam");
 
-    private final static File[] DUPREADS_BAM = new File[] {testFile("dupReadsMini.bam")};
+    private final static File INTERVALS_BED_MISSING_NAMES = testFile("exome-read-counts-intervals-missing-names.tsv");
 
     private final static File INTERVALS_LIST_DUPS = testFile("exome-read-counts-intervals_dups.list");
 
@@ -57,80 +51,7 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
     //  Test output files //
     ////////////////////////
 
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT_WITH_NAMES =
-            testFile("exome-read-counts-cohort-with-names.output");
-
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT_WITH_NAMES_ONLY =
-            testFile("exome-read-counts-cohort-with-names-only.output");
-
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES =
-            testFile("exome-read-counts-cohort-with-BED-names.output");
-
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES_DUPS =
-            testFile("exome-read-counts-cohort-with-BED-names_dups.output");
-
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_MISSING_NAMES =
-            testFile("exome-read-counts-cohort-with-BED-missing-names.output");
-
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES_ONLY =
-            testFile("exome-read-counts-cohort-with-BED-names-only.output");
-
-    private final static File COHORT_COUNT_EXPECTED_OUTPUT =
-            testFile("exome-read-counts-cohort.output");
-
-    private final static File COHORT_COUNT_EXPECTED_PCOV_OUTPUT =
-            testFile("exome-read-counts-cohort.pcov-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT =
-            testFile("exome-read-counts-cohort.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_NAMES =
-            testFile("exome-read-counts-cohort-with-names.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_NAMES_ONLY =
-            testFile("exome-read-counts-cohort-with-names-only.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES =
-            testFile("exome-read-counts-cohort-with-BED-names.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES_DUPS =
-            testFile("exome-read-counts-cohort-with-BED-names_dups.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_MISSING_NAMES =
-            testFile("exome-read-counts-cohort-with-BED-missing-names.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES_ONLY =
-            testFile("exome-read-counts-cohort-with-BED-names-only.row-output");
-
-    private final static File COHORT_COUNT_EXPECTED_COLUMN_OUTPUT =
-            testFile("exome-read-counts-cohort.column-output");
-
-    private final static File COHORT_COUNT_EXPECTED_COLUMN_OUTPUT_DUPS =
-            testFile("exome-read-counts-cohort_dups.column-output");
-
-    private final static File SAMPLE_COUNT_EXPECTED_OUTPUT =
-            testFile("exome-read-counts-sample.output");
-
-    private final static File SAMPLE_COUNT_EXPECTED_PCOV_OUTPUT =
-            testFile("exome-read-counts-sample.pcov-output");
-
-    private final static File SAMPLE_COUNT_EXPECTED_ROW_OUTPUT =
-            testFile("exome-read-counts-sample.row-output");
-
-    private final static File SAMPLE_COUNT_EXPECTED_COLUMN_OUTPUT =
-            testFile("exome-read-counts-sample.column-output");
-
-    private final static File READ_GROUP_COUNT_EXPECTED_OUTPUT =
-            testFile("exome-read-counts-read-group.output");
-
-    private final static File READ_GROUP_COUNT_EXPECTED_PCOV_OUTPUT =
-            testFile("exome-read-counts-read-group.pcov-output");
-
-    private final static File READ_GROUP_COUNT_EXPECTED_ROW_OUTPUT =
-            testFile("exome-read-counts-read-group.row-output");
-
-    private final static File READ_GROUP_COUNT_EXPECTED_COLUMN_OUTPUT =
-            testFile("exome-read-counts-read-group.column-output");
+    private final static File NA12878_RAW_COUNT_EXPECTED_OUTPUT_INTERVALS = testFile("NA12878_raw_counts_intervals.tsv");
 
     @Override
     public String getTestedClassName() {
@@ -138,7 +59,7 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
     }
 
     /**
-     * Creates a temp file making sure is going to be remove after testing VM finishes.
+     * Creates a temp file making sure it is going to be removed after testing VM finishes.
      * @param id temporal file name identifiable part.
      * @return never {@code null}.
      */
@@ -149,223 +70,45 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
     @DataProvider(name="correctRunData")
     public Object[][] correctRunData() {
         return new Object[][] {
-                {       ALL_BAMS,
+                {
+                        new File[]{ NA12878_BAM },
                         INTERVALS_LIST,
-                        COHORT_COUNT_EXPECTED_OUTPUT,
-                        COHORT_COUNT_EXPECTED_ROW_OUTPUT,
-                        COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.RAW,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
+                        NA12878_RAW_COUNT_EXPECTED_OUTPUT_INTERVALS,
                         new String[0]
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        SAMPLE_COUNT_EXPECTED_OUTPUT,
-                        SAMPLE_COUNT_EXPECTED_ROW_OUTPUT,
-                        SAMPLE_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.RAW,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.GROUP_BY_SHORT_NAME, CalculateTargetCoverage.GroupBy.SAMPLE.name()}
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        READ_GROUP_COUNT_EXPECTED_OUTPUT,
-                        READ_GROUP_COUNT_EXPECTED_ROW_OUTPUT,
-                        READ_GROUP_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.RAW,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.GROUP_BY_SHORT_NAME, CalculateTargetCoverage.GroupBy.READ_GROUP.name()}
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        COHORT_COUNT_EXPECTED_PCOV_OUTPUT,
-                        COHORT_COUNT_EXPECTED_ROW_OUTPUT,
-                        COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.PCOV,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[0]
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        SAMPLE_COUNT_EXPECTED_PCOV_OUTPUT,
-                        SAMPLE_COUNT_EXPECTED_ROW_OUTPUT,
-                        SAMPLE_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.PCOV,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.GROUP_BY_SHORT_NAME, CalculateTargetCoverage.GroupBy.SAMPLE.name()}
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        READ_GROUP_COUNT_EXPECTED_PCOV_OUTPUT,
-                        READ_GROUP_COUNT_EXPECTED_ROW_OUTPUT,
-                        READ_GROUP_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.PCOV,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.GROUP_BY_SHORT_NAME, CalculateTargetCoverage.GroupBy.READ_GROUP.name()}
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        COHORT_COUNT_EXPECTED_OUTPUT,
-                        COHORT_COUNT_EXPECTED_ROW_OUTPUT,
-                        COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.RAW,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME,INTERVALS_BED.getAbsolutePath()},
-                },
+                }
 
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        SAMPLE_COUNT_EXPECTED_OUTPUT,
-                        SAMPLE_COUNT_EXPECTED_ROW_OUTPUT,
-                        SAMPLE_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.RAW,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.GROUP_BY_SHORT_NAME, CalculateTargetCoverage.GroupBy.SAMPLE.name(),
-                                "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME,INTERVALS_BED.getAbsolutePath()}
-                },
-                {       ALL_BAMS,
-                        INTERVALS_LIST,
-                        READ_GROUP_COUNT_EXPECTED_OUTPUT,
-                        READ_GROUP_COUNT_EXPECTED_ROW_OUTPUT,
-                        READ_GROUP_COUNT_EXPECTED_COLUMN_OUTPUT,
-                        CalculateTargetCoverage.Transform.RAW,
-                        CalculateTargetCoverage.TargetOutInfo.COORDS,
-                        new String[] { "-" + CalculateTargetCoverage.GROUP_BY_SHORT_NAME, CalculateTargetCoverage.GroupBy.READ_GROUP.name(),
-                                "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME,INTERVALS_BED.getAbsolutePath()}
-                },{     ALL_BAMS,
-                INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.FULL,
-                new String[0]
-        },{     ALL_BAMS,
-                INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_NAMES_ONLY,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_NAMES_ONLY,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.NAME,
-                new String[0]
-        },{     ALL_BAMS,
-                INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.FULL,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED.getAbsolutePath() }
-        },{     ALL_BAMS,
-                INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES_ONLY,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES_ONLY,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.NAME,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED.getAbsolutePath() }
-        },{     ALL_BAMS,
-                INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.FULL,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED_MISSING_NAMES.getAbsolutePath() }
-        },{     DUPREADS_BAM,
-                INTERVALS_LIST_DUPS,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES_DUPS,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES_DUPS,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT_DUPS,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.FULL,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED_DUPS.getAbsolutePath(),
-                        "-" + StandardArgumentDefinitions.DISABLE_READ_FILTER_SHORT_NAME, ReadFilterLibrary.NOT_DUPLICATE.getClass().getSimpleName() },
-        }
         };
     }
 
-    @Test(expectedExceptions = UserException.class)
-    public void testMissingTargetNameRun() {
-        testCorrectRun(ALL_BAMS,
+    @Test(expectedExceptions = UserException.BadInput.class)
+    public void testMultipleBamsInput() {
+        testCorrectRun(
+                new File[]{ NA12878_BAM, NA12778_BAM, NA12872_BAM },
                 INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.NAME,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED_MISSING_NAMES.getAbsolutePath() }
-        );
-    }
-
-    @Test(expectedExceptions = UserException.class)
-    public void testNoIntervalFile() {
-        testCorrectRun(ALL_BAMS,
-                null,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.NAME,
+                NA12878_RAW_COUNT_EXPECTED_OUTPUT_INTERVALS,
                 new String[0]
-        );
-    }
-
-    @Test
-    public void testTargetFileOnly() {
-        testCorrectRun(ALL_BAMS,
-                null,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.FULL,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_BED.getAbsolutePath() }
         );
     }
 
     @Test(expectedExceptions = UserException.BadInput.class)
-    public void testVcfTargetFile() {
-        testCorrectRun(ALL_BAMS,
-                null,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.FULL,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, VCF_FEATURE_FILE.getAbsolutePath() }
+    public void testMultipleSamplesBamInput() {
+        testCorrectRun(
+                new File[]{ NA12878_NA12778_BAM_MERGED },
+                INTERVALS_LIST,
+                NA12878_RAW_COUNT_EXPECTED_OUTPUT_INTERVALS,
+                new String[0]
         );
     }
 
-    @Test(expectedExceptions = UserException.class)
-    public void testBadTargetFile() {
-        testCorrectRun(ALL_BAMS,
-                INTERVALS_LIST,
-                COHORT_COUNT_EXPECTED_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_ROW_OUTPUT_WITH_BED_MISSING_NAMES,
-                COHORT_COUNT_EXPECTED_COLUMN_OUTPUT,
-                CalculateTargetCoverage.Transform.RAW,
-                CalculateTargetCoverage.TargetOutInfo.NAME,
-                new String[] { "-" + CalculateTargetCoverage.TARGET_FILE_SHORT_NAME, INTERVALS_LIST.getAbsolutePath() }
-        );
-    }
 
 
     @Test(dataProvider = "correctRunData")
-    public void testCorrectRun(final File[] bamFiles, final File intervalFile, final File expectedOutputFile, final File expectedRowOutputFile,
-                               final File expectedColumnOutputFile, final CalculateTargetCoverage.Transform transform,
-                               final CalculateTargetCoverage.TargetOutInfo targetOutInfo,
-                               final String[] additionalArguments) {
+    public void testCorrectRun(final File[] bamFiles, final File intervalFile, final File expectedOutputFile, final String[] additionalArguments) {
         final File outputFile = createTempFile("cohort-output");
-        final File rowOutputFile = createTempFile("cohort-row-output");
-        final File columnOutputFile = createTempFile("cohort-column-output");
-
+        final List<String> headerKeysToCompare = Arrays.asList(ReadCountFileHeaderKey.READ_COUNT_TYPE.getHeaderKeyName(),
+                ReadCountFileHeaderKey.SAMPLE_NAME.getHeaderKeyName());
         final List<String> arguments = new ArrayList<>(Arrays.asList(
-                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, outputFile.getAbsolutePath(),
-                "-" + CalculateTargetCoverage.ROW_SUMMARY_OUTPUT_SHORT_NAME, rowOutputFile.getAbsolutePath(),
-                "-" + CalculateTargetCoverage.COLUMN_SUMMARY_OUTPUT_SHORT_NAME, columnOutputFile.getAbsolutePath(),
-                "-" + CalculateTargetCoverage.TRANSFORM_SHORT_NAME, transform.name(),
-                "-" + CalculateTargetCoverage.TARGET_OUT_INFO_SHORT_NAME, targetOutInfo.name()
+                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, outputFile.getAbsolutePath()
         ));
         if (intervalFile != null) {
             arguments.add("-L");
@@ -381,162 +124,14 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
         Assert.assertTrue(outputFile.exists(), "output file does not exist: " + outputFile);
         Assert.assertTrue(outputFile.isFile(), "output file is not a regular file: " + outputFile);
         Assert.assertTrue(outputFile.canRead(), "output file cannot be read: " + outputFile);
-        compareTableFiles(outputFile, expectedOutputFile, "matrix output: " + outputFile + " " + expectedOutputFile);
-        if (expectedRowOutputFile != null) compareTableFiles(rowOutputFile, expectedRowOutputFile, " row output ");
-        if (expectedColumnOutputFile != null) compareTableFiles(columnOutputFile, expectedColumnOutputFile, " column output ");
-
-        switch (transform) {
-            case RAW:
-                checkTableRawConsistency(targetOutInfo, outputFile, rowOutputFile, columnOutputFile);
-                break;
-            case PCOV:
-                checkTablePcovConsistency(targetOutInfo, outputFile, rowOutputFile, columnOutputFile);
-                break;
-            default:
-                Assert.fail("bug in testing code: unexpected transform " + transform.name());
-        }
+        compareTableFiles(outputFile, expectedOutputFile, headerKeysToCompare, "matrix output: " + outputFile + " " + expectedOutputFile);
     }
 
-    private void checkTableRawConsistency(final CalculateTargetCoverage.TargetOutInfo targetOutInfo, final File outputFile, final File rowOutputFile, final File columnOutputFile) {
-        final Table matrix;
-        final Table row;
-        final Table column;
-
-        try {
-            matrix = Table.fromFile(outputFile);
-            row = rowOutputFile == null ? null : Table.fromFile(rowOutputFile);
-            column = columnOutputFile == null ? null : Table.fromFile(columnOutputFile);
-
-        } catch (final IOException ex) {
-            Assert.fail("problem opening output files",ex);
-            throw new IllegalStateException("unreachable test code");
-        }
-
-        if (row != null) {
-            Assert.assertEquals(matrix.rowCount, row.rowCount,
-                    "main output row count must match row output rows");
-
-            for (int r = 0; r < matrix.rowCount; r++) {
-                // Check coordinates agree:
-                Assert.assertEquals(matrix.getString(r, 0), row.getString(r, 0));
-                if (targetOutInfo != CalculateTargetCoverage.TargetOutInfo.NAME) {
-                    Assert.assertEquals(matrix.getLong(r, 1), row.getLong(r, 1));
-                    Assert.assertEquals(matrix.getLong(r, 2), row.getLong(r, 2));
-                }
-                // Check row sum agree:
-                long rowCount = 0;
-                for (int c = targetOutInfo.columnCount(); c < matrix.columnCount; c++)
-                    rowCount += matrix.getLong(r, c);
-                Assert.assertEquals(rowCount, row.getLong(r, targetOutInfo.columnCount()));
-                // Check consistent average per bp and column epsilon of 0.005 assume two decimal precision (~ %.2f).
-                if (targetOutInfo != CalculateTargetCoverage.TargetOutInfo.NAME) {
-                    final long size = matrix.getLong(r, 2) - matrix.getLong(r, 1) + 1;
-                    Assert.assertEquals(rowCount / ((double) size * (matrix.columnCount - targetOutInfo.columnCount())), row.getDouble(r, targetOutInfo.columnCount() + 1), 0.01);
-                }
-            }
-        }
-
-        if (column != null) {
-            Assert.assertEquals(matrix.columnCount - targetOutInfo.columnCount(), column.rowCount,
-                    "main output count column count must match column output rows");
-
-            for (int c = targetOutInfo.columnCount(); c < matrix.columnCount; c++) {
-                Assert.assertEquals(matrix.columnNames[c], column.getString(c - targetOutInfo.columnCount(), 0));
-                long totalSum = 0;
-                for (int r = 0; r < matrix.rowCount; r++) {
-                    totalSum += matrix.getLong(r, c);
-                }
-                Assert.assertEquals(column.getLong(c - targetOutInfo.columnCount(), 1), totalSum);
-                if (targetOutInfo != CalculateTargetCoverage.TargetOutInfo.NAME) {
-                    long totalBp = 0;
-                    for (int r = 0; r < matrix.rowCount; r++) {
-                        totalBp += matrix.getLong(r, 2) - matrix.getLong(r, 1) + 1;
-                    }
-                    Assert.assertEquals(column.getDouble(c - targetOutInfo.columnCount(), 2), totalSum / (double) totalBp, 0.005);
-                }
-            }
-        }
-
-    }
-
-    private void checkTablePcovConsistency(final CalculateTargetCoverage.TargetOutInfo targetOutInfo, final File outputFile, final File rowOutputFile, final File columnOutputFile) {
-        final Table matrix;
-        final Table row;
-        final Table column;
-
-        try {
-            matrix = Table.fromFile(outputFile);
-            row = rowOutputFile == null ? null : Table.fromFile(rowOutputFile);
-            column = columnOutputFile == null ? null : Table.fromFile(columnOutputFile);
-
-        } catch (final IOException ex) {
-            Assert.fail("problem opening output files",ex);
-            throw new IllegalStateException("unreachable test code");
-        }
-
-        // without the column table we cannot do much in terms of comparisons
-        // as the main matrix output is a proportion of those column totals.
-        if (column == null) {
-            return;
-        }
-
-        for (int i = targetOutInfo.columnCount(); i < matrix.columnCount; i++) {
-            if (column.getLong(i- targetOutInfo.columnCount(),1) > 0) {
-                double sumPcov = 0;
-                for (int j = 0; j < matrix.rowCount; j++) {
-                    sumPcov += matrix.getDouble(j,i);
-                }
-                Assert.assertEquals(sumPcov,1.0,0.0005);
-            } else {
-                for (int j = 0; j < matrix.rowCount; j++) {
-                    Assert.assertTrue(Double.isNaN(matrix.getDouble(j, i)));
-                }
-            }
-        }
-
-        Assert.assertEquals(matrix.columnCount - targetOutInfo.columnCount(), column.rowCount,
-                "main output count column count must match column output rows");
-
-        for (int c = targetOutInfo.columnCount(); c < matrix.columnCount; c++) {
-            Assert.assertEquals(matrix.columnNames[c], column.getString(c - targetOutInfo.columnCount(), 0));
-            long totalBp = 0;
-            for (int r = 0; r < matrix.rowCount; r++) {
-                totalBp += matrix.getLong(r, 2) - matrix.getLong(r, 1) + 1;
-            }
-            Assert.assertEquals(column.getDouble(c - targetOutInfo.columnCount(), 2), column.getLong(c - targetOutInfo.columnCount(), 1) / (double) totalBp, 0.005);
-        }
-
-        if (row != null) {
-            Assert.assertEquals(matrix.rowCount, row.rowCount,
-                    "main output row count must match row output rows");
-
-            for (int r = 0; r < matrix.rowCount; r++) {
-                // Check coordinates agree:
-                Assert.assertEquals(matrix.getString(r, 0), row.getString(r, 0));
-                if (targetOutInfo != CalculateTargetCoverage.TargetOutInfo.NAME) {
-                    Assert.assertEquals(matrix.getLong(r, 1), row.getLong(r, 1));
-                    Assert.assertEquals(matrix.getLong(r, 2), row.getLong(r, 2));
-                }
-                // Check row sum agree:
-                long rowCount = 0;
-                for (int c = targetOutInfo.columnCount(); c < matrix.columnCount; c++) {
-                    rowCount += Math.round(matrix.getDouble(r, c) * column.getLong(c - targetOutInfo.columnCount(), 1));
-                }
-                Assert.assertEquals(rowCount, row.getLong(r, targetOutInfo.columnCount()));
-                // Check consistent average per bp and column epsilon of 0.005 assume two decimal precision (~ %.2f).
-                if (targetOutInfo != CalculateTargetCoverage.TargetOutInfo.NAME) {
-                    final long size = matrix.getLong(r, 2) - matrix.getLong(r, 1) + 1;
-                    Assert.assertEquals(rowCount / ((double) size * (matrix.columnCount - targetOutInfo.columnCount())), row.getDouble(r, targetOutInfo.columnCount() + 1), 0.01);
-                }
-            }
-        }
-    }
-
-    private void compareTableFiles(File outputFile, File expectedOutputFile, final String role) {
+    private void compareTableFiles(File outputFile, File expectedOutputFile, List<String> headerKeysToCompare, final String role) {
         try {
             final Table actualTable = Table.fromFile(outputFile);
             final Table expectedTable = Table.fromFile(expectedOutputFile);
-            Table.assertEquals(actualTable, expectedTable, outputFile, expectedOutputFile);
+            Table.assertEquals(actualTable, expectedTable, outputFile, expectedOutputFile, headerKeysToCompare);
         } catch (final IOException ex) {
             Assert.fail("Failed to read actual or expected " +  role + " table files ", ex);
         }
@@ -548,6 +143,7 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
         private final int columnCount;
         private final int rowCount;
         private String[] columnNames;
+        private Map<String, String> headerValuesMap;
 
         public static Table fromFile(final File file) throws IOException {
             try (final FileReader fr = new FileReader(file)) {
@@ -558,20 +154,22 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
         public Table(final Reader reader) throws IOException {
             Utils.nonNull(reader, "the reader cannot be null");
             final BufferedReader lineReader = new BufferedReader(reader);
-            final List<String> headerLines = new ArrayList<>(10);
+            headerValuesMap = new HashMap<>(10);
             String lastLine;
+            String headerKeyValuePattern = "^[# ]*(\\S*)[\\s\t]*=[\\s\t]*(.*\\S)[\\s\t]*$";
             while ((lastLine = lineReader.readLine()) != null) {
-                if (lastLine.matches("^#.*$"))
-                    headerLines.add(lastLine);
-                else
+                if (lastLine.matches("^#.*$")) {
+                    headerValuesMap.put(lastLine.replaceAll(headerKeyValuePattern, "$1"), lastLine.replaceAll(headerKeyValuePattern, "$2"));
+                } else {
                     break;
+                }
             }
             final String[] header = lastLine == null ? null : lastLine.split("\\t");
             Utils.nonNull(header, "the table does not have a header");
             columnCount = header.length;
 
             final List<String> values = new ArrayList<>(100);
-            int lineNumber = 1 + 1 + headerLines.size();
+            int lineNumber = 1 + 1 + headerValuesMap.size();
             while ((lastLine = lineReader.readLine()) != null) {
                 final String[] lineValues = lastLine.split("\\t");
                 if (lineValues.length != columnCount) {
@@ -585,10 +183,15 @@ public final class CalculateTargetCoverageIntegrationTest extends CommandLinePro
             columnNames = header;
         }
 
-        public static void assertEquals(final Table tb1, final Table tb2, final File f1, final File f2) {
+        public static void assertEquals(final Table tb1, final Table tb2, final File f1, final File f2, List<String> headerKeysToCompare) {
 
-            // For now we ignore the header as is not a vital.
-            // Assert.assertEquals(tb1.headerLines,tb2.headerLines),"Different header lines");
+            //check that mandatory header key value pairs are the same
+            headerKeysToCompare.stream().forEach(key -> {
+                Assert.assertTrue(tb1.headerValuesMap.containsKey(key));
+                Assert.assertTrue(tb2.headerValuesMap.containsKey(key));
+                Assert.assertEquals(tb1.headerValuesMap.get(key), tb2.headerValuesMap.get(key));
+                });
+
             Assert.assertEquals(tb1.columnCount,tb2.columnCount,"Different number of columns");
             Assert.assertEquals(tb1.rowCount,tb2.rowCount,"Different number of rows");
             Assert.assertEquals(tb1.columnNames,tb2.columnNames,"Differences in header");

@@ -14,6 +14,8 @@ import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.filters.WellformedReadFilter;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.tools.copynumber.coverage.readcount.ReadCountDataFactory;
+import org.broadinstitute.hellbender.tools.copynumber.coverage.readcount.ReadCountFileHeaderKey;
 import org.broadinstitute.hellbender.tools.exome.ReadCountCollectionUtils;
 import org.broadinstitute.hellbender.tools.exome.SampleCollection;
 import org.broadinstitute.hellbender.tools.exome.Target;
@@ -99,6 +101,12 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
     protected File outputFile;
 
     /**
+     * Default read count type
+     */
+    private ReadCountDataFactory.ReadCountType readCountType = ReadCountDataFactory.ReadCountType.RAW;
+
+
+    /**
      * Determine the intervals to consider for coverage collection.  Honors the keepAutosome parameter.
      *
      * <p>Developer's note:  This CLI will always set the attribute, intervals, to a non-null value.</p>
@@ -131,7 +139,7 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
 
     private void collectReads() {
         if ( readArguments.getReadFilesNames().size() != 1 ) {
-            throw new UserException("This tool only accepts a single bam/sam/cram as input");
+            throw new UserException.BadInput("This tool only accepts a single bam/sam/cram as input");
         }
 
         final SampleCollection sampleCollection = new SampleCollection(getHeaderForReads());
@@ -141,7 +149,9 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
         final String sampleName = sampleCollection.sampleIds().get(0);
         final String[] commentsForRawCoverage = {"##fileFormat  = tsv",
                 "##commandLine = " + getCommandLine(),
-                String.format("##title = Coverage counts in %d base bins for WGS", binsize)};
+                String.format("##title = Coverage counts in %d base bins for WGS", binsize),
+                String.format("##" + ReadCountFileHeaderKey.READ_COUNT_TYPE.getHeaderKeyName() + " = %s", readCountType.toString()),
+                String.format("##" + ReadCountFileHeaderKey.SAMPLE_NAME.getHeaderKeyName() + "    = %s", sampleName)};
 
         final ReadFilter filter = makeGenomeReadFilter();
         final SAMSequenceDictionary sequenceDictionary = getReferenceSequenceDictionary();
@@ -165,10 +175,6 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
         final long coverageCollectionEndTime = System.currentTimeMillis();
         logger.info(String.format("Finished the spark coverage collection with %d targets and %d reads. Elapse of %d seconds",
                 readIntervalKeySet.size(), totalReads, (coverageCollectionEndTime - coverageCollectionStartTime) / 1000));
-
-        final String[] commentsForProportionalCoverage = {commentsForRawCoverage[0], commentsForRawCoverage[1],
-                String.format("##title = Proportional coverage counts in %d base bins for WGS (total reads: %d)",
-                        binsize, totalReads)};
 
         logger.info("Creating full genome bins...");
         final long createGenomeBinsStartTime = System.currentTimeMillis();
@@ -215,13 +221,6 @@ public class SparkGenomeReadCounts extends GATKSparkTool {
         logger.info(String.format("Finished writing coverage file. Elapse of %d seconds",
                 (writingCovFileEndTime - writingCovFileStartTime) / 1000));
 
-        logger.info("Writing proportional coverage file ...");
-        final long writingPCovFileStartTime = System.currentTimeMillis();
-        ReadCountCollectionUtils.writeReadCountsFromSimpleInterval(outputFile, sampleName, byKeyProportionalSorted,
-                commentsForProportionalCoverage);
-        final long writingPCovFileEndTime = System.currentTimeMillis();
-        logger.info(String.format("Finished writing proportional coverage file. Elapse of %d seconds",
-                (writingPCovFileEndTime - writingPCovFileStartTime) / 1000));
     }
 
     private List<SimpleInterval> createFullGenomeBins(final int binsize){

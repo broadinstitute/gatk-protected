@@ -1,6 +1,9 @@
 package org.broadinstitute.hellbender.tools.exome;
 
+import org.apache.commons.lang3.tuple.Pair;
+import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.tools.copynumber.coverage.readcount.*;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
@@ -11,8 +14,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -22,11 +27,13 @@ import java.util.stream.IntStream;
  *
  * @author Valentin Ruano-Rubio &lt;valentin@broadinstitute.org&gt;
  */
-public class ReadCountsReader extends TableReader<ReadCountRecord> {
+public class ReadCountsReader extends TableReader<ReadCountData> {
 
-    private final Function<DataLine, ReadCountRecord> recordExtractor;
+    private final Function<DataLine, ReadCountData> recordExtractor;
 
-    private final List<String> countColumnNames;
+    private ReadCountDataFactory.ReadCountType readCountType = null;
+
+    private String sampleName = null;
 
     private final TargetCollection<Target> targets;
 
@@ -36,16 +43,16 @@ public class ReadCountsReader extends TableReader<ReadCountRecord> {
                             final TargetCollection<Target> targets,
                             final boolean ignoreMissingTargets) throws IOException {
         super(sourceName, sourceReader);
+        Utils.validate(readCountType != null, String.format("Header of the read counts file must contain key '%s'", ReadCountFileHeaderKey.READ_COUNT_TYPE.getHeaderKeyName()));
+        Utils.validate(sampleName != null, String.format("Header of the read counts file must contain key '%s'", ReadCountFileHeaderKey.READ_COUNT_TYPE.getHeaderKeyName()));
         this.targets = targets;
         this.ignoreMissingTargets = ignoreMissingTargets;
         Utils.validateArg(!(targets == null && ignoreMissingTargets), "When ignore missing targets is true, targets cannot be null");
-        countColumnNames = columns().names().stream()
-                .filter(name -> !TargetTableColumn.isStandardTargetColumnName(name))
-                .collect(Collectors.toList());
+
         final Function<DataLine, SimpleInterval> intervalExtractor = intervalExtractor(columns(),
                 (message) -> formatException(message));
         final Function<DataLine, String> targetNameExtractor = targetNameExtractor(columns());
-        final Function<DataLine, double[]> countExtractor = countExtractor(columns());
+        final Function<DataLine, ReadCountData> countExtractor = countExtractor(columns(), readCountType);
         recordExtractor = composeRecordExtractor(intervalExtractor, targetNameExtractor, countExtractor, targets);
     }
 
@@ -76,7 +83,7 @@ public class ReadCountsReader extends TableReader<ReadCountRecord> {
     }
 
     /**
-     * Returns a function that translate an source line string value array into
+     * Returns a function that translate a source line string value array into
      * into a interval.
      *
      * @param contigColumnNumber    the number of the input column that contains the
@@ -128,10 +135,10 @@ public class ReadCountsReader extends TableReader<ReadCountRecord> {
     }
 
     /**
-     * Constructs an per line interval extractor given the header column names.
+     * Constructs a per line interval extractor given the header column names.
      *
      * @param columns               the header column names.
-     * @param errorExceptionFactory the error handler to be called when there is any problem resoling the interval.
+     * @param errorExceptionFactory the error handler to be called when there is any problem resolving the interval.
      * @return never {@code null} if there is enough columns to extract the coordinate information, {@code null} otherwise.
      */
     private static Function<DataLine, SimpleInterval> intervalExtractor(
@@ -142,7 +149,6 @@ public class ReadCountsReader extends TableReader<ReadCountRecord> {
         final int endColumnNumber = columns.indexOf(TargetTableColumn.END.toString());
         return composeIntervalBuilder(contigColumnNumber, startColumnNumber, endColumnNumber, errorExceptionFactory);
     }
-
 
     private Function<DataLine, ReadCountRecord> composeRecordExtractor(
             final Function<DataLine, SimpleInterval> intervalExtractor,
@@ -242,7 +248,7 @@ public class ReadCountsReader extends TableReader<ReadCountRecord> {
         final Target target = createRecordTarget(targets, interval);
         if (target == null) {
             return ignoreMissingTargets ? null : new ReadCountRecord(new Target(name, interval), countExtractor.apply(data));
-        } else if (!target.getName().equals(name)){
+        } else if (!target.getName().equals(name)) {
             throw formatException(String.format("conflicting target resolution from the name (%s) and interval (%s) provided", name, interval));
         } else {
             return new ReadCountRecord(target, countExtractor.apply(data));
@@ -250,11 +256,35 @@ public class ReadCountsReader extends TableReader<ReadCountRecord> {
     }
 
     @Override
-    protected ReadCountRecord createRecord(final DataLine dataLine) {
+    protected void processCommentLine(final String commentText, final long lineNumber) {
+        Pair<ReadCountFileHeaderKey, String> headerKeyValuePair =  ReadCountFileHeaderKey.getHeaderValueForKey(commentText);
+        if (headerKeyValuePair != null) {
+            switch (headerKeyValuePair.getLeft()) {
+                case SAMPLE_NAME:
+                    this.sampleName = headerKeyValuePair.getRight();
+                    break;
+                case READ_COUNT_TYPE:
+                    String key = headerKeyValuePair.getRight();
+                    ReadCountDataFactory.ReadCountType type = ReadCountDataFactory.getReadCountTypeByName(key);
+                    if (type == null) {
+                        throw formatException(String.format("%s is not a recognized read count type", key));
+                    } else {
+                        this.readCountType = type;
+                    }
+                    break;
+                default:
+                    throw new GATKException.ShouldNeverReachHereException("Should not be able to reach here");
+            }
+        }
+    }
+
+    @Override
+    protected ReadCountData createRecord(final DataLine dataLine) {
         return recordExtractor.apply(dataLine);
     }
 
-    private Function<DataLine, double[]> countExtractor(final TableColumnCollection columns) {
+    private Function<DataLine, ReadCountData> countExtractor(final TableColumnCollection columns, final ReadCountDataFactory.ReadCountType type) {
+
         final int[] countColumnIndexes = IntStream.range(0, columns.columnCount())
                 .filter(i -> !TargetTableColumn.isStandardTargetColumnName(columns.nameAt(i))).toArray();
         return (v) -> {

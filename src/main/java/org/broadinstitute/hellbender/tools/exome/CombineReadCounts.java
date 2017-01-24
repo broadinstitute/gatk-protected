@@ -202,7 +202,7 @@ public final class CombineReadCounts extends CommandLineProgram {
     }
 
     /**
-     * Delete temporary files within an merge file set.
+     * Delete temporary files within a merge file set.
      * <p>
      *     A file is considered to be temporary if is present in the temporary-file set provided.
      * </p>
@@ -264,7 +264,7 @@ public final class CombineReadCounts extends CommandLineProgram {
     /**
      * Composes the list of input read-count files from user arguments.
      * <p>
-     * Checks whether the file names provided corresponds to readable regular files.
+     * Checks whether the file names provided correspond to readable regular files.
      * </p>
      * @param coverageFiles coverage files directly provided in the command line.
      * @param coverageFileList coverage file list file name.
@@ -371,7 +371,7 @@ public final class CombineReadCounts extends CommandLineProgram {
                             TargetTableColumn.END.toString());
                     hasName = columns.contains(TargetTableColumn.NAME.toString());
                     if (!hasCoordinates && !hasName) {
-                        throw formatException("header contain neither coordinates nor target name columns");
+                        throw formatException("header contains neither coordinates nor target name columns");
                     }
                     final List<String> countColumnNames = readCountColumnNames(columns);
                     countColumnCount = countColumnNames.size();
