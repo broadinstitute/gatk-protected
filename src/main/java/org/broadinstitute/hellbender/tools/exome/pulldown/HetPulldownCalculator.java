@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.exome.pulldown;
 
-import com.google.common.annotations.VisibleForTesting;
 import htsjdk.samtools.*;
 import htsjdk.samtools.filter.DuplicateReadFilter;
 import htsjdk.samtools.filter.NotPrimaryAlignmentFilter;
@@ -104,8 +103,7 @@ public final class HetPulldownCalculator {
      * @param pvalThreshold     p-value threshold for two-sided binomial test (should be in [0, 1], but no check is performed)
      * @return                  boolean compatibility with heterozygous allele fraction
      */
-    @VisibleForTesting
-    protected static boolean isPileupHetCompatible(final Nucleotide.Counter baseCounts, final int totalBaseCount,
+    public static boolean isPileupHetCompatible(final Nucleotide.Counter baseCounts, final int totalBaseCount,
                                                    final double pvalThreshold) {
         final int majorReadCount = Arrays.stream(BASES).mapToInt(b -> (int) baseCounts.get(b)).max().getAsInt();
 
