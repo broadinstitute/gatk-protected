@@ -102,7 +102,7 @@ public final class GetHetCoverageLocusWalker extends LocusWalker {
 
     @Override
     public void onTraversalStart() {
-        // HACK:  get the normal (first -I) file
+        // TODO:  HACK:  get the normal (first -I) file ... this will not be needed once conventions are changed
         final List<Path> readArguments = this.readArguments.getReadPaths();
 
         if (readArguments.size() > 2) {
@@ -150,13 +150,13 @@ public final class GetHetCoverageLocusWalker extends LocusWalker {
 
         final List<Integer> allNormalOffsets = alignmentContextForNormal.getBasePileup().getOffsets();
 
-        final Nucleotide.Counter baseCounts = new Nucleotide.Counter();
-        IntStream.range(0, allNormalReads.size()).forEach(i -> baseCounts.add(allNormalReads.get(i).getBase(allNormalOffsets.get(i))));
-        final int totalBaseCountInNormal = Arrays.stream(HetPulldownCalculator.BASES).mapToInt(b -> (int) baseCounts.get(b)).sum();
+        final Nucleotide.Counter normalBaseCounts = new Nucleotide.Counter();
+        IntStream.range(0, allNormalReads.size()).forEach(i -> normalBaseCounts.add(allNormalReads.get(i).getBase(allNormalOffsets.get(i))));
+        final int totalBaseCountInNormal = Arrays.stream(HetPulldownCalculator.BASES).mapToInt(b -> (int) normalBaseCounts.get(b)).sum();
 
-        if (HetPulldownCalculator.isPileupHetCompatible(baseCounts, totalBaseCountInNormal, pvalThreshold)) {
+        if (HetPulldownCalculator.isPileupHetCompatible(normalBaseCounts, totalBaseCountInNormal, pvalThreshold)) {
 
-            final int refReadCountInNormal = (int) baseCounts.get(Nucleotide.valueOf(refAsByte));
+            final int refReadCountInNormal = (int) normalBaseCounts.get(Nucleotide.valueOf(refAsByte));
             final int altReadCountInNormal = totalBaseCountInNormal - refReadCountInNormal;
             controlHetPulldown.add(new AllelicCount(referenceContext.getInterval(), refReadCountInNormal, altReadCountInNormal));
 
@@ -164,7 +164,7 @@ public final class GetHetCoverageLocusWalker extends LocusWalker {
             for (final String caseSampleName : caseSampleNameToHetPulldowns.keySet()) {
                 final AlignmentContext alignmentContextForCase = sampleContexts.get(caseSampleName);
                 if (alignmentContextForCase == null) {
-                    return;
+                    continue;
                 }
                 final List<GATKRead> allCaseReads = alignmentContextForCase.getBasePileup().getReads();
                 if (allCaseReads.size() < minimumRawReads) {
@@ -174,7 +174,7 @@ public final class GetHetCoverageLocusWalker extends LocusWalker {
                 final Nucleotide.Counter caseBaseCounts = new Nucleotide.Counter();
                 IntStream.range(0, allCaseReads.size()).forEach(i -> caseBaseCounts.add(allCaseReads.get(i).getBase(allCaseOffsets.get(i))));
                 final int totalBaseCountInCase = Arrays.stream(HetPulldownCalculator.BASES).mapToInt(b -> (int) caseBaseCounts.get(b)).sum();
-                final int refReadCountInCase = (int) baseCounts.get(Nucleotide.valueOf(refAsByte));
+                final int refReadCountInCase = (int) caseBaseCounts.get(Nucleotide.valueOf(refAsByte));
                 final int altReadCountInCase = totalBaseCountInCase - refReadCountInCase;
                 caseSampleNameToHetPulldowns.get(caseSampleName).add(new AllelicCount(referenceContext.getInterval(), refReadCountInCase, altReadCountInCase));
             }
@@ -183,9 +183,11 @@ public final class GetHetCoverageLocusWalker extends LocusWalker {
 
     @Override
     public Object onTraversalSuccess() {
+        logger.info("Writing normal het file: " + normalHetOutputFile.getAbsolutePath());
         controlHetPulldown.write(normalHetOutputFile, AllelicCountTableColumn.AllelicCountTableVerbosity.BASIC);
         // TODO: Update to allow more than one case sample.  This next line assumes one case sample, since it writes to the same output file no matter what.
         for (final Map.Entry<String, AllelicCountCollection> caseEntry : caseSampleNameToHetPulldowns.entrySet()) {
+            logger.info("Writing case het file: " + tumorHetOutputFile.getAbsolutePath());
             caseEntry.getValue().write(tumorHetOutputFile, AllelicCountTableColumn.AllelicCountTableVerbosity.BASIC);
         }
         return "SUCCESS";
