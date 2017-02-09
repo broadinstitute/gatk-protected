@@ -26,14 +26,12 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
     public void constructorTest() {
         final double memoryLength = 1e6;
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.5, 0.23);
-        final List<Double> weights = Arrays.asList(0.2, 0.2, 0.6);
         final AlleleFractionGlobalParameters params = new AlleleFractionGlobalParameters(0.1, 0.01, 0.03);
-        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions, weights,
+        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
                 memoryLength, AllelicPanelOfNormals.EMPTY_PON, params);
 
         Assert.assertEquals(memoryLength, model.getMemoryLength());
-        for (int n = 0; n < weights.size(); n++) {
-            Assert.assertEquals(weights.get(n), model.getWeight(n));
+        for (int n = 0; n < minorAlleleFractions.size(); n++) {
             Assert.assertEquals(minorAlleleFractions.get(n), model.getMinorAlleleFraction(n));
         }
         Assert.assertEquals(model.getParameters().getMeanBias(), params.getMeanBias());
@@ -41,15 +39,13 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         Assert.assertEquals(model.getParameters().getOutlierProbability(), params.getOutlierProbability());
     }
 
-    // if all states have the same minor fraction, then regardless of data the hidden state probabilities are
-    // proportional to the weights
+    // if all states have the same minor fraction, then regardless of data the hidden state probabilities are equal
     @Test
     public void equalMinorFractionsTest() {
-        final List<Double> weights = Arrays.asList(0.2, 0.3, 0.5);    // only the second state
         final List<Double> minorAlleleFractions = Arrays.asList(0.3, 0.3, 0.3);
         final double memoryLength = 1e3;
         final AlleleFractionGlobalParameters params = new AlleleFractionGlobalParameters(0.1, 0.01, 0.03);
-        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions, weights,
+        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
                 memoryLength, AllelicPanelOfNormals.EMPTY_PON, params);
 
         final Random random = new Random(13);
@@ -68,8 +64,8 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
                 ForwardBackwardAlgorithm.apply(data, positions, model);
 
         for (int pos = 0; pos < chainLength; pos++) {
-            for (int state = 0; state < weights.size(); state++) {
-                Assert.assertEquals(fbResult.logProbability(pos, state), Math.log(weights.get(state)), 1e-5);
+            for (int state = 0; state < minorAlleleFractions.size(); state++) {
+                Assert.assertEquals(fbResult.logProbability(pos, state), -Math.log(minorAlleleFractions.size()), 1e-5);
             }
         }
     }
@@ -79,10 +75,9 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
     // this essentially tests whether we correctly defined the likelihood in terms of methods in the Allele Fraction model
     @Test
     public void obviousCallsTest() {
-        final List<Double> weights = Arrays.asList(0.5, 0.5);    // only the second state
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.5);
         final double memoryLength = 1e3;
-        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions, weights,
+        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
                 memoryLength, AllelicPanelOfNormals.EMPTY_PON, NO_BIAS_OR_OUTLIERS_PARAMS);
 
         final Random random = new Random(13);
@@ -125,10 +120,9 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
     // memory length and should forbid transitions at zero distance
     @Test
     public void testTransitionProbabilities() {
-        final List<Double> weights = Doubles.asList(MathUtils.normalizeFromRealSpace(new double[] {0.2, 0.2, 0.6, 0.1, 0.9, 0.1}));
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.2, 0.3, 0.4, 0.23, 0.11);
         final double memoryLength = 5e6;
-        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions, weights,
+        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
                 memoryLength, AllelicPanelOfNormals.EMPTY_PON, NO_BIAS_OR_OUTLIERS_PARAMS);
 
         final int pos1 = 100;
@@ -138,8 +132,8 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         final SimpleInterval position2 = new SimpleInterval("chr1", pos2, pos2);
         final SimpleInterval position3 = new SimpleInterval("chr1", pos3, pos3);
 
-        for (int fromState = 0; fromState < weights.size(); fromState++) {
-            for (int toState = 0; toState < weights.size(); toState++) {
+        for (int fromState = 0; fromState < minorAlleleFractions.size(); fromState++) {
+            for (int toState = 0; toState < minorAlleleFractions.size(); toState++) {
                 // long distances
                 Assert.assertEquals(model.logTransitionProbability(fromState, position1, toState, position2),
                         model.logPriorProbability(toState, position2), 1e-3);
@@ -155,20 +149,19 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         }
     }
 
-    // test that the prior probabilities are the weights, independent of position
+    // test that the prior probabilities are flat
     @Test
     public void logPriorTest() {
-        final List<Double> weights = Doubles.asList(MathUtils.normalizeFromRealSpace(new double[] {0.2, 0.2, 0.6, 0.1, 0.9, 0.1}));
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.2, 0.3, 0.4, 0.5, 0.33);
         final double memoryLength = 5e6;
-        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions, weights,
+        final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
                 memoryLength, AllelicPanelOfNormals.EMPTY_PON, NO_BIAS_OR_OUTLIERS_PARAMS);
 
         final SimpleInterval position1 = new SimpleInterval("chr1", 100, 100);
         final SimpleInterval position2 = new SimpleInterval("chr2", 20000, 20000);
-        for (int n = 0; n < weights.size(); n++) {
-            Assert.assertEquals(model.logPriorProbability(n, position1), Math.log(weights.get(n)));
-            Assert.assertEquals(model.logPriorProbability(n, position2), Math.log(weights.get(n)));
+        for (int n = 0; n < minorAlleleFractions.size(); n++) {
+            Assert.assertEquals(model.logPriorProbability(n, position1), -Math.log(minorAlleleFractions.size()));
+            Assert.assertEquals(model.logPriorProbability(n, position2), -Math.log(minorAlleleFractions.size()));
         }
     }
 }

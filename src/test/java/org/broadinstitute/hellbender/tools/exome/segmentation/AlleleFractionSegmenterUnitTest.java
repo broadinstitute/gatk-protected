@@ -28,13 +28,12 @@ public final class AlleleFractionSegmenterUnitTest {
     public void testSegmentation() {
         final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(563));
 
-        final List<Double> trueWeights = Arrays.asList(0.2, 0.5, 0.3);
         final List<Double> trueMinorAlleleFractions = Arrays.asList(0.12, 0.32, 0.5);
         final double trueMemoryLength = 1e5;
 
         final AlleleFractionGlobalParameters trueParams = new AlleleFractionGlobalParameters(1.0, 0.01, 0.01);
 
-        final AlleleFractionHiddenMarkovModel trueModel = new AlleleFractionHiddenMarkovModel(trueMinorAlleleFractions, trueWeights,
+        final AlleleFractionHiddenMarkovModel trueModel = new AlleleFractionHiddenMarkovModel(trueMinorAlleleFractions,
                 trueMemoryLength, AllelicPanelOfNormals.EMPTY_PON, trueParams);
 
         // randomly set positions

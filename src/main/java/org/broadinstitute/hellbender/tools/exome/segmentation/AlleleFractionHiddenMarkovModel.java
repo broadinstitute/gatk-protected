@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.exome.segmentation;
 
-import com.google.common.primitives.Doubles;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionGlobalParameters;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionLikelihoods;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
@@ -9,7 +8,6 @@ import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -42,19 +40,15 @@ public final class AlleleFractionHiddenMarkovModel extends ClusteringGenomicHMM<
 
     /**
      * @param minorAlleleFractions array of minor allele fractions corresponding to the hidden states
-     * @param weights array of (real-space, not log) prior probabilities of each hidden state
-     *                when memory of the previous state is lost.  These may be unnormalized relative
-     *                probabilities, which is useful when using variational Bayes.
      * @param memoryLength when consecutive SNPs are a distance d bases apart, the prior probability
      *                     for memory of the CNV state to be kept is exp(-d/memoryLength)
      * @param allelicPoN allelic panel of normals containing prior knowledge of allelic biases at common SNPs
      * @param parameters the global parameters of the allelic bias model: mean bias, bias variance, and
-     *                   outlier probability
      */
-    public AlleleFractionHiddenMarkovModel(final List<Double> minorAlleleFractions, final List<Double> weights,
+    public AlleleFractionHiddenMarkovModel(final List<Double> minorAlleleFractions,
                                            final double memoryLength, final AllelicPanelOfNormals allelicPoN,
                                            final AlleleFractionGlobalParameters parameters) {
-        super(minorAlleleFractions, weights, memoryLength);
+        super(minorAlleleFractions, memoryLength);
         minorAlleleFractions.forEach(f -> ParamUtils.inRange(f, 0, 0.5, "minor fractions must be between 0 and 1/2, found " + f));
         this.allelicPoN = Utils.nonNull(allelicPoN);
         this.parameters = Utils.nonNull(parameters);

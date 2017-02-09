@@ -9,7 +9,6 @@ import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionGl
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
 import org.broadinstitute.hellbender.tools.pon.allelic.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
-import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
 import java.util.ArrayList;
@@ -33,20 +32,18 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
     private static final Comparator<Locatable> INTERVAL_COMPARATOR = IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR;
 
     private JointAFCRSegmenter(final List<SimpleInterval> positions,
-                              final List<JointSegmentationDatum> data,
-                              final List<AFCRHiddenState> hiddenStateValues,
-                              final List<Double> weights,
-                              final double concentration,
-                              final double memoryLength,
-                              final AlleleFractionGlobalParameters parameters,
-                              final AllelicPanelOfNormals allelicPoN,
-                              final double log2CoverageCauchyWidth) {
+                               final List<JointSegmentationDatum> data,
+                               final List<AFCRHiddenState> hiddenStateValues,
+                               final double memoryLength,
+                               final AlleleFractionGlobalParameters parameters,
+                               final AllelicPanelOfNormals allelicPoN,
+                               final double log2CoverageCauchyWidth) {
 
-        super(positions, data, hiddenStateValues, weights, concentration, memoryLength);
+        super(positions, data, hiddenStateValues, memoryLength);
         this.parameters = parameters;
         this.allelicPoN = allelicPoN;
         this.log2CoverageCauchyWidth = log2CoverageCauchyWidth;
-        logStatesAndWeights();
+        logStates();
     }
 
     public static JointAFCRSegmenter createJointSegmenter(final int initialNumCRStates, final ReadCountCollection rcc,
@@ -57,14 +54,13 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
 
     }
 
-    private void logStatesAndWeights() {
-        final StringBuilder message = new StringBuilder("Joint segmenter has following (copy-ratio, allele-fraction): weight pairs: ");
+    private void logStates() {
+        final StringBuilder message = new StringBuilder("Joint segmenter has following (copy-ratio, allele-fraction) pair states: ");
         for (int n = 0; n < numStates(); n++) {
             final AFCRHiddenState state = getState(n);
             final double cr = state.getLog2CopyRatio();
             final double af = state.getMinorAlleleFraction();
-            final double weight = getWeight(n);
-            message.append(String.format("(%f, %f): %f", cr, af, weight) + ((n < numStates() - 1) ? "; " : "."));
+            message.append(String.format("(%.3f, %.3f)", cr, af) + ((n < numStates() - 1) ? "; " : "."));
         }
         logger.info(message);
     }
@@ -95,12 +91,8 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
                 jointStatesAndWeights.subList(0, Math.min(MAX_NUM_STATES, jointStatesAndWeights.size()));
         final List<AFCRHiddenState> hiddenStates = bestJointStatesAndWeights.stream()
                 .map(jsaw -> jsaw.getLeft()).collect(Collectors.toList());
-        final double[] unnormalizedWeights = bestJointStatesAndWeights.stream()
-                .mapToDouble(jsaw -> jsaw.getRight()).toArray();
-        final List<Double> weights = Doubles.asList(MathUtils.normalizeFromRealSpace(unnormalizedWeights));
-        final double concentration = geometricMean(copyRatioSegmenter.getConcentration(), alleleFractionSegmenter.getConcentration());
         final double memoryLength = geometricMean(copyRatioSegmenter.getMemoryLength(), alleleFractionSegmenter.getMemoryLength());
-        return new JointAFCRSegmenter(allPositions, allData, hiddenStates, weights, concentration, memoryLength,
+        return new JointAFCRSegmenter(allPositions, allData, hiddenStates, memoryLength,
                 alleleFractionSegmenter.getGlobalParameters(), alleleFractionSegmenter.getAllelicPoN(), copyRatioSegmenter.getLogCoverageCauchyWidth());
     }
 
@@ -170,16 +162,9 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
     @Override
     protected boolean hiddenStateValuesHaveConverged(final List<AFCRHiddenState> hiddenStateValues) { return true; }
 
-
-    //TODO: consider non-trivial pruning based on weights
-    @Override
-    protected void pruneUnusedComponents() {
-        logStatesAndWeights();
-    }
-
     @Override
     protected ClusteringGenomicHMM<JointSegmentationDatum, AFCRHiddenState> makeModel() {
-        return new JointAFCRHiddenMarkovModel(getStates(), getWeights(), getMemoryLength(), parameters, allelicPoN, log2CoverageCauchyWidth);
+        return new JointAFCRHiddenMarkovModel(getStates(), getMemoryLength(), parameters, allelicPoN, log2CoverageCauchyWidth);
     }
 
     // store an interval, a target/het datum, and the index of that datum within either the targets or hets,

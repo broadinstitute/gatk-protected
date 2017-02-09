@@ -66,7 +66,7 @@ public final class CopyRatioSegmenter extends ScalarHMMSegmenter<Double> {
 
     @Override
     protected ClusteringGenomicHMM<Double, Double> makeModel() {
-        return new CopyRatioHiddenMarkovModel(getStates(), getWeights(), getMemoryLength(), logCoverageCauchyWidth);
+        return new CopyRatioHiddenMarkovModel(getStates(), getMemoryLength(), logCoverageCauchyWidth);
     }
 
     @Override

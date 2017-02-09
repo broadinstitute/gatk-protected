@@ -14,10 +14,10 @@ public final class JointAFCRHiddenMarkovModel extends ClusteringGenomicHMM<Joint
     private final AllelicPanelOfNormals allelicPoN;
     private final double logCoverageCauchyWidth;
 
-    public JointAFCRHiddenMarkovModel(final List<AFCRHiddenState> hiddenStateValues, final List<Double> weights,
+    public JointAFCRHiddenMarkovModel(final List<AFCRHiddenState> hiddenStateValues,
                                       final double memoryLength, final AlleleFractionGlobalParameters parameters,
                                       final AllelicPanelOfNormals allelicPoN, final double logCoverageCauchyWidth) {
-        super(hiddenStateValues, weights, memoryLength);
+        super(hiddenStateValues, memoryLength);
         this.parameters = parameters;
         this.allelicPoN = allelicPoN;
         this.logCoverageCauchyWidth = logCoverageCauchyWidth;
