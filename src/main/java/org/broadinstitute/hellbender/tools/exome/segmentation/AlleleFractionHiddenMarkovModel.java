@@ -64,7 +64,6 @@ public final class AlleleFractionHiddenMarkovModel extends ClusteringGenomicHMM<
      */
     @Override
     public double logEmissionProbability(final AllelicCount data, final Double minorFraction) {
-        ParamUtils.inRange(minorFraction, 0.0, 0.5, "Minor fraction must be in [0, 1/2].");
         return logEmissionProbability(data, minorFraction, parameters, allelicPoN);
     }
 

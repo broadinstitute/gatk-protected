@@ -31,7 +31,6 @@ public final class AlleleFractionSegmenter extends ScalarHMMSegmenter<AllelicCou
     private static final double INITIAL_MEAN_ALLELIC_BIAS = 1.0;
     private static final double INITIAL_ALLELIC_BIAS_VARIANCE = 1e-2;
     private static final double INITIAL_OUTLIER_PROBABILITY = 3e-2;
-    private static final List<Double> NEUTRAL_MINOR_ALLELE_FRACTION = Arrays.asList(0.5);
 
     /**
      * Initialize the segmenter with its data and panel of normals, giving equal weight to a set of evenly-spaced
@@ -45,7 +44,7 @@ public final class AlleleFractionSegmenter extends ScalarHMMSegmenter<AllelicCou
     public AlleleFractionSegmenter(final int initialNumStates, final AllelicCountCollection acc,
                                    final AllelicPanelOfNormals allelicPoN) {
         super(acc.getCounts().stream().map(AllelicCount::getInterval).collect(Collectors.toList()),
-                acc.getCounts(), NEUTRAL_MINOR_ALLELE_FRACTION, initialNonConstantMinorFractions(initialNumStates - 1));
+                acc.getCounts(), initialMinorFractions(initialNumStates));
         this.allelicPoN = Utils.nonNull(allelicPoN);
         globalParameters = new AlleleFractionGlobalParameters(INITIAL_MEAN_ALLELIC_BIAS, INITIAL_ALLELIC_BIAS_VARIANCE, INITIAL_OUTLIER_PROBABILITY);
     }
@@ -54,10 +53,9 @@ public final class AlleleFractionSegmenter extends ScalarHMMSegmenter<AllelicCou
      * evenly-spaced minor allele fractions going from 0 (inclusive) to 1/2 (exclusive)
      * @param K the initial number of hidden states
      */
-    private static List<Double> initialNonConstantMinorFractions(final int K) {
-        ParamUtils.isPositive(K, "must have at least one non-constant state");
-        final double spacing = 0.5 / (K + 1);
-        return Doubles.asList(GATKProtectedMathUtils.createEvenlySpacedPoints(0.001, 0.5 - spacing, K));
+    private static List<Double> initialMinorFractions(final int K) {
+        ParamUtils.isPositive(K, "must have at least one state");
+        return Doubles.asList(GATKProtectedMathUtils.createEvenlySpacedPoints(0.001, 0.5, K));
     }
 
     public List<ModeledSegment> getModeledSegments() {

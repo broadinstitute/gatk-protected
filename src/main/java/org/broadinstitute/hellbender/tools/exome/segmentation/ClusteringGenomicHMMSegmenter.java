@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.utils.hmm.ViterbiAlgorithm;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -135,7 +136,14 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
         relearnMemoryLength(expectationStep);
         attemptBigChangeInMemoryLength();
         relearnAdditionalParameters(expectationStep);
-        reportStates("After pruning");
+        pruneStatesByCount(expectationStep);
+    }
+
+    private void pruneStatesByCount(final ExpectationStep eStep) {
+        //TODO: magic constant
+        final List<Integer> indicesToKeep = IntStream.range(0, numStates())
+                .filter(state -> eStep.totalCountsForState(state) > 3).boxed().collect(Collectors.toList());
+        hiddenStateValues = indicesToKeep.stream().map(hiddenStateValues::get).collect(Collectors.toList());
     }
 
     private void reportStates(final String timing) {
@@ -189,7 +197,6 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
         private final double[] pForget = new double[N-1];
 
         // transition pseudocounts for each hidden state
-        private final double[] transitionCountsByState = new double[K];
 
         public ExpectationStep() {
             final ForwardBackwardAlgorithm.Result<DATA, SimpleInterval, Integer> fbResult =
@@ -204,13 +211,11 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
                         // probability that from -> to transition occurred going from position n to n + 1
                         final double pTransition = Math.exp(fbResult.logProbability(n, Arrays.asList(from, to)));
                         if (to != from ) {
-                            transitionCountsByState[to] += pTransition;
                             pForget[n] += pTransition;
                         } else {
                             final double priorPForget = 1 - Math.exp(-distances[n] / memoryLength);
                             // Bayes' Rule gives the probability that the state was forgotten given that toState == fromState
                             final double pForgetAndTransition = pTransition * (priorPForget / K / ((1-priorPForget) + priorPForget / K));
-                            transitionCountsByState[to] += pForgetAndTransition;
                             pForget[n] += pForgetAndTransition;
                         }
                     }
@@ -220,6 +225,7 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
 
         public double pForget(final int position) { return pForget[position]; }
         public double pStateAtPosition(final int state, final int position) { return pStateByPosition[state][position]; }
+        public double totalCountsForState(final int state) { return MathUtils.sum(pStateByPosition[state]); }
         public int numPositions() { return N; }
     }
 
