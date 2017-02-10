@@ -77,9 +77,10 @@ public final class AlleleFractionHiddenMarkovModel extends ClusteringGenomicHMM<
         final double log10AltMinorLikelihood = MathUtils.log10BinomialProbability(totalCount, altCount, log10MinorFraction)
                 + log10NonOutlierProbability + MathUtils.LOG10_ONE_HALF;
         final double log10RefMinorLikelihood = MathUtils.log10BinomialProbability(totalCount, refCount, log10MinorFraction)
-                + log10NonOutlierProbability + MathUtils.LOG10_ONE_HALF;;
+                + log10NonOutlierProbability + MathUtils.LOG10_ONE_HALF;
+        final double log10OutlierLikelihood = log10OutlierProbability - MathUtils.log10(totalCount);
 
-        return MathUtils.log10ToLog(MathUtils.log10SumLog10(new double[] {log10AltMinorLikelihood, log10RefMinorLikelihood, log10OutlierProbability}));
+        return MathUtils.log10ToLog(MathUtils.log10SumLog10(new double[] {log10AltMinorLikelihood, log10RefMinorLikelihood, log10OutlierLikelihood}));
     }
 
     public double getMinorAlleleFraction(final int state) { return getHiddenStateValue(state); }
