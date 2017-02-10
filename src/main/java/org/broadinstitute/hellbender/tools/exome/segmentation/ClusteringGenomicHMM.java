@@ -34,10 +34,12 @@ public abstract class ClusteringGenomicHMM<DATA, HIDDEN> implements HiddenMarkov
     private final double memoryLength;
     private final List<HIDDEN> hiddenStateValues;
     private final int K;
+    private final double logK;
 
     public ClusteringGenomicHMM(final List<HIDDEN> hiddenStateValues, final double memoryLength) {
         this.hiddenStateValues = new ArrayList<>(Utils.nonNull(hiddenStateValues));
         K = hiddenStateValues.size();
+        logK = Math.log(K);
         Utils.nonEmpty(hiddenStateValues, "must have at least one hidden state");
         this.memoryLength = ParamUtils.isPositive(memoryLength, "CNV memory length must be positive");
     }
@@ -50,7 +52,7 @@ public abstract class ClusteringGenomicHMM<DATA, HIDDEN> implements HiddenMarkov
 
     @Override
     public double logPriorProbability(final Integer state, final SimpleInterval position) {
-        return -Math.log(K);
+        return -logK;
     }
 
     // TODO: it's awkward that these are both required -- reason is that copy ratio emission is stored
@@ -63,6 +65,19 @@ public abstract class ClusteringGenomicHMM<DATA, HIDDEN> implements HiddenMarkov
     public double logTransitionProbability(final Integer currentState, final SimpleInterval currentPosition,
                                            final Integer nextState, final SimpleInterval nextPosition) {
         return logTransitionProbability(currentState, nextState, calculateDistance(currentPosition, nextPosition));
+    }
+
+    @Override
+    public void fillLogTransitionMatrix(final double[][] logTransitionMatrixBuffer, final SimpleInterval fromPosition, final SimpleInterval toPosition) {
+        final double distance = calculateDistance(fromPosition, toPosition);
+        final double decay = Math.exp(-distance / memoryLength);
+        final double offDiagonalTerm = Math.log1p(-decay) - logK;
+        final double diagonalTerm = Math.log(decay + (1 - decay)/K);
+        for (int fromState = 0; fromState < K; fromState++) {
+            for (int toState = 0; toState < K; toState++) {
+                logTransitionMatrixBuffer[fromState][toState] = fromState == toState ? diagonalTerm : offDiagonalTerm;
+            }
+        }
     }
     // Done with implementation ----------------------------------------------------------------------------------------
 
