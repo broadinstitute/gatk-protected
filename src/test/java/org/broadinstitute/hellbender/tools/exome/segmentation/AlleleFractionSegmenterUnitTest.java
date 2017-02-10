@@ -8,7 +8,6 @@ import org.broadinstitute.hellbender.tools.exome.ModeledSegment;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionGlobalParameters;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
-import org.broadinstitute.hellbender.tools.pon.allelic.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -34,7 +33,7 @@ public final class AlleleFractionSegmenterUnitTest {
         final AlleleFractionGlobalParameters trueParams = new AlleleFractionGlobalParameters(1.0, 0.01, 0.01);
 
         final AlleleFractionHiddenMarkovModel trueModel = new AlleleFractionHiddenMarkovModel(trueMinorAlleleFractions,
-                trueMemoryLength, AllelicPanelOfNormals.EMPTY_PON, trueParams);
+                trueMemoryLength);
 
         // randomly set positions
         final int chainLength = 10000;
@@ -43,7 +42,7 @@ public final class AlleleFractionSegmenterUnitTest {
         final List<Double> truthMinorFractions = trueStates.stream().map(trueModel::getMinorAlleleFraction).collect(Collectors.toList());
         final AllelicCountCollection counts = generateCounts(truthMinorFractions, positions, rng, trueParams);
 
-        final AlleleFractionSegmenter segmenter = new AlleleFractionSegmenter(10, counts, AllelicPanelOfNormals.EMPTY_PON);
+        final AlleleFractionSegmenter segmenter = new AlleleFractionSegmenter(10, counts);
         final List<ModeledSegment> segments = segmenter.getModeledSegments();
         final double[] segmentMinorFractions = segments.stream()
                 .flatMap(s -> Collections.nCopies((int) s.getTargetCount(), s.getSegmentMean()).stream())
@@ -75,7 +74,7 @@ public final class AlleleFractionSegmenterUnitTest {
 
         final AllelicCountCollection counts = generateCounts(minorAlleleFractionSequence, positions, rng, trueParams);
 
-        final AlleleFractionSegmenter segmenter = new AlleleFractionSegmenter(10, counts, AllelicPanelOfNormals.EMPTY_PON);
+        final AlleleFractionSegmenter segmenter = new AlleleFractionSegmenter(10, counts);
         final List<ModeledSegment> segments = segmenter.getModeledSegments();
 
         //check that each chromosome has at least one segment

@@ -1,10 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.segmentation;
 
-import com.google.common.primitives.Doubles;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionGlobalParameters;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCount;
-import org.broadinstitute.hellbender.tools.pon.allelic.AllelicPanelOfNormals;
-import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.hmm.ForwardBackwardAlgorithm;
 import org.broadinstitute.hellbender.utils.hmm.ViterbiAlgorithm;
@@ -28,15 +25,12 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.5, 0.23);
         final AlleleFractionGlobalParameters params = new AlleleFractionGlobalParameters(0.1, 0.01, 0.03);
         final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
-                memoryLength, AllelicPanelOfNormals.EMPTY_PON, params);
+                memoryLength);
 
         Assert.assertEquals(memoryLength, model.getMemoryLength());
         for (int n = 0; n < minorAlleleFractions.size(); n++) {
             Assert.assertEquals(minorAlleleFractions.get(n), model.getMinorAlleleFraction(n));
         }
-        Assert.assertEquals(model.getParameters().getMeanBias(), params.getMeanBias());
-        Assert.assertEquals(model.getParameters().getBiasVariance(), params.getBiasVariance());
-        Assert.assertEquals(model.getParameters().getOutlierProbability(), params.getOutlierProbability());
     }
 
     // if all states have the same minor fraction, then regardless of data the hidden state probabilities are equal
@@ -46,7 +40,7 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         final double memoryLength = 1e3;
         final AlleleFractionGlobalParameters params = new AlleleFractionGlobalParameters(0.1, 0.01, 0.03);
         final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
-                memoryLength, AllelicPanelOfNormals.EMPTY_PON, params);
+                memoryLength);
 
         final Random random = new Random(13);
         final int chainLength = 10000;
@@ -78,7 +72,7 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.5);
         final double memoryLength = 1e3;
         final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
-                memoryLength, AllelicPanelOfNormals.EMPTY_PON, NO_BIAS_OR_OUTLIERS_PARAMS);
+                memoryLength);
 
         final Random random = new Random(13);
         final int chainLength = 10000;
@@ -123,7 +117,7 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.2, 0.3, 0.4, 0.23, 0.11);
         final double memoryLength = 5e6;
         final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
-                memoryLength, AllelicPanelOfNormals.EMPTY_PON, NO_BIAS_OR_OUTLIERS_PARAMS);
+                memoryLength);
 
         final int pos1 = 100;
         final int pos2 = (int) (pos1 + 100*memoryLength);  // really far!!!
@@ -155,7 +149,7 @@ public final class AlleleFractionHiddenMarkovModelUnitTest {
         final List<Double> minorAlleleFractions = Arrays.asList(0.1, 0.2, 0.3, 0.4, 0.5, 0.33);
         final double memoryLength = 5e6;
         final AlleleFractionHiddenMarkovModel model = new AlleleFractionHiddenMarkovModel(minorAlleleFractions,
-                memoryLength, AllelicPanelOfNormals.EMPTY_PON, NO_BIAS_OR_OUTLIERS_PARAMS);
+                memoryLength);
 
         final SimpleInterval position1 = new SimpleInterval("chr1", 100, 100);
         final SimpleInterval position2 = new SimpleInterval("chr2", 20000, 20000);

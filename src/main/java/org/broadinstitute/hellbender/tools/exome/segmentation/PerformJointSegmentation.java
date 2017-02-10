@@ -100,7 +100,7 @@ public class PerformJointSegmentation extends CommandLineProgram {
             throw new UserException.BadInput("could not read input file");
         }
 
-        final JointAFCRSegmenter jointSegmenter = JointAFCRSegmenter.createJointSegmenter(initialNumCRStates, rcc, initialNumAFStates, acc, allelicPoN);
+        final JointAFCRSegmenter jointSegmenter = JointAFCRSegmenter.createJointSegmenter(initialNumCRStates, rcc, initialNumAFStates, acc);
         final List<Pair<SimpleInterval, AFCRHiddenState>> segmentation = jointSegmenter.findSegments();
 
         final List<ACNVModeledSegment> segments = segmentation.stream().map(pair ->

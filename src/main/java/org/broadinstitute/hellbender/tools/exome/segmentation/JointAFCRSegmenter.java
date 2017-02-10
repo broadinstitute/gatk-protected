@@ -5,9 +5,7 @@ import htsjdk.samtools.util.Locatable;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.broadinstitute.hellbender.tools.exome.ReadCountCollection;
-import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionGlobalParameters;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
-import org.broadinstitute.hellbender.tools.pon.allelic.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
@@ -22,9 +20,8 @@ import java.util.stream.IntStream;
  * Created by davidben on 9/6/16.
  */
 public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegmentationDatum, AFCRHiddenState> {
-    private final AlleleFractionGlobalParameters parameters;
-    private final AllelicPanelOfNormals allelicPoN;
     private final double log2CoverageCauchyWidth;
+    private final double outlierProbability;
 
     // make this a parameter
     private static final int MAX_NUM_STATES = 50;
@@ -35,21 +32,19 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
                                final List<JointSegmentationDatum> data,
                                final List<AFCRHiddenState> hiddenStateValues,
                                final double memoryLength,
-                               final AlleleFractionGlobalParameters parameters,
-                               final AllelicPanelOfNormals allelicPoN,
-                               final double log2CoverageCauchyWidth) {
+                               final double log2CoverageCauchyWidth,
+                               final double outlierProbability) {
 
         super(positions, data, hiddenStateValues, memoryLength);
-        this.parameters = parameters;
-        this.allelicPoN = allelicPoN;
         this.log2CoverageCauchyWidth = log2CoverageCauchyWidth;
+        this.outlierProbability = outlierProbability;
         logStates();
     }
 
     public static JointAFCRSegmenter createJointSegmenter(final int initialNumCRStates, final ReadCountCollection rcc,
-                                                          final int initialNumAFStates, final AllelicCountCollection acc, final AllelicPanelOfNormals allelicPoN) {
+                                                          final int initialNumAFStates, final AllelicCountCollection acc) {
         final CopyRatioSegmenter copyRatioSegmenter = new CopyRatioSegmenter(initialNumCRStates, rcc);
-        final AlleleFractionSegmenter alleleFractionSegmenter = new AlleleFractionSegmenter(initialNumAFStates, acc, allelicPoN);
+        final AlleleFractionSegmenter alleleFractionSegmenter = new AlleleFractionSegmenter(initialNumAFStates, acc);
         return createJointSegmenter(copyRatioSegmenter, alleleFractionSegmenter);
 
     }
@@ -93,7 +88,7 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
                 .map(jsaw -> jsaw.getLeft()).collect(Collectors.toList());
         final double memoryLength = geometricMean(copyRatioSegmenter.getMemoryLength(), alleleFractionSegmenter.getMemoryLength());
         return new JointAFCRSegmenter(allPositions, allData, hiddenStates, memoryLength,
-                alleleFractionSegmenter.getGlobalParameters(), alleleFractionSegmenter.getAllelicPoN(), copyRatioSegmenter.getLogCoverageCauchyWidth());
+                copyRatioSegmenter.getLogCoverageCauchyWidth(), alleleFractionSegmenter.getOutlierProbability());
     }
 
     // fill a matrix (# of CR hidden state x # of AF hidden states) of co-occuring CR and AF states
@@ -164,7 +159,7 @@ public class JointAFCRSegmenter extends ClusteringGenomicHMMSegmenter<JointSegme
 
     @Override
     protected ClusteringGenomicHMM<JointSegmentationDatum, AFCRHiddenState> makeModel() {
-        return new JointAFCRHiddenMarkovModel(getStates(), getMemoryLength(), parameters, allelicPoN, log2CoverageCauchyWidth);
+        return new JointAFCRHiddenMarkovModel(getStates(), getMemoryLength(), log2CoverageCauchyWidth, outlierProbability);
     }
 
     // store an interval, a target/het datum, and the index of that datum within either the targets or hets,

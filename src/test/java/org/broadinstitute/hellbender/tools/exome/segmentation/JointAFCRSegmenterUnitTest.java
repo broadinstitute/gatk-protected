@@ -9,7 +9,6 @@ import org.apache.commons.math3.util.MathArrays;
 import org.broadinstitute.hellbender.tools.exome.*;
 import org.broadinstitute.hellbender.tools.exome.allelefraction.AlleleFractionGlobalParameters;
 import org.broadinstitute.hellbender.tools.exome.alleliccount.AllelicCountCollection;
-import org.broadinstitute.hellbender.tools.pon.allelic.AllelicPanelOfNormals;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.mcmc.PosteriorSummary;
 import org.testng.Assert;
@@ -35,11 +34,12 @@ public final class JointAFCRSegmenterUnitTest {
                 .collect(Collectors.toList());
         final double trueMemoryLength = 1e5;
         final double trueCauchyWidth = 0.2;
+        final double trueOutlierProbability = 0.02;
         final int initialNumCRStates = 20;
         final int initialNumAFStates = 20;
         final AlleleFractionGlobalParameters trueAFParams = new AlleleFractionGlobalParameters(1.0, 0.01, 0.01);
         final JointAFCRHiddenMarkovModel trueJointModel = new JointAFCRHiddenMarkovModel(trueJointStates, trueMemoryLength,
-                trueAFParams, AllelicPanelOfNormals.EMPTY_PON, trueCauchyWidth);
+                trueCauchyWidth, trueOutlierProbability);
 
         // generate joint truth
         final int chainLength = 10000;
@@ -71,7 +71,7 @@ public final class JointAFCRSegmenterUnitTest {
 
         final ReadCountCollection rcc = new ReadCountCollection(crTargets, Arrays.asList("SAMPLE"), new Array2DRowRealMatrix(crData.stream().mapToDouble(x->x).toArray()));
 
-        final JointAFCRSegmenter segmenter = JointAFCRSegmenter.createJointSegmenter(initialNumCRStates, rcc, initialNumAFStates, afData, AllelicPanelOfNormals.EMPTY_PON);
+        final JointAFCRSegmenter segmenter = JointAFCRSegmenter.createJointSegmenter(initialNumCRStates, rcc, initialNumAFStates, afData);
 
         final TargetCollection<SimpleInterval> tc = new HashedListTargetCollection<>(positions);
         final List<Pair<SimpleInterval, AFCRHiddenState>> segmentation = segmenter.findSegments();
