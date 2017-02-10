@@ -134,7 +134,6 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
         relearnHiddenStateValues(expectationStep);
         reportStates("After M step");
         relearnMemoryLength(expectationStep);
-        attemptBigChangeInMemoryLength();
         relearnAdditionalParameters(expectationStep);
         pruneStatesByCount(expectationStep);
     }
@@ -142,7 +141,9 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
     private void pruneStatesByCount(final ExpectationStep eStep) {
         //TODO: magic constant
         final List<Integer> indicesToKeep = IntStream.range(0, numStates())
-                .filter(state -> eStep.totalCountsForState(state) > 3).boxed().collect(Collectors.toList());
+                .filter(state -> eStep.totalCountsForState(state) > 3)
+                .filter(state -> IntStream.range(0, numPositions()).mapToDouble(p -> eStep.pStateAtPosition(state,p)).max().getAsDouble() > 0.5)
+                .boxed().collect(Collectors.toList());
         hiddenStateValues = indicesToKeep.stream().map(hiddenStateValues::get).collect(Collectors.toList());
     }
 
@@ -164,19 +165,6 @@ public abstract class ClusteringGenomicHMMSegmenter<DATA, HIDDEN> {
                 .sum();
         memoryLength = OptimizationUtils.argmax(objective, MINIMUM_MEMORY_LENGTH, MAXIMUM_MEMORY_LENGTH, memoryLength,
                 RELATIVE_TOLERANCE_FOR_OPTIMIZATION, ABSOLUTE_TOLERANCE_FOR_OPTIMIZATION, MAX_EVALUATIONS_FOR_OPTIMIZATION);
-    }
-
-    // memoryLength may move slowly because the E and M steps are entangled.  We try to get around this by maximizing the
-    // exact model log-likelihood
-    private void attemptBigChangeInMemoryLength() {
-        final double memoryLengthMultiplier = Math.exp(random.nextGaussian()/2);
-        final double currentLogLikelihood = ForwardBackwardAlgorithm.apply(data, positions, makeModel()).logDataLikelihood();
-        final double oldMemoryLength = memoryLength;
-        memoryLength = memoryLength * memoryLengthMultiplier;
-        final double proposalLogLikelihood = ForwardBackwardAlgorithm.apply(data, positions, makeModel()).logDataLikelihood();
-        if (proposalLogLikelihood < currentLogLikelihood) {
-            memoryLength = oldMemoryLength;
-        }
     }
 
     protected abstract void relearnHiddenStateValues(final ExpectationStep eStep);
