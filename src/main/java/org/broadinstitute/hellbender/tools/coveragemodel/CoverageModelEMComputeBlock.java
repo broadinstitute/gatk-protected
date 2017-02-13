@@ -768,6 +768,10 @@ public final class CoverageModelEMComputeBlock {
         final INDArray rectified_var_log_c_st = replaceMaskedEntries(var_log_c_st, M_st,
                 CoverageModelGlobalConstants.VAR_LOG_COPY_RATIO_ON_MASKED_TARGETS);
 
+        /* check for nans */
+        checkSampleTargetINDArrayForBadValues(rectified_log_c_st);
+        checkSampleTargetINDArrayForBadValues(rectified_var_log_c_st);
+
         /* admix */
         final INDArray admixed_log_c_st = rectified_log_c_st
                 .muli(admixingRatio)
@@ -781,6 +785,20 @@ public final class CoverageModelEMComputeBlock {
         return cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.log_c_st, admixed_log_c_st)
                 .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.var_log_c_st, admixed_var_log_c_st)
                 .cloneWithUpdatedSignal(SubroutineSignal.builder().put("error_norm", errNormInfinity).build());
+    }
+
+    private void checkSampleTargetINDArrayForBadValues(final INDArray arr) {
+        for (int si = 0; si < numSamples; si++) {
+            for (int ti = 0; ti < numTargets; ti++) {
+                double val = arr.getDouble(si, ti);
+                if (Double.isNaN(val)) {
+                    System.out.println("(" + si + ", " + targetBlock.getBegIndex() + ti + ") is NaN");
+                }
+                if (Double.isInfinite(val)) {
+                    System.out.println("(" + si + ", " + targetBlock.getBegIndex() + ti + ") is infinite");
+                }
+            }
+        }
     }
 
     /**
