@@ -788,16 +788,20 @@ public final class CoverageModelEMComputeBlock {
     }
 
     private void checkSampleTargetINDArrayForBadValues(final INDArray arr) {
+        String msg = "";
         for (int si = 0; si < numSamples; si++) {
             for (int ti = 0; ti < numTargets; ti++) {
                 double val = arr.getDouble(si, ti);
                 if (Double.isNaN(val)) {
-                    System.out.println("(" + si + ", " + targetBlock.getBegIndex() + ti + ") is NaN");
+                    msg += "(" + si + ", " + targetBlock.getBegIndex() + ti + ") is NaN\n";
                 }
                 if (Double.isInfinite(val)) {
-                    System.out.println("(" + si + ", " + targetBlock.getBegIndex() + ti + ") is infinite");
+                    msg += "(" + si + ", " + targetBlock.getBegIndex() + ti + ") is infinite\n";
                 }
             }
+        }
+        if (!msg.equals("")) {
+            throw new RuntimeException(msg);
         }
     }
 
