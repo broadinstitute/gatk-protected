@@ -1033,7 +1033,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                                 .setSampleName(processedSampleNameList.get(si))
                                 .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(si))
                                 .setSampleCoverageDepth(sampleReadDepths.getDouble(si))
-                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
+                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.POISSON)
                                 .build(),
                         processedTargetList,
                         copyRatioEmissionData.get(si)))
@@ -1115,7 +1115,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                                 .setSampleName(processedSampleNameList.get(si))
                                 .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(si))
                                 .setSampleCoverageDepth(sampleReadDepths.getDouble(si))
-                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
+                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.POISSON)
                                 .build(),
                         processedTargetList,
                         copyRatioEmissionData.get(si)))
@@ -1159,7 +1159,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                                         .setSampleName(sampleNameList.get(si))
                                         .setSampleSexGenotypeData(sampleSexGenotypeData.get(si))
                                         .setSampleCoverageDepth(sampleReadDepths.getDouble(si))
-                                        .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
+                                        .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.POISSON)
                                         .build();
                                 newPartitionData.add(new Tuple2<>(prevDatum._1,
                                         calculator.getCopyRatioPosteriorExpectations(copyRatioCallingMetadata,
@@ -1302,7 +1302,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                                 .setSampleName(sampleNameList.get(sampleIndex))
                                 .setSampleSexGenotypeData(sampleSexGenotypeData.get(sampleIndex))
                                 .setSampleCoverageDepth(sampleReadDepths.getDouble(sampleIndex))
-                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
+                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.POISSON)
                                 .build();
                         newPartitionData.add(new Tuple2<>(sampleIndex,
                                 calculator.getCopyRatioHiddenMarkovModelResults(copyRatioCallingMetadata,
