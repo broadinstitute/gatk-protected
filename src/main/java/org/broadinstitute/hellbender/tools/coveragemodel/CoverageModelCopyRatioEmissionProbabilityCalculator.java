@@ -210,14 +210,13 @@ public final class CoverageModelCopyRatioEmissionProbabilityCalculator implement
 
     @VisibleForTesting
     public static double getLogProbabilityLaplaceApproximationMass(final double mu, final double psi) {
-        return 0;
-//        if (mu > MAXIMUM_ALLOWED_MU) { /* the log norm factor is guaranteed to be smaller than 1e-4 */
-//            return 0.0;
-//        } else {
-//            final double muTrunc = FastMath.max(MINIMUM_ALLOWED_MU, mu);
-//            final double psiTrunc = FastMath.max(MINIMUM_ALLOWED_PSI, FastMath.min(MAXIMUM_ALLOWED_PSI, psi));
-//            return logNormFactorSpline.value(muTrunc, psiTrunc);
-//        }
+        if (mu > MAXIMUM_ALLOWED_MU) { /* the log norm factor is guaranteed to be smaller than 1e-4 */
+            return 0.0;
+        } else {
+            final double muTrunc = FastMath.max(MINIMUM_ALLOWED_MU, mu);
+            final double psiTrunc = FastMath.max(MINIMUM_ALLOWED_PSI, FastMath.min(MAXIMUM_ALLOWED_PSI, psi));
+            return logNormFactorSpline.value(muTrunc, psiTrunc);
+        }
     }
 
     private static double[] loadDoubleArrayTable(final InputStream inputStream) {

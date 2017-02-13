@@ -126,26 +126,50 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         .toArray())
                 .collect(Collectors.toList());
 
-        if (CHECK_FOR_NANS) {
-            final int[] badTargets = IntStream.range(0, targetList.size())
-                    .filter(ti -> Arrays.stream(hiddenStateProbabilities.get(ti))
-                            .anyMatch(p -> Double.isNaN(p) || Double.isInfinite(p))).toArray();
-            if (badTargets.length > 0) {
-                throw new RuntimeException("Some of the copy ratio posterior probabilities are ill-defined; targets: " +
-                        Arrays.stream(badTargets).mapToObj(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
-            }
-        }
+        final List<double[]> logForwardProbabilities = IntStream.range(0, targetList.size())
+                .mapToObj(ti -> genotypeSpecificHMM.hiddenStates().stream()
+                        .mapToDouble(s -> result.logForwardProbability(ti, s))
+                        .toArray())
+                .collect(Collectors.toList());
 
-        /* calculate copy ratio posterior mean and variance */
-        final double[] logCopyRatioPosteriorMeans = hiddenStateProbabilities.stream()
-                .mapToDouble(pdf -> calculateMeanDiscreteStates(includedHiddenStatesIndices, pdf,
-                        hiddenStatesLogCopyRatios))
-                .toArray();
-        final double[] logCopyRatioPosteriorVariances = IntStream.range(0, targetList.size())
-                .mapToDouble(ti -> calculateMeanDiscreteStates(includedHiddenStatesIndices,
-                        hiddenStateProbabilities.get(ti), hiddenStatesLogCopyRatiosSquared)
-                            - FastMath.pow(logCopyRatioPosteriorMeans[ti], 2))
-                .toArray();
+        final List<double[]> logBackwardProbabilities = IntStream.range(0, targetList.size())
+                .mapToObj(ti -> genotypeSpecificHMM.hiddenStates().stream()
+                        .mapToDouble(s -> result.logBackwardProbability(ti, s))
+                        .toArray())
+                .collect(Collectors.toList());
+
+        String msg = "FORWARD: ";
+        msg += logForwardProbabilities.stream()
+                .map(arr -> Arrays.stream(arr).mapToObj(Double::toString).collect(Collectors.joining(", ", "[", "]; ")))
+                .collect(Collectors.joining());
+
+        msg += "\n\n\n\n\n\n\n\n\n BACKWARD: ";
+        msg += logBackwardProbabilities.stream()
+                .map(arr -> Arrays.stream(arr).mapToObj(Double::toString).collect(Collectors.joining(", ", "[", "]; ")))
+                .collect(Collectors.joining());
+
+        throw new RuntimeException(msg);
+
+//        if (CHECK_FOR_NANS) {
+//            final int[] badTargets = IntStream.range(0, targetList.size())
+//                    .filter(ti -> Arrays.stream(hiddenStateProbabilities.get(ti))
+//                            .anyMatch(p -> Double.isNaN(p) || Double.isInfinite(p))).toArray();
+//            if (badTargets.length > 0) {
+//                throw new RuntimeException("Some of the copy ratio posterior probabilities are ill-defined; targets: " +
+//                        Arrays.stream(badTargets).mapToObj(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
+//            }
+//        }
+//
+//        /* calculate copy ratio posterior mean and variance */
+//        final double[] logCopyRatioPosteriorMeans = hiddenStateProbabilities.stream()
+//                .mapToDouble(pdf -> calculateMeanDiscreteStates(includedHiddenStatesIndices, pdf,
+//                        hiddenStatesLogCopyRatios))
+//                .toArray();
+//        final double[] logCopyRatioPosteriorVariances = IntStream.range(0, targetList.size())
+//                .mapToDouble(ti -> calculateMeanDiscreteStates(includedHiddenStatesIndices,
+//                        hiddenStateProbabilities.get(ti), hiddenStatesLogCopyRatiosSquared)
+//                            - FastMath.pow(logCopyRatioPosteriorMeans[ti], 2))
+//                .toArray();
 
 //        if (CHECK_FOR_NANS) {
 //            final int[] badTargets = IntStream.range(0, targetList.size())
@@ -158,7 +182,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
 //            }
 //        }
 
-        return new CopyRatioExpectations(logCopyRatioPosteriorMeans, logCopyRatioPosteriorVariances);
+//        return new CopyRatioExpectations(logCopyRatioPosteriorMeans, logCopyRatioPosteriorVariances);
     }
 
     @Override
