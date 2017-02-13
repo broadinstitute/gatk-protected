@@ -44,7 +44,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
     /**
      * This is for debugging -- disable in the future for performance gains
      */
-    private final static boolean CHECK_FOR_NANS = false;
+    private final static boolean CHECK_FOR_NANS = true;
 
     /**
      * If true, CN = 0 state will be excluded in calculating the posteriors. The copy ratio posterior
@@ -147,16 +147,16 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                             - FastMath.pow(logCopyRatioPosteriorMeans[ti], 2))
                 .toArray();
 
-        if (CHECK_FOR_NANS) {
-            final int[] badTargets = IntStream.range(0, targetList.size())
-                    .filter(ti -> Double.isNaN(logCopyRatioPosteriorMeans[ti]) ||
-                            Double.isNaN(logCopyRatioPosteriorVariances[ti])).toArray();
-            if (badTargets.length > 0) {
-                throw new RuntimeException("Some of the copy ratio posterior expectations are ill-defined; targets: " +
-                        Arrays.stream(badTargets).mapToObj(String::valueOf)
-                                .collect(Collectors.joining(", ", "[", "]")));
-            }
-        }
+//        if (CHECK_FOR_NANS) {
+//            final int[] badTargets = IntStream.range(0, targetList.size())
+//                    .filter(ti -> Double.isNaN(logCopyRatioPosteriorMeans[ti]) ||
+//                            Double.isNaN(logCopyRatioPosteriorVariances[ti])).toArray();
+//            if (badTargets.length > 0) {
+//                throw new RuntimeException("Some of the copy ratio posterior expectations are ill-defined; targets: " +
+//                        Arrays.stream(badTargets).mapToObj(String::valueOf)
+//                                .collect(Collectors.joining(", ", "[", "]")));
+//            }
+//        }
 
         return new CopyRatioExpectations(logCopyRatioPosteriorMeans, logCopyRatioPosteriorVariances);
     }
@@ -222,15 +222,15 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         - FastMath.pow(logCopyRatioPriorMeans[ti], 2))
                 .toArray();
 
-        if (CHECK_FOR_NANS) {
-            final int[] badTargets = IntStream.range(0, targetsList.size())
-                    .filter(ti -> Double.isNaN(logCopyRatioPriorMeans[ti]) ||
-                            Double.isNaN(logCopyRatioPriorVariances[ti])).toArray();
-            if (badTargets.length > 0) {
-                throw new RuntimeException("Some of the copy ratio prior expectations are ill-defined; targets: " +
-                        Arrays.stream(badTargets).mapToObj(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
-            }
-        }
+//        if (CHECK_FOR_NANS) {
+//            final int[] badTargets = IntStream.range(0, targetsList.size())
+//                    .filter(ti -> Double.isNaN(logCopyRatioPriorMeans[ti]) ||
+//                            Double.isNaN(logCopyRatioPriorVariances[ti])).toArray();
+//            if (badTargets.length > 0) {
+//                throw new RuntimeException("Some of the copy ratio prior expectations are ill-defined; targets: " +
+//                        Arrays.stream(badTargets).mapToObj(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
+//            }
+//        }
 
         return new CopyRatioExpectations(logCopyRatioPriorMeans, logCopyRatioPriorVariances);
     }

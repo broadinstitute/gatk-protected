@@ -768,9 +768,9 @@ public final class CoverageModelEMComputeBlock {
         final INDArray rectified_var_log_c_st = replaceMaskedEntries(var_log_c_st, M_st,
                 CoverageModelGlobalConstants.VAR_LOG_COPY_RATIO_ON_MASKED_TARGETS);
 
-        /* check for nans */
-        checkSampleTargetINDArrayForBadValues(rectified_log_c_st);
-        checkSampleTargetINDArrayForBadValues(rectified_var_log_c_st);
+//        /* check for nans */
+//        checkSampleTargetINDArrayForBadValues(rectified_log_c_st);
+//        checkSampleTargetINDArrayForBadValues(rectified_var_log_c_st);
 
         /* admix */
         final INDArray admixed_log_c_st = rectified_log_c_st
