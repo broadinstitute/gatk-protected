@@ -793,10 +793,10 @@ public final class CoverageModelEMComputeBlock {
             for (int ti = 0; ti < numTargets; ti++) {
                 double val = arr.getDouble(si, ti);
                 if (Double.isNaN(val)) {
-                    msg += "(" + si + ", " + targetBlock.getBegIndex() + ti + ") is NaN\n";
+                    msg += "(" + si + ", " + (targetBlock.getBegIndex() + ti) + ") is NaN\n";
                 }
                 if (Double.isInfinite(val)) {
-                    msg += "(" + si + ", " + targetBlock.getBegIndex() + ti + ") is infinite\n";
+                    msg += "(" + si + ", " + (targetBlock.getBegIndex() + ti) + ") is infinite\n";
                 }
             }
         }
