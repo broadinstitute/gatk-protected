@@ -138,7 +138,13 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         .toArray())
                 .collect(Collectors.toList());
 
-        String msg = "FORWARD: ";
+        String msg = "BIAS: ";
+        msg += emissionData.stream()
+                .map(dat -> FastMath.exp(dat.getMu()))
+                .map(d -> d.toString())
+                .collect(Collectors.joining(", "));
+
+        msg += "\n\n\n\n\n\n\n\n\n FORWARD: ";
         msg += logForwardProbabilities.stream()
                 .map(arr -> Arrays.stream(arr).mapToObj(Double::toString).collect(Collectors.joining(", ", "[", "]; ")))
                 .collect(Collectors.joining());
@@ -147,6 +153,8 @@ public final class IntegerCopyNumberExpectationsCalculator implements
         msg += logBackwardProbabilities.stream()
                 .map(arr -> Arrays.stream(arr).mapToObj(Double::toString).collect(Collectors.joining(", ", "[", "]; ")))
                 .collect(Collectors.joining());
+
+
 
         throw new RuntimeException(msg);
 
