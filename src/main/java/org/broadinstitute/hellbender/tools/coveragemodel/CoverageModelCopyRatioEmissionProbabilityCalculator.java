@@ -146,7 +146,7 @@ public final class CoverageModelCopyRatioEmissionProbabilityCalculator implement
                     ", copy ratio: " + copyRatio);
         }
 
-        return FastMath.max(-10000, logLikelihood);
+        return logLikelihood;
     }
 
     /**
