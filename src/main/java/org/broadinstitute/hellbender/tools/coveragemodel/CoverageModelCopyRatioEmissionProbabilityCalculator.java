@@ -128,12 +128,8 @@ public final class CoverageModelCopyRatioEmissionProbabilityCalculator implement
                 break;
 
             case HYBRID_POISSON_GAUSSIAN:
-                if (emissionData.getReadCount() >= readCountThresholdPoissonSwitch) {
-                    if (copyRatio > 0) {
-                        logLikelihood = logLikelihoodLaplaceApproximation(emissionData, copyRatio);
-                    } else {
-                        logLikelihood = Double.NEGATIVE_INFINITY;
-                    }
+                if (emissionData.getReadCount() >= readCountThresholdPoissonSwitch && copyRatio > 0) {
+                    logLikelihood = logLikelihoodLaplaceApproximation(emissionData, copyRatio);
                 } else {
                     logLikelihood = logLikelihoodPoisson(emissionData, copyRatio);
                 }
