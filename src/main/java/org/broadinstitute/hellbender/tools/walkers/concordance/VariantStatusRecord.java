@@ -45,8 +45,8 @@ public class VariantStatusRecord {
 
     public String getTumorAlleleFraction(){ return tumorAlleleFraction; }
 
-    private static class VariantStatusTableWriter extends TableWriter<VariantStatusRecord> {
-        private VariantStatusTableWriter(final File output) throws IOException {
+    public static class Writer extends TableWriter<VariantStatusRecord> {
+        private Writer(final File output) throws IOException {
             super(output, new TableColumnCollection(VariantStatusRecord.VARIANT_TABLE_COLUMN_HEADERS));
         }
 
@@ -62,13 +62,12 @@ public class VariantStatusRecord {
         }
     }
 
-    public static VariantStatusTableWriter getVariantStatusTableWriter(final File outputTable){
-        try (VariantStatusTableWriter writer = new VariantStatusTableWriter(outputTable)) {
+    public static Writer getWriter(final File outputTable){
+        try (Writer writer = new Writer(outputTable)) {
             return writer;
         } catch (IOException e){
-            throw new UserException(String.format("Encountered an IO exception while reading from %s.", outputTable));
+            throw new UserException(String.format("Encountered an IO exception opening %s.", outputTable), e);
         }
     }
-
     // TODO: MOVE READER from test
 }

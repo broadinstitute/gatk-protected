@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.walkers.mutect;
 
 import org.broadinstitute.hellbender.CommandLineProgramTest;
+import org.broadinstitute.hellbender.tools.walkers.concordance.ConcordanceSummaryRecord;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.testng.Assert;
@@ -24,7 +25,7 @@ public class ConcordanceTest extends CommandLineProgramTest{
         final File summary = createTempFile("summary", ".txt");
 
         final String[] args = {
-                "--eval", evalVcf.toString(),
+                "-V", evalVcf.toString(),
                 "--truth", truthVcf.toString(),
                 "--table",  variantTable.toString(),
                 "--summary", summary.toString(),
@@ -32,8 +33,8 @@ public class ConcordanceTest extends CommandLineProgramTest{
         };
         runCommandLine(args);
 
-        SummaryTableReader reader = new SummaryTableReader(summary);
-        SummaryRecord record = reader.readRecord();
+        ConcordanceSummaryRecord.Reader reader = new ConcordanceSummaryRecord.Reader(summary);
+        ConcordanceSummaryRecord record = reader.readRecord();
         Assert.assertEquals(record.getTruePositives(), 5);
         Assert.assertEquals(record.getFalsePositives(), 3);
         Assert.assertEquals(record.getFalseNegatives(), 5);
@@ -51,15 +52,15 @@ public class ConcordanceTest extends CommandLineProgramTest{
         final File summary = createTempFile("summary", ".txt");
 
         final String[] args = {
-                "--eval", evalVcf.toString(),
+                "-V", evalVcf.toString(),
                 "--truth", truthVcf.toString(),
                 "--table", table.toString(),
                 "--summary", summary.toString(),
                 "-tumor", "IS3.snv.indel.sv"
         };
         runCommandLine(args);
-        SummaryTableReader reader = new SummaryTableReader(summary);
-        SummaryRecord record = reader.readRecord();
+        ConcordanceSummaryRecord.Reader reader = new ConcordanceSummaryRecord.Reader(summary);
+        ConcordanceSummaryRecord record = reader.readRecord();
 
         Assert.assertEquals(record.getTruePositives(), 4);
         Assert.assertEquals(record.getFalsePositives(), 6);
@@ -79,7 +80,7 @@ public class ConcordanceTest extends CommandLineProgramTest{
         final File summary = createTempFile("summary", ".txt");
 
         final String[] args = {
-                "--eval", evalVcf.toString(),
+                "-V", evalVcf.toString(),
                 "--truth", truthVcf.toString(),
                 "--table", table.toString(),
                 "--summary", summary.toString(),
@@ -87,8 +88,8 @@ public class ConcordanceTest extends CommandLineProgramTest{
         };
 
         runCommandLine(args);
-        SummaryTableReader reader = new SummaryTableReader(summary);
-        SummaryRecord record = reader.readRecord();
+        ConcordanceSummaryRecord.Reader reader = new ConcordanceSummaryRecord.Reader(summary);
+        ConcordanceSummaryRecord record = reader.readRecord();
 
         Assert.assertEquals(record.getTruePositives(), 284);
         Assert.assertEquals(record.getFalsePositives(), 0);
@@ -97,20 +98,7 @@ public class ConcordanceTest extends CommandLineProgramTest{
         Assert.assertTrue(Math.abs(record.getPrecision() - 1.0) < epsilon);
     }
 
-    private class SummaryTableReader extends TableReader<SummaryRecord> {
-        private SummaryTableReader(final File summaryTable) throws IOException {
-            super(summaryTable);
-        }
 
-        @Override
-        protected SummaryRecord createRecord(final DataLine dataLine) {
-            final long truePositives = Long.parseLong(dataLine.get(SummaryRecord.TRUE_POSITIVE_COLUMN_NAME));
-            final long falsePositives = Long.parseLong(dataLine.get(SummaryRecord.FALSE_POSITIVE_COLUMN_NAME));
-            final long falseNegatives = Long.parseLong(dataLine.get(SummaryRecord.FALSE_NEGATIVE_COLUMN_NAME));
-
-            return new SummaryRecord(truePositives, falsePositives, falseNegatives);
-        }
-    }
 
     // TODO: test multi allelic
     // TODO: test high confidence intervals

@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.tools.walkers.mutect;
+package org.broadinstitute.hellbender.tools.walkers.concordance;
 
 
 import htsjdk.variant.variantcontext.VariantContext;
@@ -8,9 +8,6 @@ import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
 import org.broadinstitute.hellbender.engine.*;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Utils;
-import org.broadinstitute.hellbender.utils.tsv.DataLine;
-import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
-import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,9 +24,6 @@ import java.util.Iterator;
  */
 // TODO: maybe this tool should be a variant walker. Or a multiple variant walker.
 public class Concordance extends VariantWalker {
-    @Argument(doc = "evaluation vcf", fullName= "eval", shortName = "E", optional = false)
-    protected File eval;
-
     @Argument(doc = "truth vcf (tool assumes all sites in truth are PASS)", fullName= "truth", shortName = "T", optional = false)
     protected File truth;
 
@@ -50,162 +44,128 @@ public class Concordance extends VariantWalker {
     // TODO: take a low confidence region where a false positive there is not counted (masked in dream?)
     // TODO: ideas. for stratifying, output a table of annotaitons (AF, DP, SNP/INDEL, and truth status)
     // @assumes that all variants in the truth vcf are REAL
-    // TODO: make match function extendable, such that a user inherits the class to write his/her own evaluator (but get the iteration working first)
+    // TODO: make allelesMatch function extendable, such that a user inherits the class to write his/her own evaluator (but get the iteration working first)
 
     // use MutableLong?
-    long truePositives = 0;
-    long falsePositives = 0;
-    long falseNegatives = 0;
+    private long truePositives = 0;
+    private long falsePositives = 0;
+    private long falseNegatives = 0;
 
-    final FeatureDataSource<VariantContext> truthSource = new FeatureDataSource<>(truth);
-    final Iterator<VariantContext> truthIterator = truthSource.iterator();
+    private VariantStatusRecord.Writer variantStatusWriter;
+    private ConcordanceSummaryRecord.Writer concordanceSummaryWriter;
+
+    // TODO: want to make this final but can't
+    private Iterator<VariantContext> truthIterator;
+    private VariantContext currentTruthVariant;
+
+    private boolean exhaustedTruthVariants = false;
 
     @Override
     public void onTraversalStart() {
-        VariantStatusTableWriter tableWriter = new VariantStatusTableWriter(table);
-        SummaryTableWriter summaryWriter = new SummaryTableWriter(summary)) {
-    }
+        // TODO: do we still need tumor sample name?
+        // TODO: once contamination is rebased do this instead:
+        // final String tumorSample = getHeaderForVariants().getMetaDataLine(Mutect2Engine.TUMOR_SAMPLE_KEY_IN_VCF_HEADER).getValue();
+        // and get rid of tumor sample name argument
+        Utils.regularReadableUserFile(truth);
 
+        variantStatusWriter = VariantStatusRecord.getWriter(table);
+        concordanceSummaryWriter = ConcordanceSummaryRecord.getWriter(summary);
+
+        if (! getHeaderForVariants().getSampleNamesInOrder().contains(tumorSampleName)){
+            // TODO: do I need to close files?
+            throw new IllegalArgumentException(String.format("the tumor sample %s does not exit in vcf", tumorSampleName));
+        }
+
+        final FeatureDataSource<VariantContext> truthSource = new FeatureDataSource<>(truth);
+        truthIterator = truthSource.iterator();
+        currentTruthVariant = truthIterator.next();
+    }
 
     @Override
     public void apply(VariantContext variant, ReadsContext readsContext, ReferenceContext referenceContext, FeatureContext featureContext ) {
-        Utils.regularReadableUserFile(truth);
+        // no more truth variants; eval variant is a FP unless filtered
+        if (exhaustedTruthVariants && variant.isNotFiltered()){
+            falsePositives++;
+            return;
+        }
 
-        // TODO: create a list of Summarys and write in one step (memory intensive) or write as we go?
-        try (VariantStatusTableWriter tableWriter = new VariantStatusTableWriter(table);
-            SummaryTableWriter summaryWriter = new SummaryTableWriter(summary)) {
-
-            VariantContext truthvc = truthIterator.next();
-            VariantContext evalvc = evalIterator.next();
-
-            if (! evalvc.getSampleNames().contains(tumorSampleName)){
-                // TODO: do I need to close files?
-                throw new IllegalArgumentException(String.format("the tumor sample %s does not exit in vcf", tumorSampleName));
-            }
-
-            while (true) {
-                // the position of two variants match; do genotypes match too?
-                if (comparePositions(truthvc, evalvc) == 0) {
-                    if (evalvc.isFiltered()) {
-                        falseNegatives++;
-                        // TODO: ensure that when we write a record, we advance the iterator once - no more, no less
-                        // TODO: perhaps the increment and write record should be wrapped in a function
-                        tableWriter.writeRecord(new EvalVariantRecord(evalvc, FALSE_NEGATIVE, tumorSampleName));
-                    } else if (match(truthvc, evalvc)) {
-                        truePositives++;
-                        tableWriter.writeRecord(new EvalVariantRecord(evalvc, TRUE_POSITIVE, tumorSampleName));
-                    } else {
-                        // the eval variant matches truth's position but they don't match
-                        // e.g. genotype or alleles doesn't match
-                        falsePositives++;
-                        falseNegatives++;
-                        tableWriter.writeRecord(new EvalVariantRecord(evalvc, FALSE_POSITIVE_AND_FALSE_NEGATIVE, tumorSampleName));
-                    }
-
-                    // move on
-                    if (!truthIterator.hasNext() || !evalIterator.hasNext()) {
-                        break;
-                    }
-
-                    truthvc = truthIterator.next();
-                    evalvc = evalIterator.next();
-                    continue;
-                }
-
-                // truth is ahead of eval; eval variant is not in truth
-                if (comparePositions(truthvc, evalvc) > 0) {
-                    if (evalvc.isNotFiltered()) {
-                        falsePositives++;
-                        tableWriter.writeRecord(new EvalVariantRecord(evalvc, FALSE_POSITIVE, tumorSampleName));
-                    }
-
-                    // move on
-                    if (!evalIterator.hasNext()) {
-                        break;
-                    }
-                    evalvc = evalIterator.next();
-                    continue;
-                }
-
-                // eval leapfrogged truth; we missed a variant
-                if (comparePositions(truthvc, evalvc) < 0) {
-                    falseNegatives++;
-
-                    // move on
-                    if (!truthIterator.hasNext()) {
-                        break;
-                    }
-
-                    truthvc = truthIterator.next();
-                    continue;
-                }
-            }
-
-            // we exhausted variants in either vcf; process the rest of variants in the other
-            if (! truthIterator.hasNext()){
-                // exhausted the truth vcf first; the rest of variants in eval are false positives
-                // TODO: should be able to use evalIterator.forEachRemaining
-
-                while (evalIterator.hasNext()){
-                    evalvc = evalIterator.next();
-                    if (evalvc.isNotFiltered()){
-                        falsePositives++;
-                        tableWriter.writeRecord(new EvalVariantRecord(evalvc, FALSE_POSITIVE, tumorSampleName));
-                    }
-                }
-            } else {
-                // exhausted the eval vcf first; the rest of variants in truth are false negatives
+        // TODO: use a comparator?
+        // TODO: need more asserts to ensure that we aren't breaking invariants
+        // case 1: the position of the two variants match
+        if (comparePositions(variant, currentTruthVariant) == 0) {
+            // do the genotypes match too?
+            if (variant.isFiltered()) {
                 falseNegatives++;
-                while (truthIterator.hasNext()){
-                    truthvc = truthIterator.next();
-                    if (truthvc.isNotFiltered()){
-                        falseNegatives++;
-                    }
-                }
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_NEGATIVE, tumorSampleName), variant);
+            } else if (allelesMatch(variant, currentTruthVariant)) {
+                truePositives++;
+                writeThisRecord(new VariantStatusRecord(variant, TRUE_POSITIVE, tumorSampleName), variant);
+            } else {
+                // the eval variant matches truth's position but their alleles don't match
+                // e.g. genotype or alleles don't match
+                falsePositives++;
+                falseNegatives++;
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE_AND_FALSE_NEGATIVE, tumorSampleName), variant);
             }
 
-            summaryWriter.writeRecord(new SummaryRecord(truePositives, falsePositives, falseNegatives));
+            if (truthIterator.hasNext()) {
+                currentTruthVariant = truthIterator.next();
+            } else {
+                exhaustedTruthVariants = true;
+            }
 
-        } catch (IOException exp) {
-            throw new UserException.CouldNotCreateOutputFile(table, "Could not create the output table");
+            return;
         }
 
-    }
-
-    private class SummaryTableWriter extends TableWriter<SummaryRecord> {
-        private SummaryTableWriter(final File output) throws IOException {
-            super(output, new TableColumnCollection(SummaryRecord.SUMMARY_TABLE_COLUMN_HEADER));
+        // case 2: truth got ahead of eval; the eval variant must be a false positive
+        if (comparePositions(variant, currentTruthVariant) < 0) {
+            if (variant.isNotFiltered()) {
+                falsePositives++;
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
+            }
+            return;
         }
 
-        @Override
-        protected void composeLine(final SummaryRecord record, final DataLine dataLine) {
-            dataLine.set(SummaryRecord.TRUE_POSITIVE_COLUMN_NAME, record.getTruePositives())
-                    .set(SummaryRecord.FALSE_POSITIVE_COLUMN_NAME, record.getFalsePositives())
-                    .set(SummaryRecord.FALSE_NEGATIVE_COLUMN_NAME, record.getFalseNegatives())
-                    .set(SummaryRecord.SENSITIVITY_COLUMN_NAME, record.getSensitivity())
-                    .set(SummaryRecord.PRECISION_COLUMN_NAME, record.getPrecision());
-        }
-
-    }
-
-    private class VariantStatusTableWriter extends TableWriter<EvalVariantRecord> {
-        private VariantStatusTableWriter(final File output) throws IOException {
-            super(output, new TableColumnCollection(EvalVariantRecord.VARIANT_TABLE_COLUMN_HEADERS));
-        }
-
-        @Override
-        protected void composeLine(final EvalVariantRecord record, final DataLine dataLine) {
-            dataLine.set(EvalVariantRecord.CHROMOSOME_COLUMN_NAME, record.getVariantContext().getContig())
-                    .set(EvalVariantRecord.START_POSITION_COLUMN_NAME, record.getVariantContext().getStart())
-                    .set(EvalVariantRecord.END_POSITION_COLUMN_NAME, record.getVariantContext().getEnd())
-                    .set(EvalVariantRecord.REF_ALLELE_COLUMN_NAME, record.getVariantContext().getReference().toString())
-                    .set(EvalVariantRecord.ALT_ALLELE_COLUMN_NAME, record.getVariantContext().getAlternateAlleles().toString())
-                    .set(EvalVariantRecord.ALLELE_FRACTION_COLUMN_NAME, record.getTumorAlleleFraction()) // TODO: must be able to retrieve the allele fraction from tumor
-                    .set(EvalVariantRecord.TRUTH_STATUS_COLUMN_NAME, record.getTruthStatus());
+        // case 3: eval leapfrogged truth; we missed at least one variant
+        // move the truth cursor forward until it catches up to eval
+        while (comparePositions(variant, currentTruthVariant) > 0) {
+            falseNegatives++;
+            if (truthIterator.hasNext()) {
+                currentTruthVariant = truthIterator.next();
+            } else {
+                exhaustedTruthVariants = true;
+                return;
+            }
         }
     }
 
+    private void writeThisRecord(final VariantStatusRecord record, final VariantContext variant){
+        try {
+            variantStatusWriter.writeRecord(record);
+        } catch (IOException e) {
+            throw new UserException(String.format("Encountered an IO exception writing a record at chrom %d, pos ",
+                    variant.getContig(), variant.getStart()), e);
+        }
+    }
 
+    @Override
+    public Object onTraversalSuccess(){
+        if (! exhaustedTruthVariants){
+            // the remaining variants in truth are false negatives
+            falseNegatives++;
+            while (truthIterator.hasNext()){
+                falseNegatives++;
+            }
+        }
+
+        try {
+            concordanceSummaryWriter.writeRecord(new ConcordanceSummaryRecord(truePositives, falsePositives, falseNegatives));
+        } catch (IOException e){
+            throw new UserException("Encountered an IO exception writing the concordance summary table", e);
+        }
+
+        return "SUCCESS";
+    }
 
     // Possible statuses
     private static String FALSE_NEGATIVE = "FALSE_NEGATIVE";
@@ -214,9 +174,7 @@ public class Concordance extends VariantWalker {
     private static String FALSE_POSITIVE = "FALSE_POSITIVE";
 
     // TODO: make variantcontext comparable?
-    // TODO: make protected to support subclassingu
-    private static int comparePositions(final VariantContext truth, final VariantContext eval){
-
+    protected static int comparePositions(final VariantContext truth, final VariantContext eval){
         if (! truth.getContig().equals(eval.getContig()) ) {
             // TODO: make sure x, y, and mt work as expected
             return truth.getContig().compareTo(eval.getContig());
@@ -234,7 +192,7 @@ public class Concordance extends VariantWalker {
 
     // TODO: eventually this should be an abstract method to be overridden by a subclass
     // TODO: make protected to support subclassing
-    private static boolean match(final VariantContext truth, final VariantContext eval){
+    protected static boolean allelesMatch(final VariantContext truth, final VariantContext eval){
         final boolean sameContig = truth.getContig().equals(eval.getContig());
         final boolean sameStartPosition = truth.getStart() == eval.getStart();
         final boolean sameRefAllele = truth.getReference().equals(eval.getReference());

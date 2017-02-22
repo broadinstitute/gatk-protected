@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.tools.walkers.concordance;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
+import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 
 import java.io.File;
@@ -52,26 +53,41 @@ public class ConcordanceSummaryRecord {
     }
 
 
-    private static class ConcordanceSummaryTableWriter extends TableWriter<ConcordanceSummaryRecord> {
-        private ConcordanceSummaryTableWriter(final File output) throws IOException {
-            super(output, new TableColumnCollection(ConcordanceSummaryRecord.SUMMARY_TABLE_COLUMN_HEADER));
+    public static class Writer extends TableWriter<ConcordanceSummaryRecord> {
+        private Writer(final File output) throws IOException {
+            super(output, new TableColumnCollection(SUMMARY_TABLE_COLUMN_HEADER));
         }
 
         @Override
         protected void composeLine(final ConcordanceSummaryRecord record, final DataLine dataLine) {
-            dataLine.set(ConcordanceSummaryRecord.TRUE_POSITIVE_COLUMN_NAME, record.getTruePositives())
-                    .set(ConcordanceSummaryRecord.FALSE_POSITIVE_COLUMN_NAME, record.getFalsePositives())
-                    .set(ConcordanceSummaryRecord.FALSE_NEGATIVE_COLUMN_NAME, record.getFalseNegatives())
-                    .set(ConcordanceSummaryRecord.SENSITIVITY_COLUMN_NAME, record.getSensitivity())
-                    .set(ConcordanceSummaryRecord.PRECISION_COLUMN_NAME, record.getPrecision());
+            dataLine.set(TRUE_POSITIVE_COLUMN_NAME, record.getTruePositives())
+                    .set(FALSE_POSITIVE_COLUMN_NAME, record.getFalsePositives())
+                    .set(FALSE_NEGATIVE_COLUMN_NAME, record.getFalseNegatives())
+                    .set(SENSITIVITY_COLUMN_NAME, record.getSensitivity())
+                    .set(PRECISION_COLUMN_NAME, record.getPrecision());
         }
     }
 
-    public static ConcordanceSummaryTableWriter getConcordanceSummaryTableWriter(final File outputTable){
-        try (ConcordanceSummaryTableWriter writer = new ConcordanceSummaryTableWriter(outputTable)) {
+    public static Writer getWriter(final File outputTable){
+        try (Writer writer = new Writer(outputTable)) {
             return writer;
         } catch (IOException e){
-            throw new UserException(String.format("Encountered an IO exception while reading from %s.", outputTable));
+            throw new UserException(String.format("Encountered an IO exception while reading from %s.", outputTable), e);
+        }
+    }
+
+    public static class Reader extends TableReader<ConcordanceSummaryRecord> {
+        public Reader(final File summaryTable) throws IOException {
+            super(summaryTable);
+        }
+
+        @Override
+        protected ConcordanceSummaryRecord createRecord(final DataLine dataLine) {
+            final long truePositives = Long.parseLong(dataLine.get(TRUE_POSITIVE_COLUMN_NAME));
+            final long falsePositives = Long.parseLong(dataLine.get(FALSE_POSITIVE_COLUMN_NAME));
+            final long falseNegatives = Long.parseLong(dataLine.get(FALSE_NEGATIVE_COLUMN_NAME));
+
+            return new ConcordanceSummaryRecord(truePositives, falsePositives, falseNegatives);
         }
     }
 }
