@@ -5,8 +5,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
-import org.broadinstitute.hellbender.engine.FeatureDataSource;
-import org.broadinstitute.hellbender.engine.GATKTool;
+import org.broadinstitute.hellbender.engine.*;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
@@ -27,14 +26,14 @@ import java.util.Iterator;
  * Created by tsato on 1/30/17.
  */
 // TODO: maybe this tool should be a variant walker. Or a multiple variant walker.
-public class Concordance extends GATKTool {
+public class Concordance extends VariantWalker {
     @Argument(doc = "evaluation vcf", fullName= "eval", shortName = "E", optional = false)
     protected File eval;
 
     @Argument(doc = "truth vcf (tool assumes all sites in truth are PASS)", fullName= "truth", shortName = "T", optional = false)
     protected File truth;
 
-    // TO BE IMPLEMENTED
+    // TODO: TO BE IMPLEMENTED
     @Argument(doc = "???", fullName= "confidence", shortName = "C", optional = true)
     protected File confidence_region;
 
@@ -48,29 +47,33 @@ public class Concordance extends GATKTool {
     protected String tumorSampleName;
 
     // TODO: output a vcf of false positives (and negative) sites?
+    // TODO: take a low confidence region where a false positive there is not counted (masked in dream?)
+    // TODO: ideas. for stratifying, output a table of annotaitons (AF, DP, SNP/INDEL, and truth status)
+    // @assumes that all variants in the truth vcf are REAL
+    // TODO: make match function extendable, such that a user inherits the class to write his/her own evaluator (but get the iteration working first)
+
+    // use MutableLong?
+    long truePositives = 0;
+    long falsePositives = 0;
+    long falseNegatives = 0;
+
+    final FeatureDataSource<VariantContext> truthSource = new FeatureDataSource<>(truth);
+    final Iterator<VariantContext> truthIterator = truthSource.iterator();
+
     @Override
-    public void traverse() {
-        // TODO: take a low confidence region where a false positive there is not counted (masked in dream?)
-        // TODO: ideas. for stratifying, output a table of annotaitons (AF, DP, SNP/INDEL, and truth status)
-        // @assumes that all variants in the truth vcf are REAL
-        // TODO: make match function extendable, such that a user inherits the class to write his/her own evaluator (but get the iteration working first)
-        Utils.regularReadableUserFile(eval);
+    public void onTraversalStart() {
+        VariantStatusTableWriter tableWriter = new VariantStatusTableWriter(table);
+        SummaryTableWriter summaryWriter = new SummaryTableWriter(summary)) {
+    }
+
+
+    @Override
+    public void apply(VariantContext variant, ReadsContext readsContext, ReferenceContext referenceContext, FeatureContext featureContext ) {
         Utils.regularReadableUserFile(truth);
 
+        // TODO: create a list of Summarys and write in one step (memory intensive) or write as we go?
         try (VariantStatusTableWriter tableWriter = new VariantStatusTableWriter(table);
-             SummaryTableWriter summaryWriter = new SummaryTableWriter(summary)) {
-
-            long truePositives = 0;
-            long falsePositives = 0;
-            long falseNegatives = 0;
-
-            // TODO: note evalSource is probably not a FeatureDataSource. Rather it's a VariantSource
-            // in other words this tool should be a variant walker
-            final FeatureDataSource<VariantContext> truthSource = new FeatureDataSource<>(truth);
-            final FeatureDataSource<VariantContext> evalSource = new FeatureDataSource<>(eval);
-
-            Iterator<VariantContext> truthIterator = truthSource.iterator();
-            Iterator<VariantContext> evalIterator = evalSource.iterator();
+            SummaryTableWriter summaryWriter = new SummaryTableWriter(summary)) {
 
             VariantContext truthvc = truthIterator.next();
             VariantContext evalvc = evalIterator.next();
