@@ -1,9 +1,13 @@
 package org.broadinstitute.hellbender.tools.walkers.concordance;
 
+import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.variantcontext.VariantContextBuilder;
+import org.bdgenomics.formats.avro.Variant;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
+import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 
@@ -63,11 +67,13 @@ public class VariantStatusRecord {
     }
 
     public static Writer getWriter(final File outputTable){
-        try (Writer writer = new Writer(outputTable)) {
+        try {
+            Writer writer = new Writer(outputTable);
             return writer;
         } catch (IOException e){
             throw new UserException(String.format("Encountered an IO exception opening %s.", outputTable), e);
         }
     }
-    // TODO: MOVE READER from test
+
+
 }

@@ -71,6 +71,7 @@ public class Concordance extends VariantWalker {
         variantStatusWriter = VariantStatusRecord.getWriter(table);
         concordanceSummaryWriter = ConcordanceSummaryRecord.getWriter(summary);
 
+
         if (! getHeaderForVariants().getSampleNamesInOrder().contains(tumorSampleName)){
             // TODO: do I need to close files?
             throw new IllegalArgumentException(String.format("the tumor sample %s does not exit in vcf", tumorSampleName));
@@ -84,14 +85,32 @@ public class Concordance extends VariantWalker {
     @Override
     public void apply(VariantContext variant, ReadsContext readsContext, ReferenceContext referenceContext, FeatureContext featureContext ) {
         // no more truth variants; eval variant is a FP unless filtered
-        if (exhaustedTruthVariants && variant.isNotFiltered()){
-            falsePositives++;
+        if (exhaustedTruthVariants){
+            if (variant.isNotFiltered()){
+                falsePositives++;
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
+            }
+
             return;
+        }
+
+        // case 1: eval leapfrogged truth; we missed at least one variant
+        // move the truth cursor forward until it catches up to eval
+        // note we must check for this first, *then* check for the other two conditions
+        // otherwise we move the eval forward a without giving it a diagnosis
+        while (comparePositions(variant, currentTruthVariant) > 0) {
+            falseNegatives++;
+            if (truthIterator.hasNext()) {
+                currentTruthVariant = truthIterator.next();
+            } else {
+                exhaustedTruthVariants = true;
+                return;
+            }
         }
 
         // TODO: use a comparator?
         // TODO: need more asserts to ensure that we aren't breaking invariants
-        // case 1: the position of the two variants match
+        // case 2: the position of the two variants match
         if (comparePositions(variant, currentTruthVariant) == 0) {
             // do the genotypes match too?
             if (variant.isFiltered()) {
@@ -105,7 +124,9 @@ public class Concordance extends VariantWalker {
                 // e.g. genotype or alleles don't match
                 falsePositives++;
                 falseNegatives++;
-                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE_AND_FALSE_NEGATIVE, tumorSampleName), variant);
+
+                // we choose to call this variant a false positive for convenience
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
             }
 
             if (truthIterator.hasNext()) {
@@ -117,32 +138,22 @@ public class Concordance extends VariantWalker {
             return;
         }
 
-        // case 2: truth got ahead of eval; the eval variant must be a false positive
+        // case 3: truth got ahead of eval; the eval variant must be a false positive if not filtered
         if (comparePositions(variant, currentTruthVariant) < 0) {
             if (variant.isNotFiltered()) {
                 falsePositives++;
                 writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
             }
-            return;
-        }
 
-        // case 3: eval leapfrogged truth; we missed at least one variant
-        // move the truth cursor forward until it catches up to eval
-        while (comparePositions(variant, currentTruthVariant) > 0) {
-            falseNegatives++;
-            if (truthIterator.hasNext()) {
-                currentTruthVariant = truthIterator.next();
-            } else {
-                exhaustedTruthVariants = true;
-                return;
-            }
+            // we don't care about true negatives, don't record them in the table
+            return;
         }
     }
 
     private void writeThisRecord(final VariantStatusRecord record, final VariantContext variant){
         try {
             variantStatusWriter.writeRecord(record);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new UserException(String.format("Encountered an IO exception writing a record at chrom %d, pos ",
                     variant.getContig(), variant.getStart()), e);
         }
@@ -155,11 +166,17 @@ public class Concordance extends VariantWalker {
             falseNegatives++;
             while (truthIterator.hasNext()){
                 falseNegatives++;
+                truthIterator.next();
             }
         }
 
         try {
             concordanceSummaryWriter.writeRecord(new ConcordanceSummaryRecord(truePositives, falsePositives, falseNegatives));
+
+            // we must close the writers to flush the buffer
+            // otherwise we get an empty file
+            concordanceSummaryWriter.close();
+            variantStatusWriter.close();
         } catch (IOException e){
             throw new UserException("Encountered an IO exception writing the concordance summary table", e);
         }
@@ -191,12 +208,12 @@ public class Concordance extends VariantWalker {
     }
 
     // TODO: eventually this should be an abstract method to be overridden by a subclass
-    // TODO: make protected to support subclassing
     protected static boolean allelesMatch(final VariantContext truth, final VariantContext eval){
         final boolean sameContig = truth.getContig().equals(eval.getContig());
         final boolean sameStartPosition = truth.getStart() == eval.getStart();
         final boolean sameRefAllele = truth.getReference().equals(eval.getReference());
-        // TODO: assume single alt allele in truth?
+
+        // we assume that the truth has a single alternate allele
         final boolean containsAltAllele = eval.getAlternateAlleles().contains(truth.getAlternateAllele(0));
         return sameContig && sameStartPosition && sameRefAllele && containsAltAllele;
     }
