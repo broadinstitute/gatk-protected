@@ -39,18 +39,17 @@ public class Concordance extends VariantWalker {
     @Argument(doc = "truth vcf (tool assumes all sites in truth are PASS)", fullName= "truth", shortName = "T", optional = false)
     protected File truth;
 
-    // TODO: TO BE IMPLEMENTED
-    @Argument(doc = "???", fullName= "confidence", shortName = "C", optional = true)
+    @Argument(doc = "TO BE IMPLEMENTED", fullName= "confidence", shortName = "C", optional = true)
     protected File confidence_region;
 
-    @Argument(doc = "A table of variants. Prints out for each variant (row) its basic annotations, tumor alt allele fraction, and truth status", fullName="table", shortName = "O", optional = false)
+    @Argument(doc = "A table of variants. Prints out for each variant (row) its basic annotations, alt allele fraction of the specified eval sample, and truth status", fullName="table", shortName = "O", optional = false)
     protected File table;
 
     @Argument(doc = "A table of summary statistics (true positives, sensitivity, etc.)", fullName="summary", shortName = "S", optional = false)
     protected File summary;
 
-    @Argument(doc = "sample name of the tumor", fullName ="tumorSampleName", shortName = "tumor", optional = false)
-    protected String tumorSampleName;
+    @Argument(doc = "sample name of the eval variants", fullName ="evalSampleName", shortName = "sample", optional = false)
+    protected String evalSampleName;
 
     // TODO: output a vcf of false positives (and negative) sites?
     // TODO: take a low confidence region where a false positive there is not counted (masked in dream?)
@@ -96,8 +95,8 @@ public class Concordance extends VariantWalker {
         SAMSequenceDictionary dictionary = getSequenceDictionaryForDrivingVariants();
         variantContextComparator = new VariantContextComparator(dictionary);
 
-        if (! getHeaderForVariants().getSampleNamesInOrder().contains(tumorSampleName)){
-            throw new IllegalArgumentException(String.format("the tumor sample %s does not exist in vcf", tumorSampleName));
+        if (! getHeaderForVariants().getSampleNamesInOrder().contains(evalSampleName)){
+            throw new IllegalArgumentException(String.format("the eval sample %s does not exist in vcf", evalSampleName));
         }
 
         final FeatureDataSource<VariantContext> truthSource = new FeatureDataSource<>(truth);
@@ -117,7 +116,7 @@ public class Concordance extends VariantWalker {
         if (exhaustedTruthVariants){
             if (variant.isNotFiltered()){
                 if (variant.isSNP()) { snpFalsePositives++; } else { indelFalsePositives++; }
-                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, evalSampleName), variant);
             }
 
             return;
@@ -129,7 +128,6 @@ public class Concordance extends VariantWalker {
         // otherwise we move the eval forward a without giving it a diagnosis
         while (variantContextComparator.compare(variant, currentTruthVariant.get()) > 0) {
             if (currentTruthVariant.get().isSNP()) { snpFalseNegatives++; } else { indelFalseNegatives++; }
-            writeThisRecord(new VariantStatusRecord(currentTruthVariant.get(), FALSE_NEGATIVE, tumorSampleName), variant);
             if (truthIterator.hasNext()) {
                 currentTruthVariant = getNextNonSVTruthVariant();
                 if (! currentTruthVariant.isPresent()) {
@@ -146,16 +144,21 @@ public class Concordance extends VariantWalker {
             // do the genotypes match too?
             if (variant.isFiltered()) {
                 if (variant.isSNP()) { snpFalseNegatives++; } else { indelFalseNegatives++; }
-                writeThisRecord(new VariantStatusRecord(currentTruthVariant.get(), FALSE_NEGATIVE, tumorSampleName), variant);
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_NEGATIVE, evalSampleName), variant);
             } else if (allelesMatch(variant, currentTruthVariant.get())) {
-                if (variant.isSNP()) { snpTruePositives++; } else {indelTruePositives++; }
-                writeThisRecord(new VariantStatusRecord(variant, TRUE_POSITIVE, tumorSampleName), variant);
+                if (variant.isSNP()) { snpTruePositives++; } else { indelTruePositives++; }
+                writeThisRecord(new VariantStatusRecord(variant, TRUE_POSITIVE, evalSampleName), variant);
             } else {
                 // the eval variant matches truth's position but their alleles don't match
                 // e.g. genotype or alleles don't match
-                // we choose to call this variant a false positive for convenience
-                if (variant.isSNP()) { snpFalsePositives++; } else { indelFalsePositives++; }
-                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
+                if (variant.isSNP()) {
+                    snpFalsePositives++;
+                    snpFalseNegatives++;
+                } else {
+                    indelFalsePositives++;
+                    indelFalseNegatives++;
+                }
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, evalSampleName), variant);
             }
 
             if (truthIterator.hasNext()) {
@@ -171,7 +174,7 @@ public class Concordance extends VariantWalker {
         if (variantContextComparator.compare(variant, currentTruthVariant.get()) < 0) {
             if (variant.isNotFiltered()) {
                 if (variant.isSNP()) { snpFalsePositives++; } else { indelFalsePositives++; }
-                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, tumorSampleName), variant);
+                writeThisRecord(new VariantStatusRecord(variant, FALSE_POSITIVE, evalSampleName), variant);
             }
 
             // we don't care about true negatives - don't record them in the table
