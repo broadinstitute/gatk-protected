@@ -167,5 +167,4 @@ public class ConcordanceTest extends CommandLineProgramTest{
     }
 
     // TODO: we don't suppport -L argument yet but once David refactors this tool we should create a test for it
-
 }

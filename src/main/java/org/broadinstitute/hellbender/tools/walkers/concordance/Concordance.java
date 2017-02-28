@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.walkers.concordance;
 
-
 import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextComparator;
@@ -17,48 +16,46 @@ import java.util.Iterator;
 import java.util.Optional;
 
 @CommandLineProgramProperties(
-        summary = "Count ",
-        oneLineSummary = "Count PASS variants",
+        summary = "Evaluate a vcf against a vcf of validated (true) variants",
+        oneLineSummary = "Evaluate a vcf against a vcf of validated (true) variants",
         programGroup = VariantProgramGroup.class
 )
 
 /**
  *
- * This tool compares an evaluation vcf against a truth vcf. We assume that the truth vcf only contains PASS variants.
+ * This tool evaluates a vcf against a validated truth vcf. We assume that the truth vcf only contains PASS variants.
  * The summary statistics (# true positives, # false positives, # false negatives, sensitivity, precision)
- * are reported in the summary .tsv (--summary). Also reported as a .tsv (--table) is the basic information of
- * interesting variants i.e. true positives, false positives, false negatives for further statistical analysis
- * e.g. to be read in by an R script
+ * are reported as a summary tsv (--summary). Also reported as a tsv (--table) are evaluated variants of interest
+ * (i.e. true positives, false positives, false negatives) and their annotations (ref allele, alt allele, minor allele fraction, etc.)
+ * for further statistical analysis e.g. with an R script
  *
- * java -jar gatk.jar Concordance -V TODO fill in
+ * java -jar gatk.jar Concordance -V na12878-eval.vcf --truth na12878-truth.vcf --table table.tsv --summary summary.tsv --evalSampleName NA12878
  *
  * Created by tsato on 1/30/17.
  */
-// TODO: maybe this tool should be a variant walker. Or a multiple variant walker.
 public class Concordance extends VariantWalker {
-    @Argument(doc = "truth vcf (tool assumes all sites in truth are PASS)", fullName= "truth", shortName = "T", optional = false)
+    @Argument(doc = "truth vcf (tool assumes all sites in truth are PASS)", fullName= "truth", shortName = "T")
     protected File truth;
 
     @Argument(doc = "TO BE IMPLEMENTED", fullName= "confidence", shortName = "C", optional = true)
-    protected File confidence_region;
+    protected File highConfidenceRegion;
 
-    @Argument(doc = "A table of variants. Prints out for each variant (row) its basic annotations, alt allele fraction of the specified eval sample, and truth status", fullName="table", shortName = "O", optional = false)
+    @Argument(doc = "A table of evaluation variants of interest and their basic annotations",
+            fullName="table", shortName = "O")
     protected File table;
 
-    @Argument(doc = "A table of summary statistics (true positives, sensitivity, etc.)", fullName="summary", shortName = "S", optional = false)
+    @Argument(doc = "A table of summary statistics (true positives, sensitivity, etc.)",
+            fullName="summary", shortName = "S")
     protected File summary;
 
-    @Argument(doc = "sample name of the eval variants", fullName ="evalSampleName", shortName = "sample", optional = false)
+    @Argument(doc = "sample name of the eval variants", fullName ="evalSampleName", shortName = "sample")
     protected String evalSampleName;
 
     // TODO: output a vcf of false positives (and negative) sites?
     // TODO: take a low confidence region where a false positive there is not counted (masked in dream?)
-    // TODO: ideas. for stratifying, output a table of annotaitons (AF, DP, SNP/INDEL, and truth status)
-    // @assumes that all variants in the truth vcf are REAL
-    // TODO: make allelesMatch function extendable, such that a user inherits the class to write his/her own evaluator (but get the iteration working first)
-
-    // use MutableLong?
     // TODO: what about other variant types besides SNP and INDEL?
+
+    // we count evaluation status in these variables
     private long snpTruePositives = 0;
     private long snpFalsePositives = 0;
     private long snpFalseNegatives = 0;
@@ -67,13 +64,12 @@ public class Concordance extends VariantWalker {
     private long indelFalseNegatives = 0;
 
     private VariantStatusRecord.Writer variantStatusWriter;
-    private ConcordanceSummaryRecord.Writer concordanceSummaryWriter;
 
-    // TODO: want to make this final but can't
     private Iterator<VariantContext> truthIterator;
     private Optional<VariantContext> currentTruthVariant;
 
     private boolean exhaustedTruthVariants = false;
+
     private VariantContextComparator variantContextComparator;
 
     // Possible statuses
@@ -83,14 +79,9 @@ public class Concordance extends VariantWalker {
 
     @Override
     public void onTraversalStart() {
-        // TODO: do we still need tumor sample name?
-        // TODO: once contamination is rebased do this instead:
-        // final String tumorSample = getHeaderForVariants().getMetaDataLine(Mutect2Engine.TUMOR_SAMPLE_KEY_IN_VCF_HEADER).getValue();
-        // and get rid of tumor sample name argument
         Utils.regularReadableUserFile(truth);
 
         variantStatusWriter = VariantStatusRecord.getWriter(table);
-        concordanceSummaryWriter = ConcordanceSummaryRecord.getWriter(summary);
 
         SAMSequenceDictionary dictionary = getSequenceDictionaryForDrivingVariants();
         variantContextComparator = new VariantContextComparator(dictionary);
@@ -106,12 +97,12 @@ public class Concordance extends VariantWalker {
 
     @Override
     public void apply(VariantContext variant, ReadsContext readsContext, ReferenceContext referenceContext, FeatureContext featureContext ) {
-        // TODO: when we give the tool an interval List (-L), variant walker limits the range of driving variants to these intervals
-        // but it doesn't do the same for the truth vcf i.e. truth vcf starts starts at chr 1 when -L 21.
+        // TODO: When we give the tool an interval List (-L), variant walker subsets the range of driving variants to these intervals
+        // for you behind the scene. But it doesn't do the same for the truth vcf i.e. truth vcf starts starts at chr 1 when -L 21.
 
-        // no more truth variants; eval variant is a FP unless filtered
-        // note we need both exhaustedTruthVariants is not always equal to !currentTruthVariant.isPresnet()
-        // in other words; iterator.hasNext() can give you false
+        // case 0: We've reached the end of truth variants; eval variant is a FP unless filtered
+        // note exhaustedTruthVariants is not always equal to !currentTruthVariant.isPresent();
+        // in other words, iterator.hasNext() can give you false
         // when currentTruthVariant is non-empty (the last truth variant is either SNP or INDEL)
         if (exhaustedTruthVariants){
             if (variant.isNotFiltered()){
@@ -122,10 +113,10 @@ public class Concordance extends VariantWalker {
             return;
         }
 
-        // case 1: eval leapfrogged truth; we missed at least one variant
-        // move the truth cursor forward until it catches up to eval
-        // note we must check for this first, *then* check for the other two conditions
-        // otherwise we move the eval forward a without giving it a diagnosis
+        // case 1: Eval leapfrogged truth; we missed at least one variant.
+        // Move the truth cursor forward until it catches up to eval.
+        // Note we must check for this first, *then* check for the other two conditions;
+        // otherwise we move the eval forward without giving it a diagnosis
         while (variantContextComparator.compare(variant, currentTruthVariant.get()) > 0) {
             if (currentTruthVariant.get().isSNP()) { snpFalseNegatives++; } else { indelFalseNegatives++; }
             if (truthIterator.hasNext()) {
@@ -185,6 +176,7 @@ public class Concordance extends VariantWalker {
     // ugly code alert
     // this method just moves the iterator forward but also ensures that it skips SV's
     // assumes that the caller already checked the truth iterator has next
+    // TODO: extend the truth iterator such that the iterator.next() automatically skips SVs
     private Optional<VariantContext> getNextNonSVTruthVariant(){
         VariantContext nextVariant;
         do {
@@ -216,17 +208,18 @@ public class Concordance extends VariantWalker {
             if (currentTruthVariant.get().isSNP()) { snpFalseNegatives++; } else { indelFalseNegatives++; }
             while (truthIterator.hasNext()){
                 currentTruthVariant = getNextNonSVTruthVariant();
+                if (! currentTruthVariant.isPresent()) { break; }
                 if (currentTruthVariant.get().isSNP()) { snpFalseNegatives++; } else { indelFalseNegatives++; }
             }
         }
 
-        try {
+        try ( ConcordanceSummaryRecord.Writer concordanceSummaryWriter = ConcordanceSummaryRecord.getWriter(summary) ){
+            // TODO: write all the summary
             concordanceSummaryWriter.writeRecord(new ConcordanceSummaryRecord(VariantContext.Type.SNP, snpTruePositives, snpFalsePositives, snpFalseNegatives));
             concordanceSummaryWriter.writeRecord(new ConcordanceSummaryRecord(VariantContext.Type.INDEL, indelTruePositives, indelFalsePositives, indelFalseNegatives));
 
-            // we must close the writers to flush the buffer
-            // otherwise we get an empty file
-            concordanceSummaryWriter.close();
+            // We must close the variant status writer to flush the buffer.
+            // Summary writer will be closed implicitly
             variantStatusWriter.close();
         } catch (IOException e){
             throw new UserException("Encountered an IO exception writing the concordance summary table", e);
@@ -236,13 +229,14 @@ public class Concordance extends VariantWalker {
     }
 
     // TODO: eventually this should be an abstract method to be overridden by a subclass
+    // such that the user can adjust the stringency of allele comparison
     protected static boolean allelesMatch(final VariantContext eval, final VariantContext truth){
         final boolean sameContig = truth.getContig().equals(eval.getContig());
         final boolean sameStartPosition = truth.getStart() == eval.getStart();
         final boolean sameRefAllele = truth.getReference().equals(eval.getReference());
-
         // we assume that the truth has a single alternate allele
         final boolean containsAltAllele = eval.getAlternateAlleles().contains(truth.getAlternateAllele(0));
+
         return sameContig && sameStartPosition && sameRefAllele && containsAltAllele;
     }
 
