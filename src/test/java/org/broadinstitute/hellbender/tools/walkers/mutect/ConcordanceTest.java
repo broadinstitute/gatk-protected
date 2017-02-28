@@ -2,21 +2,19 @@ package org.broadinstitute.hellbender.tools.walkers.mutect;
 
 import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
+import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
+import org.broadinstitute.hellbender.tools.walkers.concordance.Concordance;
 import org.broadinstitute.hellbender.tools.walkers.concordance.ConcordanceSummaryRecord;
 import org.broadinstitute.hellbender.tools.walkers.concordance.VariantStatusRecord;
-import org.broadinstitute.hellbender.utils.tsv.DataLine;
-import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Created by tsato on 1/31/17.
+ * Created by Takuto Sato on 1/31/17.
  */
 public class ConcordanceTest extends CommandLineProgramTest{
     final double epsilon = 1e-3;
@@ -26,23 +24,23 @@ public class ConcordanceTest extends CommandLineProgramTest{
         final String testDir =  publicTestDir + "org/broadinstitute/hellbender/tools/concordance/";
         final File evalVcf = new File(testDir, "gatk4-dream3-mini.vcf");
         final File truthVcf = new File(testDir, "gatk3-dream3-mini.vcf");
-        final File variantStatusTable = createTempFile("table", ".txt");
-        final File summaryTable = createTempFile("summary", ".txt");
+        final File output = createTempFile("table", ".txt");
+        final File summary = createTempFile("summary", ".txt");
 
         final String[] args = {
                 "-V", evalVcf.toString(),
-                "--truth", truthVcf.toString(),
-                "--table",  variantStatusTable.toString(),
-                "--summary", summaryTable.toString(),
-                "--evalSampleName", "IS3.snv.indel.sv"
+                "-" + Concordance.TRUTH_SHORT_NAME, truthVcf.toString(),
+                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME,  output.toString(),
+                "-" + Concordance.SUMMARY_SHORT_NAME, summary.toString(),
+                "-" + Concordance.SAMPLE_SHORT_NAME, "IS3.snv.indel.sv"
         };
         runCommandLine(args);
 
         // the number of lines (variants) in the status table should match that of the eval vcf
-        final Path path = Paths.get(variantStatusTable.getAbsolutePath());
+        final Path path = Paths.get(output.getAbsolutePath());
         // Assert.assertEquals(Files.lines(path).count(), 20);
 
-        ConcordanceSummaryRecord.Reader reader = new ConcordanceSummaryRecord.Reader(summaryTable);
+        ConcordanceSummaryRecord.Reader reader = new ConcordanceSummaryRecord.Reader(summary);
         ConcordanceSummaryRecord snpRecord = reader.readRecord();
         ConcordanceSummaryRecord indelRecord = reader.readRecord();
 
@@ -58,28 +56,29 @@ public class ConcordanceTest extends CommandLineProgramTest{
         Assert.assertEquals(indelRecord.getFalseNegatives(), 2);
         Assert.assertEquals(snpRecord.getSensitivity(), 1.0/4, epsilon);
         Assert.assertEquals(snpRecord.getPrecision(), 1.0, epsilon);
+
     }
 
     // Test going from an integer chromosome (22) to a character chromosome (X)
     @Test
-    public void test22X() throws Exception {
+    public void testt22X() throws Exception {
         final String testDir = publicTestDir + "org/broadinstitute/hellbender/tools/concordance/";
         final File truthVcf = new File(testDir, "gatk3-dream3-x.vcf");
         final File evalVcf = new File(testDir, "gatk4-dream3-x.vcf");
-        final File table = createTempFile("table", ".txt");
+        final File output = createTempFile("table", ".txt");
         final File summary = createTempFile("summary", ".txt");
 
         final String[] args = {
                 "-V", evalVcf.toString(),
-                "--truth", truthVcf.toString(),
-                "--table", table.toString(),
-                "--summary", summary.toString(),
-                "--evalSampleName", "IS3.snv.indel.sv"
+                "-" + Concordance.TRUTH_SHORT_NAME, truthVcf.toString(),
+                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, output.toString(),
+                "-" + Concordance.SUMMARY_SHORT_NAME, summary.toString(),
+                "-" + Concordance.SAMPLE_SHORT_NAME, "IS3.snv.indel.sv"
         };
         runCommandLine(args);
-        ConcordanceSummaryRecord.Reader reader = new ConcordanceSummaryRecord.Reader(summary);
-        ConcordanceSummaryRecord snpRecord = reader.readRecord();
-        ConcordanceSummaryRecord indelRecord = reader.readRecord();
+        ConcordanceSummaryRecord.Reader summaryReader = new ConcordanceSummaryRecord.Reader(summary);
+        ConcordanceSummaryRecord snpRecord = summaryReader.readRecord();
+        ConcordanceSummaryRecord indelRecord = summaryReader.readRecord();
 
         // Takuto painstakingly counted the correct values
         Assert.assertEquals(snpRecord.getTruePositives(), 2);
@@ -90,6 +89,15 @@ public class ConcordanceTest extends CommandLineProgramTest{
 
         Assert.assertEquals(snpRecord.getFalseNegatives(), 6);
         Assert.assertEquals(indelRecord.getFalseNegatives(), 0);
+
+        // Test the output table
+        VariantStatusRecord.Reader statusReader = new VariantStatusRecord.Reader(output);
+        VariantStatusRecord firstRecord = statusReader.readRecord();
+
+        Assert.assertEquals(firstRecord.getVariantContext().getContig(), "22");
+        Assert.assertEquals(firstRecord.getVariantContext().getStart(), 50357818);
+        Assert.assertEquals(firstRecord.getTruthStatus(), VariantStatusRecord.Status.TRUE_POSITIVE);
+        Assert.assertEquals(firstRecord.getVariantContext().getType(), VariantContext.Type.SNP);
     }
 
     // Truth and eval are the same file
@@ -104,10 +112,10 @@ public class ConcordanceTest extends CommandLineProgramTest{
 
         final String[] args = {
                 "-V", evalVcf.toString(),
-                "--truth", truthVcf.toString(),
-                "--table", table.toString(),
-                "--summary", summary.toString(),
-                "--evalSampleName", "TUMOR"
+                "-" + Concordance.TRUTH_SHORT_NAME, truthVcf.toString(),
+                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, table.toString(),
+                "-" + Concordance.SUMMARY_SHORT_NAME, summary.toString(),
+                "-" + Concordance.SAMPLE_SHORT_NAME, "TUMOR"
         };
 
         runCommandLine(args);
@@ -126,21 +134,20 @@ public class ConcordanceTest extends CommandLineProgramTest{
         Assert.assertEquals(indelRecord.getPrecision(), 1.0, epsilon);
     }
 
-    // TODO: figure out a way to subset the truth variant
     @Test
     public void testDreamSensitivity() throws Exception {
         final String testDir = publicTestDir + "org/broadinstitute/hellbender/tools/concordance/";
         final File evalVcf = new File(testDir, "dream3-chr21.vcf");
         final File truthVcf = new File(testDir, "dream3-truth-minus-SV-chr21.vcf");
-        final File table = createTempFile("table", ".txt");
+        final File output = createTempFile("table", ".txt");
         final File summary = createTempFile("summary", ".txt");
 
         final String[] args = {
-                "-V", evalVcf.toString(),
-                "--truth", truthVcf.toString(),
-                "--table", table.toString(),
-                "--summary", summary.toString(),
-                "--evalSampleName", "TUMOR"
+                "-" + StandardArgumentDefinitions.VARIANT_SHORT_NAME, evalVcf.toString(),
+                "-" + Concordance.TRUTH_SHORT_NAME, truthVcf.toString(),
+                "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, output.toString(),
+                "-" + Concordance.SUMMARY_SHORT_NAME, summary.toString(),
+                "-" + Concordance.SAMPLE_SHORT_NAME, "TUMOR"
         };
 
         runCommandLine(args);

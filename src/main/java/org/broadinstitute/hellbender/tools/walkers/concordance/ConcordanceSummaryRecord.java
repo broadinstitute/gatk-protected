@@ -37,30 +37,17 @@ public class ConcordanceSummaryRecord {
         this.falseNegatives = falseNegatives;
     }
 
-    public VariantContext.Type getVariantType(){
-        return type;
-    }
+    public VariantContext.Type getVariantType() { return type; }
 
-    public long getTruePositives(){
-        return truePositives;
-    }
+    public long getTruePositives() { return truePositives; }
 
-    public long getFalsePositives() {
-        return falsePositives;
-    }
+    public long getFalsePositives() { return falsePositives; }
 
-    public long getFalseNegatives(){
-        return falseNegatives;
-    }
+    public long getFalseNegatives() { return falseNegatives; }
 
-    public double getSensitivity(){
-        return (double) truePositives / (truePositives + falseNegatives);
-    }
+    public double getSensitivity() { return (double) truePositives / (truePositives + falseNegatives); }
 
-    public double getPrecision(){
-        return (double) truePositives / (truePositives + falsePositives);
-    }
-
+    public double getPrecision() { return (double) truePositives / (truePositives + falsePositives); }
 
     public static class Writer extends TableWriter<ConcordanceSummaryRecord> {
         private Writer(final File output) throws IOException {
@@ -88,8 +75,8 @@ public class ConcordanceSummaryRecord {
     }
 
     public static class Reader extends TableReader<ConcordanceSummaryRecord> {
-        public Reader(final File summaryTable) throws IOException {
-            super(summaryTable);
+        public Reader(final File summary) throws IOException {
+            super(summary);
         }
 
         @Override

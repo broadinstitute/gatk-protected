@@ -3,19 +3,21 @@ package org.broadinstitute.hellbender.tools.walkers.concordance;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextBuilder;
-import org.bdgenomics.formats.avro.Variant;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.broadinstitute.hellbender.utils.tsv.TableWriter;
-import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Created by tsato on 2/8/17.
+ * Created by Takuto Sato on 2/8/17.
  */
 public class VariantStatusRecord {
     private static final String CHROMOSOME_COLUMN_NAME = "CHROM";
@@ -29,26 +31,26 @@ public class VariantStatusRecord {
     private static final String[] VARIANT_TABLE_COLUMN_HEADERS = {CHROMOSOME_COLUMN_NAME, START_POSITION_COLUMN_NAME, END_POSITION_COLUMN_NAME,
             REF_ALLELE_COLUMN_NAME, ALT_ALLELE_COLUMN_NAME, VARIANT_TYPE_COLUMN_NAME, ALLELE_FRACTION_COLUMN_NAME, TRUTH_STATUS_COLUMN_NAME};
 
-    String truthStatus;
+    Status truthStatus;
     VariantContext variantContext;
-    // TODO: should be an array of doubles
-    String tumorAlleleFraction;
+    double altAlleleFraction;
 
-    public VariantStatusRecord(final VariantContext variantContext, final String truthStatus, final String tumorSampleName){
+    // Possible statuses
+    public enum Status {
+        TRUE_POSITIVE, FALSE_POSITIVE, FALSE_NEGATIVE;
+    }
+
+    public VariantStatusRecord(final VariantContext variantContext, final Status truthStatus, final double altAllelefraction){
         this.truthStatus = truthStatus;
         this.variantContext = variantContext;
-        this.tumorAlleleFraction = (String) variantContext.getGenotype(tumorSampleName).getAnyAttribute(GATKVCFConstants.ALLELE_FRACTION_KEY);
+        this.altAlleleFraction = altAllelefraction;
     }
 
-    public String getTruthStatus() {
-        return truthStatus;
-    }
+    public Status getTruthStatus() { return truthStatus; }
 
-    public VariantContext getVariantContext() {
-        return variantContext;
-    }
+    public VariantContext getVariantContext() { return variantContext; }
 
-    public String getTumorAlleleFraction(){ return tumorAlleleFraction; }
+    public double getAltAlleleFraction(){ return altAlleleFraction; }
 
     public static class Writer extends TableWriter<VariantStatusRecord> {
         private Writer(final File output) throws IOException {
@@ -57,14 +59,24 @@ public class VariantStatusRecord {
 
         @Override
         protected void composeLine(final VariantStatusRecord record, final DataLine dataLine) {
+            // Avoid printing brackets [ ] when we convert an array to a string
+            StringBuilder altAlleleBuilder = new StringBuilder();
+            for (Allele allele : record.getVariantContext().getAlternateAlleles()){
+                altAlleleBuilder.append(allele.toString());
+            }
+
+            // And remove the asterisk (*) next to the ref allele
+            String refAllele = record.getVariantContext().getReference().toString();
+            refAllele = refAllele.substring(0, refAllele.length() - 1);
+
             dataLine.set(VariantStatusRecord.CHROMOSOME_COLUMN_NAME, record.getVariantContext().getContig())
                     .set(VariantStatusRecord.START_POSITION_COLUMN_NAME, record.getVariantContext().getStart())
                     .set(VariantStatusRecord.END_POSITION_COLUMN_NAME, record.getVariantContext().getEnd())
-                    .set(VariantStatusRecord.REF_ALLELE_COLUMN_NAME, record.getVariantContext().getReference().toString())
-                    .set(VariantStatusRecord.ALT_ALLELE_COLUMN_NAME, record.getVariantContext().getAlternateAlleles().toString())
+                    .set(VariantStatusRecord.REF_ALLELE_COLUMN_NAME, refAllele)
+                    .set(VariantStatusRecord.ALT_ALLELE_COLUMN_NAME, altAlleleBuilder.toString())
                     .set(VariantStatusRecord.VARIANT_TYPE_COLUMN_NAME, record.getVariantContext().getType().toString())
-                    .set(VariantStatusRecord.ALLELE_FRACTION_COLUMN_NAME, record.getTumorAlleleFraction()) // TODO: must be able to retrieve the allele fraction from tumor
-                    .set(VariantStatusRecord.TRUTH_STATUS_COLUMN_NAME, record.getTruthStatus());
+                    .set(VariantStatusRecord.ALLELE_FRACTION_COLUMN_NAME, record.getAltAlleleFraction()) // TODO: must be able to retrieve the allele fraction from tumor
+                    .set(VariantStatusRecord.TRUTH_STATUS_COLUMN_NAME, record.getTruthStatus().toString());
         }
     }
 
@@ -76,6 +88,37 @@ public class VariantStatusRecord {
             throw new UserException(String.format("Encountered an IO exception opening %s.", outputTable), e);
         }
     }
+
+    public static class Reader extends TableReader<VariantStatusRecord> {
+        public Reader(final File output) throws IOException {
+            super(output);
+        }
+
+        @Override
+        protected VariantStatusRecord createRecord(final DataLine dataLine) {
+            final String chr = dataLine.get(CHROMOSOME_COLUMN_NAME);
+            final long start = Long.parseLong(dataLine.get(START_POSITION_COLUMN_NAME));
+            final long end = Long.parseLong(dataLine.get(END_POSITION_COLUMN_NAME));
+            final Allele refAllele = Allele.create(dataLine.get(REF_ALLELE_COLUMN_NAME), true);
+            final List<String> alts = Arrays.asList(dataLine.get(ALT_ALLELE_COLUMN_NAME).split(","));
+            final List<Allele> altAlleles = alts.stream().map(str -> Allele.create(str, false)).collect(Collectors.toList());
+            final List<Allele> alleles = new ArrayList<>();
+            alleles.add(refAllele);
+            alleles.addAll(altAlleles);
+            final VariantContext.Type type = VariantContext.Type.valueOf(dataLine.get(VARIANT_TYPE_COLUMN_NAME));
+            final double alleleFraction = Double.parseDouble(dataLine.get(ALLELE_FRACTION_COLUMN_NAME));
+            final Status status = Status.valueOf(dataLine.get(TRUTH_STATUS_COLUMN_NAME));
+
+            VariantContextBuilder builder = new VariantContextBuilder();
+            VariantContext variant = builder.chr(chr).start(start).stop(end).alleles(alleles).make();
+
+            return new VariantStatusRecord(variant, status, alleleFraction);
+        }
+
+    }
+
+    // TODO: write a reader and add tests
+    // TODO: handle * next to the ref allele, brackets around the alt alleles, etc.
 
 
 }
