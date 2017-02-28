@@ -23,10 +23,11 @@ public class VariantStatusRecord {
     private static final String END_POSITION_COLUMN_NAME = "END";
     private static final String REF_ALLELE_COLUMN_NAME = "REF";
     private static final String ALT_ALLELE_COLUMN_NAME = "ALT";
+    private static final String VARIANT_TYPE_COLUMN_NAME = "TYPE";
     private static final String ALLELE_FRACTION_COLUMN_NAME = "TUMOR_ALT_AF";
     private static final String TRUTH_STATUS_COLUMN_NAME = "TRUTH_STATUS";
     private static final String[] VARIANT_TABLE_COLUMN_HEADERS = {CHROMOSOME_COLUMN_NAME, START_POSITION_COLUMN_NAME, END_POSITION_COLUMN_NAME,
-            REF_ALLELE_COLUMN_NAME, ALT_ALLELE_COLUMN_NAME, ALLELE_FRACTION_COLUMN_NAME, TRUTH_STATUS_COLUMN_NAME};
+            REF_ALLELE_COLUMN_NAME, ALT_ALLELE_COLUMN_NAME, VARIANT_TYPE_COLUMN_NAME, ALLELE_FRACTION_COLUMN_NAME, TRUTH_STATUS_COLUMN_NAME};
 
     String truthStatus;
     VariantContext variantContext;
@@ -61,6 +62,7 @@ public class VariantStatusRecord {
                     .set(VariantStatusRecord.END_POSITION_COLUMN_NAME, record.getVariantContext().getEnd())
                     .set(VariantStatusRecord.REF_ALLELE_COLUMN_NAME, record.getVariantContext().getReference().toString())
                     .set(VariantStatusRecord.ALT_ALLELE_COLUMN_NAME, record.getVariantContext().getAlternateAlleles().toString())
+                    .set(VariantStatusRecord.VARIANT_TYPE_COLUMN_NAME, record.getVariantContext().getType().toString())
                     .set(VariantStatusRecord.ALLELE_FRACTION_COLUMN_NAME, record.getTumorAlleleFraction()) // TODO: must be able to retrieve the allele fraction from tumor
                     .set(VariantStatusRecord.TRUTH_STATUS_COLUMN_NAME, record.getTruthStatus());
         }
