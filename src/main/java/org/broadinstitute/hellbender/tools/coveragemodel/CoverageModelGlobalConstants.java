@@ -48,14 +48,24 @@ public final class CoverageModelGlobalConstants implements Serializable {
     public static final int DEFAULT_MIN_TARGET_BLOCK_SIZE = 5;
 
     /**
-     * Initial value of the target-specific unexplained variance ($Psi$)
+     * Uniform random maximum for target-specific unexplained variance
      */
-    public static final double INITIAL_TARGET_UNEXPLAINED_VARIANCE = 0.0;
+    public static final double RANDOM_UNEXPLAINED_VARIANCE_MAX = 0.01;
 
     /**
-     * Initial value of the diagonal components of the principal latent to target map
+     * Gaussian random standard deviation for bias covariates
      */
-    public static final double INITIAL_BIAS_COVARIATES_SCALAR = 1.0;
+    public static final double RANDOM_BIAS_COVARIATES_STD = 1.0;
+
+    /**
+     * Gaussian random standard deviation for mean log bias
+     */
+    public static final double RANDOM_MEAN_LOG_BIAS_STD = 0.1;
+
+    /**
+     * Random generator seed for initial model parameters
+     */
+    public static final long RANDOM_MODEL_SEED = 1984;
 
     /**
      * Copy ratio max likelihood estimates output file name
@@ -116,6 +126,11 @@ public final class CoverageModelGlobalConstants implements Serializable {
      * Bias covariates (= W_{t\mu} = "log bias principal components") output file name
      */
     public static final String BIAS_COVARIATES_OUTPUT_FILE = "bias_covariates_matrix.tsv";
+
+    /**
+     * Bias covariates statistics output file name
+     */
+    public static final String BIAS_COVARIATES_STATS_OUTPUT_FILE = "bias_covariates_stats.tsv";
 
     /**
      * Norm_2 of bias covariates (= \sum_t |W_{t\mu}|^2) output file name

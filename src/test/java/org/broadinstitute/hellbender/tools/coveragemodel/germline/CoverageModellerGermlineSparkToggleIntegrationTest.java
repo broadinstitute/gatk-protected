@@ -65,11 +65,11 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final File TEST_TARGETS_FILE = new File(TEST_TRUTH_SIM_MODEL, "targets.tsv");
 
     private static final double MAPPING_ERROR_RATE = 5e-4; /* reflects the simulated data */
-    private static final int NUM_LATENTS = 5; /* simulated data uses 3 */
+    private static final int NUM_LATENTS = 6; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
     private static final int MIN_LEARNING_READ_COUNT = 10;
-    private static final int MAX_LEARNING_EM_ITERATIONS = 10;
+    private static final int MAX_LEARNING_EM_ITERATIONS = 100;
     private static final int MAX_CALLING_EM_ITERATIONS = 10;
 
     private static final double MIN_PASS_REF_CONCORDANCE = 0.95;
@@ -115,10 +115,12 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     String.valueOf(MAPPING_ERROR_RATE),
                 "--" + CoverageModelEMParams.MIN_LEARNING_READ_COUNT_LONG_NAME,
                     String.valueOf(MIN_LEARNING_READ_COUNT),
-//                "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-//                    "false",
-//                "--" + CoverageModelEMParams.LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING_LONG_NAME,
-//                    "1e-3",
+                "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
+                    "false",
+                "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
+                    CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED.name(),
+                "--" + CoverageModelEMParams.LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING_LONG_NAME,
+                    "1e-3",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
                     "false",
                 "--" + CoverageModelEMParams.NUMBER_OF_TARGET_SPACE_PARTITIONS_LONG_NAME,
@@ -129,6 +131,8 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     TEST_CONTIG_PLOIDY_ANNOTATIONS_FILE.getAbsolutePath(),
                 "--" + CoverageModelEMParams.RDD_CHECKPOINTING_PATH_LONG_NAME,
                     SPARK_CHECKPOINTING_PATH.getAbsolutePath(),
+                "--" + CoverageModelEMParams.EXTENDED_POSTERIOR_OUTPUT_ENABLED_LONG_NAME,
+                    "true",
                 "--verbosity", "INFO"
         }, extraArgs);
     }
@@ -202,30 +206,30 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
         runLearningAndCallingTest("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
     }
 
-    @Test(dependsOnMethods = "runLearningAndCallingTestLocal")
-    public void runCaseSampleCallingTestOnLearnedModelParamsLocal() {
-        runCaseSampleCallingTestOnLearnedModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
-    }
-
-    @Test
-    public void runCaseSampleCallingTestOnExactModelParamsLocal() {
-        runCaseSampleCallingTestOnExactModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
-    }
-
-    @Test
-    public void runLearningAndCallingTestSpark() {
-        runLearningAndCallingTest();
-    }
-
-    @Test(dependsOnMethods = "runLearningAndCallingTestSpark")
-    public void runCaseSampleCallingTestOnLearnedModelParamsSpark() {
-        runCaseSampleCallingTestOnLearnedModelParams();
-    }
-
-    @Test
-    public void runCaseSampleCallingTestOnExactModelParamsSpark() {
-        runCaseSampleCallingTestOnExactModelParams();
-    }
+//    @Test(dependsOnMethods = "runLearningAndCallingTestLocal")
+//    public void runCaseSampleCallingTestOnLearnedModelParamsLocal() {
+//        runCaseSampleCallingTestOnLearnedModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
+//    }
+//
+//    @Test
+//    public void runCaseSampleCallingTestOnExactModelParamsLocal() {
+//        runCaseSampleCallingTestOnExactModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
+//    }
+//
+//    @Test
+//    public void runLearningAndCallingTestSpark() {
+//        runLearningAndCallingTest();
+//    }
+//
+//    @Test(dependsOnMethods = "runLearningAndCallingTestSpark")
+//    public void runCaseSampleCallingTestOnLearnedModelParamsSpark() {
+//        runCaseSampleCallingTestOnLearnedModelParams();
+//    }
+//
+//    @Test
+//    public void runCaseSampleCallingTestOnExactModelParamsSpark() {
+//        runCaseSampleCallingTestOnExactModelParams();
+//    }
 
     /* Shame on me for using {@link ReadCountCollection} to store copy numbers! */
     private void assertInferredCopyNumberConcordance(@Nonnull final File posteriorsOutputPath,

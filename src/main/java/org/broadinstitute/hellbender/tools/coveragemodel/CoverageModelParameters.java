@@ -2,6 +2,8 @@ package org.broadinstitute.hellbender.tools.coveragemodel;
 
 import com.google.cloud.dataflow.sdk.repackaged.com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
@@ -153,6 +155,53 @@ public final class CoverageModelParameters implements Serializable {
             }
         }
         return orthogonal;
+    }
+
+    private static double[] getNormalRandomNumbers(final int size, final double mean, final double std,
+                                                   final RandomGenerator rng) {
+        Utils.validateArg(std >= 0, "Standard deviation must be non-negative");
+        return IntStream.range(0, size).mapToDouble(i -> mean + std * rng.nextGaussian()).toArray();
+    }
+
+    private static double[] getUniformRandomNumbers(final int size, final double min, final double max,
+                                                    final RandomGenerator rng) {
+        Utils.validateArg(max >= min, "Max value must be greater than min value");
+        return IntStream.range(0, size).mapToDouble(i -> min + (max - min) * rng.nextDouble()).toArray();
+    }
+
+    /**
+     *
+     * @param targetList
+     * @param numLatents
+     * @param seed
+     * @param randomMeanLogBiasStandardDeviation
+     * @param randomBiasCovariatesStandardDeviation
+     * @param randomMaxUnexplainedVariance
+     * @return
+     */
+    public static CoverageModelParameters generateRandomModel(final List<Target> targetList,
+                                                              final int numLatents,
+                                                              final long seed,
+                                                              final double randomMeanLogBiasStandardDeviation,
+                                                              final double randomBiasCovariatesStandardDeviation,
+                                                              final double randomMaxUnexplainedVariance) {
+        Utils.validateArg(numLatents >= 0, "Dimension of the bias space must be non-negative");
+        Utils.validateArg(randomBiasCovariatesStandardDeviation >= 0, "Standard deviation of random bias covariates" +
+                " must be non-negative");
+        Utils.validateArg(randomMeanLogBiasStandardDeviation >= 0, "Standard deviation of random mean log bias" +
+                " must be non-negative");
+        Utils.validateArg(randomMaxUnexplainedVariance >= 0, "Max random unexplained variance must be non-negative");
+
+        final int numTargets = targetList.size();
+        final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(seed));
+        final INDArray randomMeanLogBias = Nd4j.create(getNormalRandomNumbers(
+                numTargets, 0, randomMeanLogBiasStandardDeviation, rng), new int[] {1, numTargets});
+        final INDArray randomBiasCovariates = Nd4j.create(getNormalRandomNumbers(
+                numTargets * numLatents, 0, randomBiasCovariatesStandardDeviation, rng), new int[] {numTargets, numLatents});
+        final INDArray randomUnexplainedVariance = Nd4j.create(getUniformRandomNumbers(
+                numTargets, 0, randomMaxUnexplainedVariance, rng), new int[] {1, numTargets});
+
+        return new CoverageModelParameters(targetList, randomMeanLogBias, randomUnexplainedVariance, randomBiasCovariates);
     }
 
     /**

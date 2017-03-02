@@ -476,8 +476,8 @@ public final class CoverageModelEMComputeBlock {
         final INDArray contribGMatrix = Nd4j.create(numSamples, numLatents, numLatents);
         final INDArray contribZ = Nd4j.create(numLatents, numSamples);
         IntStream.range(0, numSamples).parallel().forEach(si -> {
-            contribGMatrix.get(NDArrayIndex.point(si)).assign(
-                    W_tl.transpose().mmul(W_tl.mulColumnVector(M_Psi_inv_st.getRow(si).transpose())));
+            contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
+                    .assign(W_tl.transpose().mmul(W_tl.mulColumnVector(M_Psi_inv_st.getRow(si).transpose())));
             contribZ.get(NDArrayIndex.all(), NDArrayIndex.point(si)).assign(
                     W_tl.transpose().mmul(M_Psi_inv_st.getRow(si).mul(Delta_st.getRow(si)).transpose()));
         });
@@ -687,6 +687,41 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
+     *
+     * @param alpha_l
+     * @return
+     */
+    public INDArray calculateBiasCovariateHyperpriorData(final INDArray alpha_l) {
+        /* fetch the required caches */
+        final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
+        final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
+        final int numTargets = v_tl.shape()[0];
+        final int numLatents = v_tl.shape()[1];
+
+        final INDArray alpha_ll = Nd4j.diag(alpha_l);
+
+        /* calculate (Q + A)^{-1} v */
+        final INDArray W_new_tl = Nd4j.create(numTargets, numLatents);
+        IntStream.range(0, numTargets).parallel().forEach(ti ->
+                W_new_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(
+                        CoverageModelEMWorkspaceMathUtils.linsolve(
+                                Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).add(alpha_ll),
+                                v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()))));
+
+        /* calculate (Q + A)^{-1} diagonal */
+        final INDArray X_inv_diag_tl = Nd4j.create(numTargets, numLatents);
+        IntStream.range(0, numTargets).parallel().forEach(ti -> {
+            final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
+                    .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
+                    .add(alpha_ll));
+            X_inv_diag_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(Nd4j.diag(X_inv_ll));
+        });
+
+        return Transforms.pow(W_new_tl, 2, true).addi(X_inv_diag_tl).sum(0);
+    }
+
+
+    /**
      * Takes an arbitrary INDArray {@code arr} and a mask array {@code mask} with the same shape
      * and replace all entries in {@code arr} on which {@code mask} is 0 to {@code value}
      *
@@ -868,18 +903,19 @@ public final class CoverageModelEMComputeBlock {
      *
      * @return a new instance of {@link CoverageModelEMComputeBlock}
      */
-    public CoverageModelEMComputeBlock cloneWithUpdatedBiasCovariatesUnregularized() {
+    public CoverageModelEMComputeBlock cloneWithUpdatedBiasCovariatesUnregularized(final INDArray alpha_l) {
         /* fetch the required caches */
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
         final int numTargets = v_tl.shape()[0];
         final int numLatents = v_tl.shape()[1];
 
+        final INDArray alpha_ll = Nd4j.diag(alpha_l);
         final INDArray newPrincipalLatentTargetMap = Nd4j.create(numTargets, numLatents);
         IntStream.range(0, numTargets).parallel().forEach(ti ->
                 newPrincipalLatentTargetMap.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(
                         CoverageModelEMWorkspaceMathUtils.linsolve(
-                                Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()),
+                                Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).add(alpha_ll),
                                 v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()))));
 
         final double errNormInfinity = CoverageModelEMWorkspaceMathUtils

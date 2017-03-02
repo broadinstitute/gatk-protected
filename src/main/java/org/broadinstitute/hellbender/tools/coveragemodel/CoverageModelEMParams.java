@@ -164,7 +164,7 @@ public final class CoverageModelEMParams {
     public static final String W_COMMUNICATION_POLICY_SHORT_NAME = "WCP";
     public static final String W_COMMUNICATION_POLICY_LONG_NAME = "wCommunicationPolicy";
 
-    public static final boolean DEFAULT_W_ORTHOGONALIZATION_ENABLED = true;
+    public static final boolean DEFAULT_W_ORTHOGONALIZATION_ENABLED = false;
     public static final String W_ORTHOGONALIZATION_ENABLED_SHORT_NAME = "WOE";
     public static final String W_ORTHOGONALIZATION_ENABLED_LONG_NAME = "wOrthogonalizationEnabled";
 
