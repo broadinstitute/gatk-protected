@@ -393,7 +393,6 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.M_log_Psi_s.name()},
                         calculate_loglike_unreg, true)
                 /* log likelihood (w/ regularization) */
-                /* TODO -- does not include the ARD part */
                 .addComputableNode(CoverageModelICGCacheNode.loglike_reg.name(),
                         new String[]{CoverageModelICGCacheTag.LOGLIKE_REG.name()},
                         new String[]{

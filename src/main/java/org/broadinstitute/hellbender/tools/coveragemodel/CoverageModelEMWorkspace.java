@@ -220,6 +220,8 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      */
     protected final INDArray biasCovariatesARDCoefficients;
 
+    protected final List<INDArray> biasCovariatesARDCoefficientsHistory;
+
     /* END --- Driver node copy of model parameters */
 
     /**
@@ -321,6 +323,8 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
 
         /* allocate memory for driver-node copy of model parameters */
         biasCovariatesARDCoefficients = Nd4j.zeros(1, numLatents);
+        biasCovariatesARDCoefficientsHistory = new ArrayList<>();
+        biasCovariatesARDCoefficientsHistory.add(biasCovariatesARDCoefficients.dup());
 
         /* initialize the CNV-avoiding regularizer filter */
         if (params.fourierRegularizationEnabled()) {
@@ -1482,6 +1486,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
 
         /* update the driver copy */
         biasCovariatesARDCoefficients.assign(alpha_l);
+        biasCovariatesARDCoefficientsHistory.add(alpha_l.dup());
 
         return SubroutineSignal.builder()
                 .put("error_norm", errorNormInfinity)
@@ -1666,13 +1671,11 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                 .orElse(Double.NaN);
 
         /* contribution from ARD */
-        final double contribARD_1 = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true)
-                .sumNumber().doubleValue() / numTargets;
-        final double contribARD_2 = -0.5 * mapWorkersAndReduce(CoverageModelEMComputeBlock::calculateBiasCovariatesPosteriorPowerPartialTargetSum,
-                INDArray::add).muli(biasCovariatesARDCoefficients).sumNumber().doubleValue() / numTargets;
+        final double contribARD = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true)
+                .sumNumber().doubleValue() / numTargets - 0.5 * numLatents;
 
         /* the final result is normalized for number of samples */
-        return (logLikelihoodAllSamples + contribARD_1 + contribARD_2) / numSamples;
+        return (logLikelihoodAllSamples + contribARD) / numSamples;
     }
 
     /**
@@ -2149,6 +2152,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
         saveSampleSpecificUnexplainedVariancePosteriors(outputPath);
         saveBiasLatentPosteriors(outputPath);
         saveTargets(outputPath);
+        saveBiasCovariatesARDHistory(outputPath);
 
         if (verbosityLevel.equals(PosteriorVerbosityLevel.EXTENDED)) {
             saveCopyRatioPosteriors(outputPath);
@@ -2253,6 +2257,17 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(sampleBiasLatentPosteriorFirstMoments, sampleBiasLatentPosteriorsFile,
                 "SAMPLE_NAME", sampleNames, IntStream.range(0, numLatents)
                         .mapToObj(li -> String.format("PC_%d", li)).collect(Collectors.toList()));
+    }
+
+    protected void saveBiasCovariatesARDHistory(final String outputPath) {
+        final File biasCovariatesARDHistoryFile = new File(outputPath,
+                CoverageModelGlobalConstants.BIAS_COVARIATES_ARD_COEFFICIENTS_HISTORY_OUTPUT_FILE);
+        Nd4jIOUtils.writeNDArrayMatrixToTextFile(Nd4j.vstack(biasCovariatesARDCoefficientsHistory),
+                biasCovariatesARDHistoryFile, "ARD_HISTORY",
+                IntStream.range(0, biasCovariatesARDCoefficientsHistory.size())
+                        .mapToObj(i -> String.format("ITER_%d", i+1)).collect(Collectors.toList()),
+                IntStream.range(0, numLatents)
+                        .mapToObj(i -> String.format("PC_%d", i)).collect(Collectors.toList()));
     }
 
     /**

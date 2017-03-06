@@ -145,7 +145,12 @@ public final class CoverageModelGlobalConstants implements Serializable {
     /**
      * ARD coefficients of bias covariates output file
      */
-    public static final String BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE = "bias_covariates_ARD_coefficients.tsv";
+    public static final String BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE = "bias_covariates_ARD_coefficients_final.tsv";
+
+    /**
+     * History of ARD coefficients of bias covariates output file
+     */
+    public static final String BIAS_COVARIATES_ARD_COEFFICIENTS_HISTORY_OUTPUT_FILE = "bias_covariates_ARD_coefficients_history.tsv";
 
     /**
      * Processed targets output file name (order may be different than original, and some may have been dropped)
