@@ -95,8 +95,8 @@ public final class CoverageModelEMWorkspaceGermline extends CoverageModelEMWorks
             final File copyRatioViterbiFile = new File(outputPath, CoverageModelGlobalConstants.COPY_RATIO_VITERBI_FILENAME);
             final List<String> targetNames = processedReadCounts.targets().stream()
                     .map(Target::getName).collect(Collectors.toList());
-            Nd4jIOUtils.writeNDArrayToTextFile(getViterbiAsNDArray(copyRatioHMMResult, sampleTargetCollection),
-                    copyRatioViterbiFile, processedSampleNameList, targetNames);
+            Nd4jIOUtils.writeNDArrayMatrixToTextFile(getViterbiAsNDArray(copyRatioHMMResult, sampleTargetCollection),
+                    copyRatioViterbiFile, "SAMPLE_NAME", processedSampleNameList, targetNames);
         }
     }
 }

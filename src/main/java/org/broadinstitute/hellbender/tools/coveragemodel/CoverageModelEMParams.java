@@ -64,11 +64,13 @@ public final class CoverageModelEMParams {
         RDD_JOIN
     }
 
-    public static final double DEFAULT_LOG_LIKELIHOOD_TOL = 1e-5;
+    /* TODO */
+    public static final double DEFAULT_LOG_LIKELIHOOD_TOL = 1e-8;
     public static final String LOG_LIKELIHOOD_TOL_SHORT_NAME = "LLT";
     public static final String LOG_LIKELIHOOD_TOL_LONG_NAME = "logLikelihoodTol";
 
-    public static final double DEFAULT_PARAM_ABS_TOL = 1e-4;
+    /* TODO */
+    public static final double DEFAULT_PARAM_ABS_TOL = 1e-8;
     public static final String PARAM_ABS_TOL_SHORT_NAME = "PMAT";
     public static final String PARAM_ABS_TOL_LONG_NAME = "paramAbsoluteTolerance";
 
@@ -163,10 +165,6 @@ public final class CoverageModelEMParams {
     public static final ComputeNodeCommunicationPolicy DEFAULT_W_COMMUNICATION_POLICY = ComputeNodeCommunicationPolicy.RDD_JOIN;
     public static final String W_COMMUNICATION_POLICY_SHORT_NAME = "WCP";
     public static final String W_COMMUNICATION_POLICY_LONG_NAME = "wCommunicationPolicy";
-
-    public static final boolean DEFAULT_W_ORTHOGONALIZATION_ENABLED = false;
-    public static final String W_ORTHOGONALIZATION_ENABLED_SHORT_NAME = "WOE";
-    public static final String W_ORTHOGONALIZATION_ENABLED_LONG_NAME = "wOrthogonalizationEnabled";
 
     public static final int DEFAULT_MAX_W_ITERATIONS = 200;
     public static final String MAX_W_ITERATIONS_SHORT_NAME = "MWI";
@@ -610,14 +608,6 @@ public final class CoverageModelEMParams {
     protected boolean runCheckpointingEnabled = DEFAULT_RUN_CHECKPOINTING_ENABLED;
 
     @Argument(
-            doc = "Enable orthogonalization of principal map",
-            shortName = W_ORTHOGONALIZATION_ENABLED_SHORT_NAME,
-            fullName = W_ORTHOGONALIZATION_ENABLED_LONG_NAME,
-            optional = true
-    )
-    protected boolean orthogonalizeAndSortPrincipalMapEnabled = DEFAULT_W_ORTHOGONALIZATION_ENABLED;
-
-    @Argument(
             doc = "Enable gamma updates",
             shortName = GAMMA_UPDATE_ENABLED_SHORT_NAME,
             fullName = GAMMA_UPDATE_ENABLED_LONG_NAME,
@@ -915,20 +905,6 @@ public final class CoverageModelEMParams {
     public CoverageModelEMParams setMeanFieldAdmixingRatio(double meanFieldAdmixingRatio) {
         this.meanFieldAdmixingRatio = ParamUtils.inRange(meanFieldAdmixingRatio, 0, 1,
             "The mean-field admixing ratio must be between 0 and 1");
-        return this;
-    }
-
-    public boolean isOrthogonalizeAndSortBiasCovariatesEnabled() {
-        return orthogonalizeAndSortPrincipalMapEnabled;
-    }
-
-    public CoverageModelEMParams enableOrthogonalizeAndSortPrincipalMap() {
-        orthogonalizeAndSortPrincipalMapEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableOrthogonalizeAndSortPrincipalMap() {
-        orthogonalizeAndSortPrincipalMapEnabled = false;
         return this;
     }
 

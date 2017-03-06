@@ -133,13 +133,16 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
 
             while (iterEStep < params.getMaxEStepCycles()) {
                 double posteriorErrorNormReadDepth, posteriorErrorNormSampleUnexplainedVariance,
-                        posteriorErrorNormBias, posteriorErrorNormCopyRatio;
+                        posteriorErrorNormBias, posteriorErrorNormCopyRatio, posteriorErrorNormBiasCovariates;
 
                 runRoutine(this::updateReadDepthLatentPosteriorExpectations, s -> "N/A", "E_STEP_D", iterInfo);
                 posteriorErrorNormReadDepth = iterInfo.errorNorm;
 
                 runRoutine(this::updateBiasLatentPosteriorExpectations, s -> "N/A", "E_STEP_Z", iterInfo);
                 posteriorErrorNormBias = iterInfo.errorNorm;
+
+                runRoutine(this::updateBiasCovariates, s -> "N/A", "E_STEP_W", iterInfo);
+                posteriorErrorNormBiasCovariates = iterInfo.errorNorm;
 
                 if (params.gammaUpdateEnabled()) {
                     runRoutine(this::updateSampleUnexplainedVariance,
@@ -159,6 +162,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                 /* calculate the maximum change of posteriors in this cycle */
                 maxPosteriorErrorNorm = Collections.max(Arrays.asList(
                         posteriorErrorNormReadDepth,
+                        posteriorErrorNormBiasCovariates,
                         posteriorErrorNormSampleUnexplainedVariance,
                         posteriorErrorNormBias,
                         posteriorErrorNormCopyRatio));
@@ -186,7 +190,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
 
                 /* sequential M-steps */
                 while (iterMStep < params.getMaxMStepCycles()) {
-                    double errorNormMeanTargetBias = 0, errorNormUnexplainedVariance = 0, errorNormPrincipalMap = 0;
+                    double errorNormMeanTargetBias, errorNormUnexplainedVariance, errorNormARDCoefficients;
 
                     if (iterInfo.iter == 0) {
                         /* neglect the contribution from principal components in the first iteration */
@@ -200,19 +204,18 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                         runRoutine(this::updateTargetUnexplainedVariance, s -> "iters: " + s.getInteger("iterations"),
                                 "M_STEP_PSI", iterInfo);
                         errorNormUnexplainedVariance = iterInfo.errorNorm;
-                    }
-
-                    if (params.fourierRegularizationEnabled()) {
-                        runRoutine(this::updateBiasCovariates, s -> "iters: " + s.getInteger("iterations"),
-                                "M_STEP_W", iterInfo);
                     } else {
-                        runRoutine(this::updateBiasCovariates, s -> "N/A",
-                                "M_STEP_W", iterInfo);
+                        errorNormUnexplainedVariance = 0;
                     }
-                    errorNormPrincipalMap = iterInfo.errorNorm;
 
-                    maxParamErrorNorm = Collections.max(Arrays.asList(errorNormMeanTargetBias,
-                            errorNormUnexplainedVariance, errorNormPrincipalMap));
+                    runRoutine(this::updateBiasCovariatesARDCoefficients, s -> "iters: " + s.getInteger("iterations"),
+                            "M_STEP_ALPHA", iterInfo);
+                    errorNormARDCoefficients = iterInfo.errorNorm;
+
+                    maxParamErrorNorm = Collections.max(Arrays.asList(
+                            errorNormMeanTargetBias,
+                            errorNormUnexplainedVariance,
+                            errorNormARDCoefficients));
 
                     /* check convergence of parameter estimation */
                     if (updateCopyRatioPosteriors && maxParamErrorNorm < params.getParameterEstimationAbsoluteTolerance()) {
@@ -395,6 +398,13 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
     }
 
     /**
+     * E-step -- Update W
+     */
+    public SubroutineSignal updateBiasCovariates() {
+        return workspace.updateBiasCovariates();
+    }
+
+    /**
      * M-step -- Update m
      */
     public SubroutineSignal updateTargetMeanBias(final boolean neglectBiasCovariates) {
@@ -409,10 +419,10 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * M-step -- Update W
+     * M-step -- Update ARD coefficients
      */
-    public SubroutineSignal updateBiasCovariates() {
-        return workspace.updateBiasCovariates();
+    public SubroutineSignal updateBiasCovariatesARDCoefficients() {
+        return workspace.updateBiasCovariatesARDCoefficients();
     }
 
     /**
