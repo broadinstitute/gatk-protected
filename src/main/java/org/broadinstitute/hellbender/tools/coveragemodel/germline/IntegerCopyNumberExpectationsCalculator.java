@@ -260,7 +260,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
         /* clear caches */
         genotypeSpecificHMM.clearCaches();
 
-        return new CopyRatioHiddenMarkovModelResults<>(fbResult, viterbiResult);
+        return new CopyRatioHiddenMarkovModelResults<>(copyRatioCallingMetadata, fbResult, viterbiResult);
     }
 
     @Override

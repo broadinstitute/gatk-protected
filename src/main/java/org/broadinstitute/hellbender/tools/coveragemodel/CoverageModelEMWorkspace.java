@@ -35,11 +35,15 @@ import org.broadinstitute.hellbender.tools.exome.*;
 import org.broadinstitute.hellbender.tools.exome.sexgenotyper.GermlinePloidyAnnotatedTargetCollection;
 import org.broadinstitute.hellbender.tools.exome.sexgenotyper.SexGenotypeData;
 import org.broadinstitute.hellbender.tools.exome.sexgenotyper.SexGenotypeDataCollection;
+import org.broadinstitute.hellbender.utils.IndexRange;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.hmm.interfaces.AlleleMetadataProducer;
 import org.broadinstitute.hellbender.utils.hmm.interfaces.CallStringProducer;
 import org.broadinstitute.hellbender.utils.hmm.interfaces.ScalarProducer;
+import org.broadinstitute.hellbender.utils.hmm.segmentation.HiddenMarkovModelSegmentProcessor;
+import org.broadinstitute.hellbender.utils.hmm.segmentation.HiddenStateSegmentRecord;
+import org.broadinstitute.hellbender.utils.hmm.segmentation.HiddenStateSegmentRecordWriter;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
 import org.nd4j.linalg.api.buffer.DataBuffer;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -52,7 +56,9 @@ import scala.Tuple2;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -66,7 +72,7 @@ import static org.broadinstitute.hellbender.tools.coveragemodel.CoverageModelEMP
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & CallStringProducer &
+public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & CallStringProducer &
         ScalarProducer> {
 
     protected final Logger logger = LogManager.getLogger(CoverageModelEMWorkspace.class);
@@ -138,6 +144,8 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * The Spark context (null in the local mode)
      */
     protected final JavaSparkContext ctx;
+
+    private final BiFunction<SexGenotypeData, Target, S> referenceStateFactory;
 
     /* Spark-related members --- BEGIN */
 
@@ -241,12 +249,13 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @param copyRatioExpectationsCalculator an implementation of {@link CopyRatioExpectationsCalculator}
      */
     @UpdatesRDD @CachesRDD @EvaluatesRDD
-    protected CoverageModelEMWorkspace(@Nonnull final ReadCountCollection rawReadCounts,
+    public CoverageModelEMWorkspace(@Nonnull final ReadCountCollection rawReadCounts,
                                        @Nonnull final GermlinePloidyAnnotatedTargetCollection germlinePloidyAnnotatedTargetCollection,
                                        @Nonnull final SexGenotypeDataCollection sexGenotypeDataCollection,
                                        @Nonnull final CopyRatioExpectationsCalculator<CoverageModelCopyRatioEmissionData, S> copyRatioExpectationsCalculator,
                                        @Nonnull final CoverageModelEMParams params,
                                        @Nullable final CoverageModelParameters model,
+                                       @Nonnull final BiFunction<SexGenotypeData, Target, S> referenceStateFactory,
                                        @Nullable final JavaSparkContext ctx) {
         this.params = Utils.nonNull(params, "Coverage model EM-algorithm parameters must be non-null");
         this.copyRatioExpectationsCalculator = Utils.nonNull(copyRatioExpectationsCalculator, "Copy ratio posterior calculator" +
@@ -255,6 +264,8 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                 "The germline ploidy-annotated target collection must be non-null");
         this.sexGenotypeDataCollection = Utils.nonNull(sexGenotypeDataCollection,
                 "The sex genotype data collection must be non-null");
+        this.referenceStateFactory = Utils.nonNull(referenceStateFactory,
+                "The reference state factory must be non-null");
         Utils.nonNull(rawReadCounts, "Raw read count collection must be non-null");
 
         /* perform basic consistency check of arguments */
@@ -994,23 +1005,21 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @return a list of {@link CopyRatioHiddenMarkovModelResults}
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
-    protected List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>> getCopyRatioHiddenMarkovModelResults() {
+    protected List<List<HiddenStateSegmentRecord<S, Target>>> getCopyRatioSegments() {
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_C));
-        cacheWorkers("after E-step for copy ratio HMM result generation");
-        final List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>> result;
+        cacheWorkers("after E-step for copy ratio segment generation");
+        final List<List<HiddenStateSegmentRecord<S, Target>>> result;
         /* calculate posteriors */
         long startTime = System.nanoTime();
-        logger.info("Running forward-backward and Viterbi algorithms on all samples...");
-        logger.info("Strategy: " + params.getCopyRatioHMMType().name());
         if (params.getCopyRatioHMMType().equals(COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
             /* local mode */
-            result = getCopyRatioHiddenMarkovModelResultsLocal();
+            result = getCopyRatioSegmentsLocal();
         } else {
             /* spark mode */
-            result = getCopyRatioHiddenMarkovModelResultsSpark();
+            result = getCopyRatioSegmentsSpark();
         }
         long endTime = System.nanoTime();
-        logger.debug("Copy ratio HMM result generation time: " + (double)(endTime - startTime)/1000000 + " ms");
+        logger.debug("Copy ratio segmentation time: " + (double)(endTime - startTime)/1000000 + " ms");
         return result;
     }
 
@@ -1105,20 +1114,33 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
         return ImmutablePair.of(log_c_st, var_log_c_st);
     }
 
-    private List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>> getCopyRatioHiddenMarkovModelResultsLocal() {
+    private List<List<HiddenStateSegmentRecord<S, Target>>> getCopyRatioSegmentsLocal() {
         final List<List<CoverageModelCopyRatioEmissionData>> copyRatioEmissionData = fetchCopyRatioEmissionDataLocal();
         final INDArray sampleReadDepths = Transforms.exp(sampleMeanLogReadDepths, true);
         return sampleIndexStream()
-                .mapToObj(si -> copyRatioExpectationsCalculator.getCopyRatioHiddenMarkovModelResults(
-                        CopyRatioCallingMetadata.builder()
-                                .setSampleIndex(si)
-                                .setSampleName(processedSampleNameList.get(si))
-                                .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(si))
-                                .setSampleCoverageDepth(sampleReadDepths.getDouble(si))
-                                .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
-                                .build(),
-                        processedTargetList,
-                        copyRatioEmissionData.get(si)))
+                .mapToObj(si -> {
+                    final CopyRatioCallingMetadata metadata = CopyRatioCallingMetadata.builder()
+                            .setSampleIndex(si)
+                            .setSampleName(processedSampleNameList.get(si))
+                            .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(si))
+                            .setSampleCoverageDepth(sampleReadDepths.getDouble(si))
+                            .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
+                            .build();
+                    return copyRatioExpectationsCalculator.getCopyRatioHiddenMarkovModelResults(metadata,
+                                    processedTargetList, copyRatioEmissionData.get(si));
+                })
+                /* segment each sample individually */
+                .map(result -> {
+                    final HiddenMarkovModelSegmentProcessor<CoverageModelCopyRatioEmissionData, S, Target> processor =
+                            new HiddenMarkovModelSegmentProcessor<>(
+                                    Collections.singletonList(result.getMetaData().getSampleName()),
+                                    Collections.singletonList(result.getMetaData().getSampleSexGenotypeData()),
+                                    referenceStateFactory,
+                                    Collections.singletonList(new HashedListTargetCollection<>(processedTargetList)),
+                                    Collections.singletonList(result.getForwardBackwardResult()),
+                                    Collections.singletonList(result.getViterbiResult()));
+                    return processor.getSegmentsAsList();
+                })
                 .collect(Collectors.toList());
     }
 
@@ -1274,20 +1296,22 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
 
     /**
      * Fetch forward-backward and Viterbi results from compute blocks (Spark implementation)
+     * TODO
      *
      * @return a list of {@link CopyRatioHiddenMarkovModelResults}
      */
-    private List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>> getCopyRatioHiddenMarkovModelResultsSpark() {
+    private List<List<HiddenStateSegmentRecord<S, Target>>> getCopyRatioSegmentsSpark() {
         /* local final member variables for lambda capture */
-        final List<Target> targetList = new ArrayList<>();
-        targetList.addAll(processedTargetList);
-        final List<SexGenotypeData> sampleSexGenotypeData = new ArrayList<>();
-        sampleSexGenotypeData.addAll(processedSampleSexGenotypeData);
-        final List<String> sampleNameList = new ArrayList<>();
-        sampleNameList.addAll(processedSampleNameList);
+        final List<Target> processedTargetList = new ArrayList<>();
+        processedTargetList.addAll(this.processedTargetList);
+        final List<SexGenotypeData> processedSampleSexGenotypeData = new ArrayList<>();
+        processedSampleSexGenotypeData.addAll(this.processedSampleSexGenotypeData);
+        final List<String> processedSampleNameList = new ArrayList<>();
+        processedSampleNameList.addAll(this.processedSampleNameList);
         final INDArray sampleReadDepths = Transforms.exp(sampleMeanLogReadDepths, true);
-        final CopyRatioExpectationsCalculator<CoverageModelCopyRatioEmissionData, S> calculator =
+        final CopyRatioExpectationsCalculator<CoverageModelCopyRatioEmissionData, S> copyRatioExpectationsCalculator =
                 this.copyRatioExpectationsCalculator;
+        final BiFunction<SexGenotypeData, Target, S> referenceStateFactory = this.referenceStateFactory;
 
         return fetchCopyRatioEmissionDataSpark()
                 /* let the workers run fb and Viterbi */
@@ -1299,18 +1323,37 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
                         final int sampleIndex = prevDatum._1;
                         final CopyRatioCallingMetadata copyRatioCallingMetadata = CopyRatioCallingMetadata.builder()
                                 .setSampleIndex(sampleIndex)
-                                .setSampleName(sampleNameList.get(sampleIndex))
-                                .setSampleSexGenotypeData(sampleSexGenotypeData.get(sampleIndex))
+                                .setSampleName(processedSampleNameList.get(sampleIndex))
+                                .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(sampleIndex))
                                 .setSampleCoverageDepth(sampleReadDepths.getDouble(sampleIndex))
                                 .setEmissionCalculationStrategy(CopyRatioCallingMetadata.EmissionCalculationStrategy.HYBRID_POISSON_GAUSSIAN)
                                 .build();
                         newPartitionData.add(new Tuple2<>(sampleIndex,
-                                calculator.getCopyRatioHiddenMarkovModelResults(copyRatioCallingMetadata,
-                                        targetList, prevDatum._2)));
+                                copyRatioExpectationsCalculator.getCopyRatioHiddenMarkovModelResults(copyRatioCallingMetadata,
+                                        processedTargetList, prevDatum._2)));
                     }
                     return newPartitionData.iterator();
                 }, true)
-                /* collect the data to driver node a list of [sample index, HMM results] */
+                /* run segmentation on each sample */
+                .mapPartitionsToPair(it -> {
+                    final List<Tuple2<Integer, List<HiddenStateSegmentRecord<S, Target>>>> newPartitionData = new ArrayList<>();
+                    while (it.hasNext()) {
+                        final Tuple2<Integer, CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>>
+                                prevDatum = it.next();
+                        final int sampleIndex = prevDatum._1;
+                        final CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S> result = prevDatum._2;
+                        final HiddenMarkovModelSegmentProcessor<CoverageModelCopyRatioEmissionData, S, Target> processor =
+                                new HiddenMarkovModelSegmentProcessor<>(
+                                        Collections.singletonList(result.getMetaData().getSampleName()),
+                                        Collections.singletonList(result.getMetaData().getSampleSexGenotypeData()),
+                                        referenceStateFactory,
+                                        Collections.singletonList(new HashedListTargetCollection<>(processedTargetList)),
+                                        Collections.singletonList(result.getForwardBackwardResult()),
+                                        Collections.singletonList(result.getViterbiResult()));
+                        newPartitionData.add(new Tuple2<>(sampleIndex, processor.getSegmentsAsList()));
+                    }
+                    return newPartitionData.iterator();
+                })
                 .collect()
                 .stream()
                 /* sort by sample index */
@@ -2102,26 +2145,27 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
 
     /**
      * Fetches the Viterbi copy ratio (or copy number) states as a sample-target matrix
-     *
-     * @param copyRatioHMMResult an instance of {@link CopyRatioHiddenMarkovModelResults}
-     * @param sampleTargetCollections list of target collections for each sample
+     * TODO
      * @return an {@link INDArray}
      */
-    protected INDArray getViterbiAsNDArray(final List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>> copyRatioHMMResult,
-                                           final List<TargetCollection<Target>> sampleTargetCollections) {
+    protected INDArray getViterbiAsNDArray(final List<List<HiddenStateSegmentRecord<S, Target>>> segments) {
         final INDArray res = Nd4j.create(numSamples, numTargets);
-        for (int ti = 0; ti < numTargets; ti++) {
-            final Target target = processedTargetList.get(ti);
-            for (int si = 0; si < numSamples; si++) {
-                final TargetCollection<Target> sampleTargets = sampleTargetCollections.get(si);
-                final List<S> sampleCalls = copyRatioHMMResult.get(si).getViterbiResult();
-                final int sampleTargetIndex = sampleTargets.index(target);
-                if (sampleTargetIndex >= 0) {
-                    res.put(si, ti, sampleCalls.get(sampleTargetIndex).getScalar());
-                } else {
-                    res.put(si, ti, 0);
+        final TargetCollection<Target> targetCollection = new HashedListTargetCollection<>(processedTargetList);
+        for (int si = 0; si < numSamples; si++) {
+            final SexGenotypeData sampleSexGenotype = processedSampleSexGenotypeData.get(si);
+            /* start with all ref */
+            final double[] calls = IntStream.range(0, numTargets).mapToDouble(
+                    ti -> referenceStateFactory.apply(sampleSexGenotype, processedTargetList.get(ti)).getScalar())
+                    .toArray();
+            /* go through segments and mutate ref calls as necessary */
+            segments.get(si).forEach(seg -> {
+                final IndexRange range = targetCollection.indexRange(seg.getSegment());
+                final double copyRatio = seg.getSegment().getCall().getScalar();
+                for (int ti = range.from; ti < range.to; ti++) {
+                    calls[ti] = copyRatio;
                 }
-            }
+            });
+            res.get(NDArrayIndex.point(si), NDArrayIndex.all()).assign(Nd4j.create(calls, new int[] {1, numTargets}));
         }
         return res;
     }
@@ -2279,10 +2323,35 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
 
     /**
      * Saves copy ratio posteriors (segments, VCF, etc.) to disk
-     *
+     * TODO
      * @param outputPath the output path
      */
-    protected abstract void saveCopyRatioPosteriors(final String outputPath);
+    protected void saveCopyRatioPosteriors(final String outputPath) {
+        final List<List<HiddenStateSegmentRecord<S, Target>>> segments = getCopyRatioSegments();
+        final String segmentsPath = new File(outputPath, CoverageModelGlobalConstants.COPY_RATIO_SEGMENTS_SUBDIR)
+                .getAbsolutePath();
+        createOutputPath(segmentsPath);
+
+        sampleIndexStream().forEach(si -> {
+            final File segmentsFile = new File(segmentsPath, processedSampleNameList.get(si) + ".seg");
+            try (final HiddenStateSegmentRecordWriter<S, Target> segWriter =
+                         new HiddenStateSegmentRecordWriter<>(segmentsFile)) {
+                segWriter.writeAllRecords(segments.get(si));
+            } catch (final IOException ex) {
+                throw new UserException.CouldNotCreateOutputFile(segmentsFile, "Could not create copy ratio segments file");
+            }
+        });
+
+        /* save the Viterbi copy number chains as a sample-target matrix */
+        if (params.extendedPosteriorOutputEnabled()) {
+            final File copyRatioViterbiFile = new File(outputPath, CoverageModelGlobalConstants.COPY_RATIO_VITERBI_FILENAME);
+            final List<String> targetNames = processedReadCounts.targets().stream()
+                    .map(Target::getName).collect(Collectors.toList());
+            Nd4jIOUtils.writeNDArrayMatrixToTextFile(getViterbiAsNDArray(segments),
+                    copyRatioViterbiFile, "SAMPLE_NAME", processedSampleNameList, targetNames);
+        }
+
+    }
 
     /**
      * Saves extended posteriors to disk

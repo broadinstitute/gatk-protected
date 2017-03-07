@@ -158,14 +158,9 @@ public final class CoverageModelGlobalConstants implements Serializable {
     public static final String TARGET_LIST_OUTPUT_FILE = "targets.tsv";
 
     /**
-     * Copy ratio segments output file name
+     * Copy ratio segments subdirectory
      */
-    public static final String COPY_RATIO_SEGMENTS_FILENAME = "copy_ratio_segments.seg";
-
-    /**
-     * Copy ratio variant contexts output file name
-     */
-    public static final String COPY_RATIO_GENOTYPES_FILENAME = "copy_ratio_genotypes.vcf";
+    public static final String COPY_RATIO_SEGMENTS_SUBDIR = "segments";
 
     /**
      * Prefix for posteriors checkpointing output directories

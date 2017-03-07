@@ -138,6 +138,11 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                 runRoutine(this::updateReadDepthLatentPosteriorExpectations, s -> "N/A", "E_STEP_D", iterInfo);
                 posteriorErrorNormReadDepth = iterInfo.errorNorm;
 
+                /* initially, we just want read depth estimate */
+                if (iterInfo.iter == 1) {
+                    break;
+                }
+
                 runRoutine(this::updateBiasLatentPosteriorExpectations, s -> "N/A", "E_STEP_Z", iterInfo);
                 posteriorErrorNormBias = iterInfo.errorNorm;
 
