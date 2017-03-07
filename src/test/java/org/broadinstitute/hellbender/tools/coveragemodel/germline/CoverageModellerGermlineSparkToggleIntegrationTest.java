@@ -77,6 +77,7 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final double MIN_PASS_HOM_DEL_CONCORDANCE = 0.95;
     private static final double MIN_PASS_ABS_CONCORDANCE = 0.30;
 
+    private static final File CHECKPOINTING_PATH = createTempDir("coverage_modeller_germline_checkpointing");
     private static final File LEARNING_OUTPUT_PATH = createTempDir("coverage_modeller_germline_learning_output");
     private static final File CALLING_OUTPUT_PATH = createTempDir("coverage_modeller_germline_calling_output");
     private static final File LEARNING_MODEL_OUTPUT_PATH = new File(LEARNING_OUTPUT_PATH,
@@ -117,12 +118,14 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     String.valueOf(MIN_LEARNING_READ_COUNT),
                 "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
                     "false",
+                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
+                    "true",
+                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
+                    CHECKPOINTING_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
                     CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED.name(),
                 "--" + CoverageModelEMParams.LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING_LONG_NAME,
                     "1e-3",
-                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
-                    "false",
                 "--" + CoverageModelEMParams.NUMBER_OF_TARGET_SPACE_PARTITIONS_LONG_NAME,
                     String.valueOf(SPARK_NUMBER_OF_PARTITIONS),
                 "--" + CoverageModellerGermlineSparkToggle.COPY_NUMBER_TRANSITION_PRIOR_TABLE_LONG_NAME,

@@ -2198,13 +2198,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         saveBiasLatentPosteriors(outputPath);
         saveTargets(outputPath);
         saveBiasCovariatesARDHistory(outputPath);
+        saveCopyRatioPosteriors(outputPath);
 
         if (verbosityLevel.equals(PosteriorVerbosityLevel.EXTENDED)) {
-            saveCopyRatioPosteriors(outputPath);
-            if (params.extendedPosteriorOutputEnabled()) {
-                saveCopyRatioMaxLikelihoodEstimates(outputPath);
-                saveExtendedPosteriors(outputPath);
-            }
+            saveCopyRatioMaxLikelihoodEstimates(outputPath);
+            saveDebugPosteriors(outputPath);
         }
     }
 
@@ -2327,6 +2325,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @param outputPath the output path
      */
     protected void saveCopyRatioPosteriors(final String outputPath) {
+        logger.info("Saving copy ratio posteriors...");
         final List<List<HiddenStateSegmentRecord<S, Target>>> segments = getCopyRatioSegments();
         final String segmentsPath = new File(outputPath, CoverageModelGlobalConstants.COPY_RATIO_SEGMENTS_SUBDIR)
                 .getAbsolutePath();
@@ -2358,7 +2357,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      *
      * @param outputPath the output path
      */
-    protected void saveExtendedPosteriors(final String outputPath) {
+    protected void saveDebugPosteriors(final String outputPath) {
         final List<String> sampleNames = processedReadCounts.columnNames();
         final List<String> targetNames = processedReadCounts.targets().stream()
                 .map(Target::getName).collect(Collectors.toList());
