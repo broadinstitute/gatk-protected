@@ -71,9 +71,9 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                 " collection must be non-null");
         /* create an integer copy number HMM for each sex genotype in the collection */
         sexGenotypesSet = cache.getSexGenotypes();
-        hmm = new HashMap<>();
         final CoverageModelCopyRatioEmissionProbabilityCalculator emissionProbabilityCalculator =
                 new CoverageModelCopyRatioEmissionProbabilityCalculator(readCountThresholdPoissonSwitch);
+        hmm = new HashMap<>();
         sexGenotypesSet.forEach(sexGenotype -> hmm.put(sexGenotype,
                 new IntegerCopyNumberHiddenMarkovModel<>(emissionProbabilityCalculator, cache, sexGenotype)));
     }
@@ -125,38 +125,6 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         .mapToDouble(s -> FastMath.exp(result.logProbability(ti, s)))
                         .toArray())
                 .collect(Collectors.toList());
-
-//        final List<double[]> logForwardProbabilities = IntStream.range(0, targetList.size())
-//                .mapToObj(ti -> genotypeSpecificHMM.hiddenStates().stream()
-//                        .mapToDouble(s -> result.logForwardProbability(ti, s))
-//                        .toArray())
-//                .collect(Collectors.toList());
-//
-//        final List<double[]> logBackwardProbabilities = IntStream.range(0, targetList.size())
-//                .mapToObj(ti -> genotypeSpecificHMM.hiddenStates().stream()
-//                        .mapToDouble(s -> result.logBackwardProbability(ti, s))
-//                        .toArray())
-//                .collect(Collectors.toList());
-
-//        String msg = "BIAS: ";
-//        msg += emissionData.stream()
-//                .map(dat -> FastMath.exp(dat.getMu()))
-//                .map(d -> d.toString())
-//                .collect(Collectors.joining(", "));
-//
-//        msg += "\n\n\n\n\n\n\n\n\n FORWARD: ";
-//        msg += logForwardProbabilities.stream()
-//                .map(arr -> Arrays.stream(arr).mapToObj(Double::toString).collect(Collectors.joining(", ", "[", "]; ")))
-//                .collect(Collectors.joining());
-//
-//        msg += "\n\n\n\n\n\n\n\n\n BACKWARD: ";
-//        msg += logBackwardProbabilities.stream()
-//                .map(arr -> Arrays.stream(arr).mapToObj(Double::toString).collect(Collectors.joining(", ", "[", "]; ")))
-//                .collect(Collectors.joining());
-//
-//
-//
-//        throw new RuntimeException(msg);
 
         if (CHECK_FOR_NANS) {
             final int[] badTargets = IntStream.range(0, targetList.size())
@@ -254,15 +222,15 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         - FastMath.pow(logCopyRatioPriorMeans[ti], 2))
                 .toArray();
 
-//        if (CHECK_FOR_NANS) {
-//            final int[] badTargets = IntStream.range(0, targetsList.size())
-//                    .filter(ti -> Double.isNaN(logCopyRatioPriorMeans[ti]) ||
-//                            Double.isNaN(logCopyRatioPriorVariances[ti])).toArray();
-//            if (badTargets.length > 0) {
-//                throw new RuntimeException("Some of the copy ratio prior expectations are ill-defined; targets: " +
-//                        Arrays.stream(badTargets).mapToObj(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
-//            }
-//        }
+        if (CHECK_FOR_NANS) {
+            final int[] badTargets = IntStream.range(0, targetsList.size())
+                    .filter(ti -> Double.isNaN(logCopyRatioPriorMeans[ti]) ||
+                            Double.isNaN(logCopyRatioPriorVariances[ti])).toArray();
+            if (badTargets.length > 0) {
+                throw new RuntimeException("Some of the copy ratio prior expectations are ill-defined; targets: " +
+                        Arrays.stream(badTargets).mapToObj(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
+            }
+        }
 
         return new CopyRatioExpectations(logCopyRatioPriorMeans, logCopyRatioPriorVariances);
     }
@@ -289,6 +257,9 @@ public final class IntegerCopyNumberExpectationsCalculator implements
         final List<IntegerCopyNumberState> viterbiResult = ViterbiAlgorithm.apply(emissionData, activeTargets,
                 genotypeSpecificHMM);
 
+        /* clear caches */
+        genotypeSpecificHMM.getTransitionProbabilityCacheCollection().clearCaches();
+
         return new CopyRatioHiddenMarkovModelResults<>(fbResult, viterbiResult);
     }
 
@@ -303,6 +274,11 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                                     IntegerCopyNumberHiddenMarkovModel.DEFAULT_DISTANCE_BETWEEN_TARGETS),
                             sexGenotype, allTargets.get(firstTargetIndex).getContig()));
         }
+    }
+
+    @Override
+    public void clearCaches() {
+        cache.clearCaches();
     }
 
     /**

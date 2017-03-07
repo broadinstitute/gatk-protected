@@ -118,6 +118,10 @@ public final class IntegerCopyNumberTransitionProbabilityCache implements Serial
         }
     }
 
+    public void clearCache() {
+        cache.clear();
+    }
+
     /**
      * Get the log transition probability between different states
      *

@@ -999,8 +999,9 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
         cacheWorkers("after E-step for copy ratio HMM result generation");
         final List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData, S>> result;
         /* calculate posteriors */
-        logger.debug("Copy ratio HMM type: " + params.getCopyRatioHMMType().name());
         long startTime = System.nanoTime();
+        logger.info("Running forward-backward and Viterbi algorithms on all samples...");
+        logger.info("Strategy: " + params.getCopyRatioHMMType().name());
         if (params.getCopyRatioHMMType().equals(COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
             /* local mode */
             result = getCopyRatioHiddenMarkovModelResultsLocal();
@@ -1440,10 +1441,10 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      */
     public SubroutineSignal updateBiasCovariatesARDCoefficients() {
         /* TODO */
-        final int MAX_ITERATIONS = 10;
+        final int MAX_ITERATIONS = 20;
         final double MAX_ARD_COEFF = 1e10;
-        final double ABS_TOL = 1e-6;
-        final double ADMIX_RATIO = 0.75;
+        final double ABS_TOL = 1e-8;
+        final double ADMIX_RATIO = 0.95;
 
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
         cacheWorkers("after M-step update of ARD coefficients initialization");
@@ -2183,6 +2184,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @param outputPath the output path
      */
     protected void saveTargets(final String outputPath) {
+        logger.info("Saving targets...");
         final File targetListFile = new File(outputPath, CoverageModelGlobalConstants.TARGET_LIST_OUTPUT_FILE);
         TargetWriter.writeTargetsToFile(targetListFile, processedTargetList);
     }
@@ -2213,6 +2215,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @param outputPath the output path
      */
     protected void saveReadDepthPosteriors(final String outputPath) {
+        logger.info("Saving read depth posteriors...");
         final List<String> sampleNames = processedReadCounts.columnNames();
         final INDArray combinedReadDepthPosteriors = Nd4j.hstack(sampleMeanLogReadDepths, sampleVarLogReadDepths);
         final File sampleReadDepthPosteriorsFile = new File(outputPath, CoverageModelGlobalConstants.SAMPLE_READ_DEPTH_POSTERIORS_FILENAME);
@@ -2226,6 +2229,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @param outputPath the output path
      */
     protected void saveLogLikelihoodPosteriors(final String outputPath) {
+        logger.info("Saving sample log likelihoods...");
         final List<String> sampleNames = processedReadCounts.columnNames();
         final File sampleLogLikelihoodsFile = new File(outputPath, CoverageModelGlobalConstants.SAMPLE_LOG_LIKELIHOODS_FILENAME);
         final INDArray sampleLogLikelihoods = Nd4j.create(getLogLikelihoodPerSample(), new int[] {numSamples, 1});
@@ -2239,6 +2243,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @param outputPath the output path
      */
     protected void saveSampleSpecificUnexplainedVariancePosteriors(final String outputPath) {
+        logger.info("Saving sample-specific unexplained variance posteriors...");
         final List<String> sampleNames = processedReadCounts.columnNames();
         final File sampleUnexplainedVarianceFile = new File(outputPath, CoverageModelGlobalConstants.SAMPLE_UNEXPLAINED_VARIANCE_FILENAME);
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(sampleUnexplainedVariance, sampleUnexplainedVarianceFile,
@@ -2251,6 +2256,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
      * @param outputPath the output path
      */
     protected void saveBiasLatentPosteriors(final String outputPath) {
+        logger.info("Saving bias latent posteriors...");
         final List<String> sampleNames = processedReadCounts.columnNames();
         final File sampleBiasLatentPosteriorsFile = new File(outputPath,
                 CoverageModelGlobalConstants.SAMPLE_BIAS_LATENT_POSTERIORS_FILENAME);
@@ -2260,6 +2266,7 @@ public abstract class CoverageModelEMWorkspace<S extends AlleleMetadataProducer 
     }
 
     protected void saveBiasCovariatesARDHistory(final String outputPath) {
+        logger.info("Saving ARD history...");
         final File biasCovariatesARDHistoryFile = new File(outputPath,
                 CoverageModelGlobalConstants.BIAS_COVARIATES_ARD_COEFFICIENTS_HISTORY_OUTPUT_FILE);
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(Nd4j.vstack(biasCovariatesARDCoefficientsHistory),

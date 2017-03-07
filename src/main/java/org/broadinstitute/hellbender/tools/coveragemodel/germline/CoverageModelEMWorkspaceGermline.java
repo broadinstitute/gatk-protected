@@ -61,11 +61,13 @@ public final class CoverageModelEMWorkspaceGermline extends CoverageModelEMWorks
      * @param outputPath the output path
      */
     protected void saveCopyRatioPosteriors(final String outputPath) {
+        logger.info("Saving copy ratio posteriors...");
         /* fetch forward-backward and Viterbi results */
         final List<CopyRatioHiddenMarkovModelResults<CoverageModelCopyRatioEmissionData,
                         IntegerCopyNumberState>> copyRatioHMMResult = getCopyRatioHiddenMarkovModelResults();
 
         /* perform segmentation */
+        logger.info("Generating segments...");
         final BiFunction<SexGenotypeData, Target, IntegerCopyNumberState> referenceStateFactory = (sexGenotypeData, target) ->
                 new IntegerCopyNumberState(germlinePloidyAnnotatedTargetCollection.getTargetGermlinePloidyByGenotype(target,
                         sexGenotypeData.getSexGenotype()));

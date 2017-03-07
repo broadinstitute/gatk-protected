@@ -192,7 +192,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                 while (iterMStep < params.getMaxMStepCycles()) {
                     double errorNormMeanTargetBias, errorNormUnexplainedVariance, errorNormARDCoefficients;
 
-                    if (iterInfo.iter == 0) {
+                    if (iterInfo.iter == 1) {
                         /* neglect the contribution from principal components in the first iteration */
                         runRoutine(() -> updateTargetMeanBias(true), s -> "N/A", "M_STEP_M", iterInfo);
                     } else {
