@@ -1,3 +1,5 @@
+BERNICK PR TEST 1 -- IGNORE!
+
 [![Build Status](https://travis-ci.org/broadinstitute/gatk-protected.svg?branch=master)](https://travis-ci.org/broadinstitute/gatk-protected)
 [![Coverage Status](https://coveralls.io/repos/broadinstitute/gatk-protected/badge.svg?branch=master&service=github)](https://coveralls.io/github/broadinstitute/gatk-protected?branch=master)
 
