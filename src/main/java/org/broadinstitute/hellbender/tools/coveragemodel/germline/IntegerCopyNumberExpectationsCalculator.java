@@ -258,7 +258,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                 genotypeSpecificHMM);
 
         /* clear caches */
-        genotypeSpecificHMM.getTransitionProbabilityCacheCollection().clearCaches();
+        genotypeSpecificHMM.clearCaches();
 
         return new CopyRatioHiddenMarkovModelResults<>(fbResult, viterbiResult);
     }
