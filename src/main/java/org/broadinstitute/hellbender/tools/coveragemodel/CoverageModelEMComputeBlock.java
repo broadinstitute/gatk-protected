@@ -759,6 +759,74 @@ public final class CoverageModelEMComputeBlock {
         return Transforms.pow(W_tl, 2, true).addi(var_W_diag_tl).sum(0);
     }
 
+    /**
+     * Calculate the gradient and Hessian of the log evidence function of bias covariates.
+     * Summation over targets is partially performed, and the result is provided as a tuple
+     * of gradient and Hessian. The driver node must perform pairwise sum of the partially
+     * target-summed gradients and Hessian in a reduce step.
+     *
+     * @param alpha_l the trial 1 x numLatents INDArray of ARD coefficients
+     * @return the tuple (
+     */
+    public ImmutablePair<INDArray, INDArray> calculateBiasCovariatesLogEvidenceDerivativesPartialTargetSum(final INDArray alpha_l) {
+        /* fetch the required caches */
+        final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
+        final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
+        final int numTargets = v_tl.shape()[0];
+        final int numLatents = v_tl.shape()[1];
+
+        final INDArray alpha_ll = Nd4j.diag(alpha_l);
+
+        /* calculate X = (Q + A)^{-1} */
+        final INDArray X_inv_tll = Nd4j.create(numTargets, numLatents, numLatents);
+        IntStream.range(0, numTargets).parallel().forEach(ti -> {
+            final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
+                    .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).dup().add(alpha_ll));
+            X_inv_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).assign(X_inv_ll);
+        });
+
+        /* calculate (Q + A)^{-1} v */
+        final INDArray X_inv_v_tl = Nd4j.create(numTargets, numLatents);
+        IntStream.range(0, numTargets).parallel().forEach(ti ->
+                X_inv_v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(
+                        CoverageModelEMWorkspaceMathUtils.linsolve(
+                                Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).dup().add(alpha_ll),
+                                v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()))));
+
+
+        /* calculate A^{-1} diagonal */
+        final INDArray alpha_inv_l = Nd4j.ones(alpha_l.shape()).divi(alpha_l);
+
+        /* calculate target-summed diagonal of X */
+        final INDArray X_inv_diag_l = Nd4j.create(new int[] {1, numLatents});
+        IntStream.range(0, numLatents).forEach(li ->
+                X_inv_diag_l.get(NDArrayIndex.point(li)).assign(X_inv_tll
+                        .get(NDArrayIndex.all(), NDArrayIndex.point(li), NDArrayIndex.point(li))
+                        .sum(0)));
+
+        /* calculate the gradient partial target sum */
+        final INDArray grad_1 = alpha_inv_l.mul(0.5 * numTargets);
+        final INDArray grad_2 = X_inv_diag_l.mul(-0.5);
+        final INDArray grad_3 = Transforms.pow(X_inv_v_tl, 2, true).sum(0).muli(-0.5);
+        final INDArray grad = grad_1.add(grad_2).add(grad_3);
+
+        /* calculate the Hessian partial target sum */
+        final INDArray hessian_1 = Nd4j.diag(Transforms.pow(alpha_inv_l, 2, true).muli(-0.5 * numTargets));
+        final INDArray hessian_2 = Transforms.pow(X_inv_tll, 2, true).sum(0).muli(0.5).reshape(new int[] {numLatents, numLatents});
+        final INDArray hessian_3 = Nd4j.zeros(new int[] {numLatents, numLatents});
+        for (int i = 0; i < numLatents; i++) {
+            for (int j = 0; j < numLatents; j++) {
+                hessian_3.put(i, j, X_inv_tll.get(NDArrayIndex.all(), NDArrayIndex.point(i), NDArrayIndex.point(j))
+                        .reshape(new int[] {numTargets, 1})
+                        .mul(X_inv_v_tl.get(NDArrayIndex.all(), NDArrayIndex.point(i)).reshape(new int[] {numTargets, 1}))
+                        .mul(X_inv_v_tl.get(NDArrayIndex.all(), NDArrayIndex.point(j)).reshape(new int[] {numTargets, 1}))
+                        .sum(0));
+            }
+        }
+        final INDArray hessian = hessian_1.add(hessian_2).add(hessian_3);
+
+        return ImmutablePair.of(grad, hessian);
+    }
 
     /**
      * Takes an arbitrary INDArray {@code arr} and a mask array {@code mask} with the same shape

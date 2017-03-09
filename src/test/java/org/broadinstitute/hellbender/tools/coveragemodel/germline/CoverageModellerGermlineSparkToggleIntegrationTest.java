@@ -68,8 +68,8 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final int NUM_LATENTS = 10; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
-    private static final int MIN_LEARNING_READ_COUNT = 50;
-    private static final int MAX_LEARNING_EM_ITERATIONS = 15;
+    private static final int MIN_LEARNING_READ_COUNT = 5;
+    private static final int MAX_LEARNING_EM_ITERATIONS = 20;
     private static final int MAX_CALLING_EM_ITERATIONS = 10;
 
     private static final double MIN_PASS_REF_CONCORDANCE = 0.95;
@@ -117,9 +117,9 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModelEMParams.MIN_LEARNING_READ_COUNT_LONG_NAME,
                     String.valueOf(MIN_LEARNING_READ_COUNT),
                 "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-                    "false",
-                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
                     "true",
+                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
+                    "false",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
                     CHECKPOINTING_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,

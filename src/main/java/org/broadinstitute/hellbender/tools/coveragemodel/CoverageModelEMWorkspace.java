@@ -7,6 +7,7 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.exception.NoBracketingException;
 import org.apache.commons.math3.exception.TooManyEvaluationsException;
+import org.apache.commons.math3.linear.SingularMatrixException;
 import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -1482,7 +1483,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      *
      * @return an instance of {@link SubroutineSignal} containing error and iteration info
      */
-    public SubroutineSignal updateBiasCovariatesARDCoefficients() {
+    public SubroutineSignal updateBiasCovariatesARDCoefficients_Picard() {
         /* TODO */
         final int MAX_ITERATIONS = 20;
         final double MAX_ARD_COEFF = 1e10;
@@ -1512,6 +1513,82 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             /* update */
             final INDArray alpha_l_new = Nd4j.create(alpha_l_new_admixed_array, new int[] {1, numLatents});
             alpha_l.assign(alpha_l_new);
+
+            /* check for convergence */
+            if (errorNormInfinity < ABS_TOL) {
+                break;
+            }
+
+            iter++;
+        }
+
+        logger.info("Log ARD coefficients:");
+        logger.info(Transforms.log(alpha_l, true));
+
+        /* update the worker copy */
+        mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
+                alpha_l));
+
+        /* update the driver copy */
+        biasCovariatesARDCoefficients.assign(alpha_l);
+        biasCovariatesARDCoefficientsHistory.add(alpha_l.dup());
+
+        return SubroutineSignal.builder()
+                .put("error_norm", errorNormInfinity)
+                .put("iterations", iter)
+                .build();
+    }
+
+    public SubroutineSignal updateBiasCovariatesARDCoefficients() {
+        /* TODO */
+        final int MAX_ITERATIONS = 20;
+        final double MAX_ARD_COEFF = 1e6;
+        final double ABS_TOL = 1e-8;
+        final boolean START_FROM_BASELINE = true;
+        final double BASELINE_ALPHA = 0.1;
+
+        mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
+        cacheWorkers("after M-step update of ARD coefficients initialization");
+
+        final INDArray alpha_l;
+        if (START_FROM_BASELINE) {
+            alpha_l = Nd4j.ones(1, numLatents).muli(BASELINE_ALPHA);
+        } else {
+            alpha_l = biasCovariatesARDCoefficients.dup();
+        }
+
+        int iter = 0;
+        double errorNormInfinity = Double.NaN;
+        while (iter < MAX_ITERATIONS) {
+            final ImmutablePair<INDArray, INDArray> derivData = mapWorkersAndReduce(cb ->
+                cb.calculateBiasCovariatesLogEvidenceDerivativesPartialTargetSum(alpha_l),
+                    (p1, p2) -> ImmutablePair.of(p1.left.add(p2.left), p1.right.add(p2.right)));
+            final INDArray grad = derivData.left;
+            final INDArray hessian = derivData.right;
+
+            /* perform Newton update */
+            final INDArray newtonUpdate;
+            try {
+                newtonUpdate = CoverageModelEMWorkspaceMathUtils.linsolve(hessian.div(numTargets), grad.div(numTargets))
+                        .reshape(new int[]{1, numLatents});
+            } catch (final SingularMatrixException ex) {
+                logger.info("The Hessian matrix for bias covariates log evidence function is singular -- using the" +
+                        " latest accepted ARD coefficient updates");
+                break;
+            }
+            final INDArray alpha_l_new = alpha_l.sub(newtonUpdate);
+
+            /* stabilize */
+            final INDArray alpha_l_new_stabilized = Nd4j.create(new int[] {1, numLatents});
+            IntStream.range(0, numLatents).forEach(li ->
+                alpha_l_new_stabilized.put(0, li, FastMath.min(FastMath.abs(alpha_l_new.getDouble(li)), MAX_ARD_COEFF)));
+
+            /* calculate error norm */
+            errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l_new_stabilized.sub(alpha_l));
+
+            /* update */
+            alpha_l.assign(alpha_l_new_stabilized);
+            logger.info(Transforms.log(alpha_l, true));
 
             /* check for convergence */
             if (errorNormInfinity < ABS_TOL) {
