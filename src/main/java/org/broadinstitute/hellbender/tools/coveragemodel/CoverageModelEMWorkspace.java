@@ -60,6 +60,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -284,6 +285,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* if a model is provided, adapt the target list and number or latents to the model */
         if (model != null) {
+            /* TODO -- adapt model to EM parameters and read counts */
             final ReadCountCollection intermediateReadCounts = processReadCountCollection(targetSortedRawReadCounts,
                     params, logger);
             /* adapt model and read counts */
@@ -321,22 +323,36 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             this.numTargetBlocks = 1;
         } else {
             sparkContextIsAvailable = true;
-            this.numTargetBlocks = ParamUtils.inRange(params.getNumTargetSpaceParititions(), 1, numTargets,
+            this.numTargetBlocks = ParamUtils.inRange(params.getNumTargetSpacePartitions(), 1, numTargets,
                     "Number of target blocks must be between 1 and the size of target space.");
         }
 
-        /* allocate memory for driver-node copy of posteriors */
+        /* allocate memory and initialize driver-node copy of posteriors */
         sampleMeanLogReadDepths = Nd4j.zeros(numSamples, 1);
         sampleVarLogReadDepths = Nd4j.zeros(numSamples, 1);
-        sampleBiasLatentPosteriorFirstMoments = Nd4j.zeros(numSamples, numLatents);
-        sampleBiasLatentPosteriorSecondMoments = Nd4j.zeros(numSamples, numLatents, numLatents);
         sampleUnexplainedVariance = Nd4j.zeros(numSamples, 1);
-        biasCovariatesNorm2 = Nd4j.zeros(1, numLatents);
+
+        if (numLatents > 0) {
+            sampleBiasLatentPosteriorFirstMoments = Nd4j.zeros(numSamples, numLatents);
+            sampleBiasLatentPosteriorSecondMoments = Nd4j.zeros(numSamples, numLatents, numLatents);
+            biasCovariatesNorm2 = Nd4j.zeros(1, numLatents);
+        } else {
+            logger.info("Bias covariates are disabled");
+            sampleBiasLatentPosteriorFirstMoments = null;
+            sampleBiasLatentPosteriorSecondMoments = null;
+            biasCovariatesNorm2 = null;
+        }
 
         /* allocate memory for driver-node copy of model parameters */
-        biasCovariatesARDCoefficients = Nd4j.zeros(1, numLatents);
-        biasCovariatesARDCoefficientsHistory = new ArrayList<>();
-        biasCovariatesARDCoefficientsHistory.add(biasCovariatesARDCoefficients.dup());
+        if (params.isARDEnabled()) { /* if so, numLatents > 0 by way of pre-validating {@code params} */
+            biasCovariatesARDCoefficients = Nd4j.ones(new int[] {1, numLatents}).muli(params.getInitialARDPrecision());
+            biasCovariatesARDCoefficientsHistory = new ArrayList<>();
+            biasCovariatesARDCoefficientsHistory.add(biasCovariatesARDCoefficients.dup());
+        } else {
+            logger.info("ARD for bias covariates is disabled");
+            biasCovariatesARDCoefficients = null;
+            biasCovariatesARDCoefficientsHistory = null;
+        }
 
         /* initialize the CNV-avoiding regularizer filter */
         if (params.fourierRegularizationEnabled()) {
@@ -352,18 +368,21 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         /* create compute blocks */
         instantiateWorkers();
 
-        /* push read counts to compute blocks */
+        /* push read counts to compute blocks and initialize copy ratio posterior expectations to prior expectations */
         pushInitialDataToComputeBlocks();
 
         /* initialize model parameters */
-        initializeModelParametersFromGivenModel(processedModel == null
+        initializeWorkersWithGivenModel(processedModel == null
                 ? CoverageModelParameters.generateRandomModel(processedTargetList, numLatents,
                     CoverageModelGlobalConstants.RANDOM_MODEL_SEED,
                     CoverageModelGlobalConstants.RANDOM_MEAN_LOG_BIAS_STD,
                     CoverageModelGlobalConstants.RANDOM_BIAS_COVARIATES_STD,
                     CoverageModelGlobalConstants.RANDOM_UNEXPLAINED_VARIANCE_MAX,
-                    CoverageModelGlobalConstants.INITIAL_BIAS_COVARIATES_ARD_COEFFICIENT)
+                    biasCovariatesARDCoefficients)
                 : processedModel);
+
+        /* initialize worker posteriors */
+        initializeWorkerPosteriors();
     }
 
     /**
@@ -590,70 +609,80 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
     /**
      * Initialize the compute blocks with given model parameters
+     *
+     * Note:
+     *
+     * - If ARD is disabled, a null ARD coefficient INDArray will be passed to the workers
+     * - If bias covariates are disabled, null mean and var bias covariates INDArray will be passed to the workers
+     *
      * @param model coverage model parameters
      */
     @UpdatesRDD
-    private void initializeModelParametersFromGivenModel(@Nonnull final CoverageModelParameters model) {
-        /* make local references for lambda capture */
-        final CoverageModelEMParams params = this.params;
-        final int numSamples = this.numSamples;
-        final int numLatents = params.getNumLatents();
-
-        /* sample-specific unexplained variances can not be lower than the following value */
-        final double gammaLowerBound = 0.0;
-
+    private void initializeWorkersWithGivenModel(@Nonnull final CoverageModelParameters model) {
+        final Supplier<CoverageModelParameters> modelSupplier;
         if (sparkContextIsAvailable) { /* broadcast the model */
             final Broadcast<CoverageModelParameters> broadcastedModel = ctx.broadcast(model);
+            modelSupplier = broadcastedModel::getValue;
+        } else {
+            modelSupplier = () -> model;
+        }
+
+        /* basic model nodes */
+        mapWorkers(cb -> {
+            final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
+            return cb
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t,
+                            modelSupplier.get().getTargetMeanBiasOnTargetBlock(tb))
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Psi_t,
+                            modelSupplier.get().getTargetUnexplainedVarianceOnTargetBlock(tb));
+        });
+
+        /* nodes relating to bias covariates; set ARD coefficients to zero for now */
+        if (numLatents > 0) {
             mapWorkers(cb -> {
                 final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
                 return cb
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl,
-                                broadcastedModel.getValue().getMeanBiasCovariatesOnTargetBlock(tb))
+                                modelSupplier.get().getMeanBiasCovariatesOnTargetBlock(tb))
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll,
-                                broadcastedModel.getValue().getVarBiasCovariatesOnTargetBlock(tb))
+                                modelSupplier.get().getVarBiasCovariatesOnTargetBlock(tb))
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
-                                broadcastedModel.getValue().getBiasCovariateARDCoefficients())
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t,
-                                broadcastedModel.getValue().getTargetMeanBiasOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Psi_t,
-                                broadcastedModel.getValue().getTargetUnexplainedVarianceOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl,
-                                Nd4j.zeros(numSamples, numLatents))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll,
-                                Nd4j.zeros(numSamples, numLatents, numLatents))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
-                                Nd4j.ones(numSamples, 1).muli(gammaLowerBound));
-            });
-        } else { /* pass the model by reference */
-            mapWorkers(cb -> {
-                final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
-                return cb
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl,
-                                model.getMeanBiasCovariatesOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll,
-                                model.getVarBiasCovariatesOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
-                                model.getBiasCovariateARDCoefficients())
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t,
-                                model.getTargetMeanBiasOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Psi_t,
-                                model.getTargetUnexplainedVarianceOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl,
-                                Nd4j.zeros(numSamples, numLatents))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll,
-                                Nd4j.zeros(numSamples, numLatents, numLatents))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
-                                Nd4j.ones(numSamples, 1).muli(gammaLowerBound));
+                                Nd4j.zeros(new int[]{1, numLatents}));
             });
         }
 
-        /* update driver-node copy of posteriors and model parameters */
-        sampleUnexplainedVariance.assign(Nd4j.ones(numSamples, 1).muli(gammaLowerBound));
-        biasCovariatesARDCoefficients.assign(model.getBiasCovariateARDCoefficients());
+        /* if ARD is enabled, inject the correct ARD coefficients from the model */
+        if (params.isARDEnabled()) {
+            mapWorkers(cb -> {
+                final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
+                return cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
+                        modelSupplier.get().getBiasCovariateARDCoefficients());
+            });
+        }
+    }
 
-        if (params.fourierRegularizationEnabled()) {
-            mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_W_REG));
-            updateFilteredBiasCovariates();
+    @UpdatesRDD
+    private void initializeWorkerPosteriors() {
+        /* make a local copy for lambda capture (these are small, so no broadcasting is necessary) */
+        final INDArray sampleMeanLogReadDepths = this.sampleMeanLogReadDepths;
+        final INDArray sampleVarLogReadDepths = this.sampleVarLogReadDepths;
+        final INDArray sampleUnexplainedVariance = this.sampleUnexplainedVariance;
+        final INDArray sampleBiasLatentPosteriorFirstMoments = this.sampleBiasLatentPosteriorFirstMoments;
+        final INDArray sampleBiasLatentPosteriorSecondMoments = this.sampleBiasLatentPosteriorSecondMoments;
+        mapWorkers(cb -> cb
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_d_s,
+                        sampleMeanLogReadDepths)
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_d_s,
+                        sampleVarLogReadDepths)
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
+                        sampleUnexplainedVariance));
+        /* if bias covariates are enabled, initialize E[z] and E[z z^T] as well */
+        if (numLatents > 0) {
+            mapWorkers(cb -> cb
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl,
+                            sampleBiasLatentPosteriorFirstMoments)
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll,
+                            sampleBiasLatentPosteriorSecondMoments));
         }
     }
 
@@ -1478,33 +1507,48 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 .put("iterations", maxIterations).build();
     }
 
+    @EvaluatesRDD @UpdatesRDD @CachesRDD
+    public SubroutineSignal updateBiasCovariatesARDCoefficients() {
+        if (!params.isARDEnabled()) {
+            throw new IllegalStateException("ARD update requested but it is disabled.");
+        }
+        mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
+        cacheWorkers("after M-step update of ARD coefficients initialization");
+        final SubroutineSignal sig;
+        switch (params.getARDUpdateAlgorithm()) {
+            case PICARD:
+                sig = updateBiasCovariatesARDCoefficientsPicard();
+                break;
+            case NEWTON:
+                sig = updateBiasCovariatesARDCoefficientsNewton();
+                break;
+            default:
+                throw new GATKException.ShouldNeverReachHereException("Illegal ARD update algorithm");
+        }
+        return sig;
+    }
+
     /**
      * M-step for updating ARD coefficients for the bias covariates (\alpha_\mu)
      *
      * @return an instance of {@link SubroutineSignal} containing error and iteration info
      */
-    public SubroutineSignal updateBiasCovariatesARDCoefficients_Picard() {
-        /* TODO */
-        final int MAX_ITERATIONS = 20;
-        final double MAX_ARD_COEFF = 1e10;
-        final double ABS_TOL = 1e-8;
-        final double ADMIX_RATIO = 0.95;
-
-        mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
-        cacheWorkers("after M-step update of ARD coefficients initialization");
+    @EvaluatesRDD @UpdatesRDD
+    public SubroutineSignal updateBiasCovariatesARDCoefficientsPicard() {
+        final double ARD_ADMIXING_RATIO_PICARD = 0.75;
 
         final INDArray alpha_l = biasCovariatesARDCoefficients.dup();
         int iter = 0;
         double errorNormInfinity = Double.NaN;
-        while (iter < MAX_ITERATIONS) {
+        while (iter < params.getMaxARDIterations()) {
             final INDArray alpha_l_inv_new = mapWorkersAndReduce(cb ->
-                            cb.calculateBiasCovariateARDCoefficientsData(alpha_l), INDArray::add);
+                            cb.calculateBiasCovariateARDCoefficientsDataPicard(alpha_l), INDArray::add);
             final double[] alpha_l_new_array = Nd4j.ones(numLatents).muli(numTargets)
                     .divi(alpha_l_inv_new).data().asDouble();
             final double[] alpha_l_array = alpha_l.data().asDouble();
             final double[] alpha_l_new_admixed_array = IntStream.range(0, numLatents)
-                    .mapToDouble(li -> ADMIX_RATIO * FastMath.min(FastMath.abs(alpha_l_new_array[li]), MAX_ARD_COEFF)
-                        + (1 - ADMIX_RATIO) * alpha_l_array[li])
+                    .mapToDouble(li -> ARD_ADMIXING_RATIO_PICARD * FastMath.min(FastMath.abs(alpha_l_new_array[li]),
+                            params.maxARDPrecision) + (1 - ARD_ADMIXING_RATIO_PICARD) * alpha_l_array[li])
                     .toArray();
             errorNormInfinity = IntStream.range(0, numLatents)
                     .mapToDouble(li -> FastMath.abs(alpha_l_new_admixed_array[li] - alpha_l_array[li]))
@@ -1514,16 +1558,21 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             final INDArray alpha_l_new = Nd4j.create(alpha_l_new_admixed_array, new int[] {1, numLatents});
             alpha_l.assign(alpha_l_new);
 
+            /* debug log to stdout */
+            logger.debug(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
+
             /* check for convergence */
-            if (errorNormInfinity < ABS_TOL) {
+            final double minErrorConvergence = params.getARDAbsoluteTolerance() + params.getARDRelativeTolerance() *
+                    CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l);
+            if (errorNormInfinity < minErrorConvergence) {
                 break;
             }
 
             iter++;
         }
 
-        logger.info("Log ARD coefficients:");
-        logger.info(Transforms.log(alpha_l, true));
+        /* info log to stdout */
+        logger.info("Log ARD coefficients: " + Transforms.log(alpha_l, true).toString());
 
         /* update the worker copy */
         mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
@@ -1539,27 +1588,15 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 .build();
     }
 
-    public SubroutineSignal updateBiasCovariatesARDCoefficients() {
-        /* TODO */
-        final int MAX_ITERATIONS = 20;
-        final double MAX_ARD_COEFF = 1e6;
-        final double ABS_TOL = 1e-8;
-        final boolean START_FROM_BASELINE = true;
-        final double BASELINE_ALPHA = 0.1;
-
-        mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
-        cacheWorkers("after M-step update of ARD coefficients initialization");
-
-        final INDArray alpha_l;
-        if (START_FROM_BASELINE) {
-            alpha_l = Nd4j.ones(1, numLatents).muli(BASELINE_ALPHA);
-        } else {
-            alpha_l = biasCovariatesARDCoefficients.dup();
-        }
+    @EvaluatesRDD @UpdatesRDD
+    public SubroutineSignal updateBiasCovariatesARDCoefficientsNewton() {
+        final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
 
         int iter = 0;
+        final INDArray alpha_l = Nd4j.ones(1, numLatents).muli(params.getInitialARDPrecision());
         double errorNormInfinity = Double.NaN;
-        while (iter < MAX_ITERATIONS) {
+        while (iter < params.getMaxARDIterations()) {
+            /* fetch gradient and Hessian from workers */
             final ImmutablePair<INDArray, INDArray> derivData = mapWorkersAndReduce(cb ->
                 cb.calculateBiasCovariatesLogEvidenceDerivativesPartialTargetSum(alpha_l),
                     (p1, p2) -> ImmutablePair.of(p1.left.add(p2.left), p1.right.add(p2.right)));
@@ -1569,7 +1606,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             /* perform Newton update */
             final INDArray newtonUpdate;
             try {
-                newtonUpdate = CoverageModelEMWorkspaceMathUtils.linsolve(hessian.div(numTargets), grad.div(numTargets))
+                newtonUpdate = CoverageModelEMWorkspaceMathUtils.linsolve(hessian, grad, LINSOLVE_SINGULARITY_THRESHOLD)
                         .reshape(new int[]{1, numLatents});
             } catch (final SingularMatrixException ex) {
                 logger.info("The Hessian matrix for bias covariates log evidence function is singular -- using the" +
@@ -1581,25 +1618,30 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             /* stabilize */
             final INDArray alpha_l_new_stabilized = Nd4j.create(new int[] {1, numLatents});
             IntStream.range(0, numLatents).forEach(li ->
-                alpha_l_new_stabilized.put(0, li, FastMath.min(FastMath.abs(alpha_l_new.getDouble(li)), MAX_ARD_COEFF)));
+                alpha_l_new_stabilized.put(0, li, FastMath.min(FastMath.abs(alpha_l_new.getDouble(li)),
+                        params.getMaxARDPrecision())));
 
             /* calculate error norm */
             errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l_new_stabilized.sub(alpha_l));
 
             /* update */
             alpha_l.assign(alpha_l_new_stabilized);
-            logger.info(Transforms.log(alpha_l, true));
+
+            /* debug log to stdout */
+            logger.debug(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
 
             /* check for convergence */
-            if (errorNormInfinity < ABS_TOL) {
+            final double minErrorConvergence = params.getARDAbsoluteTolerance() + params.getARDRelativeTolerance() *
+                    CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l);
+            if (errorNormInfinity < minErrorConvergence) {
                 break;
             }
 
             iter++;
         }
 
-        logger.info("Log ARD coefficients:");
-        logger.info(Transforms.log(alpha_l, true));
+        /* info log to stdout */
+        logger.info("Log ARD coefficients: " + Transforms.log(alpha_l, true).toString());
 
         /* update the worker copy */
         mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
@@ -1792,8 +1834,13 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 .orElse(Double.NaN);
 
         /* contribution from ARD */
-        final double contribARD = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true)
-                .sumNumber().doubleValue() / numTargets - 0.5 * numLatents;
+        final double contribARD;
+        if (params.isARDEnabled()) {
+            contribARD = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true)
+                    .sumNumber().doubleValue() / numTargets - 0.5 * numLatents;
+        } else {
+            contribARD = 0;
+        }
 
         /* the final result is normalized for number of samples */
         return (logLikelihoodAllSamples + contribARD) / numSamples;
@@ -1808,8 +1855,14 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     public double[] getLogLikelihoodPerSample() {
         updateLogLikelihoodCaches();
 
-        final INDArray biasPriorContrib_s = sampleBiasLatentPosteriorFirstMoments
-                .mul(sampleBiasLatentPosteriorFirstMoments).muli(-0.5).sum(1);
+        /* contribution from latent bias prior */
+        final INDArray biasPriorContrib_s;
+        if (numLatents > 0) {
+            biasPriorContrib_s = sampleBiasLatentPosteriorFirstMoments
+                    .mul(sampleBiasLatentPosteriorFirstMoments).muli(-0.5).sum(1);
+        } else {
+            biasPriorContrib_s = Nd4j.zeros(new int[] {numSamples, 1});
+        }
 
         final CoverageModelEMComputeBlock.CoverageModelICGCacheNode key;
         if (params.fourierRegularizationEnabled()) {
@@ -1817,10 +1870,16 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         } else {
             key = CoverageModelEMComputeBlock.CoverageModelICGCacheNode.loglike_unreg;
         }
+        /* contribution from everything else */
         final INDArray restContrib_s = mapWorkersAndReduce(cb -> cb.getINDArrayFromCache(key), INDArray::add);
+
+        /* active target count per sample */
         final INDArray sum_M_s = mapWorkersAndReduce(cb -> cb.getINDArrayFromCache(
                 CoverageModelEMComputeBlock.CoverageModelICGCacheNode.sum_M_s), INDArray::add);
+
+        /* put together and normalize by active targets */
         final INDArray logLikelihood_s = restContrib_s.add(biasPriorContrib_s).divi(sum_M_s);
+
         return logLikelihood_s.data().asDouble();
     }
 
@@ -2191,7 +2250,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return an {@link INDArray}
      */
     private INDArray fetchMeanBiasCovariates() {
-        return fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl, 0);
+        if (numLatents > 0) {
+            return fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl, 0);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -2200,7 +2263,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return an {@link INDArray}
      */
     private INDArray fetchVarBiasCovariates() {
-        return fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll, 0);
+        if (numLatents > 0) {
+            return fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll, 0);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -2213,11 +2280,15 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray M_Psi_inv_st = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.M_Psi_inv_st, 1);
         final INDArray log_n_st = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_n_st, 1);
         final INDArray m_t = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t, 1);
-        final INDArray Wz_st = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Wz_st, 1);
 
         /* calculate the required quantities */
-        return ImmutablePair.of(log_n_st.sub(Wz_st).subiRowVector(m_t).subiColumnVector(sampleMeanLogReadDepths),
-                M_Psi_inv_st);
+        if (numLatents > 0) {
+            final INDArray Wz_st = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Wz_st, 1);
+            return ImmutablePair.of(log_n_st.sub(Wz_st).subiRowVector(m_t).subiColumnVector(sampleMeanLogReadDepths),
+                    M_Psi_inv_st);
+        } else {
+            return ImmutablePair.of(log_n_st.subRowVector(m_t).subiColumnVector(sampleMeanLogReadDepths), M_Psi_inv_st);
+        }
     }
 
     /**
@@ -2269,12 +2340,16 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         /* create output directory if it doesn't exist */
         createOutputPath(outputPath);
 
+        saveTargets(outputPath);
         saveReadDepthPosteriors(outputPath);
         saveLogLikelihoodPosteriors(outputPath);
         saveSampleSpecificUnexplainedVariancePosteriors(outputPath);
-        saveBiasLatentPosteriors(outputPath);
-        saveTargets(outputPath);
-        saveBiasCovariatesARDHistory(outputPath);
+        if (numLatents > 0) {
+            saveBiasLatentPosteriors(outputPath);
+        }
+        if (params.isARDEnabled()) {
+            saveBiasCovariatesARDHistory(outputPath);
+        }
         saveCopyRatioPosteriors(outputPath);
 
         if (verbosityLevel.equals(PosteriorVerbosityLevel.EXTENDED)) {
@@ -2444,9 +2519,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(fetchTotalUnexplainedVariance(), totalExplainedVarianceFile,
                 "SAMPLE_NAME", sampleNames, targetNames);
 
-        /* save total covariate bias per sample as a matrix */
-        final File totalCovariateBiasFile = new File(outputPath, CoverageModelGlobalConstants.TOTAL_COVARIATE_BIAS_FILENAME);
-        Nd4jIOUtils.writeNDArrayMatrixToTextFile(fetchTotalCovariateBiasPerSample(), totalCovariateBiasFile,
-                "SAMPLE_NAME", sampleNames, targetNames);
+        if (numLatents > 0) {
+            /* save total covariate bias per sample as a matrix */
+            final File totalCovariateBiasFile = new File(outputPath, CoverageModelGlobalConstants.TOTAL_COVARIATE_BIAS_FILENAME);
+            Nd4jIOUtils.writeNDArrayMatrixToTextFile(fetchTotalCovariateBiasPerSample(), totalCovariateBiasFile,
+                    "SAMPLE_NAME", sampleNames, targetNames);
+        }
     }
 }

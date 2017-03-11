@@ -19,12 +19,18 @@ import javax.annotation.Nonnull;
 public final class CoverageModelEMWorkspaceMathUtils {
 
     /**
-     * Inverts a square INDArray matrix using Apache LU decomposition
+     * Default singularity detection threshold in LU decompositions
+     */
+    private static double DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
+
+    /**
+     * Inverts a square INDArray matrix using Apache LU decomposition with a given singularity detection threshold
      *
      * @param mat matrix to be inverted
+     * @param singularityThreshold singularity detection threshold
      * @return inverted matrix as an {@link INDArray}
      */
-    public static INDArray minv(@Nonnull final INDArray mat) {
+    public static INDArray minv(@Nonnull final INDArray mat, final double singularityThreshold) {
         if (mat.isScalar()) {
             return Nd4j.onesLike(mat).divi(mat);
         }
@@ -32,27 +38,51 @@ public final class CoverageModelEMWorkspaceMathUtils {
             throw new IllegalArgumentException("Invalid array: must be square matrix");
         }
         final RealMatrix rm = Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat);
-        final RealMatrix rmInverse = new LUDecomposition(rm).getSolver().getInverse();
+        final RealMatrix rmInverse = new LUDecomposition(rm, singularityThreshold).getSolver().getInverse();
         return Nd4jApacheAdapterUtils.convertApacheMatrixToINDArray(rmInverse);
     }
 
     /**
-     * Solves a linear system using Apache commons methods [mat].[x] = [vec]
+     * Inverts a square INDArray matrix using Apache LU decomposition with the default singularity threshold
+     * value of {@link #DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD}
      *
-     * @param mat the coefficients matrix (must be square and full-rank)
-     * @param vec the right hand side vector
-     * @return solution of the linear system
+     * @param mat matrix to be inverted
+     * @return inverted matrix as an {@link INDArray}
      */
-    public static INDArray linsolve(@Nonnull final INDArray mat, @Nonnull final INDArray vec) {
+    public static INDArray minv(@Nonnull final INDArray mat) {
+        return minv(mat, DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD);
+    }
+
+        /**
+         * Solves a linear system using Apache commons methods [mat].[x] = [vec]
+         *
+         * @param mat the coefficients matrix (must be square and full-rank)
+         * @param vec the right hand side vector
+         * @param singularityThreshold a threshold for detecting singularity
+         * @return solution of the linear system
+         */
+    public static INDArray linsolve(@Nonnull final INDArray mat, @Nonnull final INDArray vec,
+                                    final double singularityThreshold) {
         if (mat.isScalar()) {
             return vec.div(mat.getDouble(0));
         }
         if (!mat.isSquare()) {
             throw new IllegalArgumentException("invalid array: must be a square matrix");
         }
-        final RealVector sol = new LUDecomposition(Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat))
-                .getSolver().solve(Nd4jApacheAdapterUtils.convertINDArrayToApacheVector(vec));
+        final RealVector sol = new LUDecomposition(Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat),
+                singularityThreshold).getSolver().solve(Nd4jApacheAdapterUtils.convertINDArrayToApacheVector(vec));
         return Nd4j.create(sol.toArray(), vec.shape());
+    }
+
+    /**
+     * Solves a linear system using Apache commons methods [mat].[x] = [vec] with the default singularity threshold
+     * value of {@link #DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD}
+     *
+     * @param mat the coefficients matrix (must be square and full-rank)
+     * @param vec the right hand side vector
+     * @return solution of the linear system
+     */    public static INDArray linsolve(@Nonnull final INDArray mat, @Nonnull final INDArray vec) {
+        return linsolve(mat, vec, DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD);
     }
 
     /**

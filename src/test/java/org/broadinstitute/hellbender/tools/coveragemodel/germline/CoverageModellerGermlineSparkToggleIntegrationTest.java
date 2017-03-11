@@ -65,10 +65,10 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final File TEST_TARGETS_FILE = new File(TEST_TRUTH_SIM_MODEL, "targets.tsv");
 
     private static final double MAPPING_ERROR_RATE = 5e-4; /* reflects the simulated data */
-    private static final int NUM_LATENTS = 10; /* simulated data uses 3 */
+    private static final int NUM_LATENTS = 20; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
-    private static final int MIN_LEARNING_READ_COUNT = 5;
+    private static final int MIN_LEARNING_READ_COUNT = 50;
     private static final int MAX_LEARNING_EM_ITERATIONS = 20;
     private static final int MAX_CALLING_EM_ITERATIONS = 10;
 
@@ -120,12 +120,12 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     "true",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
                     "false",
+                "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
+                    "true",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
                     CHECKPOINTING_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
                     CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED.name(),
-                "--" + CoverageModelEMParams.LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING_LONG_NAME,
-                    "1e-3",
                 "--" + CoverageModelEMParams.NUMBER_OF_TARGET_SPACE_PARTITIONS_LONG_NAME,
                     String.valueOf(SPARK_NUMBER_OF_PARTITIONS),
                 "--" + CoverageModellerGermlineSparkToggle.COPY_NUMBER_TRANSITION_PRIOR_TABLE_LONG_NAME,

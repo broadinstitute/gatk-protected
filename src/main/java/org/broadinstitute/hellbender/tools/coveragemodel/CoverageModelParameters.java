@@ -4,7 +4,6 @@ import com.google.cloud.dataflow.sdk.repackaged.com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
-import org.apache.commons.math3.util.FastMath;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.coveragemodel.nd4jutils.Nd4jIOUtils;
@@ -19,6 +18,7 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.indexing.NDArrayIndex;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -52,8 +52,18 @@ public final class CoverageModelParameters implements Serializable {
 
     private final int numTargets, numLatents;
 
+    private final boolean ardEnabled, biasCovariatesEnabled;
+
     /**
      * Public constructor.
+     *
+     * Note:
+     *
+     * - If {@code meanBiasCovariates} and {@code varBiasCovariates} are both null, it is assumed that
+     *   bias covariates are disabled.
+     *
+     * - If {@code biasCovariateARDCoefficients} is null, it is assumed that ARD for bias covariates is
+     *   disabled.
      *
      * @param targetMeanLogBias target-specific mean log bias (m_t)
      * @param targetUnexplainedVariance target-specific unexplained bias variance (\Psi_t)
@@ -64,34 +74,51 @@ public final class CoverageModelParameters implements Serializable {
     public CoverageModelParameters(@Nonnull final List<Target> targetList,
                                    @Nonnull final INDArray targetMeanLogBias,
                                    @Nonnull final INDArray targetUnexplainedVariance,
-                                   @Nonnull final INDArray meanBiasCovariates,
-                                   @Nonnull final INDArray varBiasCovariates,
-                                   @Nonnull final INDArray biasCovariateARDCoefficients) {
+                                   @Nullable final INDArray meanBiasCovariates,
+                                   @Nullable final INDArray varBiasCovariates,
+                                   @Nullable final INDArray biasCovariateARDCoefficients) {
         this.targetList = Utils.nonNull(targetList, "Target list must be non-null");
         this.targetMeanLogBias = Utils.nonNull(targetMeanLogBias, "Target-specific mean log bias must be non-null");
         this.targetUnexplainedVariance = Utils.nonNull(targetUnexplainedVariance, "Target-specific unexplained variance" +
                 " must be non-null");
-        this.meanBiasCovariates = Utils.nonNull(meanBiasCovariates, "Bias covariates matrix must be non-null");
-        this.varBiasCovariates = Utils.nonNull(varBiasCovariates, "Bias covariates covariance tensor must be non-null");
-        this.biasCovariateARDCoefficients = Utils.nonNull(biasCovariateARDCoefficients, "Bias covariate precisions must be non-null");
+        Utils.validateArg((meanBiasCovariates == null && varBiasCovariates == null) ||
+                (meanBiasCovariates != null && varBiasCovariates != null), "Either both mean and var of bias covariates" +
+                " must be null, or both must be non-null");
+        biasCovariatesEnabled = meanBiasCovariates != null && varBiasCovariates != null;
+        ardEnabled = biasCovariateARDCoefficients != null;
+        Utils.validateArg(biasCovariatesEnabled || !ardEnabled, "If bias covariates are disabled, ARD coefficients" +
+                " must be null");
+        this.meanBiasCovariates = meanBiasCovariates;
+        this.varBiasCovariates = varBiasCovariates;
+        this.biasCovariateARDCoefficients = biasCovariateARDCoefficients;
 
         this.numTargets = targetList.size();
-        this.numLatents = meanBiasCovariates.size(1);
+        validateNDArrayShape(targetUnexplainedVariance, new int[] {1, numTargets}, "target-specific unexplained variance");
+        validateNDArrayShape(targetMeanLogBias, new int[] {1, numTargets}, "target-specific mean log bias");
+        if (biasCovariatesEnabled) {
+            Utils.validateArg(meanBiasCovariates.rank() == 2, "The mean bias covariate NDArray must be rank 2");
+            numLatents = meanBiasCovariates.size(1);
+            validateNDArrayShape(meanBiasCovariates, new int[] {numTargets, numLatents}, "mean bias covariates");
+            validateNDArrayShape(varBiasCovariates, new int[] {numTargets, numLatents, numLatents}, "var bias covariates");
+            if (ardEnabled) {
+                validateNDArrayShape(biasCovariateARDCoefficients, new int[] {1, numLatents}, "ARD coefficients");
+            }
+        } else {
+            numLatents = 0;
+        }
+    }
 
-        /* check the dimensions */
-        Utils.validateArg(
-                numTargets == targetMeanLogBias.size(1) &&
-                numTargets == targetUnexplainedVariance.size(1) &&
-                numTargets == meanBiasCovariates.size(0) &&
-                numLatents == varBiasCovariates.size(1) &&
-                numLatents == varBiasCovariates.size(2) &&
-                numLatents == biasCovariateARDCoefficients.size(1),
-                "Error in the dimensions of the provided model data: " +
-                    "provided target mean bias = " + targetMeanLogBias.shapeInfoToString() + ", " +
-                    "provided target unexplained variance = " + targetUnexplainedVariance.shapeInfoToString() + ", " +
-                    "provided mean bias covariates matrix = " + meanBiasCovariates.shapeInfoToString() +
-                    "provided bias covariates covariance tensor = " + varBiasCovariates.shapeInfoToString() +
-                    "provided bias covariates ARD coefficients vector = " + biasCovariateARDCoefficients.shapeInfoToString());
+    private void validateNDArrayShape(@Nonnull final INDArray arr, @Nonnull final int[] expected, @Nonnull final String name) {
+        Utils.validateArg(Arrays.equals(expected, arr.shape()), "The shape of the provided NDArray for " + name +
+                " is wrong; expected: " + Arrays.toString(expected) + ", provided: " + Arrays.toString(arr.shape()));
+    }
+
+    public boolean isARDEnabled() {
+        return ardEnabled;
+    }
+
+    public boolean isBiasCovariatesEnabled() {
+        return biasCovariatesEnabled;
     }
 
     public INDArray getTargetMeanLogBias() {
@@ -129,14 +156,22 @@ public final class CoverageModelParameters implements Serializable {
 
     public INDArray getMeanBiasCovariatesOnTargetBlock(@Nonnull final LinearSpaceBlock tb) {
         checkTargetBlock(tb);
-        return meanBiasCovariates.get(NDArrayIndex.interval(tb.getBegIndex(), tb.getEndIndex()),
-                NDArrayIndex.all());
+        if (biasCovariatesEnabled) {
+            return meanBiasCovariates.get(NDArrayIndex.interval(tb.getBegIndex(), tb.getEndIndex()),
+                    NDArrayIndex.all());
+        } else {
+            return null;
+        }
     }
 
     public INDArray getVarBiasCovariatesOnTargetBlock(@Nonnull final LinearSpaceBlock tb) {
         checkTargetBlock(tb);
-        return varBiasCovariates.get(NDArrayIndex.interval(tb.getBegIndex(), tb.getEndIndex()),
-                NDArrayIndex.all(), NDArrayIndex.all());
+        if (biasCovariatesEnabled) {
+            return varBiasCovariates.get(NDArrayIndex.interval(tb.getBegIndex(), tb.getEndIndex()),
+                    NDArrayIndex.all(), NDArrayIndex.all());
+        } else {
+            return null;
+        }
     }
 
     private static void createOutputPath(final String outputPath) {
@@ -160,36 +195,6 @@ public final class CoverageModelParameters implements Serializable {
         return targetList;
     }
 
-    /**
-     * Check whether the bias covariates are orthogonal to each other or not.
-     *
-     * @param tol orthogonality tolerance
-     * @param logResults print results or not
-     */
-    public boolean checkOrthogonalityOfBiasCovariates(final double tol, final boolean logResults,
-                                                      @Nonnull final Logger logger) {
-        ParamUtils.isPositive(tol, "Orthogonality tolerance must be positive");
-        boolean orthogonal = true;
-        for (int mu = 0; mu < numLatents; mu++) {
-            for (int nu = mu; nu < numLatents; nu++) {
-                final double innerProd = meanBiasCovariates.get(NDArrayIndex.all(),
-                        NDArrayIndex.point(mu)).mul(meanBiasCovariates.get(NDArrayIndex.all(),
-                        NDArrayIndex.point(nu))).sumNumber().doubleValue();
-                if (mu != nu && FastMath.abs(innerProd) > tol) {
-                    orthogonal = false;
-                    logger.info("Inner product test failed on (" + mu + ", " + nu + ")");
-                }
-                if (logResults) {
-                    logger.info("Inner product of (" + mu + ", " + nu + "): " + innerProd);
-                } /* no need to continue */
-                if (!logResults && !orthogonal) {
-                    break;
-                }
-            }
-        }
-        return orthogonal;
-    }
-
     private static double[] getNormalRandomNumbers(final int size, final double mean, final double std,
                                                    final RandomGenerator rng) {
         Utils.validateArg(std >= 0, "Standard deviation must be non-negative");
@@ -202,13 +207,25 @@ public final class CoverageModelParameters implements Serializable {
         return IntStream.range(0, size).mapToDouble(i -> min + (max - min) * rng.nextDouble()).toArray();
     }
 
+    /**
+     * TODO
+     *
+     * @param targetList
+     * @param numLatents
+     * @param seed
+     * @param randomMeanLogBiasStandardDeviation
+     * @param randomBiasCovariatesStandardDeviation
+     * @param randomMaxUnexplainedVariance
+     * @param initialBiasCovariatesARDCoefficients
+     * @return
+     */
     public static CoverageModelParameters generateRandomModel(final List<Target> targetList,
                                                               final int numLatents,
                                                               final long seed,
                                                               final double randomMeanLogBiasStandardDeviation,
                                                               final double randomBiasCovariatesStandardDeviation,
                                                               final double randomMaxUnexplainedVariance,
-                                                              final double initialBiasCovariatePrecision) {
+                                                              final INDArray initialBiasCovariatesARDCoefficients) {
         Utils.validateArg(numLatents >= 0, "Dimension of the bias space must be non-negative");
         Utils.validateArg(randomBiasCovariatesStandardDeviation >= 0, "Standard deviation of random bias covariates" +
                 " must be non-negative");
@@ -220,29 +237,36 @@ public final class CoverageModelParameters implements Serializable {
         final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(seed));
 
         /* Gaussian random for mean log bias */
-        final INDArray randomMeanLogBias = Nd4j.create(getNormalRandomNumbers(
+        final INDArray initialMeanLogBias = Nd4j.create(getNormalRandomNumbers(
                 numTargets, 0, randomMeanLogBiasStandardDeviation, rng), new int[] {1, numTargets});
 
         /* Uniform random for unexplained variance */
-        final INDArray randomUnexplainedVariance = Nd4j.create(getUniformRandomNumbers(
+        final INDArray initialUnexplainedVariance = Nd4j.create(getUniformRandomNumbers(
                 numTargets, 0, randomMaxUnexplainedVariance, rng), new int[] {1, numTargets});
 
-        /* Constant vector for bias covariate precisions */
-        final INDArray initialBiasCovariatePrecisionArray = Nd4j.ones(numLatents).muli(initialBiasCovariatePrecision);
+        final INDArray initialMeanBiasCovariates, initialVarBiasCovariates;
 
-        /* Gaussian random for bias covariates */
-        final INDArray randomMeanBiasCovariates = Nd4j.create(getNormalRandomNumbers(
-                numTargets * numLatents, 0, randomBiasCovariatesStandardDeviation, rng), new int[] {numTargets, numLatents});
+        if (numLatents > 0) {
+            /* Gaussian random for bias covariates */
+            initialMeanBiasCovariates = Nd4j.create(getNormalRandomNumbers(numTargets * numLatents, 0,
+                    randomBiasCovariatesStandardDeviation, rng), new int[]{numTargets, numLatents});
 
-        /* Zero variance of bias covariates */
-        final INDArray trivialVarBiasCovariates = Nd4j.zeros(numTargets, numLatents, numLatents);
+            /* Zero variance of bias covariates */
+            initialVarBiasCovariates = Nd4j.zeros(numTargets, numLatents, numLatents);
+        } else {
+            /* disable bias covariates: no mean and var bias covariates, no ARD */
+            initialMeanBiasCovariates = null;
+            initialVarBiasCovariates = null;
+        }
 
-        return new CoverageModelParameters(targetList, randomMeanLogBias, randomUnexplainedVariance,
-                randomMeanBiasCovariates, trivialVarBiasCovariates, initialBiasCovariatePrecisionArray);
+        return new CoverageModelParameters(targetList, initialMeanLogBias, initialUnexplainedVariance,
+                initialMeanBiasCovariates, initialVarBiasCovariates, initialBiasCovariatesARDCoefficients);
     }
 
     /**
      * Reads the model from disk
+     *
+     * TODO ARD, var log bias
      *
      * @param modelPath input model path
      * @return an instance of {@link CoverageModelParameters}
@@ -282,6 +306,8 @@ public final class CoverageModelParameters implements Serializable {
     /**
      * Writes the model to disk
      *
+     * TODO ARD, var log bias
+     *
      * @param outputPath model output path
      */
     public static void write(@Nonnull CoverageModelParameters model, @Nonnull final String outputPath) {
@@ -305,27 +331,36 @@ public final class CoverageModelParameters implements Serializable {
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(model.getTargetUnexplainedVariance(), targetUnexplainedVarianceFile,
                 "TARGET_UNEXPLAINED_VARIANCE", null, targetNames);
 
-        /* write mean bias covariates to file */
-        final List<String> meanBiasCovariatesNames = IntStream.range(0, model.getNumLatents())
-                .mapToObj(li -> String.format("BC_%d", li)).collect(Collectors.toList());
-        final File meanBiasCovariatesFile = new File(outputPath, CoverageModelGlobalConstants.MEAN_BIAS_COVARIATES_OUTPUT_FILE);
-        Nd4jIOUtils.writeNDArrayMatrixToTextFile(model.getMeanBiasCovariates(), meanBiasCovariatesFile,
-                "MEAN_BIAS_COVARIATES", targetNames, meanBiasCovariatesNames);
+        if (model.isBiasCovariatesEnabled()) {
+            /* write mean bias covariates to file */
+            final List<String> meanBiasCovariatesNames = IntStream.range(0, model.getNumLatents())
+                    .mapToObj(li -> String.format("BC_%d", li)).collect(Collectors.toList());
+            final File meanBiasCovariatesFile = new File(outputPath, CoverageModelGlobalConstants.MEAN_BIAS_COVARIATES_OUTPUT_FILE);
+            Nd4jIOUtils.writeNDArrayMatrixToTextFile(model.getMeanBiasCovariates(), meanBiasCovariatesFile,
+                    "MEAN_BIAS_COVARIATES", targetNames, meanBiasCovariatesNames);
 
-        /* write norm_2 of mean bias covariates to file */
-        final double[] biasCovariatesNorm2 = new double[model.numLatents];
-        final INDArray WTW = model.getMeanBiasCovariates().transpose().mmul(model.getMeanBiasCovariates());
-        for (int li = 0; li < model.getNumLatents(); li++) {
-            biasCovariatesNorm2[li] = WTW.getDouble(li, li);
+            /* write norm_2 of mean bias covariates to file */
+            final double[] biasCovariatesNorm2 = new double[model.numLatents];
+            final INDArray WTW = model.getMeanBiasCovariates().transpose().mmul(model.getMeanBiasCovariates());
+            for (int li = 0; li < model.getNumLatents(); li++) {
+                biasCovariatesNorm2[li] = WTW.getDouble(li, li);
+            }
+            final File biasCovariatesNorm2File = new File(outputPath, CoverageModelGlobalConstants.MEAN_BIAS_COVARIATES_NORM2_OUTPUT_FILE);
+            Nd4jIOUtils.writeNDArrayMatrixToTextFile(Nd4j.create(biasCovariatesNorm2, new int[]{1, model.getNumLatents()}),
+                    biasCovariatesNorm2File, "MEAN_BIAS_COVARIATES_NORM_2", null, meanBiasCovariatesNames);
+
+            /* write var bias covariates to file */
+            final File varBiasCovariatesFile = new File(outputPath, CoverageModelGlobalConstants.VAR_BIAS_COVARIATES_OUTPUT_FILE);
+            Nd4jIOUtils.writeNDArrayTensorToTextFile(model.getVarBiasCovariates(), varBiasCovariatesFile,
+                    "VAR_BIAS_COVARIATES", null);
+
+            /* if ARD is enabled, write the ARD coefficients as well */
+            if (model.isARDEnabled()) {
+                final File biasCovariatesARDCoefficientsFile = new File(outputPath, CoverageModelGlobalConstants.BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE);
+                Nd4jIOUtils.writeNDArrayMatrixToTextFile(model.getBiasCovariateARDCoefficients(),
+                        biasCovariatesARDCoefficientsFile, "BIAS_COVARIATES_ARD_COEFFICIENTS", null, meanBiasCovariatesNames);
+            }
         }
-        final File biasCovariatesNorm2File = new File(outputPath, CoverageModelGlobalConstants.MEAN_BIAS_COVARIATES_NORM2_OUTPUT_FILE);
-        Nd4jIOUtils.writeNDArrayMatrixToTextFile(Nd4j.create(biasCovariatesNorm2, new int[] {1, model.getNumLatents()}),
-                biasCovariatesNorm2File, "MEAN_BIAS_COVARIATES_NORM_2", null, meanBiasCovariatesNames);
-
-        /* write var bias covariates to file */
-        final File varBiasCovariatesFile = new File(outputPath, CoverageModelGlobalConstants.VAR_BIAS_COVARIATES_OUTPUT_FILE);
-        Nd4jIOUtils.writeNDArrayTensorToTextFile(model.getVarBiasCovariates(), varBiasCovariatesFile,
-                "VAR_BIAS_COVARIATES", null);
     }
 
     /**

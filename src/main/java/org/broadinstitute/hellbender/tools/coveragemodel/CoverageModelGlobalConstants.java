@@ -63,11 +63,6 @@ public final class CoverageModelGlobalConstants implements Serializable {
     public static final double RANDOM_MEAN_LOG_BIAS_STD = 0.1;
 
     /**
-     * Initial ARD coefficient for bias covariates
-     */
-    public static final double INITIAL_BIAS_COVARIATES_ARD_COEFFICIENT = 1.0;
-
-    /**
      * Random generator seed for initial model parameters
      */
     public static final long RANDOM_MODEL_SEED = 1984;
@@ -145,7 +140,7 @@ public final class CoverageModelGlobalConstants implements Serializable {
     /**
      * ARD coefficients of bias covariates output file
      */
-    public static final String BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE = "bias_covariates_ARD_coefficients_final.tsv";
+    public static final String BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE = "bias_covariates_ARD_coefficients.tsv";
 
     /**
      * History of ARD coefficients of bias covariates output file

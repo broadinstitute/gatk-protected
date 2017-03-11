@@ -28,6 +28,18 @@ public final class CoverageModelEMParams {
         PSI_ISOTROPIC
     }
 
+    public enum ARDUpdateAlgorithm {
+        /**
+         * Picard fixed point iterations
+         */
+        PICARD,
+
+        /**
+         * Newton iterations
+         */
+        NEWTON
+    }
+
     public enum WSolverStrategy {
         /**
          * Perform the M-step update of bias covariates locally
@@ -64,12 +76,12 @@ public final class CoverageModelEMParams {
         RDD_JOIN
     }
 
-    /* TODO */
+    /* TODO change back to a reasonable value */
     public static final double DEFAULT_LOG_LIKELIHOOD_TOL = 1e-8;
     public static final String LOG_LIKELIHOOD_TOL_SHORT_NAME = "LLT";
     public static final String LOG_LIKELIHOOD_TOL_LONG_NAME = "logLikelihoodTol";
 
-    /* TODO */
+    /* TODO change back to a reasonable value */
     public static final double DEFAULT_PARAM_ABS_TOL = 1e-8;
     public static final String PARAM_ABS_TOL_SHORT_NAME = "PMAT";
     public static final String PARAM_ABS_TOL_LONG_NAME = "paramAbsoluteTolerance";
@@ -94,9 +106,17 @@ public final class CoverageModelEMParams {
     public static final String MAX_EM_ITERATIONS_SHORT_NAME = "MEMI";
     public static final String MAX_EM_ITERATIONS_LONG_NAME = "maximumEMIterations";
 
-    public static final double DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING = 5e-2;
+    public static final double DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING = 1e-2;
     public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING_SHORT_NAME = "LLTTCRC";
     public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING_LONG_NAME = "logLikelihoodTolThresholdCopyRatioCalling";
+
+    public static final double DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_PSI_SWITCHING = 1e-2;
+    public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_PSI_SWITCHING_SHORT_NAME = "LLTTPS";
+    public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_PSI_SWITCHING_LONG_NAME = "logLikelihoodTolThresholdPsiSwitching";
+
+    public static final double DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE = 1e-2;
+    public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE_SHORT_NAME = "LLTTARDU";
+    public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE_LONG_NAME = "logLikelihoodTolThresholdARDUpdate";
 
     /**
      * Number of bias continuous latent variables
@@ -108,7 +128,7 @@ public final class CoverageModelEMParams {
     /**
      * Minimum read count on a target to perform learning
      */
-    public static final int DEFAULT_MIN_LEARNING_READ_COUNT = 20;
+    public static final int DEFAULT_MIN_LEARNING_READ_COUNT = 5;
     public static final String MIN_LEARNING_READ_COUNT_SHORT_NAME = "MLRC";
     public static final String MIN_LEARNING_READ_COUNT_LONG_NAME = "minimumLearningReadCount";
 
@@ -116,8 +136,37 @@ public final class CoverageModelEMParams {
     public static final String MAPPING_ERROR_RATE_SHORT_NAME = "MER";
     public static final String MAPPING_ERROR_RATE_LONG_NAME = "mappingErrorRate";
 
+    /* ARD related */
 
+    public static final boolean DEFAULT_ARD_ENABLED = true;
+    public static final String ARD_ENABLED_SHORT_NAME = "ARDU";
+    public static final String ARD_ENABLED_LONG_NAME = "ARDUpdate";
 
+    public static final ARDUpdateAlgorithm DEFAULT_ARD_UPDATE_ALGORITHM = ARDUpdateAlgorithm.NEWTON;
+    public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
+    public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
+
+    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-2;
+    public static final String INITIAL_ARD_PRECISION_SHORT_NAME = "IARDP";
+    public static final String INITIAL_ARD_PRECISION_LONG_NAME = "initialARDPrecision";
+
+    public static final int DEFAULT_MAX_ARD_ITERATIONS = 50;
+    public static final String MAX_ARD_ITERATIONS_SHORT_NAME = "MARDI";
+    public static final String MAX_ARD_ITERATIONS_LONG_NAME = "maxARDIterations";
+
+    public static final double DEFAULT_MAX_ARD_PRECISION = 1e20;
+    public static final String MAX_ARD_PRECISION_SHORT_NAME = "MARDP";
+    public static final String MAX_ARD_PRECISION_LONG_NAME = "maxARDPrecision";
+
+    public static final double DEFAULT_ARD_ABS_TOL = 1e-6;
+    public static final String ARD_ABS_TOL_SHORT_NAME = "AAT";
+    public static final String ARD_ABS_TOL_LONG_NAME = "ardAbsoluteTolerance";
+
+    public static final double DEFAULT_ARD_REL_TOL = 1e-4;
+    public static final String ARD_REL_TOL_SHORT_NAME = "ART";
+    public static final String ARD_REL_TOL_LONG_NAME = "ardRelativeTolerance";
+
+    /* Psi related */
 
     public static final boolean DEFAULT_PSI_UPDATE_ENABLED = true;
     public static final String PSI_UPDATE_ENABLED_SHORT_NAME = "PU";
@@ -137,7 +186,7 @@ public final class CoverageModelEMParams {
 
     public static final int DEFAULT_MAX_PSI_ITERATIONS = 200;
     public static final String MAX_PSI_ITERATIONS_SHORT_NAME = "MPI";
-    public static final String MAX_PSI_ITERATIONS_LONG_NAME = "maxPsiInterations";
+    public static final String MAX_PSI_ITERATIONS_LONG_NAME = "maxPsiIterations";
 
     public static final double DEFAULT_PSI_ABS_TOL = 1e-8;
     public static final String PSI_ABS_TOL_SHORT_NAME = "PAT";
@@ -399,6 +448,24 @@ public final class CoverageModelEMParams {
             optional = true
     )
     protected double logLikelihoodTolThresholdCRCalling = DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_CR_CALLING;
+
+    @Advanced
+    @Argument(
+            doc = "Log likelihood absolute change tolerance before switching to target-resolved unexplained variance updates",
+            shortName = LOG_LIKELIHOOD_TOL_THRESHOLD_PSI_SWITCHING_SHORT_NAME,
+            fullName = LOG_LIKELIHOOD_TOL_THRESHOLD_PSI_SWITCHING_LONG_NAME,
+            optional = true
+    )
+    protected double logLikelihoodTolThresholdPsiSwitching = DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_PSI_SWITCHING;
+
+    @Advanced
+    @Argument(
+            doc = "Log likelihood absolute change tolerance before updating ARD coefficients",
+            shortName = LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE_SHORT_NAME,
+            fullName = LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE_LONG_NAME,
+            optional = true
+    )
+    protected double logLikelihoodTolThresholdARDUpdate = DEFAULT_LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE;
 
     @Advanced
     @Argument(
@@ -667,12 +734,74 @@ public final class CoverageModelEMParams {
 
     @Advanced
     @Argument(
-            doc = "Number of target space paritions (for spark mode)",
+            doc = "Number of target space partitions (for spark mode)",
             shortName = NUMBER_OF_TARGET_SPACE_PARTITIONS_SHORT_NAME,
             fullName = NUMBER_OF_TARGET_SPACE_PARTITIONS_LONG_NAME,
             optional = true
     )
-    protected int numTargetSpaceParititions = DEFAULT_NUMBER_OF_TARGET_SPACE_PARTITIONS;
+    protected int numTargetSpacePartitions = DEFAULT_NUMBER_OF_TARGET_SPACE_PARTITIONS;
+
+    @Argument(
+            doc = "Enable automatic relevance determination (ARD) of bias covariates",
+            shortName = ARD_ENABLED_SHORT_NAME,
+            fullName = ARD_ENABLED_LONG_NAME,
+            optional = true
+    )
+    protected boolean ardEnabled = DEFAULT_ARD_ENABLED;
+
+    @Advanced
+    @Argument(
+            doc = "Automatic relevance determination (ARD) algorithm",
+            shortName = ARD_UPDATE_ALGORITHM_SHORT_NAME,
+            fullName = ARD_UPDATE_ALGORITHM_LONG_NAME,
+            optional = true
+    )
+    protected ARDUpdateAlgorithm ardUpdateAlgorithm = DEFAULT_ARD_UPDATE_ALGORITHM;
+
+    @Advanced
+    @Argument(
+            doc = "Initial ARD precision",
+            shortName = INITIAL_ARD_PRECISION_SHORT_NAME,
+            fullName = INITIAL_ARD_PRECISION_LONG_NAME,
+            optional = true
+    )
+    protected double initialARDPrecision = DEFAULT_INITIAL_ARD_PRECISION;
+
+    @Advanced
+    @Argument(
+            doc = "Maximum ARD precision",
+            shortName = MAX_ARD_PRECISION_SHORT_NAME,
+            fullName = MAX_ARD_PRECISION_LONG_NAME,
+            optional = true
+    )
+    protected double maxARDPrecision = DEFAULT_MAX_ARD_PRECISION;
+
+    @Advanced
+    @Argument(
+            doc = "Maximum ARD update iterations",
+            shortName = MAX_ARD_ITERATIONS_SHORT_NAME,
+            fullName = MAX_ARD_ITERATIONS_LONG_NAME,
+            optional = true
+    )
+    protected int maxARDIterations = DEFAULT_MAX_ARD_ITERATIONS;
+
+    @Advanced
+    @Argument(
+            doc = "ARD update iterations absolute tolerance convergence criterion",
+            shortName = ARD_ABS_TOL_SHORT_NAME,
+            fullName = ARD_ABS_TOL_LONG_NAME,
+            optional = true
+    )
+    protected double ardAbsoluteTolerance = DEFAULT_ARD_ABS_TOL;
+
+    @Advanced
+    @Argument(
+            doc = "ARD update iterations relative tolerance convergence criterion",
+            shortName = ARD_REL_TOL_SHORT_NAME,
+            fullName = ARD_REL_TOL_LONG_NAME,
+            optional = true
+    )
+    protected double ardRelativeTolerance = DEFAULT_ARD_REL_TOL;
 
     /**********************************************************************************
      * setters and getters (used for on-the-fly update of parameters and for testing) *
@@ -686,7 +815,7 @@ public final class CoverageModelEMParams {
     public int getMaxEMIterations() { return maxEMIterations; }
 
     public CoverageModelEMParams setNumLatents(final int numLatents) {
-        this.numLatents = ParamUtils.isPositive(numLatents, "Number of latent variables must be positive.");
+        this.numLatents = ParamUtils.isPositiveOrZero(numLatents, "Number of latent variables must be non-negative.");
         return this;
     }
 
@@ -797,7 +926,7 @@ public final class CoverageModelEMParams {
         return psiUpdateMode;
     }
 
-    public CoverageModelEMParams setPsiPsiolverType(@Nonnull final PsiUpdateMode psiUpdateMode) {
+    public CoverageModelEMParams setPsiUpdateMode(@Nonnull final PsiUpdateMode psiUpdateMode) {
         this.psiUpdateMode = Utils.nonNull(psiUpdateMode, "Psi solver mode must be non-null");
         return this;
     }
@@ -866,6 +995,27 @@ public final class CoverageModelEMParams {
     public CoverageModelEMParams setLogLikelihoodTolThresholdCRCalling(final double logLikelihoodTolThresholdCRCalling) {
         this.logLikelihoodTolThresholdCRCalling = ParamUtils.isPositive(logLikelihoodTolThresholdCRCalling,
                 "Log likelihood change threshold before updating copy ratio posteriors must be positive");
+        return this;
+    }
+
+    public double getLogLikelihoodTolThresholdPsiSwitching() {
+        return logLikelihoodTolThresholdPsiSwitching;
+    }
+
+    public CoverageModelEMParams setLogLikelihoodTolThresholdPsiSwitching(final double logLikelihoodTolThresholdPsiSwitching) {
+        this.logLikelihoodTolThresholdPsiSwitching = ParamUtils.isPositive(logLikelihoodTolThresholdPsiSwitching,
+                "Log likelihood change threshold before switching to target-resolved unexplained variance updates" +
+                        " must be positive");
+        return this;
+    }
+
+    public double getLogLikelihoodTolThresholdARDUpdate() {
+        return logLikelihoodTolThresholdARDUpdate;
+    }
+
+    public CoverageModelEMParams setLogLikelihoodTolThresholdARDUpdate(final double logLikelihoodTolThresholdARDUpdate) {
+        this.logLikelihoodTolThresholdARDUpdate = ParamUtils.isPositive(logLikelihoodTolThresholdARDUpdate,
+                "Log likelihood change threshold before updating ARD coefficients must be positive");
         return this;
     }
 
@@ -1074,12 +1224,12 @@ public final class CoverageModelEMParams {
         return extendedPosteriorOutputEnabled;
     }
 
-    public int getNumTargetSpaceParititions() {
-        return numTargetSpaceParititions;
+    public int getNumTargetSpacePartitions() {
+        return numTargetSpacePartitions;
     }
 
     public CoverageModelEMParams setNumTargetSpacePartitions(final int numTargetSpaceParititions) {
-        this.numTargetSpaceParititions = ParamUtils.isPositive(numTargetSpaceParititions, "Number of target space" +
+        this.numTargetSpacePartitions = ParamUtils.isPositive(numTargetSpaceParititions, "Number of target space" +
                 " partitions must be positive");
         return this;
     }
@@ -1140,10 +1290,76 @@ public final class CoverageModelEMParams {
         return mappingErrorRate;
     }
 
+    public CoverageModelEMParams enableARDUpdate() {
+        ardEnabled = true;
+        return this;
+    }
+
+    public CoverageModelEMParams disableARDUpdate() {
+        ardEnabled = false;
+        return this;
+    }
+
+    public boolean isARDEnabled() {
+        return ardEnabled;
+    }
+
+    public CoverageModelEMParams setARDUpdateAlgorithm(@Nonnull final ARDUpdateAlgorithm ardUpdateAlgorithm) {
+        this.ardUpdateAlgorithm = Utils.nonNull(ardUpdateAlgorithm, "The ARD update algorithm must be non-null");
+        return this;
+    }
+
+    public ARDUpdateAlgorithm getARDUpdateAlgorithm() {
+        return ardUpdateAlgorithm;
+    }
+
+    public CoverageModelEMParams setInitialARDPrecision(final double initialARDPrecision) {
+        this.initialARDPrecision = ParamUtils.isPositive(initialARDPrecision, "The initial ARD precision must be positive");
+        return this;
+    }
+
+    public double getInitialARDPrecision() {
+        return initialARDPrecision;
+    }
+
+    public CoverageModelEMParams setMaxARDPrecision(final double maxARDPrecision) {
+        this.maxARDPrecision = ParamUtils.isPositive(maxARDPrecision, "The maximum ARD precision must be positive");
+        return this;
+    }
+
+    public double getMaxARDPrecision() {
+        return maxARDPrecision;
+    }
+
+    public CoverageModelEMParams setMaxARDIterations(final int maxARDIterations) {
+        this.maxARDIterations = ParamUtils.isPositive(maxARDIterations, "The maximum ARD iteration count must be positive");
+        return this;
+    }
+
+    public int getMaxARDIterations() {
+        return maxARDIterations;
+    }
+
+    public CoverageModelEMParams setARDAbsoluteTolerance(final double tol) {
+        this.ardAbsoluteTolerance = ParamUtils.isPositive(tol, "The absolute tolerance for ARD update must be positive");
+        return this;
+    }
+
+    public double getARDAbsoluteTolerance() { return ardAbsoluteTolerance; }
+
+    public CoverageModelEMParams setARDRelativeTolerance(final double tol) {
+        this.ardRelativeTolerance = ParamUtils.isPositive(tol, "The relative tolerance for ARD update must be positive");
+        return this;
+    }
+
+    public double getARDRelativeTolerance() { return ardRelativeTolerance; }
+
     /**
      * Validate parameters
      *
      * TODO github/gatk-protected issue #843 -- more validations
+     * - positive/negative values
+     * - Maxes greater than mins
      *
      */
     public void validate() {
@@ -1151,5 +1367,7 @@ public final class CoverageModelEMParams {
                 "Run checkpointing is enabled but checkpointing path is not set properly");
         Utils.validateArg(!fourierRegularizationEnabled(), "Fourier regularization is not properly" +
                 " implemented yet");
+        Utils.validateArg(numLatents > 0 || !ardEnabled, "ARD must be disabled if the dimension of the" +
+                " bias latent space is zero");
     }
 }

@@ -108,7 +108,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
              * enforce isotropic unexplained variance */
             if (params.adaptivePsiSolverModeSwitchingEnabled() &&
                     !this.params.getPsiUpdateMode().equals(CoverageModelEMParams.PsiUpdateMode.PSI_ISOTROPIC)) {
-                this.params.setPsiPsiolverType(CoverageModelEMParams.PsiUpdateMode.PSI_ISOTROPIC);
+                this.params.setPsiUpdateMode(CoverageModelEMParams.PsiUpdateMode.PSI_ISOTROPIC);
                 logger.info("Overriding the requested unexplained variance solver to " +
                         CoverageModelEMParams.PsiUpdateMode.PSI_ISOTROPIC.name());
             }
@@ -122,6 +122,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
         double latestMStepLikelihood = Double.NEGATIVE_INFINITY;
         final EMAlgorithmIterationInfo iterInfo = new EMAlgorithmIterationInfo(Double.NEGATIVE_INFINITY, 0, 1);
         boolean updateCopyRatioPosteriors = false;
+        boolean updateARDCoefficients = false;
         boolean paramEstimationConverged = false;
         boolean performMStep = true;
 
@@ -143,11 +144,15 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                     break;
                 }
 
-                runRoutine(this::updateBiasLatentPosteriorExpectations, s -> "N/A", "E_STEP_Z", iterInfo);
-                posteriorErrorNormBias = iterInfo.errorNorm;
-
-                runRoutine(this::updateBiasCovariates, s -> "N/A", "E_STEP_W", iterInfo);
-                posteriorErrorNormBiasCovariates = iterInfo.errorNorm;
+                if (params.getNumLatents() > 0) {
+                    runRoutine(this::updateBiasLatentPosteriorExpectations, s -> "N/A", "E_STEP_Z", iterInfo);
+                    posteriorErrorNormBias = iterInfo.errorNorm;
+                    runRoutine(this::updateBiasCovariates, s -> "N/A", "E_STEP_W", iterInfo);
+                    posteriorErrorNormBiasCovariates = iterInfo.errorNorm;
+                } else {
+                    posteriorErrorNormBias = 0;
+                    posteriorErrorNormBiasCovariates = 0;
+                }
 
                 if (params.gammaUpdateEnabled()) {
                     runRoutine(this::updateSampleUnexplainedVariance,
@@ -213,9 +218,13 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                         errorNormUnexplainedVariance = 0;
                     }
 
-                    runRoutine(this::updateBiasCovariatesARDCoefficients, s -> "iters: " + s.getInteger("iterations"),
-                            "M_STEP_ALPHA", iterInfo);
-                    errorNormARDCoefficients = iterInfo.errorNorm;
+                    if (updateARDCoefficients) {
+                        runRoutine(this::updateBiasCovariatesARDCoefficients, s -> "iters: " + s.getInteger("iterations"),
+                                "M_STEP_ALPHA", iterInfo);
+                        errorNormARDCoefficients = iterInfo.errorNorm;
+                    } else {
+                        errorNormARDCoefficients = 0;
+                    }
 
                     maxParamErrorNorm = Collections.max(Arrays.asList(
                             errorNormMeanTargetBias,
@@ -233,17 +242,35 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                 prevMStepLikelihood = latestMStepLikelihood;
                 latestMStepLikelihood = iterInfo.logLikelihood;
 
-                /* if the likelihood has increased and the increment is small, start updating copy number posteriors */
-                if (params.copyRatioUpdateEnabled() &&
-                        !updateCopyRatioPosteriors &&
-                        (latestMStepLikelihood - prevMStepLikelihood) > 0 &&
-                        (latestMStepLikelihood - prevMStepLikelihood) < params.getLogLikelihoodTolThresholdCRCalling()) {
+                final boolean logLikelihoodIncreased = (latestMStepLikelihood - prevMStepLikelihood) > 0;
+
+                /* if partially converged, start updating copy number posteriors */
+                final boolean partiallyConvergedForCRCalling = logLikelihoodIncreased &&
+                        (latestMStepLikelihood - prevMStepLikelihood) < params.getLogLikelihoodTolThresholdCRCalling();
+                if (partiallyConvergedForCRCalling && params.copyRatioUpdateEnabled() && !updateCopyRatioPosteriors) {
                     updateCopyRatioPosteriors = true;
-                    logger.info("Partial convergence achieved; starting to update copy ratio posteriors (if enabled)" +
-                            " and sample-specific unexplained variance (if enabled) in the next iteration");
-                    if (params.adaptivePsiSolverModeSwitchingEnabled()) {
-                        params.setPsiPsiolverType(CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED);
-                    }
+                    logger.info("Partial convergence achieved; starting to update copy ratio posteriors in" +
+                            " the next iteration");
+                }
+
+                /* if partially converged, switch to target-resolved psi update mode (if enabled) */
+                final boolean partiallyConvergedForPsiSwitching = logLikelihoodIncreased &&
+                        (latestMStepLikelihood - prevMStepLikelihood) < params.getLogLikelihoodTolThresholdPsiSwitching();
+                if (partiallyConvergedForPsiSwitching && params.adaptivePsiSolverModeSwitchingEnabled() &&
+                        !params.getPsiUpdateMode().equals(CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED)) {
+                    params.setPsiUpdateMode(CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED);
+                    logger.info("Partial convergence achieved; switching to target-specific unexplained variance in" +
+                            " the next iteration");
+                }
+
+                /* if partially converged, switch to target-resolved psi update mode (if enabled) */
+                final boolean partiallyConvergedForARDUpdate = logLikelihoodIncreased &&
+                        (latestMStepLikelihood - prevMStepLikelihood) < params.getLogLikelihoodTolThresholdARDUpdate();
+                if (partiallyConvergedForARDUpdate && params.isARDEnabled() && !updateARDCoefficients) {
+                    updateARDCoefficients = true;
+                    logger.info("Partial convergence achieved; enabling update of ARD coefficients");
+                    runRoutine(this::updateBiasCovariatesARDCoefficients, s -> "iters: " + s.getInteger("iterations"),
+                            "M_STEP_ALPHA", iterInfo);
                 }
             }
 
