@@ -81,13 +81,13 @@ public final class CoverageModelParameters implements Serializable {
         this.targetMeanLogBias = Utils.nonNull(targetMeanLogBias, "Target-specific mean log bias must be non-null");
         this.targetUnexplainedVariance = Utils.nonNull(targetUnexplainedVariance, "Target-specific unexplained variance" +
                 " must be non-null");
-        Utils.validateArg((meanBiasCovariates == null && varBiasCovariates == null) ||
-                (meanBiasCovariates != null && varBiasCovariates != null), "Either both mean and var of bias covariates" +
-                " must be null, or both must be non-null");
-        biasCovariatesEnabled = meanBiasCovariates != null && varBiasCovariates != null;
-        ardEnabled = biasCovariateARDCoefficients != null;
-        Utils.validateArg(biasCovariatesEnabled || !ardEnabled, "If bias covariates are disabled, ARD coefficients" +
-                " must be null");
+        Utils.validateArg((meanBiasCovariates == null && varBiasCovariates == null && biasCovariateARDCoefficients == null) ||
+                        (meanBiasCovariates != null && varBiasCovariates != null && biasCovariateARDCoefficients != null) ||
+                        (meanBiasCovariates != null && varBiasCovariates == null && biasCovariateARDCoefficients == null),
+                "Inconsistency detected in the arguments; can not infer whether ARD and bias covariates are enabled or disabled" +
+                        " from the arguments");
+        biasCovariatesEnabled = meanBiasCovariates != null;
+        ardEnabled = biasCovariateARDCoefficients != null && varBiasCovariates != null;
         this.meanBiasCovariates = meanBiasCovariates;
         this.varBiasCovariates = varBiasCovariates;
         this.biasCovariateARDCoefficients = biasCovariateARDCoefficients;
@@ -99,8 +99,8 @@ public final class CoverageModelParameters implements Serializable {
             Utils.validateArg(meanBiasCovariates.rank() == 2, "The mean bias covariate NDArray must be rank 2");
             numLatents = meanBiasCovariates.size(1);
             validateNDArrayShape(meanBiasCovariates, new int[] {numTargets, numLatents}, "mean bias covariates");
-            validateNDArrayShape(varBiasCovariates, new int[] {numTargets, numLatents, numLatents}, "var bias covariates");
             if (ardEnabled) {
+                validateNDArrayShape(varBiasCovariates, new int[] {numTargets, numLatents, numLatents}, "var bias covariates");
                 validateNDArrayShape(biasCovariateARDCoefficients, new int[] {1, numLatents}, "ARD coefficients");
             }
         } else {
@@ -232,6 +232,10 @@ public final class CoverageModelParameters implements Serializable {
         Utils.validateArg(randomMeanLogBiasStandardDeviation >= 0, "Standard deviation of random mean log bias" +
                 " must be non-negative");
         Utils.validateArg(randomMaxUnexplainedVariance >= 0, "Max random unexplained variance must be non-negative");
+        Utils.validateArg(initialBiasCovariatesARDCoefficients == null || numLatents > 0, "If ARD is enabled, the dimension" +
+                " of the bias latent space must be positive");
+        final boolean ardEnabled = initialBiasCovariatesARDCoefficients != null;
+        final boolean biasCovariatesEnabled = numLatents > 0;
 
         final int numTargets = targetList.size();
         final RandomGenerator rng = RandomGeneratorFactory.createRandomGenerator(new Random(seed));
@@ -246,15 +250,17 @@ public final class CoverageModelParameters implements Serializable {
 
         final INDArray initialMeanBiasCovariates, initialVarBiasCovariates;
 
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             /* Gaussian random for bias covariates */
             initialMeanBiasCovariates = Nd4j.create(getNormalRandomNumbers(numTargets * numLatents, 0,
                     randomBiasCovariatesStandardDeviation, rng), new int[]{numTargets, numLatents});
-
-            /* Zero variance of bias covariates */
-            initialVarBiasCovariates = Nd4j.zeros(numTargets, numLatents, numLatents);
+            if (ardEnabled) {
+                /* zero covariance */
+                initialVarBiasCovariates = Nd4j.zeros(numTargets, numLatents, numLatents);
+            } else {
+                initialVarBiasCovariates = null;
+            }
         } else {
-            /* disable bias covariates: no mean and var bias covariates, no ARD */
             initialMeanBiasCovariates = null;
             initialVarBiasCovariates = null;
         }
@@ -349,13 +355,12 @@ public final class CoverageModelParameters implements Serializable {
             Nd4jIOUtils.writeNDArrayMatrixToTextFile(Nd4j.create(biasCovariatesNorm2, new int[]{1, model.getNumLatents()}),
                     biasCovariatesNorm2File, "MEAN_BIAS_COVARIATES_NORM_2", null, meanBiasCovariatesNames);
 
-            /* write var bias covariates to file */
-            final File varBiasCovariatesFile = new File(outputPath, CoverageModelGlobalConstants.VAR_BIAS_COVARIATES_OUTPUT_FILE);
-            Nd4jIOUtils.writeNDArrayTensorToTextFile(model.getVarBiasCovariates(), varBiasCovariatesFile,
-                    "VAR_BIAS_COVARIATES", null);
-
-            /* if ARD is enabled, write the ARD coefficients as well */
+            /* if ARD is enabled, write the ARD coefficients and covariance of W as well */
             if (model.isARDEnabled()) {
+                final File varBiasCovariatesFile = new File(outputPath, CoverageModelGlobalConstants.VAR_BIAS_COVARIATES_OUTPUT_FILE);
+                Nd4jIOUtils.writeNDArrayTensorToTextFile(model.getVarBiasCovariates(), varBiasCovariatesFile,
+                        "VAR_BIAS_COVARIATES", null);
+
                 final File biasCovariatesARDCoefficientsFile = new File(outputPath, CoverageModelGlobalConstants.BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE);
                 Nd4jIOUtils.writeNDArrayMatrixToTextFile(model.getBiasCovariateARDCoefficients(),
                         biasCovariatesARDCoefficientsFile, "BIAS_COVARIATES_ARD_COEFFICIENTS", null, meanBiasCovariatesNames);
@@ -445,5 +450,4 @@ public final class CoverageModelParameters implements Serializable {
                 newModelTargetUnexplainedVariance, newModelMeanBiasCovariates, newModelVarBiasCovariates,
                 model.getBiasCovariateARDCoefficients()), subsetReadCounts);
     }
-
 }

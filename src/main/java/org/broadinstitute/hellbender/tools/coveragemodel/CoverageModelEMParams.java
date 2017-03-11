@@ -146,11 +146,11 @@ public final class CoverageModelEMParams {
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 
-    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-2;
+    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-3;
     public static final String INITIAL_ARD_PRECISION_SHORT_NAME = "IARDP";
     public static final String INITIAL_ARD_PRECISION_LONG_NAME = "initialARDPrecision";
 
-    public static final int DEFAULT_MAX_ARD_ITERATIONS = 50;
+    public static final int DEFAULT_MAX_ARD_ITERATIONS = 10;
     public static final String MAX_ARD_ITERATIONS_SHORT_NAME = "MARDI";
     public static final String MAX_ARD_ITERATIONS_LONG_NAME = "maxARDIterations";
 
@@ -158,13 +158,13 @@ public final class CoverageModelEMParams {
     public static final String MAX_ARD_PRECISION_SHORT_NAME = "MARDP";
     public static final String MAX_ARD_PRECISION_LONG_NAME = "maxARDPrecision";
 
-    public static final double DEFAULT_ARD_ABS_TOL = 1e-6;
-    public static final String ARD_ABS_TOL_SHORT_NAME = "AAT";
-    public static final String ARD_ABS_TOL_LONG_NAME = "ardAbsoluteTolerance";
+    public static final double DEFAULT_LOG_ARD_ABS_TOL = 1e-6;
+    public static final String LOG_ARD_ABS_TOL_SHORT_NAME = "LARDAT";
+    public static final String LOG_ARD_ABS_TOL_LONG_NAME = "logARDAbsoluteTolerance";
 
-    public static final double DEFAULT_ARD_REL_TOL = 1e-4;
-    public static final String ARD_REL_TOL_SHORT_NAME = "ART";
-    public static final String ARD_REL_TOL_LONG_NAME = "ardRelativeTolerance";
+    public static final double DEFAULT_LOG_ARD_REL_TOL = 1e-4;
+    public static final String LOG_ARD_REL_TOL_SHORT_NAME = "LARDRT";
+    public static final String LOG_ARD_REL_TOL_LONG_NAME = "logARDRelativeTolerance";
 
     /* Psi related */
 
@@ -787,137 +787,52 @@ public final class CoverageModelEMParams {
 
     @Advanced
     @Argument(
-            doc = "ARD update iterations absolute tolerance convergence criterion",
-            shortName = ARD_ABS_TOL_SHORT_NAME,
-            fullName = ARD_ABS_TOL_LONG_NAME,
+            doc = "ARD update iterations absolute tolerance convergence criterion (in logarithm)",
+            shortName = LOG_ARD_ABS_TOL_SHORT_NAME,
+            fullName = LOG_ARD_ABS_TOL_LONG_NAME,
             optional = true
     )
-    protected double ardAbsoluteTolerance = DEFAULT_ARD_ABS_TOL;
+    protected double logARDAbsoluteTolerance = DEFAULT_LOG_ARD_ABS_TOL;
 
     @Advanced
     @Argument(
-            doc = "ARD update iterations relative tolerance convergence criterion",
-            shortName = ARD_REL_TOL_SHORT_NAME,
-            fullName = ARD_REL_TOL_LONG_NAME,
+            doc = "ARD update iterations relative tolerance convergence criterion (in logarithm)",
+            shortName = LOG_ARD_REL_TOL_SHORT_NAME,
+            fullName = LOG_ARD_REL_TOL_LONG_NAME,
             optional = true
     )
-    protected double ardRelativeTolerance = DEFAULT_ARD_REL_TOL;
+    protected double logARDRelativeTolerance = DEFAULT_LOG_ARD_REL_TOL;
 
-    /**********************************************************************************
-     * setters and getters (used for on-the-fly update of parameters and for testing) *
-     **********************************************************************************/
-
-    public CoverageModelEMParams setMaxEMIterations(final int maxEMIterations) {
-        this.maxEMIterations = ParamUtils.isPositive(maxEMIterations, "Maximum EM iterations must be positive.");
-        return this;
-    }
+    /*
+     * setters and getters
+     */
 
     public int getMaxEMIterations() { return maxEMIterations; }
 
-    public CoverageModelEMParams setNumLatents(final int numLatents) {
-        this.numLatents = ParamUtils.isPositiveOrZero(numLatents, "Number of latent variables must be non-negative.");
-        return this;
-    }
-
     public int getNumLatents() { return numLatents; }
-
-    public CoverageModelEMParams setLogLikelihoodTolerance(final double tol) {
-        logLikelihoodTol = ParamUtils.isPositive(tol, "The required tolerance on log likelihood " +
-                "must be positive.");
-        return this;
-    }
 
     public double getLogLikelihoodTolerance() { return logLikelihoodTol; }
 
-    public CoverageModelEMParams setMaxMStepCycles(final int maxMStepCycles) {
-        this.maxMStepCycles = ParamUtils.isPositive(maxMStepCycles, "The number of " +
-                "sequential partial maximimization steps must be positive.");
-        return this;
-    }
-
     public int getMaxMStepCycles() { return maxMStepCycles; }
-
-    public CoverageModelEMParams enableFourierRegularization() {
-        useFourierRegularization = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableFourierRegularization() {
-        useFourierRegularization = false;
-        return this;
-    }
 
     public boolean fourierRegularizationEnabled() { return useFourierRegularization; }
 
-    public CoverageModelEMParams setFourierRegularizationStrength(final double fourierRegularizationStrength) {
-        this.fourierRegularizationStrength = ParamUtils.isPositive(fourierRegularizationStrength, "The Fourier " +
-                "regularization strength must be positive");
-        return this;
-    }
-
     public double getFourierRegularizationStrength() { return fourierRegularizationStrength; }
-
-    public CoverageModelEMParams setPsiAbsoluteTolerance(final double tol) {
-        this.psiAbsTol = ParamUtils.isPositive(tol, "The absolute tolerance for maximization of Psi must be positive");
-        return this;
-    }
 
     public double getPsiAbsoluteTolerance() { return psiAbsTol; }
 
-    public CoverageModelEMParams setPsiRelativeTolerance(final double tol) {
-        this.psiRelTol = ParamUtils.isPositive(tol, "The relative tolerance for maximization of Psi must be positive");
-        return this;
-    }
-
     public double getPsiRelativeTolerance() { return psiRelTol; }
-
-    public CoverageModelEMParams setPsiMaxIterations(final int psiMaxIterations) {
-        this.psiMaxIterations = ParamUtils.isPositive(psiMaxIterations, "The maximum number of interations for M-step of Psi " +
-                "must be positive.");
-        return this;
-    }
 
     public int getPsiMaxIterations() { return psiMaxIterations; }
 
-    public CoverageModelEMParams setWAbsoluteTolerance(final double tol) {
-        this.wAbsTol = ParamUtils.isPositive(tol, "The absolute tolerance for maximization of Psi must be positive");
-        return this;
-    }
-
     public double getWAbsoluteTolerance() { return this.wAbsTol; }
-
-    public CoverageModelEMParams setWRelativeTolerance(final double tol) {
-        this.wRelTol = ParamUtils.isPositive(tol, "The relative tolerance for maximization of Psi must be positive");
-        return this;
-    }
 
     public double getWRelativeTolerance() { return this.wRelTol; }
 
-    public CoverageModelEMParams setWMaxIterations(final int wMaxIterations) {
-        this.wMaxIterations = ParamUtils.isPositive(wMaxIterations, "The maximum number of interations for M-step of W " +
-                "must be positive.");
-        return this;
-    }
-
     public int getWMaxIterations() { return wMaxIterations; }
-
-    public CoverageModelEMParams enableZeroPadFFT() {
-        zeroPadFFT = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableZeroPadFFT() {
-        zeroPadFFT = false;
-        return this;
-    }
 
     public boolean zeroPadFFT() {
         return zeroPadFFT;
-    }
-
-    public CoverageModelEMParams setParameterEstimationAbsoluteTolerance(final double val) {
-        this.paramAbsTol = ParamUtils.isPositive(paramAbsTol, "The required tolerance on parameter change must be positive.");
-        return this;
     }
 
     public double getParameterEstimationAbsoluteTolerance() { return this.paramAbsTol; }
@@ -935,35 +850,9 @@ public final class CoverageModelEMParams {
         return wSolverStrategy;
     }
 
-    public CoverageModelEMParams setWSolverType(@Nonnull final WSolverStrategy wSolverStrategy) {
-        this.wSolverStrategy = Utils.nonNull(wSolverStrategy, "W solver type must be non-null");
-        return this;
-    }
-
-    public CoverageModelEMParams setMinimumCNVLength(final int minCNVLength) {
-        this.minCNVLength = ParamUtils.isPositive(minCNVLength, "Minimum CNV length must be positive");
-        return this;
-    }
-
-    public CoverageModelEMParams setMaximumCNVLength(final int maxCNVLength) {
-        this.maxCNVLength = ParamUtils.inRange(maxCNVLength, minCNVLength, Integer.MAX_VALUE, "Maximum CNV length must be greater than" +
-                " the minimum");
-        return this;
-    }
-
     public int getMinimumCNVLength() { return minCNVLength; }
 
     public int getMaximumCNVLength() { return maxCNVLength; }
-
-    public CoverageModelEMParams enableRDDCheckpointing() {
-        this.rddCheckpointingEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableRDDCheckpointing() {
-        this.rddCheckpointingEnabled = false;
-        return this;
-    }
 
     public boolean isRDDCheckpointingEnabled() {
         return rddCheckpointingEnabled;
@@ -973,99 +862,40 @@ public final class CoverageModelEMParams {
         return rddCheckpointingInterval;
     }
 
-    public CoverageModelEMParams setRddCheckpointingInterval(final int rddCheckpointingInterval) {
-        this.rddCheckpointingInterval = ParamUtils.inRange(rddCheckpointingInterval, 1, Integer.MAX_VALUE,
-            "RDD checkpointing interval must be >= 1");
-        return this;
-    }
-
     public CopyRatioHMMType getCopyRatioHMMType() {
         return copyRatioHMMType;
-    }
-
-    public CoverageModelEMParams setCopyRatioHMMType(final CopyRatioHMMType copyRatioHMMType) {
-        this.copyRatioHMMType = Utils.nonNull(copyRatioHMMType, "Copy ratio HMM type must be non-null");
-        return this;
     }
 
     public double getLogLikelihoodTolThresholdCRCalling() {
         return logLikelihoodTolThresholdCRCalling;
     }
 
-    public CoverageModelEMParams setLogLikelihoodTolThresholdCRCalling(final double logLikelihoodTolThresholdCRCalling) {
-        this.logLikelihoodTolThresholdCRCalling = ParamUtils.isPositive(logLikelihoodTolThresholdCRCalling,
-                "Log likelihood change threshold before updating copy ratio posteriors must be positive");
-        return this;
-    }
-
     public double getLogLikelihoodTolThresholdPsiSwitching() {
         return logLikelihoodTolThresholdPsiSwitching;
-    }
-
-    public CoverageModelEMParams setLogLikelihoodTolThresholdPsiSwitching(final double logLikelihoodTolThresholdPsiSwitching) {
-        this.logLikelihoodTolThresholdPsiSwitching = ParamUtils.isPositive(logLikelihoodTolThresholdPsiSwitching,
-                "Log likelihood change threshold before switching to target-resolved unexplained variance updates" +
-                        " must be positive");
-        return this;
     }
 
     public double getLogLikelihoodTolThresholdARDUpdate() {
         return logLikelihoodTolThresholdARDUpdate;
     }
 
-    public CoverageModelEMParams setLogLikelihoodTolThresholdARDUpdate(final double logLikelihoodTolThresholdARDUpdate) {
-        this.logLikelihoodTolThresholdARDUpdate = ParamUtils.isPositive(logLikelihoodTolThresholdARDUpdate,
-                "Log likelihood change threshold before updating ARD coefficients must be positive");
-        return this;
-    }
-
     public double getPosteriorAbsTol() {
         return posteriorAbsTol;
-    }
-
-    public CoverageModelEMParams setPosteriorAbsTol(final double posteriorAbsTol) {
-        this.posteriorAbsTol = ParamUtils.isPositive(posteriorAbsTol, "Posterior absolute error tolerance must be" +
-                " positive");
-        return this;
     }
 
     public int getMaxEStepCycles() {
         return maxEStepCycles;
     }
 
-    public CoverageModelEMParams setMaxEStepCycles(final int maxEStepCycles) {
-        this.maxEStepCycles = ParamUtils.inRange(maxEStepCycles, 1, Integer.MAX_VALUE, "Maximum number of E-step cycles" +
-                " must be positive");
-        return this;
-    }
-
     public ComputeNodeCommunicationPolicy getBiasCovariatesComputeNodeCommunicationPolicy() {
         return principalMapComputeNodeCommunicationPolicy;
-    }
-
-    public CoverageModelEMParams setPrincipalMapComputeNodeCommunicationPolicy(final ComputeNodeCommunicationPolicy principalMapComputeNodeCommunicationPolicy) {
-        this.principalMapComputeNodeCommunicationPolicy = Utils.nonNull(principalMapComputeNodeCommunicationPolicy);
-        return this;
     }
 
     public double getMeanFieldAdmixingRatio() {
         return meanFieldAdmixingRatio;
     }
 
-    public CoverageModelEMParams setMeanFieldAdmixingRatio(double meanFieldAdmixingRatio) {
-        this.meanFieldAdmixingRatio = ParamUtils.inRange(meanFieldAdmixingRatio, 0, 1,
-            "The mean-field admixing ratio must be between 0 and 1");
-        return this;
-    }
-
     public int getRunCheckpointingInterval() {
         return runCheckpointingInterval;
-    }
-
-    public CoverageModelEMParams setRunCheckpointingInterval(final int runCheckpointingInterval) {
-        this.runCheckpointingInterval = ParamUtils.inRange(runCheckpointingInterval, 1, Integer.MAX_VALUE,
-            "Model checkpointing intervals must be >= 1");
-        return this;
     }
 
     public double getGammaAbsoluteTolerance() {
@@ -1080,112 +910,28 @@ public final class CoverageModelEMParams {
         return gammaMaxIterations;
     }
 
-    public CoverageModelEMParams setGammaAbsoluteTolerance(final double gammaAbsTol) {
-        this.gammaAbsTol = ParamUtils.isPositive(gammaAbsTol, "Gamma absolute error tolerance must be positive");
-        return this;
-    }
-
-    public CoverageModelEMParams setGammaRelativeTolerance(final double gammaRelTol) {
-        this.gammaRelTol = ParamUtils.isPositive(gammaRelTol, "Gamma relative error tolerance must be positive");
-        return this;
-    }
-
-    public CoverageModelEMParams setGammaMaximumIterations(final int gammaMaxIterations) {
-        this.gammaMaxIterations = ParamUtils.isPositive(gammaMaxIterations, "Gamma solver maximum iterations must be positive");
-        return this;
-    }
-
     public boolean gammaUpdateEnabled() {
         return gammaUpdateEnabled;
     }
-
-    public CoverageModelEMParams enableGammaUpdate() {
-        gammaUpdateEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableGammaUpdate() {
-        gammaUpdateEnabled = false;
-        return this;
-    }
-
 
     public boolean psiUpdateEnabled() {
         return psiUpdateEnabled;
     }
 
-    public CoverageModelEMParams enablePsiUpdate() {
-        psiUpdateEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disablePsiUpdate() {
-        psiUpdateEnabled = false;
-        return this;
-    }
-
-
-
     public boolean copyRatioUpdateEnabled() {
         return copyRatioUpdateEnabled;
-    }
-
-    public CoverageModelEMParams enableCopyRatioUpdate() {
-        copyRatioUpdateEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableCopyRatioUpdate() {
-        copyRatioUpdateEnabled = false;
-        return this;
     }
 
     public boolean adaptivePsiSolverModeSwitchingEnabled() {
         return adaptivePsiSolverModeSwitchingEnabled;
     }
 
-    public CoverageModelEMParams enableAdaptivePsiSolverModeSwitching() {
-        adaptivePsiSolverModeSwitchingEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableAdaptivePsiSolverModeSwitching() {
-        adaptivePsiSolverModeSwitchingEnabled = false;
-        return this;
-    }
-
-    public CoverageModelEMParams setPsiUpperLimit(final double psiUpperLimit) {
-        this.psiUpperLimit = ParamUtils.isPositive(psiUpperLimit, "Psi upper limit must be positive");
-        return this;
-    }
-
     public double getPsiUpperLimit() {
         return psiUpperLimit;
     }
 
-    public CoverageModelEMParams setGammaUpperLimit(final double gammaUpperLimit) {
-        this.gammaUpperLimit = ParamUtils.isPositive(gammaUpperLimit, "Gamma upper limit must be positive");
-        return this;
-    }
-
     public double getGammaUpperLimit() {
         return gammaUpperLimit;
-    }
-
-
-
-
-
-
-
-    public CoverageModelEMParams enableRunCheckpointing() {
-        runCheckpointingEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableRunCheckpointing() {
-        runCheckpointingEnabled = false;
-        return this;
     }
 
     public boolean isRunCheckpointingEnabled() {
@@ -1196,28 +942,8 @@ public final class CoverageModelEMParams {
         return runCheckpointingPath;
     }
 
-    public CoverageModelEMParams setRunCheckpointingPath(final String runCheckpointingPath) {
-        this.runCheckpointingPath = Utils.nonNull(runCheckpointingPath, "Run checkpointing path must be non-null");
-        return this;
-    }
-
     public String getRDDCheckpointingPath() {
         return rddCheckpointingPath;
-    }
-
-    public CoverageModelEMParams setRDDCheckpointingPath(final String rddCheckpointingPath) {
-        this.rddCheckpointingPath = Utils.nonNull(rddCheckpointingPath, "RDD checkpointing path must be non-null");
-        return this;
-    }
-
-    public CoverageModelEMParams enableExtendedPosteriorOutput() {
-        this.extendedPosteriorOutputEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableExtendedPosteriorOutput() {
-        this.extendedPosteriorOutputEnabled = false;
-        return this;
     }
 
     public boolean extendedPosteriorOutputEnabled() {
@@ -1226,12 +952,6 @@ public final class CoverageModelEMParams {
 
     public int getNumTargetSpacePartitions() {
         return numTargetSpacePartitions;
-    }
-
-    public CoverageModelEMParams setNumTargetSpacePartitions(final int numTargetSpaceParititions) {
-        this.numTargetSpacePartitions = ParamUtils.isPositive(numTargetSpaceParititions, "Number of target space" +
-                " partitions must be positive");
-        return this;
     }
 
     public int getGammaSolverRefinementDepth() {
@@ -1250,109 +970,37 @@ public final class CoverageModelEMParams {
         return psiSolverNumBisections;
     }
 
-    public CoverageModelEMParams setGammaSolverNumBisections(final int gammaSolverNumBisections) {
-        this.gammaSolverNumBisections = gammaSolverNumBisections;
-        return this;
-    }
-
-    public CoverageModelEMParams setGammaSolverRefinementDepth(final int gammaSolverRefinementDepth) {
-        this.gammaSolverRefinementDepth = gammaSolverRefinementDepth;
-        return this;
-    }
-
-    public CoverageModelEMParams setPsiSolverNumBisections(final int psiSolverNumBisections) {
-        this.psiSolverNumBisections = psiSolverNumBisections;
-        return this;
-    }
-
-    public CoverageModelEMParams setPsiSolverRefinementDepth(final int psiSolverRefinementDepth) {
-        this.psiSolverRefinementDepth = psiSolverRefinementDepth;
-        return this;
-    }
-
-    public CoverageModelEMParams setMinLearningReadCount(final int minLearningReacCount) {
-        this.minLearningReadCount = ParamUtils.isPositive(minLearningReacCount,
-                "The minimum learning read count must be positive");
-        return this;
-    }
-
     public int getMinLearningReadCount() {
         return minLearningReadCount;
-    }
-
-    public CoverageModelEMParams setMappingErrorRate(final double mappingErrorRate) {
-        this.mappingErrorRate = ParamUtils.isPositiveOrZero(mappingErrorRate,
-                "The mapping error rate must be non-negative");
-        return this;
     }
 
     public double getMappingErrorRate() {
         return mappingErrorRate;
     }
 
-    public CoverageModelEMParams enableARDUpdate() {
-        ardEnabled = true;
-        return this;
-    }
-
-    public CoverageModelEMParams disableARDUpdate() {
-        ardEnabled = false;
-        return this;
-    }
-
     public boolean isARDEnabled() {
         return ardEnabled;
-    }
-
-    public CoverageModelEMParams setARDUpdateAlgorithm(@Nonnull final ARDUpdateAlgorithm ardUpdateAlgorithm) {
-        this.ardUpdateAlgorithm = Utils.nonNull(ardUpdateAlgorithm, "The ARD update algorithm must be non-null");
-        return this;
     }
 
     public ARDUpdateAlgorithm getARDUpdateAlgorithm() {
         return ardUpdateAlgorithm;
     }
 
-    public CoverageModelEMParams setInitialARDPrecision(final double initialARDPrecision) {
-        this.initialARDPrecision = ParamUtils.isPositive(initialARDPrecision, "The initial ARD precision must be positive");
-        return this;
-    }
-
     public double getInitialARDPrecision() {
         return initialARDPrecision;
-    }
-
-    public CoverageModelEMParams setMaxARDPrecision(final double maxARDPrecision) {
-        this.maxARDPrecision = ParamUtils.isPositive(maxARDPrecision, "The maximum ARD precision must be positive");
-        return this;
     }
 
     public double getMaxARDPrecision() {
         return maxARDPrecision;
     }
 
-    public CoverageModelEMParams setMaxARDIterations(final int maxARDIterations) {
-        this.maxARDIterations = ParamUtils.isPositive(maxARDIterations, "The maximum ARD iteration count must be positive");
-        return this;
-    }
-
     public int getMaxARDIterations() {
         return maxARDIterations;
     }
 
-    public CoverageModelEMParams setARDAbsoluteTolerance(final double tol) {
-        this.ardAbsoluteTolerance = ParamUtils.isPositive(tol, "The absolute tolerance for ARD update must be positive");
-        return this;
-    }
+    public double getARDAbsoluteTolerance() { return logARDAbsoluteTolerance; }
 
-    public double getARDAbsoluteTolerance() { return ardAbsoluteTolerance; }
-
-    public CoverageModelEMParams setARDRelativeTolerance(final double tol) {
-        this.ardRelativeTolerance = ParamUtils.isPositive(tol, "The relative tolerance for ARD update must be positive");
-        return this;
-    }
-
-    public double getARDRelativeTolerance() { return ardRelativeTolerance; }
+    public double getARDRelativeTolerance() { return logARDRelativeTolerance; }
 
     /**
      * Validate parameters
@@ -1363,6 +1011,51 @@ public final class CoverageModelEMParams {
      *
      */
     public void validate() {
+
+        ParamUtils.isPositive(maxEMIterations, "Maximum EM iterations must be positive");
+        ParamUtils.isPositiveOrZero(numLatents, "Number of latent variables must be non-negative");
+        ParamUtils.isPositive(logLikelihoodTol, "Convergence tolerance on log likelihood must be positive");
+        ParamUtils.isPositive(maxMStepCycles, "The number of sequential partial maximization steps must be positive");
+        ParamUtils.isPositive(fourierRegularizationStrength, "The Fourier regularization strength must be positive");
+        ParamUtils.isPositive(psiAbsTol, "The absolute tolerance for maximization of Psi must be positive");
+        ParamUtils.isPositive(psiRelTol, "The relative tolerance for maximization of Psi must be positive");
+        ParamUtils.isPositive(psiMaxIterations, "The maximum number of iterations for M-step of Psi must be positive");
+        ParamUtils.isPositive(wAbsTol, "The absolute tolerance for maximization of Psi must be positive");
+        ParamUtils.isPositive(wRelTol, "The relative tolerance for maximization of Psi must be positive");
+        ParamUtils.isPositive(wMaxIterations, "The maximum number of iterations for M-step of W must be positive.");
+        ParamUtils.isPositive(paramAbsTol, "The required tolerance on parameter change must be positive.");
+        ParamUtils.isPositive(minCNVLength, "Minimum CNV length must be positive");
+        ParamUtils.inRange(maxCNVLength, minCNVLength, Integer.MAX_VALUE, "Maximum CNV length must be greater than the minimum");
+        ParamUtils.inRange(rddCheckpointingInterval, 1, Integer.MAX_VALUE, "RDD checkpointing interval must be >= 1");
+        Utils.nonNull(copyRatioHMMType, "Copy ratio HMM type must be non-null");
+        ParamUtils.isPositive(logLikelihoodTolThresholdCRCalling, "Log likelihood change threshold before updating" +
+                " copy ratio posteriors must be positive");
+        ParamUtils.isPositive(logLikelihoodTolThresholdPsiSwitching, "Log likelihood change threshold before switching" +
+                " to target-resolved unexplained variance updates must be positive");
+        ParamUtils.isPositive(logLikelihoodTolThresholdARDUpdate, "Log likelihood change threshold before updating" +
+                " ARD coefficients must be positive");
+        ParamUtils.isPositive(posteriorAbsTol, "Posterior absolute error tolerance must be positive");
+        ParamUtils.inRange(maxEStepCycles, 1, Integer.MAX_VALUE, "Maximum number of E-step cycles  must be positive");
+        Utils.nonNull(principalMapComputeNodeCommunicationPolicy);
+        ParamUtils.inRange(meanFieldAdmixingRatio, 0, 1, "The mean-field admixing ratio must be between 0 and 1");
+        ParamUtils.inRange(runCheckpointingInterval, 1, Integer.MAX_VALUE, "Model checkpointing intervals must be >= 1");
+        ParamUtils.isPositive(gammaAbsTol, "Gamma absolute error tolerance must be positive");
+        ParamUtils.isPositive(gammaRelTol, "Gamma relative error tolerance must be positive");
+        ParamUtils.isPositive(gammaMaxIterations, "Gamma solver maximum iterations must be positive");
+        ParamUtils.isPositive(psiUpperLimit, "Psi upper limit must be positive");
+        ParamUtils.isPositive(gammaUpperLimit, "Gamma upper limit must be positive");
+        Utils.nonNull(runCheckpointingPath, "Run checkpointing path must be non-null");
+        Utils.nonNull(rddCheckpointingPath, "RDD checkpointing path must be non-null");
+        ParamUtils.isPositive(numTargetSpacePartitions, "Number of target space partitions must be positive");
+        ParamUtils.isPositive(minLearningReadCount, "The minimum learning read count must be positive");
+        ParamUtils.isPositiveOrZero(mappingErrorRate, "The mapping error rate must be non-negative");
+        Utils.nonNull(ardUpdateAlgorithm, "The ARD update algorithm must be non-null");
+        ParamUtils.isPositive(initialARDPrecision, "The initial ARD precision must be positive");
+        ParamUtils.isPositive(maxARDPrecision, "The maximum ARD precision must be positive");
+        ParamUtils.isPositive(maxARDIterations, "The maximum ARD iteration count must be positive");
+        ParamUtils.isPositive(logARDAbsoluteTolerance, "The absolute tolerance for ARD update must be positive");
+        ParamUtils.isPositive(logARDRelativeTolerance, "The relative tolerance for ARD update must be positive");
+
         Utils.validateArg(!isRunCheckpointingEnabled() || !runCheckpointingPath.equals("/dev/null"),
                 "Run checkpointing is enabled but checkpointing path is not set properly");
         Utils.validateArg(!fourierRegularizationEnabled(), "Fourier regularization is not properly" +

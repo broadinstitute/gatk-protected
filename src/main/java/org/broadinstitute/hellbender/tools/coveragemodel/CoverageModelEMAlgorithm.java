@@ -121,6 +121,9 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
         double prevMStepLikelihood = Double.NEGATIVE_INFINITY;
         double latestMStepLikelihood = Double.NEGATIVE_INFINITY;
         final EMAlgorithmIterationInfo iterInfo = new EMAlgorithmIterationInfo(Double.NEGATIVE_INFINITY, 0, 1);
+        final boolean updateBiasCovariates = params.getNumLatents() > 0;
+
+        /* initial states -- these will change over the course of the algorithm adaptively */
         boolean updateCopyRatioPosteriors = false;
         boolean updateARDCoefficients = false;
         boolean paramEstimationConverged = false;
@@ -144,7 +147,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                     break;
                 }
 
-                if (params.getNumLatents() > 0) {
+                if (updateBiasCovariates) {
                     runRoutine(this::updateBiasLatentPosteriorExpectations, s -> "N/A", "E_STEP_Z", iterInfo);
                     posteriorErrorNormBias = iterInfo.errorNorm;
                     runRoutine(this::updateBiasCovariates, s -> "N/A", "E_STEP_W", iterInfo);

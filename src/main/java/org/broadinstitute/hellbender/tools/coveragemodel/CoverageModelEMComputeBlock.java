@@ -90,6 +90,8 @@ public final class CoverageModelEMComputeBlock {
 
     private final int numSamples, numLatents, numTargets;
 
+    private final boolean ardEnabled, biasCovariatesEnabled;
+
     /**
      * The latest signal from calling an M-step subroutine
      */
@@ -164,11 +166,16 @@ public final class CoverageModelEMComputeBlock {
 
     /**
      * This method creates an empty instance of {@link ImmutableComputableGraph} for worker-side
-     * calculations. The graph structure includes bias covariates (W, z, alpha_l, etc).
+     * calculations.
      *
+     * @param biasCovariatesEnabled whether or not create nodes relating to bias covariates
+     * @param ardEnabled whether or not create nodes for ARD calculation of bias bias covariates
      * @return an instance of {@link ImmutableComputableGraph}
      */
-    private static ImmutableComputableGraph createEmptyCacheGraphWithBiasCovariates() {
+    private static ImmutableComputableGraph createEmptyCacheGraph(final boolean biasCovariatesEnabled,
+                                                                  final boolean ardEnabled) {
+        Utils.validateArg(!ardEnabled || biasCovariatesEnabled, "If ARD is enabled, bias covariates must be" +
+                " enabled as well");
         final ImmutableComputableGraph.ImmutableComputableGraphBuilder cgbuilder =
                 ImmutableComputableGraph.builder();
         /*
@@ -199,26 +206,21 @@ public final class CoverageModelEMComputeBlock {
                 /* unexplained variance */
                 .addPrimitiveNode(CoverageModelICGCacheNode.Psi_t.name(),
                         new String[]{},
-                        new DuplicableNDArray())
-                /* precision of bias covariates */
-                .addPrimitiveNode(CoverageModelICGCacheNode.alpha_l.name(),
-                        new String[]{},
                         new DuplicableNDArray());
+
+        /* if ARD is enabled, add a node for ARD coefficients */
+        if (ardEnabled) {
+            cgbuilder
+                    /* precision of bias covariates */
+                    .addPrimitiveNode(CoverageModelICGCacheNode.alpha_l.name(),
+                            new String[]{},
+                            new DuplicableNDArray());
+        }
 
         /*
          * Externally determined computable nodes (all of latent posterior expectations + etc)
          */
         cgbuilder
-                /* mean of bias covariates */
-                .addComputableNode(CoverageModelICGCacheNode.W_tl.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* covariance of bias covariates */
-                .addComputableNode(CoverageModelICGCacheNode.var_W_tll.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
                 /* E[log(c_{st})] */
                 .addComputableNode(CoverageModelICGCacheNode.log_c_st.name(),
                         new String[]{},
@@ -243,22 +245,36 @@ public final class CoverageModelEMComputeBlock {
                 .addComputableNode(CoverageModelICGCacheNode.gamma_s.name(),
                         new String[]{},
                         new String[]{},
-                        null, true)
-                /* E[z_{sm}] */
-                .addComputableNode(CoverageModelICGCacheNode.z_sl.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* E[z_{sm} z_{sn}] */
-                .addComputableNode(CoverageModelICGCacheNode.zz_sll.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* FFT[W] */
-                .addComputableNode(CoverageModelICGCacheNode.F_W_tl.name(),
-                        new String[]{},
-                        new String[]{CoverageModelICGCacheNode.W_tl.name()},
                         null, true);
+
+        if (biasCovariatesEnabled) {
+            cgbuilder
+                    /* mean of bias covariates */
+                    .addComputableNode(CoverageModelICGCacheNode.W_tl.name(),
+                            new String[]{},
+                            new String[]{},
+                            null, true)
+                    /* E[z_{sm}] */
+                    .addComputableNode(CoverageModelICGCacheNode.z_sl.name(),
+                            new String[]{},
+                            new String[]{},
+                            null, true)
+                    /* E[z_{sm} z_{sn}] */
+                    .addComputableNode(CoverageModelICGCacheNode.zz_sll.name(),
+                            new String[]{},
+                            new String[]{},
+                            null, true);
+
+            /* if in addition ARD is enabled, we need to take into account the covariance of W */
+            if (ardEnabled) {
+                cgbuilder
+                        /* covariance of bias covariates */
+                        .addComputableNode(CoverageModelICGCacheNode.var_W_tll.name(),
+                                new String[]{},
+                                new String[]{},
+                                null, true);
+            }
+        }
 
         /*
          * Automatically computable nodes
@@ -292,23 +308,6 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheTag.LOGLIKE_REG.name()},
                         new String[]{CoverageModelICGCacheNode.M_st.name()},
                         calculate_sum_M_s, true)
-                /* E[W] E[z_s] */
-                .addComputableNode(CoverageModelICGCacheNode.Wz_st.name(),
-                        new String[]{CoverageModelICGCacheTag.M_STEP_M.name(),
-                                CoverageModelICGCacheTag.E_STEP_D.name(),
-                                CoverageModelICGCacheTag.E_STEP_C.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.W_tl.name(),
-                                CoverageModelICGCacheNode.z_sl.name()},
-                        calculate_Wz_st, true)
-                /* (E[z_s z_s^T] E[W W^T])_{tt} */
-                .addComputableNode(CoverageModelICGCacheNode.WzzWT_st.name(),
-                        new String[]{},
-                        new String[]{
-                                CoverageModelICGCacheNode.W_tl.name(),
-                                CoverageModelICGCacheNode.var_W_tll.name(),
-                                CoverageModelICGCacheNode.zz_sll.name()},
-                        calculate_WzzWT_st, true)
                 /* \Psi_{st} = \Psi_t + \Sigma_{st} + E[\gamma_s] */
                 .addComputableNode(CoverageModelICGCacheNode.tot_Psi_st.name(),
                         new String[]{},
@@ -319,7 +318,7 @@ public final class CoverageModelEMComputeBlock {
                         calculate_tot_Psi_st, true)
                 /* log(n_{st}/P_{st}) - E[log(c_{st})] - E[log(d_s)] - m_t */
                 .addComputableNode(CoverageModelICGCacheNode.Delta_st.name(),
-                        new String[]{"E_STEP_Z"},
+                        new String[]{CoverageModelICGCacheTag.E_STEP_Z.name()},
                         new String[]{
                                 CoverageModelICGCacheNode.log_n_st.name(),
                                 CoverageModelICGCacheNode.log_c_st.name(),
@@ -346,210 +345,6 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.M_st.name(),
                                 CoverageModelICGCacheNode.tot_Psi_st.name()},
                         calculate_M_Psi_inv_st, true)
-                /* v_{t\mu} */
-                .addComputableNode(CoverageModelICGCacheNode.v_tl.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.M_STEP_ALPHA.name(),
-                                CoverageModelICGCacheTag.E_STEP_W_REG.name(),
-                                CoverageModelICGCacheTag.E_STEP_W_UNREG.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-                                CoverageModelICGCacheNode.Delta_st.name(),
-                                CoverageModelICGCacheNode.z_sl.name()},
-                        calculate_v_tl, true)
-                /* Q_{t\mu\nu} */
-                .addComputableNode(CoverageModelICGCacheNode.Q_tll.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.M_STEP_ALPHA.name(),
-                                CoverageModelICGCacheTag.E_STEP_W_REG.name(),
-                                CoverageModelICGCacheTag.E_STEP_W_UNREG.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-                                CoverageModelICGCacheNode.zz_sll.name()},
-                        calculate_Q_tll, true)
-                /* \sum_t Q_{t\mu\nu} */
-                .addComputableNode(CoverageModelICGCacheNode.sum_Q_ll.name(),
-                        new String[]{CoverageModelICGCacheTag.E_STEP_W_REG.name()},
-                        new String[]{CoverageModelICGCacheNode.Q_tll.name()},
-                        calculate_sum_Q_ll, true)
-                /* B_{st} */
-                .addComputableNode(CoverageModelICGCacheNode.B_st.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.M_STEP_PSI.name(),
-                                CoverageModelICGCacheTag.E_STEP_GAMMA.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.Delta_st.name(),
-                                CoverageModelICGCacheNode.var_log_c_st.name(),
-                                CoverageModelICGCacheNode.var_log_d_s.name(),
-                                CoverageModelICGCacheNode.WzzWT_st.name(),
-                                CoverageModelICGCacheNode.Wz_st.name()},
-                        calculate_B_st, true)
-                /* log likelihood (w/o regularization) */
-                .addComputableNode(CoverageModelICGCacheNode.loglike_unreg.name(),
-                        new String[]{CoverageModelICGCacheTag.LOGLIKE_UNREG.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.B_st.name(),
-                                CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-                                CoverageModelICGCacheNode.M_log_Psi_s.name()},
-                        calculate_loglike_unreg, true)
-                /* log likelihood (w/ regularization) */
-                .addComputableNode(CoverageModelICGCacheNode.loglike_reg.name(),
-                        new String[]{CoverageModelICGCacheTag.LOGLIKE_REG.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.B_st.name(),
-                                CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-                                CoverageModelICGCacheNode.M_log_Psi_s.name(),
-                                CoverageModelICGCacheNode.W_tl.name(),
-                                CoverageModelICGCacheNode.F_W_tl.name(),
-                                CoverageModelICGCacheNode.zz_sll.name()},
-                        calculate_loglike_reg, true);
-
-        return cgbuilder.build();
-    }
-
-    /**
-     * This method creates an empty instance of {@link ImmutableComputableGraph} for worker-side
-     * calculations. The graph structure does NOT include bias covariates nodes (W, z, alpha_l, etc).
-     *
-     * @return an instance of {@link ImmutableComputableGraph}
-     */
-    private static ImmutableComputableGraph createEmptyCacheGraphWithoutBiasCovariates() {
-        final ImmutableComputableGraph.ImmutableComputableGraphBuilder cgbuilder =
-                ImmutableComputableGraph.builder();
-        /*
-         * Data nodes
-         */
-        cgbuilder
-                /* raw read counts */
-                .addPrimitiveNode(CoverageModelICGCacheNode.n_st.name(),
-                        new String[]{},
-                        new DuplicableNDArray())
-                /* mask */
-                .addPrimitiveNode(CoverageModelICGCacheNode.M_st.name(),
-                        new String[]{},
-                        new DuplicableNDArray())
-                /* mapping error rate */
-                .addPrimitiveNode(CoverageModelICGCacheNode.MER_st.name(),
-                        new String[]{},
-                        new DuplicableNDArray());
-
-        /*
-         * Model parameters
-         */
-        cgbuilder
-                /* mean log bias */
-                .addPrimitiveNode(CoverageModelICGCacheNode.m_t.name(),
-                        new String[]{},
-                        new DuplicableNDArray())
-                /* unexplained variance */
-                .addPrimitiveNode(CoverageModelICGCacheNode.Psi_t.name(),
-                        new String[]{},
-                        new DuplicableNDArray());
-        /*
-         * Externally determined computable nodes (all of latent posterior expectations + etc)
-         */
-        cgbuilder
-                /* E[log(c_{st})] */
-                .addComputableNode(CoverageModelICGCacheNode.log_c_st.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* var[log(c_{st})] */
-                .addComputableNode(CoverageModelICGCacheNode.var_log_c_st.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* E[log(d_s)] */
-                .addComputableNode(CoverageModelICGCacheNode.log_d_s.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* var[log(d_s)] */
-                .addComputableNode(CoverageModelICGCacheNode.var_log_d_s.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true)
-                /* E[\gamma_s] */
-                .addComputableNode(CoverageModelICGCacheNode.gamma_s.name(),
-                        new String[]{},
-                        new String[]{},
-                        null, true);
-        /*
-         * Automatically computable nodes
-         */
-        cgbuilder
-                /* log read counts */
-                .addComputableNode(CoverageModelICGCacheNode.log_n_st.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.M_STEP_M.name(),
-                                CoverageModelICGCacheTag.E_STEP_D.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.n_st.name(),
-                                CoverageModelICGCacheNode.M_st.name()},
-                        calculate_log_n_st, true)
-                /* Poisson noise */
-                .addComputableNode(CoverageModelICGCacheNode.Sigma_st.name(),
-                        new String[]{},
-                        new String[]{
-                                CoverageModelICGCacheNode.n_st.name(),
-                                CoverageModelICGCacheNode.M_st.name()},
-                        calculate_Sigma_st, true)
-                /* \sum_s M_{st} */
-                .addComputableNode(CoverageModelICGCacheNode.sum_M_t.name(),
-                        new String[]{},
-                        new String[]{CoverageModelICGCacheNode.M_st.name()},
-                        calculate_sum_M_t, true)
-                /* \sum_t M_{st} */
-                .addComputableNode(CoverageModelICGCacheNode.sum_M_s.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.LOGLIKE_UNREG.name(),
-                                CoverageModelICGCacheTag.LOGLIKE_REG.name()},
-                        new String[]{CoverageModelICGCacheNode.M_st.name()},
-                        calculate_sum_M_s, true)
-                /* \Psi_{st} = \Psi_t + \Sigma_{st} + E[\gamma_s] */
-                .addComputableNode(CoverageModelICGCacheNode.tot_Psi_st.name(),
-                        new String[]{},
-                        new String[]{
-                                CoverageModelICGCacheNode.Sigma_st.name(),
-                                CoverageModelICGCacheNode.Psi_t.name(),
-                                CoverageModelICGCacheNode.gamma_s.name()},
-                        calculate_tot_Psi_st, true)
-                /* log(n_{st}/P_{st}) - E[log(c_{st})] - E[log(d_s)] - m_t */
-                .addComputableNode(CoverageModelICGCacheNode.Delta_st.name(),
-                        new String[]{"E_STEP_Z"},
-                        new String[]{
-                                CoverageModelICGCacheNode.log_n_st.name(),
-                                CoverageModelICGCacheNode.log_c_st.name(),
-                                CoverageModelICGCacheNode.log_d_s.name(),
-                                CoverageModelICGCacheNode.m_t.name()},
-                        calculate_Delta_st, true)
-                /* \sum_{t} M_{st} \log(\Psi_{st}) */
-                .addComputableNode(CoverageModelICGCacheNode.M_log_Psi_s.name(),
-                        new String[]{},
-                        new String[]{
-                                CoverageModelICGCacheNode.M_st.name(),
-                                CoverageModelICGCacheNode.tot_Psi_st.name()},
-                        calculate_M_log_Psi_s, true)
-                /* M_{st} \Psi_{st}^{-1} */
-                .addComputableNode(CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.M_STEP_M.name(),
-                                CoverageModelICGCacheTag.E_STEP_D.name(),
-                                CoverageModelICGCacheTag.E_STEP_C.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.M_st.name(),
-                                CoverageModelICGCacheNode.tot_Psi_st.name()},
-                        calculate_M_Psi_inv_st, true)
-                /* B_{st} */
-                .addComputableNode(CoverageModelICGCacheNode.B_st.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.M_STEP_PSI.name(),
-                                CoverageModelICGCacheTag.E_STEP_GAMMA.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.Delta_st.name(),
-                                CoverageModelICGCacheNode.var_log_c_st.name(),
-                                CoverageModelICGCacheNode.var_log_d_s.name()},
-                        calculate_B_st_without_bias_covariates, true)
                 /* log likelihood (w/o regularization) */
                 .addComputableNode(CoverageModelICGCacheNode.loglike_unreg.name(),
                         new String[]{CoverageModelICGCacheTag.LOGLIKE_UNREG.name()},
@@ -558,6 +353,115 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.M_Psi_inv_st.name(),
                                 CoverageModelICGCacheNode.M_log_Psi_s.name()},
                         calculate_loglike_unreg, true);
+
+        /* nodes specific to bias covariates */
+        if (biasCovariatesEnabled) {
+            cgbuilder
+                    /* E[W] E[z_s] */
+                    .addComputableNode(CoverageModelICGCacheNode.Wz_st.name(),
+                            new String[]{CoverageModelICGCacheTag.M_STEP_M.name(),
+                                    CoverageModelICGCacheTag.E_STEP_D.name(),
+                                    CoverageModelICGCacheTag.E_STEP_C.name()},
+                            new String[]{
+                                    CoverageModelICGCacheNode.W_tl.name(),
+                                    CoverageModelICGCacheNode.z_sl.name()},
+                            calculate_Wz_st, true)
+                    /* v_{t\mu} */
+                    .addComputableNode(CoverageModelICGCacheNode.v_tl.name(),
+                            new String[]{
+                                    CoverageModelICGCacheTag.M_STEP_ALPHA.name(),
+                                    CoverageModelICGCacheTag.E_STEP_W_REG.name(),
+                                    CoverageModelICGCacheTag.E_STEP_W_UNREG.name()},
+                            new String[]{
+                                    CoverageModelICGCacheNode.M_Psi_inv_st.name(),
+                                    CoverageModelICGCacheNode.Delta_st.name(),
+                                    CoverageModelICGCacheNode.z_sl.name()},
+                            calculate_v_tl, true)
+                    /* Q_{t\mu\nu} */
+                    .addComputableNode(CoverageModelICGCacheNode.Q_tll.name(),
+                            new String[]{
+                                    CoverageModelICGCacheTag.M_STEP_ALPHA.name(),
+                                    CoverageModelICGCacheTag.E_STEP_W_REG.name(),
+                                    CoverageModelICGCacheTag.E_STEP_W_UNREG.name()},
+                            new String[]{
+                                    CoverageModelICGCacheNode.M_Psi_inv_st.name(),
+                                    CoverageModelICGCacheNode.zz_sll.name()},
+                            calculate_Q_tll, true)
+                    /* \sum_t Q_{t\mu\nu} */
+                    .addComputableNode(CoverageModelICGCacheNode.sum_Q_ll.name(),
+                            new String[]{CoverageModelICGCacheTag.E_STEP_W_REG.name()},
+                            new String[]{CoverageModelICGCacheNode.Q_tll.name()},
+                            calculate_sum_Q_ll, true);
+
+            /* calculation of WzzWT_st node varies depending on wither ARD is enabled/disabled */
+            if (ardEnabled) {
+                cgbuilder
+                        /* (E[z_s z_s^T] E[W W^T])_{tt} */
+                        .addComputableNode(CoverageModelICGCacheNode.WzzWT_st.name(),
+                                new String[]{},
+                                new String[]{
+                                        CoverageModelICGCacheNode.W_tl.name(),
+                                        CoverageModelICGCacheNode.var_W_tll.name(),
+                                        CoverageModelICGCacheNode.zz_sll.name()},
+                                calculate_WzzWT_st_with_W_var, true);
+            } else {
+                cgbuilder
+                        /* (E[z_s z_s^T] E[W W^T])_{tt} */
+                        .addComputableNode(CoverageModelICGCacheNode.WzzWT_st.name(),
+                                new String[]{},
+                                new String[]{
+                                        CoverageModelICGCacheNode.W_tl.name(),
+                                        CoverageModelICGCacheNode.zz_sll.name()},
+                                calculate_WzzWT_st_without_W_var, true);
+            }
+
+            cgbuilder
+                    /* B_{st} */
+                    .addComputableNode(CoverageModelICGCacheNode.B_st.name(),
+                            new String[]{
+                                    CoverageModelICGCacheTag.M_STEP_PSI.name(),
+                                    CoverageModelICGCacheTag.E_STEP_GAMMA.name()},
+                            new String[]{
+                                    CoverageModelICGCacheNode.Delta_st.name(),
+                                    CoverageModelICGCacheNode.var_log_c_st.name(),
+                                    CoverageModelICGCacheNode.var_log_d_s.name(),
+                                    CoverageModelICGCacheNode.WzzWT_st.name(),
+                                    CoverageModelICGCacheNode.Wz_st.name()},
+                            calculate_B_st_with_bias_covariates, true);
+
+        } else { /* no bias covariates */
+            cgbuilder
+                    /* B_{st} */
+                    .addComputableNode(CoverageModelICGCacheNode.B_st.name(),
+                            new String[]{
+                                    CoverageModelICGCacheTag.M_STEP_PSI.name(),
+                                    CoverageModelICGCacheTag.E_STEP_GAMMA.name()},
+                            new String[]{
+                                    CoverageModelICGCacheNode.Delta_st.name(),
+                                    CoverageModelICGCacheNode.var_log_c_st.name(),
+                                    CoverageModelICGCacheNode.var_log_d_s.name()},
+                            calculate_B_st_without_bias_covariates, true);
+        }
+
+        // TODO
+        // regularized bias covariates -- disabled for now
+        //            /* FFT[W] */
+        //            .addComputableNode(CoverageModelICGCacheNode.F_W_tl.name(),
+        //                   new String[]{},
+        //                   new String[]{CoverageModelICGCacheNode.W_tl.name()},
+        //                   null, true);
+        //
+        //            /* log likelihood (w/ regularization) */
+        //            .addComputableNode(CoverageModelICGCacheNode.loglike_reg.name(),
+        //                    new String[]{CoverageModelICGCacheTag.LOGLIKE_REG.name()},
+        //                    new String[]{
+        //                            CoverageModelICGCacheNode.B_st.name(),
+        //                            CoverageModelICGCacheNode.M_Psi_inv_st.name(),
+        //                            CoverageModelICGCacheNode.M_log_Psi_s.name(),
+        //                            CoverageModelICGCacheNode.W_tl.name(),
+        //                            CoverageModelICGCacheNode.F_W_tl.name(),
+        //                            CoverageModelICGCacheNode.zz_sll.name()},
+        //                    calculate_loglike_reg, true);
 
         return cgbuilder.build();
     }
@@ -568,16 +472,20 @@ public final class CoverageModelEMComputeBlock {
      * @param targetBlock target space block
      * @param numSamples number of samples
      * @param numLatents dimension of bias latent space
+     * @param ardEnabled enable/disable ARD for bias covariates
      * @param icg an instance of {@link ImmutableComputableGraph}
      */
     private CoverageModelEMComputeBlock(@Nonnull final LinearSpaceBlock targetBlock,
                                         final int numSamples, final int numLatents,
+                                        final boolean ardEnabled,
                                         @Nonnull final ImmutableComputableGraph icg,
                                         @Nullable SubroutineSignal latestMStepSignal) {
         this.numSamples = ParamUtils.isPositive(numSamples, "Number of samples must be positive.");
         this.numLatents = ParamUtils.isPositiveOrZero(numLatents, "Dimension of the latent space must be non-negative.");
         this.targetBlock = Utils.nonNull(targetBlock, "Target space block identifier can not be null.");
         this.icg = Utils.nonNull(icg, "The immutable computable graph can not be null.");
+        this.ardEnabled = ardEnabled;
+        this.biasCovariatesEnabled = numLatents > 0;
         this.latestMStepSignal = latestMStepSignal;
         this.numTargets = targetBlock.getNumTargets();
     }
@@ -588,12 +496,13 @@ public final class CoverageModelEMComputeBlock {
      * @param targetBlock target space block
      * @param numSamples number of samples
      * @param numLatents dimension of the bias latent space
+     * @param ardEnabled enable/disable ARD for bias covariates
      */
     public CoverageModelEMComputeBlock(@Nonnull final LinearSpaceBlock targetBlock,
-                                       final int numSamples, final int numLatents) {
-        this(targetBlock, numSamples, numLatents,
-                numLatents > 0 ? createEmptyCacheGraphWithBiasCovariates()
-                               : createEmptyCacheGraphWithoutBiasCovariates(),
+                                       final int numSamples, final int numLatents,
+                                       final boolean ardEnabled) {
+        this(targetBlock, numSamples, numLatents, ardEnabled,
+                createEmptyCacheGraph(numLatents > 0, ardEnabled),
                 SubroutineSignal.builder().build());
     }
 
@@ -627,6 +536,16 @@ public final class CoverageModelEMComputeBlock {
         return ((DuplicableNumber) icg.getValueDirect(key.name())).value().doubleValue();
     }
 
+    private void assertBiasCovariatesEnabled() {
+        Utils.validateArg(biasCovariatesEnabled, "Bias covariates are disabled but a method was invoked that" +
+                " performs calculations relating to bias covariates");
+    }
+
+    private void assertARDEnabled() {
+        Utils.validateArg(ardEnabled, "ARD is disabled but a method was invoked that" +
+                " performs calculations relating to ARD coefficients");
+    }
+
     /**
      * Calculates the contribution of the target-space block represented by this compute node
      * to the E-step for $z_{s\mu}$ w/o regularization. The final calculation is
@@ -642,26 +561,39 @@ public final class CoverageModelEMComputeBlock {
      * @return an {@link ImmutablePair} of contribGMatrix (left) and contribZ (right)
      */
     public ImmutablePair<INDArray, INDArray> getBiasLatentPosteriorDataUnregularized() {
+        assertBiasCovariatesEnabled();
         /* fetch data from cache */
         final INDArray M_Psi_inv_st = getINDArrayFromCache(CoverageModelICGCacheNode.M_Psi_inv_st);
         final INDArray Delta_st = getINDArrayFromCache(CoverageModelICGCacheNode.Delta_st);
         final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
-        final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
+        final INDArray var_W_tll;
+        if (ardEnabled) {
+            var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
+        } else {
+            var_W_tll = null;
+        }
 
         /* calculate the required quantities */
         final INDArray contribGMatrix = Nd4j.create(numSamples, numLatents, numLatents);
         final INDArray contribZ = Nd4j.create(numLatents, numSamples);
         IntStream.range(0, numSamples).parallel().forEach(si -> {
             final INDArray M_psi_int_row_t = M_Psi_inv_st.getRow(si).transpose();
-            /* mean_W_part_{mn} = \sum_t E[W_{tm}] E[W_{tn}] M_{st} Psi^{-1}_{st} */
-            final INDArray mean_W_part_ll = W_tl.transpose().mmul(W_tl.mulColumnVector(M_psi_int_row_t));
-            /* var_W_part_{mn} = \sum_t var[W_{tm} W_{tn}] M_{st} Psi^{-1}_{st} */
-            final INDArray var_W_part_ll = var_W_tll.reshape(new int[] {numTargets, numLatents*numLatents}).transpose()
-                    .mmul(M_psi_int_row_t).reshape(new int[] {numLatents, numLatents});
-            contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
-                    .assign(mean_W_part_ll.addi(var_W_part_ll));
             contribZ.get(NDArrayIndex.all(), NDArrayIndex.point(si)).assign(
                     W_tl.transpose().mmul(M_Psi_inv_st.getRow(si).mul(Delta_st.getRow(si)).transpose()));
+
+            /* mean_W_part_{mn} = \sum_t E[W_{tm}] E[W_{tn}] M_{st} Psi^{-1}_{st} */
+            final INDArray mean_W_part_ll = W_tl.transpose().mmul(W_tl.mulColumnVector(M_psi_int_row_t));
+
+            if (ardEnabled) { /* if ARD is enabled, add contribution from the covariance of W */
+               /* var_W_part_{mn} = \sum_t var[W_{tm} W_{tn}] M_{st} Psi^{-1}_{st} */
+                final INDArray var_W_part_ll = var_W_tll.reshape(new int[]{numTargets, numLatents * numLatents}).transpose()
+                        .mmul(M_psi_int_row_t).reshape(new int[]{numLatents, numLatents});
+                contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
+                        .assign(mean_W_part_ll.addi(var_W_part_ll));
+            } else { /* just the contribution from mean of W */
+                contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
+                        .assign(mean_W_part_ll);
+            }
         });
 
         return new ImmutablePair<>(contribGMatrix, contribZ);
@@ -679,6 +611,7 @@ public final class CoverageModelEMComputeBlock {
      * @return an {@link ImmutableTriple} of contribGMatrix (left), contribZ (middle), contribFilter (right)
      */
     public ImmutableTriple<INDArray, INDArray, INDArray> getBiasLatentPosteriorDataRegularized() {
+        assertBiasCovariatesEnabled();
         final ImmutablePair<INDArray, INDArray> unreg = getBiasLatentPosteriorDataUnregularized();
         final INDArray contribFilter = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl)
                 .transpose().mmul(getINDArrayFromCache(CoverageModelICGCacheNode.F_W_tl));
@@ -706,7 +639,7 @@ public final class CoverageModelEMComputeBlock {
         /* calculate the required quantities */
         final INDArray denominator = M_Psi_inv_st.sum(1);
         final INDArray numerator;
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             final INDArray Wz_st = getINDArrayFromCache(CoverageModelICGCacheNode.Wz_st);
             numerator = log_n_st.sub(log_c_st).subi(Wz_st).subiRowVector(m_t).muli(M_Psi_inv_st).sum(1);
         } else {
@@ -771,7 +704,7 @@ public final class CoverageModelEMComputeBlock {
 
         /* calculate the required quantities */
         final INDArray mu_st;
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             final INDArray Wz_st = getINDArrayFromCache(CoverageModelICGCacheNode.Wz_st);
              mu_st = Wz_st.addRowVector(m_t);
         } else {
@@ -805,6 +738,7 @@ public final class CoverageModelEMComputeBlock {
      * @return [W]^T [W] in this target-space block
      */
     public INDArray getBiasCovariatesInnerProduct() {
+        assertBiasCovariatesEnabled();
         final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
         return W_tl.transpose().mmul(W_tl);
     }
@@ -884,6 +818,7 @@ public final class CoverageModelEMComputeBlock {
      * @return
      */
     public INDArray calculateBiasCovariateARDCoefficientsDataPicard(final INDArray alpha_l) {
+        assertARDEnabled();
         /* fetch the required caches */
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
@@ -912,21 +847,20 @@ public final class CoverageModelEMComputeBlock {
         return Transforms.pow(W_new_tl, 2, true).addi(X_inv_diag_tl).sum(0);
     }
 
-    /**
-     * TODO
-     *
-     * @return
-     */
-    public INDArray calculateBiasCovariatesPosteriorPowerPartialTargetSum() {
-        final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
-        final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
-        final INDArray var_W_diag_tl = Nd4j.create(new int[] {numTargets, numLatents});
-
-        IntStream.range(0, numLatents).forEach(li -> var_W_diag_tl.get(NDArrayIndex.all(), NDArrayIndex.point(li))
-                .assign(var_W_tll.get(NDArrayIndex.all(), NDArrayIndex.point(li), NDArrayIndex.point(li))));
-
-        return Transforms.pow(W_tl, 2, true).addi(var_W_diag_tl).sum(0);
-    }
+//    /**
+//     *
+//     * @return
+//     */
+//    public INDArray calculateBiasCovariatesPosteriorPowerPartialTargetSum() {
+//        final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
+//        final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
+//        final INDArray var_W_diag_tl = Nd4j.create(new int[] {numTargets, numLatents});
+//
+//        IntStream.range(0, numLatents).forEach(li -> var_W_diag_tl.get(NDArrayIndex.all(), NDArrayIndex.point(li))
+//                .assign(var_W_tll.get(NDArrayIndex.all(), NDArrayIndex.point(li), NDArrayIndex.point(li))));
+//
+//        return Transforms.pow(W_tl, 2, true).addi(var_W_diag_tl).sum(0);
+//    }
 
     /**
      * Calculate the gradient and Hessian of the log evidence function of bias covariates.
@@ -938,6 +872,7 @@ public final class CoverageModelEMComputeBlock {
      * @return the tuple (
      */
     public ImmutablePair<INDArray, INDArray> calculateBiasCovariatesLogEvidenceDerivativesPartialTargetSum(final INDArray alpha_l) {
+        assertARDEnabled();
         /* fetch the required caches */
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
@@ -1158,18 +1093,23 @@ public final class CoverageModelEMComputeBlock {
      * @return a new instance of {@link CoverageModelEMComputeBlock}
      */
     public CoverageModelEMComputeBlock cloneWithUpdatedBiasCovariatesUnregularized(final double admixingRatio) {
+        assertBiasCovariatesEnabled();
         /* fetch the required caches */
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
-        final INDArray alpha_l = getINDArrayFromCache(CoverageModelICGCacheNode.alpha_l);
         final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
-        final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
 
         final int numTargets = v_tl.shape()[0];
         final int numLatents = v_tl.shape()[1];
-        final INDArray alpha_ll = Nd4j.diag(alpha_l);
         final INDArray new_W_tl = Nd4j.create(numTargets, numLatents);
-        final INDArray new_var_W_tll = Nd4j.create(numTargets, numLatents, numLatents);
+
+        final INDArray alpha_ll;
+        if (ardEnabled) {
+            final INDArray alpha_l = getINDArrayFromCache(CoverageModelICGCacheNode.alpha_l);
+            alpha_ll = Nd4j.diag(alpha_l);
+        } else {
+            alpha_ll = Nd4j.zeros(new int[] {numLatents, numLatents});
+        }
 
         /* calculate E[W_{tm}] */
         final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
@@ -1180,25 +1120,32 @@ public final class CoverageModelEMComputeBlock {
                                         .add(alpha_ll),
                                 v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()), LINSOLVE_SINGULARITY_THRESHOLD)));
 
-        /* calculate cov[W_{tl}, W_{tm}] = (Q_t + A)^{-1}_{mn} */
-        IntStream.range(0, numTargets).parallel().forEach(ti -> {
-            final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
-                    .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
-                    .add(alpha_ll));
-            new_var_W_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).assign(X_inv_ll);
-        });
-
         /* admix with old posteriors */
         final INDArray new_W_tl_admixed = new_W_tl.mul(admixingRatio).addi(W_tl.mul(1.0 - admixingRatio));
-        final INDArray new_var_W_tll_admixed = new_var_W_tll.mul(admixingRatio).addi(var_W_tll.mul(1.0 - admixingRatio));
 
         /* calculate error norm only based on the change in E[W_{tl}] */
         final double errNormInfinity = CoverageModelEMWorkspaceMathUtils
                 .getINDArrayNormInfinity(new_W_tl.sub(getINDArrayFromCache(CoverageModelICGCacheNode.W_tl)));
         final SubroutineSignal sig = SubroutineSignal.builder().put("error_norm", errNormInfinity).build();
 
-        return cloneWithUpdatedPrimitiveAndSignal(CoverageModelICGCacheNode.W_tl, new_W_tl_admixed, sig)
-                .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.var_W_tll, new_var_W_tll_admixed);
+        /* if ARD is enabled, update var_W_tll as well */
+        if (ardEnabled) {
+            final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
+            final INDArray new_var_W_tll = Nd4j.create(numTargets, numLatents, numLatents);
+            /* calculate cov[W_{tl}, W_{tm}] = (Q_t + A)^{-1}_{mn} */
+            IntStream.range(0, numTargets).parallel().forEach(ti -> {
+                final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
+                        .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
+                        .add(alpha_ll));
+                new_var_W_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).assign(X_inv_ll);
+            });
+            final INDArray new_var_W_tll_admixed = new_var_W_tll.mul(admixingRatio).addi(var_W_tll.mul(1.0 - admixingRatio));
+
+            return cloneWithUpdatedPrimitiveAndSignal(CoverageModelICGCacheNode.W_tl, new_W_tl_admixed, sig)
+                    .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.var_W_tll, new_var_W_tll_admixed);
+        } else {
+            return cloneWithUpdatedPrimitiveAndSignal(CoverageModelICGCacheNode.W_tl, new_W_tl_admixed, sig);
+        }
     }
 
     /**
@@ -1215,7 +1162,7 @@ public final class CoverageModelEMComputeBlock {
         final INDArray M_Psi_inv_st = getINDArrayFromCache(CoverageModelICGCacheNode.M_Psi_inv_st);
 
         final INDArray numerator;
-        if (neglectBiasCovariates || numLatents == 0) {
+        if (neglectBiasCovariates || !biasCovariatesEnabled) {
             numerator = M_Psi_inv_st.mul(log_n_st.sub(log_c_st).subiColumnVector(log_d_s)).sum(0);
         } else {
             final INDArray Wz_st = getINDArrayFromCache(CoverageModelICGCacheNode.Wz_st);
@@ -1244,10 +1191,10 @@ public final class CoverageModelEMComputeBlock {
     public CoverageModelEMComputeBlock cloneWithUpdatedPrimitive(@Nonnull final CoverageModelICGCacheNode key,
                                                                  @Nullable final INDArray value) {
         if (value == null) {
-            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents,
+            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
                     icg.setValue(key.name(), new DuplicableNDArray()), latestMStepSignal);
         } else {
-            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents,
+            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
                     icg.setValue(key.name(), new DuplicableNDArray(value.dup())), latestMStepSignal);
         }
     }
@@ -1267,10 +1214,10 @@ public final class CoverageModelEMComputeBlock {
                                                                           @Nullable final INDArray value,
                                                                           @Nonnull final SubroutineSignal latestMStepSignal) {
         if (value == null) {
-            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents,
+            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
                     icg.setValue(key.name(), new DuplicableNDArray()), latestMStepSignal);
         } else {
-            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents,
+            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
                     icg.setValue(key.name(), new DuplicableNDArray(value.dup())), latestMStepSignal);
         }
     }
@@ -1283,7 +1230,7 @@ public final class CoverageModelEMComputeBlock {
      * @return a new instance of {@link CoverageModelEMComputeBlock}
      */
     public CoverageModelEMComputeBlock cloneWithUpdatedSignal(@Nonnull final SubroutineSignal latestMStepSignal) {
-        return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, icg, latestMStepSignal);
+        return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled, icg, latestMStepSignal);
     }
 
     /**
@@ -1293,7 +1240,7 @@ public final class CoverageModelEMComputeBlock {
      * @return a new instance of {@link CoverageModelEMComputeBlock}
      */
     public CoverageModelEMComputeBlock cloneWithUpdatedCachesByTag(final CoverageModelICGCacheTag tag) {
-        return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents,
+        return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
                 icg.updateCachesForTag(tag.name()), latestMStepSignal);
     }
 
@@ -1418,7 +1365,7 @@ public final class CoverageModelEMComputeBlock {
             };
 
     /* dependents: [W_tl, var_W_tl, zz_sll] */
-    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_WzzWT_st =
+    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_WzzWT_st_with_W_var =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
                 @Override
                 public Duplicable apply(Map<String, ? extends Duplicable> dat) {
@@ -1438,6 +1385,27 @@ public final class CoverageModelEMComputeBlock {
                                 .mmul(zz_ll.reshape(new int[] {numLatents * numLatents, 1}))
                                 .transpose();
                         WzzWT_st.get(NDArrayIndex.point(si)).assign(mean_W_contrib_t.addi(var_W_contrib_t));
+                    });
+                    return new DuplicableNDArray(WzzWT_st);
+                }
+            };
+
+    /* dependents: [W_tl, zz_sll] */
+    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_WzzWT_st_without_W_var =
+            new Function<Map<String, ? extends Duplicable>, Duplicable>() {
+                @Override
+                public Duplicable apply(Map<String, ? extends Duplicable> dat) {
+                    final INDArray W_tl = getINDArrayFromMap(CoverageModelICGCacheNode.W_tl, dat);
+                    final INDArray zz_sll = getINDArrayFromMap(CoverageModelICGCacheNode.zz_sll, dat);
+                    final int numSamples = zz_sll.shape()[0];
+                    final int numTargets = W_tl.shape()[0];
+                    final int numLatents = W_tl.shape()[1];
+                    final INDArray WzzWT_st = Nd4j.create(numSamples, numTargets);
+                    IntStream.range(0, numSamples).parallel().forEach(si -> {
+                        final INDArray zz_ll = zz_sll.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all());
+                        /* mean_W_contrib_t = \sum_{m,n} E[W_{tm}] E[W_{tn}] E[z_{sm} z_{sn}] */
+                        final INDArray mean_W_contrib_t = W_tl.mmul(zz_ll).muli(W_tl).sum(1).transpose();
+                        WzzWT_st.get(NDArrayIndex.point(si)).assign(mean_W_contrib_t);
                     });
                     return new DuplicableNDArray(WzzWT_st);
                 }
@@ -1516,7 +1484,7 @@ public final class CoverageModelEMComputeBlock {
             };
 
     /* dependents: ["Delta_st", "var_log_c_st", "var_log_d_s", "WzzWT_st", "Wz_st"] */
-    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_B_st =
+    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_B_st_with_bias_covariates =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
                 @Override
                 public Duplicable apply(Map<String, ? extends Duplicable> dat) {

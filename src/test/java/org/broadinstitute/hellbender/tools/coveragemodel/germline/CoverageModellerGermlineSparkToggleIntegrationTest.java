@@ -65,7 +65,7 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final File TEST_TARGETS_FILE = new File(TEST_TRUTH_SIM_MODEL, "targets.tsv");
 
     private static final double MAPPING_ERROR_RATE = 5e-4; /* reflects the simulated data */
-    private static final int NUM_LATENTS = 20; /* simulated data uses 3 */
+    private static final int NUM_LATENTS = 10; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
     private static final int MIN_LEARNING_READ_COUNT = 50;

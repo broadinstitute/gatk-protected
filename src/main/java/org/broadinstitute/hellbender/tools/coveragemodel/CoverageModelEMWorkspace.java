@@ -239,6 +239,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      */
     private final double[] fourierFactors;
 
+    protected final boolean biasCovariatesEnabled;
+
+    private final boolean ardEnabled;
+
+
     /**
      * Public constructor
      *
@@ -294,16 +299,16 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             processedModel = modelReadCountsPair.left;
             processedReadCounts = modelReadCountsPair.right;
             numLatents = processedModel.getNumLatents();
-            if (params.getNumLatents() != processedModel.getNumLatents()) {
-                logger.info("Changing number of latent variables to " + processedModel.getNumLatents() + " based" +
-                        " on the provided model; requested value was: " + params.getNumLatents());
-                params.setNumLatents(processedModel.getNumLatents());
-            }
+            Utils.validateArg(processedModel.getNumLatents() == params.getNumLatents(), "Discrepancy between the dimension" +
+                    " of the bias latent space between the provided model and the arguments");
         } else {
             processedModel = null;
             processedReadCounts = processReadCountCollection(targetSortedRawReadCounts, params, logger);
             numLatents = params.getNumLatents();
         }
+
+        ardEnabled = params.isARDEnabled();
+        biasCovariatesEnabled = numLatents > 0;
 
         numSamples = processedReadCounts.columnNames().size();
         numTargets = processedReadCounts.targets().size();
@@ -332,7 +337,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         sampleVarLogReadDepths = Nd4j.zeros(numSamples, 1);
         sampleUnexplainedVariance = Nd4j.zeros(numSamples, 1);
 
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             sampleBiasLatentPosteriorFirstMoments = Nd4j.zeros(numSamples, numLatents);
             sampleBiasLatentPosteriorSecondMoments = Nd4j.zeros(numSamples, numLatents, numLatents);
             biasCovariatesNorm2 = Nd4j.zeros(1, numLatents);
@@ -344,7 +349,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         }
 
         /* allocate memory for driver-node copy of model parameters */
-        if (params.isARDEnabled()) { /* if so, numLatents > 0 by way of pre-validating {@code params} */
+        if (ardEnabled) { /* if so, numLatents > 0 by way of pre-validating {@code params} */
             biasCovariatesARDCoefficients = Nd4j.ones(new int[] {1, numLatents}).muli(params.getInitialARDPrecision());
             biasCovariatesARDCoefficientsHistory = new ArrayList<>();
             biasCovariatesARDCoefficientsHistory.add(biasCovariatesARDCoefficients.dup());
@@ -637,25 +642,24 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                             modelSupplier.get().getTargetUnexplainedVarianceOnTargetBlock(tb));
         });
 
-        /* nodes relating to bias covariates; set ARD coefficients to zero for now */
-        if (numLatents > 0) {
+        /* nodes relating to bias covariates */
+        if (biasCovariatesEnabled) {
             mapWorkers(cb -> {
                 final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
                 return cb
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl,
-                                modelSupplier.get().getMeanBiasCovariatesOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll,
-                                modelSupplier.get().getVarBiasCovariatesOnTargetBlock(tb))
-                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
-                                Nd4j.zeros(new int[]{1, numLatents}));
+                                modelSupplier.get().getMeanBiasCovariatesOnTargetBlock(tb));
             });
         }
 
-        /* if ARD is enabled, inject the correct ARD coefficients from the model */
-        if (params.isARDEnabled()) {
+        /* if ARD is enabled, inject ARD coefficients and the covariance of bias covariates from the model as well */
+        if (ardEnabled) {
             mapWorkers(cb -> {
                 final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
-                return cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
+                return cb
+                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll,
+                                modelSupplier.get().getVarBiasCovariatesOnTargetBlock(tb))
+                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
                         modelSupplier.get().getBiasCovariateARDCoefficients());
             });
         }
@@ -677,7 +681,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
                         sampleUnexplainedVariance));
         /* if bias covariates are enabled, initialize E[z] and E[z z^T] as well */
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             mapWorkers(cb -> cb
                     .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl,
                             sampleBiasLatentPosteriorFirstMoments)
@@ -1509,7 +1513,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
     @EvaluatesRDD @UpdatesRDD @CachesRDD
     public SubroutineSignal updateBiasCovariatesARDCoefficients() {
-        if (!params.isARDEnabled()) {
+        if (!ardEnabled) {
             throw new IllegalStateException("ARD update requested but it is disabled.");
         }
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
@@ -1551,7 +1555,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                             params.maxARDPrecision) + (1 - ARD_ADMIXING_RATIO_PICARD) * alpha_l_array[li])
                     .toArray();
             errorNormInfinity = IntStream.range(0, numLatents)
-                    .mapToDouble(li -> FastMath.abs(alpha_l_new_admixed_array[li] - alpha_l_array[li]))
+                    .mapToDouble(li -> FastMath.abs(FastMath.log(alpha_l_new_admixed_array[li]) -
+                            FastMath.log(alpha_l_array[li])))
                     .max().orElseGet(() -> Double.NaN);
 
             /* update */
@@ -1563,7 +1568,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
             /* check for convergence */
             final double minErrorConvergence = params.getARDAbsoluteTolerance() + params.getARDRelativeTolerance() *
-                    CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l);
+                    CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(Transforms.log(alpha_l, true));
             if (errorNormInfinity < minErrorConvergence) {
                 break;
             }
@@ -1593,7 +1598,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
 
         int iter = 0;
-        final INDArray alpha_l = Nd4j.ones(1, numLatents).muli(params.getInitialARDPrecision());
+//        final INDArray alpha_l = Nd4j.ones(1, numLatents).muli(params.getInitialARDPrecision());
+        final INDArray alpha_l = biasCovariatesARDCoefficients.dup();
         double errorNormInfinity = Double.NaN;
         while (iter < params.getMaxARDIterations()) {
             /* fetch gradient and Hessian from workers */
@@ -1622,17 +1628,18 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                         params.getMaxARDPrecision())));
 
             /* calculate error norm */
-            errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l_new_stabilized.sub(alpha_l));
+            errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(
+                    Transforms.log(alpha_l_new_stabilized, true).subi(Transforms.log(alpha_l, true)));
 
             /* update */
             alpha_l.assign(alpha_l_new_stabilized);
 
             /* debug log to stdout */
-            logger.debug(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
+            logger.info(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
 
             /* check for convergence */
             final double minErrorConvergence = params.getARDAbsoluteTolerance() + params.getARDRelativeTolerance() *
-                    CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(alpha_l);
+                    CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(Transforms.log(alpha_l, true));
             if (errorNormInfinity < minErrorConvergence) {
                 break;
             }
@@ -1835,7 +1842,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* contribution from ARD */
         final double contribARD;
-        if (params.isARDEnabled()) {
+        if (ardEnabled) {
             contribARD = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true)
                     .sumNumber().doubleValue() / numTargets - 0.5 * numLatents;
         } else {
@@ -1857,7 +1864,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* contribution from latent bias prior */
         final INDArray biasPriorContrib_s;
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             biasPriorContrib_s = sampleBiasLatentPosteriorFirstMoments
                     .mul(sampleBiasLatentPosteriorFirstMoments).muli(-0.5).sum(1);
         } else {
@@ -1907,13 +1914,13 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             /* initialize the RDD */
             logger.info("Initializing an RDD of compute blocks");
             computeRDD = ctx.parallelizePairs(targetBlockStream()
-                    .map(tb -> new Tuple2<>(tb, new CoverageModelEMComputeBlock(tb, numSamples, numLatents)))
+                    .map(tb -> new Tuple2<>(tb, new CoverageModelEMComputeBlock(tb, numSamples, numLatents, ardEnabled)))
                     .collect(Collectors.toList()), numTargetBlocks)
                     .partitionBy(new HashPartitioner(numTargetBlocks))
                     .cache();
         } else {
             logger.info("Initializing a local compute block");
-            localComputeBlock = new CoverageModelEMComputeBlock(targetBlocks.get(0), numSamples, numLatents);
+            localComputeBlock = new CoverageModelEMComputeBlock(targetBlocks.get(0), numSamples, numLatents, ardEnabled);
         }
         prevCheckpointedComputeRDD = null;
         cacheCallCounter = 0;
@@ -2250,10 +2257,10 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return an {@link INDArray}
      */
     private INDArray fetchMeanBiasCovariates() {
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             return fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl, 0);
         } else {
-            return null;
+            throw new IllegalStateException("Bias covariates are disabled but their means were fetched");
         }
     }
 
@@ -2263,10 +2270,10 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return an {@link INDArray}
      */
     private INDArray fetchVarBiasCovariates() {
-        if (numLatents > 0) {
+        if (ardEnabled) {
             return fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll, 0);
         } else {
-            return null;
+            throw new IllegalStateException("ARD is disabled but the covariance tensor of bias covariates was fetched");
         }
     }
 
@@ -2282,7 +2289,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray m_t = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t, 1);
 
         /* calculate the required quantities */
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             final INDArray Wz_st = fetchFromWorkers(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Wz_st, 1);
             return ImmutablePair.of(log_n_st.sub(Wz_st).subiRowVector(m_t).subiColumnVector(sampleMeanLogReadDepths),
                     M_Psi_inv_st);
@@ -2327,7 +2334,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         logger.info("Saving the model to disk...");
         CoverageModelParameters.write(new CoverageModelParameters(
                 processedTargetList, fetchMeanLogBias(), fetchTargetUnexplainedVariance(),
-                fetchMeanBiasCovariates(), fetchVarBiasCovariates(), biasCovariatesARDCoefficients), outputPath);
+                biasCovariatesEnabled ? fetchMeanBiasCovariates() : null,
+                ardEnabled ? fetchVarBiasCovariates() : null,
+                ardEnabled ? biasCovariatesARDCoefficients : null), outputPath);
     }
 
     /**
@@ -2344,10 +2353,10 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         saveReadDepthPosteriors(outputPath);
         saveLogLikelihoodPosteriors(outputPath);
         saveSampleSpecificUnexplainedVariancePosteriors(outputPath);
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             saveBiasLatentPosteriors(outputPath);
         }
-        if (params.isARDEnabled()) {
+        if (ardEnabled) {
             saveBiasCovariatesARDHistory(outputPath);
         }
         saveCopyRatioPosteriors(outputPath);
@@ -2519,7 +2528,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(fetchTotalUnexplainedVariance(), totalExplainedVarianceFile,
                 "SAMPLE_NAME", sampleNames, targetNames);
 
-        if (numLatents > 0) {
+        if (biasCovariatesEnabled) {
             /* save total covariate bias per sample as a matrix */
             final File totalCovariateBiasFile = new File(outputPath, CoverageModelGlobalConstants.TOTAL_COVARIATE_BIAS_FILENAME);
             Nd4jIOUtils.writeNDArrayMatrixToTextFile(fetchTotalCovariateBiasPerSample(), totalCovariateBiasFile,
