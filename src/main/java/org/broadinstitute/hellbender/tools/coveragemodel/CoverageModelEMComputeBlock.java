@@ -386,12 +386,7 @@ public final class CoverageModelEMComputeBlock {
                             new String[]{
                                     CoverageModelICGCacheNode.M_Psi_inv_st.name(),
                                     CoverageModelICGCacheNode.zz_sll.name()},
-                            calculate_Q_tll, true)
-                    /* \sum_t Q_{t\mu\nu} */
-                    .addComputableNode(CoverageModelICGCacheNode.sum_Q_ll.name(),
-                            new String[]{CoverageModelICGCacheTag.E_STEP_W_REG.name()},
-                            new String[]{CoverageModelICGCacheNode.Q_tll.name()},
-                            calculate_sum_Q_ll, true);
+                            calculate_Q_tll, true);
 
             /* calculation of WzzWT_st node varies depending on wither ARD is enabled/disabled */
             if (ardEnabled) {
@@ -462,6 +457,11 @@ public final class CoverageModelEMComputeBlock {
         //                            CoverageModelICGCacheNode.F_W_tl.name(),
         //                            CoverageModelICGCacheNode.zz_sll.name()},
         //                    calculate_loglike_reg, true);
+        //            /* \sum_t Q_{t\mu\nu} */
+        //            .addComputableNode(CoverageModelICGCacheNode.sum_Q_ll.name(),
+        //        new String[]{CoverageModelICGCacheTag.E_STEP_W_REG.name()},
+        //        new String[]{CoverageModelICGCacheNode.Q_tll.name()},
+        //        calculate_sum_Q_ll, true);
 
         return cgbuilder.build();
     }
@@ -521,7 +521,7 @@ public final class CoverageModelEMComputeBlock {
      * @return an INDArray
      */
     public INDArray getINDArrayFromCache(final CoverageModelICGCacheNode key) {
-        return ((DuplicableNDArray)icg.getValueDirect(key.name())).value();
+        return ((DuplicableNDArray)icg.getValueWithRequiredEvaluations(key.name())).value();
     }
 
     /**
@@ -533,7 +533,7 @@ public final class CoverageModelEMComputeBlock {
      * @return a double value
      */
     public double getDoubleFromCache(final CoverageModelICGCacheNode key) {
-        return ((DuplicableNumber) icg.getValueDirect(key.name())).value().doubleValue();
+        return ((DuplicableNumber) icg.getValueWithRequiredEvaluations(key.name())).value().doubleValue();
     }
 
     private void assertBiasCovariatesEnabled() {

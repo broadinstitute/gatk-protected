@@ -18,6 +18,7 @@ import org.broadinstitute.hellbender.tools.exome.sexgenotyper.ContigGermlinePloi
 import org.broadinstitute.hellbender.tools.exome.sexgenotyper.GermlinePloidyAnnotatedTargetCollection;
 import org.broadinstitute.hellbender.tools.exome.sexgenotyper.SexGenotypeDataCollection;
 import org.broadinstitute.hellbender.utils.LoggingUtils;
+import org.broadinstitute.hellbender.utils.SparkToggleCommandLineProgram;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
@@ -203,10 +204,10 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
         logger.info("Copy number concordance test passed for case sample calling");
     }
 
-//    @Test
-//    public void runLearningAndCallingTestLocal() {
-//        runLearningAndCallingTest("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
-//    }
+    @Test
+    public void runLearningAndCallingTestLocal() {
+        runLearningAndCallingTest("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
+    }
 
 //    @Test(dependsOnMethods = "runLearningAndCallingTestLocal")
 //    public void runCaseSampleCallingTestOnLearnedModelParamsLocal() {
@@ -218,10 +219,10 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
 //        runCaseSampleCallingTestOnExactModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
 //    }
 //
-    @Test
-    public void runLearningAndCallingTestSpark() {
-        runLearningAndCallingTest();
-    }
+//    @Test
+//    public void runLearningAndCallingTestSpark() {
+//        runLearningAndCallingTest();
+//    }
 //
 //    @Test(dependsOnMethods = "runLearningAndCallingTestSpark")
 //    public void runCaseSampleCallingTestOnLearnedModelParamsSpark() {
