@@ -60,7 +60,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -622,24 +621,26 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      *
      * @param model coverage model parameters
      */
-    @UpdatesRDD
     private void initializeWorkersWithGivenModel(@Nonnull final CoverageModelParameters model) {
-        final Supplier<CoverageModelParameters> modelSupplier;
-        if (sparkContextIsAvailable) { /* broadcast the model */
-            final Broadcast<CoverageModelParameters> broadcastedModel = ctx.broadcast(model);
-            modelSupplier = broadcastedModel::getValue;
+        if (sparkContextIsAvailable) {
+            initializeWorkersWithGivenModelSpark(model);
         } else {
-            modelSupplier = () -> model;
+            initializeWorkersWithGivenModelLocal(model);
         }
+    }
+
+    @UpdatesRDD
+    private void initializeWorkersWithGivenModelSpark(@Nonnull final CoverageModelParameters model) {
+        final Broadcast<CoverageModelParameters> broadcastedModel = ctx.broadcast(model);
 
         /* basic model nodes */
         mapWorkers(cb -> {
             final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
             return cb
                     .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t,
-                            modelSupplier.get().getTargetMeanBiasOnTargetBlock(tb))
+                            broadcastedModel.getValue().getTargetMeanBiasOnTargetBlock(tb))
                     .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Psi_t,
-                            modelSupplier.get().getTargetUnexplainedVarianceOnTargetBlock(tb));
+                            broadcastedModel.getValue().getTargetUnexplainedVarianceOnTargetBlock(tb));
         });
 
         /* nodes relating to bias covariates */
@@ -648,7 +649,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
                 return cb
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl,
-                                modelSupplier.get().getMeanBiasCovariatesOnTargetBlock(tb));
+                                broadcastedModel.getValue().getMeanBiasCovariatesOnTargetBlock(tb));
             });
         }
 
@@ -658,9 +659,44 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
                 return cb
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll,
-                                modelSupplier.get().getVarBiasCovariatesOnTargetBlock(tb))
+                                broadcastedModel.getValue().getVarBiasCovariatesOnTargetBlock(tb))
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
-                        modelSupplier.get().getBiasCovariateARDCoefficients());
+                                broadcastedModel.getValue().getBiasCovariateARDCoefficients());
+            });
+        }
+    }
+
+    @UpdatesRDD
+    private void initializeWorkersWithGivenModelLocal(@Nonnull final CoverageModelParameters model) {
+        /* basic model nodes */
+        mapWorkers(cb -> {
+            final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
+            return cb
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t,
+                            model.getTargetMeanBiasOnTargetBlock(tb))
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Psi_t,
+                            model.getTargetUnexplainedVarianceOnTargetBlock(tb));
+        });
+
+        /* nodes relating to bias covariates */
+        if (biasCovariatesEnabled) {
+            mapWorkers(cb -> {
+                final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
+                return cb
+                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.W_tl,
+                                model.getMeanBiasCovariatesOnTargetBlock(tb));
+            });
+        }
+
+        /* if ARD is enabled, inject ARD coefficients and the covariance of bias covariates from the model as well */
+        if (ardEnabled) {
+            mapWorkers(cb -> {
+                final LinearSpaceBlock tb = cb.getTargetSpaceBlock();
+                return cb
+                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_W_tll,
+                                model.getVarBiasCovariatesOnTargetBlock(tb))
+                        .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
+                                model.getBiasCovariateARDCoefficients());
             });
         }
     }
