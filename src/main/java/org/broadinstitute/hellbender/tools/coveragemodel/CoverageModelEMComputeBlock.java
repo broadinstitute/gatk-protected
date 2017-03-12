@@ -844,7 +844,7 @@ public final class CoverageModelEMComputeBlock {
             X_inv_diag_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(Nd4j.diag(X_inv_ll));
         });
 
-        return Transforms.pow(W_new_tl, 2, true).addi(X_inv_diag_tl).sum(0);
+        return Transforms.pow(W_new_tl, 2, true).sum(0);//.addi(X_inv_diag_tl).sum(0);
     }
 
 //    /**
