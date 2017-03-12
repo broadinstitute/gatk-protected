@@ -98,7 +98,7 @@ public final class CoverageModelEMParams {
     public static final String MAX_M_STEP_CYCLES_SHORT_NAME = "MMC";
     public static final String MAX_M_STEP_CYCLES_LONG_NAME = "maximumMStepCycles";
 
-    public static final int DEFAULT_MAX_E_STEP_CYCLES = 4;
+    public static final int DEFAULT_MAX_E_STEP_CYCLES = 3;
     public static final String MAX_E_STEP_CYCLES_SHORT_NAME = "MES";
     public static final String MAX_E_STEP_CYCLES_LONG_NAME = "maximumEStepCycles";
 

@@ -902,11 +902,7 @@ public final class CoverageModelEMComputeBlock {
         final INDArray alpha_inv_l = Nd4j.ones(alpha_l.shape()).divi(alpha_l);
 
         /* calculate target-summed diagonal of X */
-        final INDArray X_inv_diag_l = Nd4j.create(new int[] {1, numLatents});
-        IntStream.range(0, numLatents).forEach(li ->
-                X_inv_diag_l.get(NDArrayIndex.point(li)).assign(X_inv_tll
-                        .get(NDArrayIndex.all(), NDArrayIndex.point(li), NDArrayIndex.point(li))
-                        .sum(0)));
+        final INDArray X_inv_diag_l = Nd4j.diag(X_inv_tll.sum(0)).reshape(new int[] {1, numLatents});
 
         /* calculate the gradient partial target sum */
         final INDArray grad_1 = alpha_inv_l.mul(0.5 * numTargets);
