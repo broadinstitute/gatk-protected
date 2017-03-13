@@ -65,12 +65,12 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final File TEST_TARGETS_FILE = new File(TEST_TRUTH_SIM_MODEL, "targets.tsv");
 
     private static final double MAPPING_ERROR_RATE = 5e-4; /* reflects the simulated data */
-    private static final int NUM_LATENTS = 10; /* simulated data uses 3 */
+    private static final int NUM_LATENTS = 5; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
-    private static final int MIN_LEARNING_READ_COUNT = 50;
+    private static final int MIN_LEARNING_READ_COUNT = 5;
     private static final int MAX_LEARNING_EM_ITERATIONS = 20;
-    private static final int MAX_CALLING_EM_ITERATIONS = 10;
+    private static final int MAX_CALLING_EM_ITERATIONS = 30;
 
     private static final double MIN_PASS_REF_CONCORDANCE = 0.95;
     private static final double MIN_PASS_ALT_CONCORDANCE = 0.30;
@@ -114,14 +114,6 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     String.valueOf(NUM_LATENTS),
                 "--" + CoverageModelEMParams.MAPPING_ERROR_RATE_LONG_NAME,
                     String.valueOf(MAPPING_ERROR_RATE),
-                "--" + CoverageModelEMParams.MIN_LEARNING_READ_COUNT_LONG_NAME,
-                    String.valueOf(MIN_LEARNING_READ_COUNT),
-                "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-                    "false",
-                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
-                    "false",
-                "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
-                    "true",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
                     CHECKPOINTING_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
@@ -151,7 +143,15 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModellerGermlineSparkToggle.OUTPUT_PATH_LONG_NAME,
                     LEARNING_OUTPUT_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.MAX_EM_ITERATIONS_LONG_NAME,
-                    String.valueOf(MAX_LEARNING_EM_ITERATIONS)
+                    String.valueOf(MAX_LEARNING_EM_ITERATIONS),
+                "--" + CoverageModelEMParams.MIN_LEARNING_READ_COUNT_LONG_NAME,
+                    String.valueOf(MIN_LEARNING_READ_COUNT),
+                "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
+                    "true",
+                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
+                    "false",
+                "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
+                    "true"
         }, getBaseArgs(extraArgs));
     }
 
@@ -166,7 +166,13 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModellerGermlineSparkToggle.OUTPUT_PATH_LONG_NAME,
                     CALLING_OUTPUT_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.MAX_EM_ITERATIONS_LONG_NAME,
-                    String.valueOf(MAX_CALLING_EM_ITERATIONS)
+                    String.valueOf(MAX_CALLING_EM_ITERATIONS),
+                "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
+                    "true",
+                "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
+                    "false",
+                "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
+                    "true"
         }, getBaseArgs(extraArgs));
     }
 
@@ -209,11 +215,11 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
         runLearningAndCallingTest("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
     }
 
-//    @Test(dependsOnMethods = "runLearningAndCallingTestLocal")
-//    public void runCaseSampleCallingTestOnLearnedModelParamsLocal() {
-//        runCaseSampleCallingTestOnLearnedModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
-//    }
-//
+    @Test(dependsOnMethods = "runLearningAndCallingTestLocal")
+    public void runCaseSampleCallingTestOnLearnedModelParamsLocal() {
+        runCaseSampleCallingTestOnLearnedModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
+    }
+
 //    @Test
 //    public void runCaseSampleCallingTestOnExactModelParamsLocal() {
 //        runCaseSampleCallingTestOnExactModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");

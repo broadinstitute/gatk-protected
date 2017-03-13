@@ -34,12 +34,12 @@ public class Nd4jIOUtilsUnitTest extends BaseTest {
 
     @Test
     public void tsvTensorReadWriteTest() {
-        tsvTensorReadWriteAsserter(Nd4j.rand(10, 10));
-        tsvTensorReadWriteAsserter(Nd4j.rand(1, 10));
-        tsvTensorReadWriteAsserter(Nd4j.rand(10, 1));
-        tsvTensorReadWriteAsserter(Nd4j.rand(10, 10, 10));
-        tsvTensorReadWriteAsserter(Nd4j.rand(1, 10, 15));
-        tsvTensorReadWriteAsserter(Nd4j.rand(5, 3, 8));
+        tsvTensorReadWriteAsserter(Nd4j.rand(new int[] {10, 10}));
+        tsvTensorReadWriteAsserter(Nd4j.rand(new int[] {1, 10}));
+        tsvTensorReadWriteAsserter(Nd4j.rand(new int[] {10, 1}));
+        tsvTensorReadWriteAsserter(Nd4j.rand(new int[] {10, 10, 10}));
+        tsvTensorReadWriteAsserter(Nd4j.rand(new int[] {1, 10, 15}));
+        tsvTensorReadWriteAsserter(Nd4j.rand(new int[] {5, 3, 8}));
     }
 
     @Test

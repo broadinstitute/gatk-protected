@@ -289,21 +289,36 @@ public final class CoverageModelParameters implements Serializable {
             throw new UserException.CouldNotCreateOutputFile(targetListFile, "Could not read targets interval list");
         }
 
+        /* all models must provide mean log bias and target-specific unexplained variance */
         final File targetMeanLogBiasFile = new File(modelPath, CoverageModelGlobalConstants.TARGET_MEAN_LOG_BIAS_OUTPUT_FILE);
         final INDArray targetMeanLogBias = Nd4jIOUtils.readNDArrayMatrixFromTextFile(targetMeanLogBiasFile);
 
         final File targetUnexplainedVarianceFile = new File(modelPath, CoverageModelGlobalConstants.TARGET_UNEXPLAINED_VARIANCE_OUTPUT_FILE);
         final INDArray targetUnexplainedVariance = Nd4jIOUtils.readNDArrayMatrixFromTextFile(targetUnexplainedVarianceFile);
 
+        /* if bias covariates file is found, then the model has bias covariates enabled */
         final File meanBiasCovariatesFile = new File(modelPath, CoverageModelGlobalConstants.MEAN_BIAS_COVARIATES_OUTPUT_FILE);
-        final INDArray meanBiasCovariates = Nd4jIOUtils.readNDArrayMatrixFromTextFile(meanBiasCovariatesFile);
+        final INDArray meanBiasCovariates, varBiasCovariates, biasCovariatesARDCoefficients;
+        if (meanBiasCovariatesFile.exists()) {
+            meanBiasCovariates = Nd4jIOUtils.readNDArrayMatrixFromTextFile(meanBiasCovariatesFile);
 
-        final File varBiasCovariatesFile = new File(modelPath, CoverageModelGlobalConstants.VAR_BIAS_COVARIATES_OUTPUT_FILE);
-        final INDArray varBiasCovariates = Nd4jIOUtils.readNDArrayTensorFromTextFile(varBiasCovariatesFile);
-
-        final File biasCovariatesARDCoefficientsFile = new File(modelPath,
-                CoverageModelGlobalConstants.BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE);
-        final INDArray biasCovariatesARDCoefficients = Nd4jIOUtils.readNDArrayMatrixFromTextFile(biasCovariatesARDCoefficientsFile);
+            /* check to see if we have ARD coefficients */
+            final File biasCovariatesARDCoefficientsFile = new File(modelPath,
+                    CoverageModelGlobalConstants.BIAS_COVARIATES_ARD_COEFFICIENTS_OUTPUT_FILE);
+            if (biasCovariatesARDCoefficientsFile.exists()) { /* ARD enabled */
+                biasCovariatesARDCoefficients = Nd4jIOUtils.readNDArrayMatrixFromTextFile(biasCovariatesARDCoefficientsFile);
+                /* if ARD is enabled, covariance of W must exist as well */
+                final File varBiasCovariatesFile = new File(modelPath, CoverageModelGlobalConstants.VAR_BIAS_COVARIATES_OUTPUT_FILE);
+                varBiasCovariates = Nd4jIOUtils.readNDArrayTensorFromTextFile(varBiasCovariatesFile);
+            } else {
+                biasCovariatesARDCoefficients = null;
+                varBiasCovariates = null;
+            }
+        } else {
+            meanBiasCovariates = null;
+            biasCovariatesARDCoefficients = null;
+            varBiasCovariates = null;
+        }
 
         return new CoverageModelParameters(targetList, targetMeanLogBias, targetUnexplainedVariance,
                 meanBiasCovariates, varBiasCovariates, biasCovariatesARDCoefficients);
@@ -422,29 +437,48 @@ public final class CoverageModelParameters implements Serializable {
         final INDArray originalModelMeanBiasCovariates = model.getMeanBiasCovariates();
         final INDArray originalModelVarBiasCovariates = model.getVarBiasCovariates();
 
-        /* re-arrange targets */
+        /* re-arrange targets, mean log bias, and target-specific unexplained variance */
         final int[] newTargetIndicesInOriginalModel = finalTargetList.stream()
                 .mapToInt(modelTargetList::indexOf)
                 .toArray();
         final INDArray newModelTargetMeanBias = Nd4j.create(new int[] {1, finalTargetList.size()});
         final INDArray newModelTargetUnexplainedVariance = Nd4j.create(new int[] {1, finalTargetList.size()});
-        final INDArray newModelMeanBiasCovariates = Nd4j.create(new int[] {finalTargetList.size(),
-                model.getNumLatents()});
-        final INDArray newModelVarBiasCovariates = Nd4j.create(new int[] {finalTargetList.size(),
-                model.getNumLatents(), model.getNumLatents()});
         IntStream.range(0, finalTargetList.size())
                 .forEach(ti -> {
                     newModelTargetMeanBias.put(0, ti,
                             originalModelTargetMeanBias.getDouble(0, newTargetIndicesInOriginalModel[ti]));
                     newModelTargetUnexplainedVariance.put(0, ti,
                             originalModelTargetUnexplainedVariance.getDouble(0, newTargetIndicesInOriginalModel[ti]));
-                    newModelMeanBiasCovariates.get(NDArrayIndex.point(ti), NDArrayIndex.all())
-                            .assign(originalModelMeanBiasCovariates.get(NDArrayIndex.point(newTargetIndicesInOriginalModel[ti]),
-                                    NDArrayIndex.all()));
-                    newModelVarBiasCovariates.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
-                            .assign(originalModelVarBiasCovariates.get(NDArrayIndex.point(newTargetIndicesInOriginalModel[ti]),
-                                    NDArrayIndex.all(), NDArrayIndex.all()));
                 });
+
+        /* if model has bias covariates and/or ARD, re-arrange mean/var of bias covariates as well */
+        final INDArray newModelMeanBiasCovariates, newModelVarBiasCovariates;
+
+        if (model.isBiasCovariatesEnabled()) {
+            newModelMeanBiasCovariates = Nd4j.create(new int[]{finalTargetList.size(), model.getNumLatents()});
+            IntStream.range(0, finalTargetList.size())
+                    .forEach(ti -> {
+                        newModelMeanBiasCovariates.get(NDArrayIndex.point(ti), NDArrayIndex.all())
+                                .assign(originalModelMeanBiasCovariates.get(NDArrayIndex.point(newTargetIndicesInOriginalModel[ti]),
+                                        NDArrayIndex.all()));
+                    });
+
+            if (model.isARDEnabled()) {
+                newModelVarBiasCovariates = Nd4j.create(new int[]{finalTargetList.size(), model.getNumLatents(), model.getNumLatents()});
+                IntStream.range(0, finalTargetList.size())
+                        .forEach(ti -> {
+                            newModelVarBiasCovariates.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
+                                    .assign(originalModelVarBiasCovariates.get(NDArrayIndex.point(newTargetIndicesInOriginalModel[ti]),
+                                            NDArrayIndex.all(), NDArrayIndex.all()));
+                        });
+            } else {
+                /* var of bias covariates is null without ARD */
+                newModelVarBiasCovariates = null;
+            }
+        } else {
+            newModelMeanBiasCovariates = null;
+            newModelVarBiasCovariates = null;
+        }
 
         return ImmutablePair.of(new CoverageModelParameters(finalTargetList, newModelTargetMeanBias,
                 newModelTargetUnexplainedVariance, newModelMeanBiasCovariates, newModelVarBiasCovariates,

@@ -862,6 +862,17 @@ public final class CoverageModelEMComputeBlock {
 //        return Transforms.pow(W_tl, 2, true).addi(var_W_diag_tl).sum(0);
 //    }
 
+    public INDArray calculateBiasCovariatesLogEvidenceAsymptoticsPartialTargetSum() {
+        /* fetch the required caches */
+        final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
+        final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
+        final int numLatents = v_tl.shape()[1];
+
+        return Nd4j.diag(Q_tll.sum(0).reshape(new int[] {numLatents, numLatents}))
+                .reshape(new int[] {1, numLatents})
+                .addi(v_tl.mul(v_tl).sum(0).reshape(new int[] {1, numLatents}));
+    }
+
     /**
      * Calculate the gradient and Hessian of the log evidence function of bias covariates.
      * Summation over targets is partially performed, and the result is provided as a tuple

@@ -65,11 +65,21 @@ public final class Nd4jIOUtils {
                                                     @Nonnull final File outputFile,
                                                     @Nonnull final String identifier,
                                                     @Nullable final List<String> rowNames,
-                                                    @Nullable final List<String> columnNames) {
+                                                    @Nullable final List<String> columnNames,
+                                                    @Nullable final int[] originalShape) {
         Utils.nonNull(arr, "The NDArray to be written to file must be non-null");
         Utils.nonNull(outputFile, "The output file must be non-null");
         Utils.nonNull(identifier, "The identifier must be non-null");
         Utils.validateArg(arr.rank() <= 2, "only rank-1 and rank-2 NDArray objects can be saved");
+        final int[] shape;
+        if (originalShape != null) {
+            Utils.validateArg(Arrays.stream(originalShape).reduce(1, (a, b) -> a*b) ==
+                    Arrays.stream(arr.shape()).reduce(1, (a, b) -> a*b), "The given shape does not match the number" +
+                    " of elements in the given array");
+            shape = originalShape;
+        } else {
+            shape = arr.shape();
+        }
 
         final int rowDimension = arr.shape()[0];
         final int colDimension = arr.shape()[1];
@@ -107,7 +117,7 @@ public final class Nd4jIOUtils {
                 record.composeDataLine(dataLine);
             }}) {
             /* write the shape info as a comment */
-            arrayWriter.writeComment(getStringReprFromIntArray(arr.shape()));
+            arrayWriter.writeComment(getStringReprFromIntArray(shape));
             /* write rows */
             for (int ri = 0; ri < rowDimension; ri++) {
                 arrayWriter.writeRecord(new DoubleVectorRow(rowNamesList.get(ri), arr.getRow(ri).dup().data().asDouble()));
@@ -115,6 +125,14 @@ public final class Nd4jIOUtils {
         } catch (final IOException ex) {
             throw new UserException.CouldNotCreateOutputFile(outputFile, "Could not write the array");
         }
+    }
+
+    public static void writeNDArrayMatrixToTextFile(@Nonnull final INDArray arr,
+                                                    @Nonnull final File outputFile,
+                                                    @Nonnull final String identifier,
+                                                    @Nullable final List<String> rowNames,
+                                                    @Nullable final List<String> columnNames) {
+        writeNDArrayMatrixToTextFile(arr, outputFile, identifier, rowNames, columnNames, null);
     }
 
     /**
@@ -190,7 +208,7 @@ public final class Nd4jIOUtils {
             extraDims *= shape[i];
         }
         final INDArray tensorToMatrix = arr.reshape('c', new int[] {shape[0], extraDims});
-        writeNDArrayMatrixToTextFile(tensorToMatrix, outputFile, identifier, rowNames, null);
+        writeNDArrayMatrixToTextFile(tensorToMatrix, outputFile, identifier, rowNames, null, arr.shape());
     }
 
     /**

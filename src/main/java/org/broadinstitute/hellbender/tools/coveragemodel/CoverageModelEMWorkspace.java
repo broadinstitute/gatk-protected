@@ -289,7 +289,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* if a model is provided, adapt the target list and number or latents to the model */
         if (model != null) {
-            /* TODO -- adapt model to EM parameters and read counts */
             final ReadCountCollection intermediateReadCounts = processReadCountCollection(targetSortedRawReadCounts,
                     params, logger);
             /* adapt model and read counts */
@@ -300,6 +299,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             numLatents = processedModel.getNumLatents();
             Utils.validateArg(processedModel.getNumLatents() == params.getNumLatents(), "Discrepancy between the dimension" +
                     " of the bias latent space between the provided model and the arguments");
+            Utils.validateArg(processedModel.isARDEnabled() == params.isARDEnabled(), "The model does not have ARD" +
+                    " information -- ARD must be disabled in the tool arguments");
         } else {
             processedModel = null;
             processedReadCounts = processReadCountCollection(targetSortedRawReadCounts, params, logger);
@@ -1054,7 +1055,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         cacheWorkers("after E-step for copy ratio initialization");
 
         /* calculate posteriors */
-        logger.debug("Copy ratio HMM type: " + params.getCopyRatioHMMType().name());
         long startTime = System.nanoTime();
         final SubroutineSignal sig;
         if (params.getCopyRatioHMMType().equals(COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
@@ -1554,6 +1554,12 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         }
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
         cacheWorkers("after M-step update of ARD coefficients initialization");
+
+        /* print asymptotics */
+        final INDArray coeffs = mapWorkersAndReduce(CoverageModelEMComputeBlock::calculateBiasCovariatesLogEvidenceAsymptoticsPartialTargetSum,
+                INDArray::add);
+        logger.info("ARD asymptotics: " + coeffs.toString());
+
         final SubroutineSignal sig;
         switch (params.getARDUpdateAlgorithm()) {
             case PICARD:
