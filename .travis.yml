@@ -5,9 +5,10 @@ jdk:
 - oraclejdk8
 env:
   matrix:
-  - RUN_CROMWELL=true TEST_DOCKER=false
-  - RUN_CROMWELL=false TEST_DOCKER=false
-  - RUN_CROMWELL=false TEST_DOCKER=true
+  - RUN_CROMWELL=true TEST_DOCKER=false TEST_M2_WDL=false
+  - RUN_CROMWELL=false TEST_DOCKER=false TEST_M2_WDL=false
+  - RUN_CROMWELL=false TEST_DOCKER=true TEST_M2_WDL=false
+  - RUN_CROMWELL=false TEST_DOCKER=false TEST_M2_WDL=true
   global:
   #limit gradle jvm memory usage
   - GRADLE_OPTS=-Xmx512m
@@ -30,10 +31,15 @@ before_install:
 - if [[ $RUN_CROMWELL == true ]]; then
     wget -O ~/cromwell-0.19.3.jar https://github.com/broadinstitute/cromwell/releases/download/0.19.3/cromwell-0.19.3.jar;
   fi
+- if [[ $TEST_M2_WDL == true ]]; then
+    wget -O ~/cromwell-0.25.jar https://github.com/broadinstitute/cromwell/releases/download/25/cromwell-25.jar;
+  fi
 
 install:
 - if [[ $RUN_CROMWELL == true ]]; then 
     ./gradlew shadowJar;
+  elif [[$TEST_M2_WDL == true ]]; then
+    ./gradlew shaowJar;
   elif [[$TEST_DOCKER == false ]]; then
     ./gradlew assemble;
   fi 
@@ -42,10 +48,16 @@ script:
 - if [[ $RUN_CROMWELL == true ]]; then
     echo "Running ACNV pipeline";
     bash scripts/acnv_cromwell_tests/run_acnv_pipelines.sh;
+  elif [[ $TEST_M2_WDL == true ]]; then
+      echo "Building docker image for M2 WDL tests (skipping unit tests)...";
+      cd scripts/docker/;
+      sudo bash build_docker.sh  -e `git rev-parse ${TRAVIS_BRANCH}` -s -u;
   elif [[ $TEST_DOCKER == true ]]; then
     echo "Building docker image with unit tests...";
     cd scripts/docker/;
     sudo bash build_docker.sh  -e `git rev-parse ${TRAVIS_BRANCH}` -s;
+    # TODO:
+    # TODO: RUN THE M2 WDL HERE
   else
     ./gradlew check;
   fi

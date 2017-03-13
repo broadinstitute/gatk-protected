@@ -1,3 +1,4 @@
+/mutect2.wdl
 /scripts/docker/clone_repo.sh
 /scripts/docker/checkout_tag.sh
 /scripts/docker/GITHUB_TAG
