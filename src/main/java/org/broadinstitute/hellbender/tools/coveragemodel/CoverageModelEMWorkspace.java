@@ -750,12 +750,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final FourierLinearOperatorNDArray regularizerFourierLinearOperator = createRegularizerFourierLinearOperator();
 
         /* FFT by resolving W_tl on l */
-        IntStream.range(0, numLatents)
-                .forEach(li -> {
-                    final INDArrayIndex[] slice = {NDArrayIndex.all(), NDArrayIndex.point(li)};
-                    filteredBiasCovariates.get(slice).assign(
-                            regularizerFourierLinearOperator.operate(biasCovariates.get(slice)));
-                });
+        for (int li = 0; li < numLatents; li++) {
+            final INDArrayIndex[] slice = {NDArrayIndex.all(), NDArrayIndex.point(li)};
+            filteredBiasCovariates.get(slice).assign(
+                    regularizerFourierLinearOperator.operate(biasCovariates.get(slice)));
+        }
 
         /* sent the new W to workers */
         switch (params.getBiasCovariatesComputeNodeCommunicationPolicy()) {
@@ -815,15 +814,16 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* calculate G_{s\mu\nu} = (sharedPart + W^T M \Psi^{-1} W)^{-1} by doing sample-wise matrix inversion */
         final INDArray sampleGTensor = Nd4j.create(numSamples, numLatents, numLatents);
-        sampleIndexStream().forEach(si -> sampleGTensor
-                .get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
-                .assign(CoverageModelEMWorkspaceMathUtils.minv(sharedPart
-                        .add(contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())))));
+        for (int si = 0; si < numSamples; si++) {
+            sampleGTensor.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
+                    .assign(CoverageModelEMWorkspaceMathUtils.minv(sharedPart
+                            .add(contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all()))));
+        }
 
         final INDArray newSampleBiasLatentPosteriorFirstMoments = Nd4j.create(numSamples, numLatents);
         final INDArray newSampleBiasLatentPosteriorSecondMoments = Nd4j.create(numSamples, numLatents, numLatents);
 
-        sampleIndexStream().forEach(si -> {
+        for (int si = 0; si < numSamples; si++) {
             final INDArray sampleGMatrix = sampleGTensor.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all());
             /* E[z_s] = G_s W^T M_{st} \Psi_{st}^{-1} (m_{st} - m_t) */
             newSampleBiasLatentPosteriorFirstMoments.get(NDArrayIndex.point(si), NDArrayIndex.all())
@@ -832,7 +832,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             newSampleBiasLatentPosteriorSecondMoments.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
                     .assign(sampleGMatrix.add(newSampleBiasLatentPosteriorFirstMoments.get(NDArrayIndex.point(si), NDArrayIndex.all()).transpose()
                                     .mmul(newSampleBiasLatentPosteriorFirstMoments.get(NDArrayIndex.point(si), NDArrayIndex.all()))));
-        });
+        }
 
         /* admix with old posteriors */
         final INDArray newSampleBiasLatentPosteriorFirstMomentsAdmixed = newSampleBiasLatentPosteriorFirstMoments
@@ -1176,11 +1176,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray log_c_st = Nd4j.create(numSamples, numTargets);
         final INDArray var_log_c_st = Nd4j.create(numSamples, numTargets);
 
-        sampleIndexStream().forEach(si -> {
+        for (int si = 0; si < numSamples; si++) {
             final CopyRatioExpectations res = copyRatioExpectationsList.get(si);
             log_c_st.getRow(si).assign(Nd4j.create(res.getLogCopyRatioMeans(), new int[] {1, numTargets}));
             var_log_c_st.getRow(si).assign(Nd4j.create(res.getLogCopyRatioVariances(), new int[] {1, numTargets}));
-        });
+        }
         return ImmutablePair.of(log_c_st, var_log_c_st);
     }
 
