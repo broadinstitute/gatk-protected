@@ -8,6 +8,7 @@
 #  scatter_count: number of parallel jobs when scattering over intervals
 #  dbsnp, dbsnp_index: optional database of known germline variants
 #  cosmic, cosmic_index: optional database of known somatic variants
+#  variants_for_contamination, variants_for_contamination_index: vcf of common variants with allele frequencies fo calculating contamination
 #  is_run_orientation_bias_filter: if true, run the orientation bias filter post-processing step
 #  pair_list: a tab-separated table with no header in the following format:
 #   TUMOR_1_BAM</TAB>TUMOR_1_BAM_INDEX</TAB>TUMOR_1_SAMPLE</TAB>NORMAL_1_BAM</TAB>NORMAL_1_BAM_INDEX</TAB>NORMAL_1_SAMPLE</TAB>
@@ -22,9 +23,13 @@
 import "mutect2.wdl" as m2
 
 
+#
+# IMPORTANT: This task will not generate useful results for any backends using docker (incl. JES/cloud).
+#
 task CreateOutputList {
     String output_name
-	Array[File] vcfs
+	Array[String] vcfs
+    Int preemptible_attempts
 
 	command {
 		for vcf in ${sep=" " vcfs}; do
@@ -33,13 +38,19 @@ task CreateOutputList {
 		done
 	}
 
+	runtime {
+        docker: "ubuntu:14.04"
+        memory: "1 GB"
+        preemptible: "${preemptible_attempts}"
+	}
+
 	output {
 		File vcf_list = "${output_name}.list"
 	}
 }
 
 
-workflow Mutect2 {
+workflow Mutect2_Multi {
     # gatk4_jar needs to be a String input to the workflow in order to work in a Docker image
 	String gatk4_jar
 	Int scatter_count
@@ -55,7 +66,17 @@ workflow Mutect2 {
 	File? dbsnp_index
 	File? cosmic
 	File? cosmic_index
+	File? variants_for_contamination
+    File? variants_for_contamination_index
 	Boolean is_run_orientation_bias_filter
+	Boolean is_run_oncotator
+    String m2_docker
+    String oncotator_docker
+    File? gatk4_jar_override
+    Int preemptible_attempts
+    File? onco_ds_tar_gz
+    String? onco_ds_local_db_dir
+    Array[String] artifact_modes
 
 	scatter( row in pairs ) {
 	    #The non-hack way, but there's a bug
@@ -89,8 +110,17 @@ workflow Mutect2 {
                     dbsnp_index = dbsnp_index,
                     cosmic = cosmic,
                     cosmic_index = cosmic_index,
-                    picard_jar = picard_jar,
-                    is_run_orientation_bias_filter = is_run_orientation_bias_filter
+                    variants_for_contamination = variants_for_contamination,
+                    variants_for_contamination_index = variants_for_contamination_index,
+                    is_run_orientation_bias_filter = is_run_orientation_bias_filter,
+                    is_run_oncotator=is_run_oncotator,
+                    oncotator_docker=oncotator_docker,
+                    m2_docker = m2_docker,
+                    gatk4_jar_override = gatk4_jar_override,
+                    preemptible_attempts = preemptible_attempts,
+                    onco_ds_tar_gz = onco_ds_tar_gz,
+                    onco_ds_local_db_dir = onco_ds_local_db_dir,
+                    artifact_modes = artifact_modes
             }
     }
 
@@ -98,20 +128,23 @@ workflow Mutect2 {
 	call CreateOutputList as unfilteredOutputList {
 		input:
 		    output_name = "unfiltered",
-			vcfs = Mutect2.unfiltered_vcf
+			vcfs = Mutect2.unfiltered_vcf,
+			preemptible_attempts = preemptible_attempts
 	}
 
 	call CreateOutputList as filteredOutputList {
         input:
     	    output_name = "filtered",
-    	    vcfs = Mutect2.filtered_vcf
+    	    vcfs = Mutect2.filtered_vcf,
+    	    preemptible_attempts = preemptible_attempts
     }
 
     if(is_run_orientation_bias_filter) {
         call CreateOutputList as orientationBiasFilteredOutputList {
             input:
                 output_name = "ob_filtered",
-                vcfs = select_all(Mutect2.ob_filtered_vcf)
+                vcfs = select_all(Mutect2.ob_filtered_vcf),
+                preemptible_attempts = preemptible_attempts
         }
     }
 
@@ -119,5 +152,11 @@ workflow Mutect2 {
         File unfiltered_vcfs = unfilteredOutputList.vcf_list
         File filtered_vcfs = filteredOutputList.vcf_list
         File? ob_filtered_vcfs = orientationBiasFilteredOutputList.vcf_list
+
+        Array[File] unfiltered_vcf_files = Mutect2.unfiltered_vcf
+        Array[File] filtered_vcf_files = Mutect2.filtered_vcf
+        Array[File?] ob_filtered_vcf_files = Mutect2.ob_filtered_vcf
+
+        Array[File?] contamination_tables = Mutect2.contamination_table
     }
 }

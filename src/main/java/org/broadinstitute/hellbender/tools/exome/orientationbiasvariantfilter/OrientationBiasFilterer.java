@@ -84,7 +84,7 @@ public class OrientationBiasFilterer {
                         // FOB for the complement is ALT_F2R1/(ALT_F2R1 + ALT_F1R2) and for the actual artifact mode is ALT_F1R2/(ALT_F2R1 + ALT_F1R2)
                         // FOB is the fraction of alt reads indicating orientation bias error (taking into account artifact mode complement).
                         if (isRelevantArtifact || isRelevantArtifactComplement) {
-                            final int totalAltAlleleCount = genotype.getAD()[i];
+                            final int totalAltAlleleCount = genotype.hasAD() ? genotype.getAD()[i] : 0;
                             final double fob = calculateFob(genotype, isRelevantArtifact);
                             genotypeBuilder.attribute(OrientationBiasFilterConstants.P_ARTIFACT_FIELD_NAME, ArtifactStatisticsScorer.calculateArtifactPValue(totalAltAlleleCount, (int) Math.round(fob * totalAltAlleleCount), BIAS_P));
                             genotypeBuilder.attribute(OrientationBiasFilterConstants.FOB, fob);
@@ -115,7 +115,7 @@ public class OrientationBiasFilterer {
      * @param relevantTransitionsWithoutComplements Transitions to filter.  Do not include complements. Never {@code null}.
      * @param preAdapterQAnnotatedVariants Variant contexts that have already been annotated by {@link OrientationBiasFilterer#annotateVariantContextWithPreprocessingValues(VariantContext, SortedSet, Map)} Never {@code null}.
      * @param preAdapterQScoreMap Mapping from Transition to the preAdapterQ score.  relevantTransitions should be included as keys, but not required. Never {@code null}.
-     * @return The same variant contexts with the genotypes filter field populated with orientation bias filtering results..
+     * @return The same variant contexts with the genotypes filter field populated with orientation bias filtering results.  If the variant contexts have no samples, then the variant contexts are returned without any annotation.
      */
     public static List<VariantContext> annotateVariantContextsWithFilterResults(final double fdrThreshold, final SortedSet<Transition> relevantTransitionsWithoutComplements, final List<VariantContext> preAdapterQAnnotatedVariants,
                                                                                 final Map<Transition, Double> preAdapterQScoreMap) {
@@ -124,6 +124,11 @@ public class OrientationBiasFilterer {
         final SortedSet<Transition> relevantTransitions = new TreeSet<>();
         relevantTransitions.addAll(relevantTransitionsWithoutComplements);
         relevantTransitions.addAll(OrientationBiasUtils.createReverseComplementTransitions(relevantTransitionsWithoutComplements));
+
+        if (preAdapterQAnnotatedVariants.size() == 0) {
+            logger.info("No samples found in this file.  NO FILTERING BEING DONE.");
+            return preAdapterQAnnotatedVariants;
+        }
 
         final List<String> sampleNames = preAdapterQAnnotatedVariants.get(0).getSampleNamesOrderedByName();
         final Map<String, SortedMap<Genotype, VariantContext>> sampleNameToVariants = createSampleToGenotypeVariantContextSortedMap(sampleNames, preAdapterQAnnotatedVariants);

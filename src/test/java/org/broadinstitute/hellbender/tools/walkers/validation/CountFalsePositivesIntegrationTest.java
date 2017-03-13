@@ -1,27 +1,20 @@
-package org.broadinstitute.hellbender.tools.walkers.mutect;
+package org.broadinstitute.hellbender.tools.walkers.validation;
 
 import org.broadinstitute.hellbender.CommandLineProgramTest;
+import org.broadinstitute.hellbender.tools.walkers.validation.FalsePositiveRecord;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Stream;
 
-import static org.testng.Assert.*;
-import static org.broadinstitute.hellbender.tools.walkers.mutect.FalsePositiveRecord.*;
+import static org.broadinstitute.hellbender.tools.walkers.validation.FalsePositiveRecord.*;
 
 /**
  * Created by tsato on 12/28/16.
  */
-public class CountFalsePositivesTest extends CommandLineProgramTest {
+public class CountFalsePositivesIntegrationTest extends CommandLineProgramTest {
     @Test
     public void testSimple() throws Exception {
         final File dreamDir =  new File(publicTestDir, "org/broadinstitute/hellbender/tools/mutect/dream");
@@ -42,11 +35,6 @@ public class CountFalsePositivesTest extends CommandLineProgramTest {
         // INDEL: grep PASS dream3-chr20.vcf | awk 'length($4) != length($5) { print $0 }' | wc -l
         Assert.assertEquals(record.getSnpFalsePositives(), 173);
         Assert.assertEquals(record.getIndelFalsePositives(), 276);
-    }
-
-    @Test
-    public void testMultiAllelic() throws Exception {
-
     }
 
     private class FalsePositiveRecordReader extends TableReader<FalsePositiveRecord> {
