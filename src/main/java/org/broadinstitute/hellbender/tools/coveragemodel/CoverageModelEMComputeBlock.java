@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1054,13 +1056,15 @@ public final class CoverageModelEMComputeBlock {
                                                                                                final double absTol,
                                                                                                final double relTol,
                                                                                                final int numBisections,
-                                                                                               final int refinementDepth) {
+                                                                                               final int refinementDepth,
+                                                                                               final int numThreads) {
         Utils.validateArg(maxIters > 0, "At least one iteration is required");
         Utils.validateArg(psiUpperLimit >= 0, "The upper limit must be non-negative");
         Utils.validateArg(absTol >= 0, "The absolute error tolerance must be non-negative");
         Utils.validateArg(relTol >= 0, "The relative error tolerance must be non-negative");
         Utils.validateArg(numBisections >= 0, "The number of bisections must be non-negative");
         Utils.validateArg(refinementDepth >= 0, "The refinement depth must be non-negative");
+        Utils.validateArg(numThreads > 0, "Number of execution threads must be positive");
 
         /* fetch the required caches */
         final INDArray Psi_t = getINDArrayFromCache(CoverageModelICGCacheNode.Psi_t);
@@ -1069,23 +1073,31 @@ public final class CoverageModelEMComputeBlock {
         final INDArray gamma_s = getINDArrayFromCache(CoverageModelICGCacheNode.gamma_s);
         final INDArray B_st = getINDArrayFromCache(CoverageModelICGCacheNode.B_st);
 
-        final List<ImmutablePair<Double, Integer>> res = IntStream.range(0, numTargets).parallel()
-                .mapToObj(ti -> {
-                    final RobustBrentSolver solver = new RobustBrentSolver(relTol, absTol,
-                            CoverageModelGlobalConstants.DEFAULT_FUNCTION_EVALUATION_ACCURACY);
-                    double newPsi;
-                    try {
-                        newPsi = solver.solve(maxIters,
-                                psi -> calculatePsiSolverObjectiveFunction(ti, psi, M_st, Sigma_st, gamma_s, B_st),
-                                psi -> calculatePsiSolverMeritFunction(ti, psi, M_st, Sigma_st, gamma_s, B_st),
-                                null, 0, psiUpperLimit, numBisections, refinementDepth);
-                    } catch (NoBracketingException | TooManyEvaluationsException e) {
-                        /* if a solution can not be found, set Psi to its old value */
-                        newPsi = Psi_t.getDouble(ti);
-                    }
-                    return new ImmutablePair<>(newPsi, solver.getEvaluations());
-                })
-                .collect(Collectors.toList());
+        final ForkJoinPool forkJoinPool = new ForkJoinPool(numThreads);
+        final List<ImmutablePair<Double, Integer>> res;
+        try {
+            res = forkJoinPool.submit(() -> {
+                return IntStream.range(0, numTargets).parallel()
+                        .mapToObj(ti -> {
+                            final RobustBrentSolver solver = new RobustBrentSolver(relTol, absTol,
+                                    CoverageModelGlobalConstants.DEFAULT_FUNCTION_EVALUATION_ACCURACY);
+                            double newPsi;
+                            try {
+                                newPsi = solver.solve(maxIters,
+                                        psi -> calculatePsiSolverObjectiveFunction(ti, psi, M_st, Sigma_st, gamma_s, B_st),
+                                        psi -> calculatePsiSolverMeritFunction(ti, psi, M_st, Sigma_st, gamma_s, B_st),
+                                        null, 0, psiUpperLimit, numBisections, refinementDepth);
+                            } catch (NoBracketingException | TooManyEvaluationsException e) {
+                            /* if a solution can not be found, set Psi to its old value */
+                                newPsi = Psi_t.getDouble(ti);
+                            }
+                            return new ImmutablePair<>(newPsi, solver.getEvaluations());
+                        })
+                        .collect(Collectors.toList());
+            }).get();
+        } catch (InterruptedException | ExecutionException ex) {
+            throw new RuntimeException("Failure in concurrent update of target-specific unexplained variance");
+        }
 
         final INDArray newPsi_t = Nd4j.create(res.stream().mapToDouble(p -> p.left).toArray(), Psi_t.shape());
         final int maxIterations = Collections.max(res.stream().mapToInt(p -> p.right).boxed().collect(Collectors.toList()));

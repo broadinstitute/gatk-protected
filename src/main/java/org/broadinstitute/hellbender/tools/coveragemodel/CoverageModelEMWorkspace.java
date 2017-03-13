@@ -1467,13 +1467,14 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final double psiUpperLimit = params.getPsiUpperLimit();
         final int psiSolverNumBisections = params.getPsiSolverNumBisections();
         final int psiSolverRefinementDepth = params.getPsiSolverRefinementDepth();
+        final int psiSolverNumThreads = params.getPsiSolverNumThreads();
 
         logger.debug("Psi solver type: " + params.getPsiUpdateMode().name());
         switch (params.getPsiUpdateMode()) {
             case PSI_TARGET_RESOLVED: /* done on the compute blocks */
                 mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_PSI)
                         .cloneWithUpdatedTargetUnexplainedVarianceTargetResolved(psiMaxIterations, psiUpperLimit, psiAbsoluteTolerance,
-                                psiRelativeTolerance, psiSolverNumBisections, psiSolverRefinementDepth));
+                                psiRelativeTolerance, psiSolverNumBisections, psiSolverRefinementDepth, psiSolverNumThreads));
                 break;
 
             case PSI_ISOTROPIC: /* done on the driver node */

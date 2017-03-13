@@ -204,7 +204,9 @@ public final class CoverageModelEMParams {
     public static final String PSI_SOLVER_REFINEMENT_DEPTH_SHORT_NAME = "SSRD";
     public static final String PSI_SOLVER_REFINEMENT_DEPTH_LONG_NAME = "psiSolverRefinementDepth";
 
-
+    public static final int DEFAULT_PSI_SOLVER_NUM_THREADS = 4;
+    public static final String PSI_SOLVER_NUM_THREADS_SHORT_NAME = "PSNT";
+    public static final String PSI_SOLVER_NUM_THREADS_LONG_NAME = "psiSolverNumThreads";
 
 
     public static final WSolverStrategy DEFAULT_W_SOLVER_TYPE = WSolverStrategy.W_SOLVER_SPARK;
@@ -803,6 +805,15 @@ public final class CoverageModelEMParams {
     )
     protected double logARDRelativeTolerance = DEFAULT_LOG_ARD_REL_TOL;
 
+    @Advanced
+    @Argument(
+            doc = "Number of threads for concurrent target-resolved unexpalained variance solver",
+            shortName = PSI_SOLVER_NUM_THREADS_SHORT_NAME,
+            fullName = PSI_SOLVER_NUM_THREADS_LONG_NAME,
+            optional = true
+    )
+    protected int psiSolverNumThreads = DEFAULT_PSI_SOLVER_NUM_THREADS;
+
     /*
      * setters and getters
      */
@@ -1002,6 +1013,8 @@ public final class CoverageModelEMParams {
 
     public double getARDRelativeTolerance() { return logARDRelativeTolerance; }
 
+    public int getPsiSolverNumThreads() { return psiSolverNumThreads; }
+
     /**
      * Validate parameters
      *
@@ -1055,6 +1068,7 @@ public final class CoverageModelEMParams {
         ParamUtils.isPositive(maxARDIterations, "The maximum ARD iteration count must be positive");
         ParamUtils.isPositive(logARDAbsoluteTolerance, "The absolute tolerance for ARD update must be positive");
         ParamUtils.isPositive(logARDRelativeTolerance, "The relative tolerance for ARD update must be positive");
+        ParamUtils.isPositive(psiSolverNumThreads, "Number of psi solver threads must be positive");
 
         Utils.validateArg(!isRunCheckpointingEnabled() || !runCheckpointingPath.equals("/dev/null"),
                 "Run checkpointing is enabled but checkpointing path is not set properly");
@@ -1062,5 +1076,6 @@ public final class CoverageModelEMParams {
                 " implemented yet");
         Utils.validateArg(numLatents > 0 || !ardEnabled, "ARD must be disabled if the dimension of the" +
                 " bias latent space is zero");
+
     }
 }
