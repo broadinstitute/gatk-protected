@@ -576,7 +576,7 @@ public final class CoverageModelEMComputeBlock {
         /* calculate the required quantities */
         final INDArray contribGMatrix = Nd4j.create(numSamples, numLatents, numLatents);
         final INDArray contribZ = Nd4j.create(numLatents, numSamples);
-        IntStream.range(0, numSamples).parallel().forEach(si -> {
+        IntStream.range(0, numSamples).forEach(si -> {
             final INDArray M_psi_int_row_t = M_Psi_inv_st.getRow(si).transpose();
             contribZ.get(NDArrayIndex.all(), NDArrayIndex.point(si)).assign(
                     W_tl.transpose().mmul(M_Psi_inv_st.getRow(si).mul(Delta_st.getRow(si)).transpose()));
@@ -770,7 +770,7 @@ public final class CoverageModelEMComputeBlock {
         final INDArray B_s = B_st.get(NDArrayIndex.all(), NDArrayIndex.point(targetIndex));
         final INDArray totalPsi = Sigma_s.add(gamma_s).addi(psi);
         final INDArray totalMaskedPsiInverse = M_s.div(totalPsi);
-        final INDArray maskedLogTotalPsi = Transforms.log(totalPsi).muli(M_s);
+        final INDArray maskedLogTotalPsi = Transforms.log(totalPsi, false).muli(M_s); /* this mutates totalPsi */
 
         return maskedLogTotalPsi.addi(B_s.mul(totalMaskedPsiInverse)).muli(-0.5).sumNumber().doubleValue();
     }
@@ -807,9 +807,9 @@ public final class CoverageModelEMComputeBlock {
 
         final INDArray totalPsi = Sigma_st.addColumnVector(gamma_s).addi(psi);
         final INDArray totalMaskedPsiInverse = M_st.div(totalPsi);
-        final INDArray logTotalPsi = Transforms.log(totalPsi);
+        final INDArray maskedLogTotalPsi = Transforms.log(totalPsi, false).muli(M_st); /* this mutates totalPsi */
 
-        return M_st.mul(logTotalPsi).addi(B_st.mul(totalMaskedPsiInverse)).muli(-0.5).sumNumber().doubleValue();
+        return maskedLogTotalPsi.addi(B_st.mul(totalMaskedPsiInverse)).muli(-0.5).sumNumber().doubleValue();
     }
 
     /**
@@ -830,7 +830,7 @@ public final class CoverageModelEMComputeBlock {
         /* calculate (Q + A)^{-1} v */
         final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
         final INDArray W_new_tl = Nd4j.create(numTargets, numLatents);
-        IntStream.range(0, numTargets).parallel().forEach(ti ->
+        IntStream.range(0, numTargets).forEach(ti ->
                 W_new_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(
                         CoverageModelEMWorkspaceMathUtils.linsolve(
                                 Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).dup().add(alpha_ll),
@@ -838,13 +838,13 @@ public final class CoverageModelEMComputeBlock {
 
         /* calculate (Q + A)^{-1} diagonal */
         final INDArray X_inv_diag_tl = Nd4j.create(numTargets, numLatents);
-        IntStream.range(0, numTargets).parallel().forEach(ti -> {
+        IntStream.range(0, numTargets).forEach(ti -> {
             final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
                     .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).dup().add(alpha_ll));
             X_inv_diag_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(Nd4j.diag(X_inv_ll));
         });
 
-        return Transforms.pow(W_new_tl, 2, true).sum(0);//.addi(X_inv_diag_tl).sum(0);
+        return Transforms.pow(W_new_tl, 2, true).addi(X_inv_diag_tl).sum(0);
     }
 
 //    /**
@@ -883,7 +883,7 @@ public final class CoverageModelEMComputeBlock {
 
         /* calculate X = (Q + A)^{-1} */
         final INDArray X_inv_tll = Nd4j.create(numTargets, numLatents, numLatents);
-        IntStream.range(0, numTargets).parallel().forEach(ti -> {
+        IntStream.range(0, numTargets).forEach(ti -> {
             final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
                     .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).dup().add(alpha_ll));
             X_inv_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).assign(X_inv_ll);
@@ -892,7 +892,7 @@ public final class CoverageModelEMComputeBlock {
         /* calculate (Q + A)^{-1} v */
         final INDArray X_inv_v_tl = Nd4j.create(numTargets, numLatents);
         final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
-        IntStream.range(0, numTargets).parallel().forEach(ti ->
+        IntStream.range(0, numTargets).forEach(ti ->
                 X_inv_v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(
                         CoverageModelEMWorkspaceMathUtils.linsolve(
                                 Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).dup().add(alpha_ll),
@@ -1109,7 +1109,7 @@ public final class CoverageModelEMComputeBlock {
 
         /* calculate E[W_{tm}] */
         final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
-        IntStream.range(0, numTargets).parallel().forEach(ti ->
+        IntStream.range(0, numTargets).forEach(ti ->
                 new_W_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()).assign(
                         CoverageModelEMWorkspaceMathUtils.linsolve(
                                 Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
@@ -1129,7 +1129,7 @@ public final class CoverageModelEMComputeBlock {
             final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
             final INDArray new_var_W_tll = Nd4j.create(numTargets, numLatents, numLatents);
             /* calculate cov[W_{tl}, W_{tm}] = (Q_t + A)^{-1}_{mn} */
-            IntStream.range(0, numTargets).parallel().forEach(ti -> {
+            IntStream.range(0, numTargets).forEach(ti -> {
                 final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
                         .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
                         .add(alpha_ll));
@@ -1372,7 +1372,7 @@ public final class CoverageModelEMComputeBlock {
                     final int numTargets = W_tl.shape()[0];
                     final int numLatents = W_tl.shape()[1];
                     final INDArray WzzWT_st = Nd4j.create(numSamples, numTargets);
-                    IntStream.range(0, numSamples).parallel().forEach(si -> {
+                    IntStream.range(0, numSamples).forEach(si -> {
                         final INDArray zz_ll = zz_sll.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all());
                         /* mean_W_contrib_t = \sum_{m,n} E[W_{tm}] E[W_{tn}] E[z_{sm} z_{sn}] */
                         final INDArray mean_W_contrib_t = W_tl.mmul(zz_ll).muli(W_tl).sum(1).transpose();
@@ -1397,7 +1397,7 @@ public final class CoverageModelEMComputeBlock {
                     final int numTargets = W_tl.shape()[0];
                     final int numLatents = W_tl.shape()[1];
                     final INDArray WzzWT_st = Nd4j.create(numSamples, numTargets);
-                    IntStream.range(0, numSamples).parallel().forEach(si -> {
+                    IntStream.range(0, numSamples).forEach(si -> {
                         final INDArray zz_ll = zz_sll.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all());
                         /* mean_W_contrib_t = \sum_{m,n} E[W_{tm}] E[W_{tn}] E[z_{sm} z_{sn}] */
                         final INDArray mean_W_contrib_t = W_tl.mmul(zz_ll).muli(W_tl).sum(1).transpose();
@@ -1463,7 +1463,7 @@ public final class CoverageModelEMComputeBlock {
                     final int numTargets = M_Psi_inv_st_trans.shape()[0];
                     final int numLatents = zz_sll.shape()[1];
                     final INDArray res = Nd4j.create(numTargets, numLatents, numLatents);
-                    IntStream.range(0, numLatents).parallel().forEach(li ->
+                    IntStream.range(0, numLatents).forEach(li ->
                             res.get(NDArrayIndex.all(), NDArrayIndex.all(), NDArrayIndex.point(li)).assign(
                                     M_Psi_inv_st_trans.mmul(zz_sll.get(NDArrayIndex.all(), NDArrayIndex.all(), NDArrayIndex.point(li)))));
                     return new DuplicableNDArray(res);

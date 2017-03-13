@@ -749,7 +749,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final FourierLinearOperatorNDArray regularizerFourierLinearOperator = createRegularizerFourierLinearOperator();
 
         /* FFT by resolving W_tl on l */
-        IntStream.range(0, numLatents).parallel()
+        IntStream.range(0, numLatents)
                 .forEach(li -> {
                     final INDArrayIndex[] slice = {NDArrayIndex.all(), NDArrayIndex.point(li)};
                     filteredBiasCovariates.get(slice).assign(

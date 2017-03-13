@@ -142,7 +142,7 @@ public final class CoverageModelEMParams {
     public static final String ARD_ENABLED_SHORT_NAME = "ARDU";
     public static final String ARD_ENABLED_LONG_NAME = "ARDUpdate";
 
-    public static final ARDUpdateAlgorithm DEFAULT_ARD_UPDATE_ALGORITHM = ARDUpdateAlgorithm.PICARD;
+    public static final ARDUpdateAlgorithm DEFAULT_ARD_UPDATE_ALGORITHM = ARDUpdateAlgorithm.NEWTON;
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 
@@ -180,7 +180,7 @@ public final class CoverageModelEMParams {
     public static final String ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED_SHORT_NAME = "APSMS";
     public static final String ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED_LONG_NAME = "adaptivePsiSolverModeSwitching";
 
-    public static final double DEFAULT_PSI_UPPER_LIMIT = 1.0;
+    public static final double DEFAULT_PSI_UPPER_LIMIT = 5.0;
     public static final String PSI_UPPER_LIMIT_SHORT_NAME = "PUL";
     public static final String PSI_UPPER_LIMIT_LONG_NAME = "psiUpperLimit";
 
@@ -200,7 +200,7 @@ public final class CoverageModelEMParams {
     public static final String PSI_SOLVER_NUM_BISECTIONS_SHORT_NAME = "PSNB";
     public static final String PSI_SOLVER_NUM_BISECTIONS_LONG_NAME = "psiSolverNumBisections";
 
-    public static final int DEFAULT_PSI_SOLVER_REFINEMENT_DEPTH = 3;
+    public static final int DEFAULT_PSI_SOLVER_REFINEMENT_DEPTH = 5;
     public static final String PSI_SOLVER_REFINEMENT_DEPTH_SHORT_NAME = "SSRD";
     public static final String PSI_SOLVER_REFINEMENT_DEPTH_LONG_NAME = "psiSolverRefinementDepth";
 
