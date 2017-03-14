@@ -62,7 +62,7 @@ script:
     echo "==================";
     echo "Running M2 WDL through cromwell";
     sudo bash ../m2_cromwell_tests/run_m2_wdl.sh;
-    cat test_m2_wdl.metadata;
+    cat /home/travis/build/broadinstitute/test_m2_wdl.metadata;
   elif [[ $TEST_DOCKER == true ]]; then
     echo "Building docker image with unit tests...";
     cd scripts/docker/;

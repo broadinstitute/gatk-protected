@@ -140,7 +140,7 @@ task ProcessOptionalArguments {
   }
 
   runtime {
-    docker: "${m2_docker}"
+    docker: "ubuntu:14.04"
     memory: "2 GB"
     disks: "local-disk " + 10 + " HDD"
     preemptible: "${preemptible_attempts}"
