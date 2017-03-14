@@ -10,7 +10,7 @@ REPO_PRJ=${REPO}/${PROJECT}
 #################################################
 # Parsing arguments
 #################################################
-while getopts "e:pslr" option; do
+while getopts "e:pslru" option; do
 	case "$option" in
 		e) GITHUB_TAG="$OPTARG" ;;
 		p) IS_PUSH=true ;;
