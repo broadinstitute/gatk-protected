@@ -59,7 +59,7 @@ script:
     cat test_m2_wdl_multi_mod.json;
     echo "==================";
     echo "Running M2 WDL through cromwell";
-    sudo bash scripts/m2_cromwell_tests/run_m2_wdl.sh;
+    sudo bash ../m2_cromwell_tests/run_m2_wdl.sh;
   elif [[ $TEST_DOCKER == true ]]; then
     echo "Building docker image with unit tests...";
     cd scripts/docker/;
