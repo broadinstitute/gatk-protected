@@ -53,7 +53,6 @@ script:
     cd scripts/docker/;
     echo "Building docker... =========";
     sudo bash build_docker.sh  -e `git rev-parse ${TRAVIS_BRANCH}` -s -u;
-
     echo "Docker build done ==========";
     sed -r "s/__M2_DOCKER__/broadinstitute\/gatk-protected\:$HASH_TO_USE/g" ../m2_cromwell_tests/test_m2_wdl_multi.json >test_m2_wdl_multi_mod.json;
     echo "JSON FILE (modified): =======";
@@ -61,7 +60,6 @@ script:
     echo "==================";
     echo "Running M2 WDL through cromwell";
     bash scripts/m2_cromwell_tests/run_m2_wdl.sh;
-
   elif [[ $TEST_DOCKER == true ]]; then
     echo "Building docker image with unit tests...";
     cd scripts/docker/;
