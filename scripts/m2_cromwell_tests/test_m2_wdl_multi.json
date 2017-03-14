@@ -13,5 +13,7 @@
   "Mutect2_Multi.m2_docker": "__M2_DOCKER__",
   "Mutect2_Multi.oncotator_docker": "broadinstitute/oncotator:1.9.2.0",
   "Mutect2_Multi.preemptible_attempts": 2,
-  "Mutect2_Multi.artifact_modes": ["G/T", "C/T"]
+  "Mutect2_Multi.artifact_modes": ["G/T", "C/T"],
+  "Mutect2_Multi.picard_jar": "/home/travis/picard.jar",
+  "Mutect2_Multi.onco_ds_local_db_dir": "/root/"
 }
