@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.coveragemodel;
 
 import com.google.cloud.dataflow.sdk.repackaged.com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.RandomGeneratorFactory;
 import org.apache.logging.log4j.Logger;
@@ -438,8 +439,11 @@ public final class CoverageModelParameters implements Serializable {
         final INDArray originalModelVarBiasCovariates = model.getVarBiasCovariates();
 
         /* re-arrange targets, mean log bias, and target-specific unexplained variance */
+        final Map<Target, Integer> modelTargetsToIndexMap = IntStream.range(0, modelTargetList.size())
+                .mapToObj(ti -> ImmutablePair.of(modelTargetList.get(ti), ti))
+                .collect(Collectors.toMap(Pair<Target, Integer>::getLeft, Pair<Target, Integer>::getRight));
         final int[] newTargetIndicesInOriginalModel = finalTargetList.stream()
-                .mapToInt(modelTargetList::indexOf)
+                .mapToInt(modelTargetsToIndexMap::get)
                 .toArray();
         final INDArray newModelTargetMeanBias = Nd4j.create(new int[] {1, finalTargetList.size()});
         final INDArray newModelTargetUnexplainedVariance = Nd4j.create(new int[] {1, finalTargetList.size()});
