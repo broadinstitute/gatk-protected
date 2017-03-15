@@ -146,7 +146,7 @@ public final class CoverageModelEMParams {
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 
-    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-6;
+    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-2;
     public static final String INITIAL_ARD_PRECISION_SHORT_NAME = "IARDP";
     public static final String INITIAL_ARD_PRECISION_LONG_NAME = "initialARDPrecision";
 

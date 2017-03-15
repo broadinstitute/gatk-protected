@@ -65,7 +65,7 @@ public final class CoverageModelGlobalConstants implements Serializable {
     /**
      * Random generator seed for initial model parameters
      */
-    public static final long RANDOM_MODEL_SEED = 1984;
+    public static final long RANDOM_MODEL_SEED = 1986;
 
     /**
      * Copy ratio max likelihood estimates output file name
@@ -146,6 +146,11 @@ public final class CoverageModelGlobalConstants implements Serializable {
      * History of ARD coefficients of bias covariates output file
      */
     public static final String BIAS_COVARIATES_ARD_COEFFICIENTS_HISTORY_OUTPUT_FILE = "bias_covariates_ARD_coefficients_history.tsv";
+
+    /**
+     * Log likelihood history output file
+     */
+    public static final String LOG_LIKELIHOODS_HISTORY_FILENAME = "log_likelihood_history.tsv";
 
     /**
      * Processed targets output file name (order may be different than original, and some may have been dropped)

@@ -242,6 +242,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
     private final boolean ardEnabled;
 
+    protected final List<Double> logLikelihoodHistory;
 
     /**
      * Public constructor
@@ -317,6 +318,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         processedSampleSexGenotypeData = Collections.unmodifiableList(processedSampleNameList.stream()
                 .map(sexGenotypeDataCollection::getSampleSexGenotypeData)
                 .collect(Collectors.toList()));
+        logLikelihoodHistory = new ArrayList<>();
+
         logger.info(String.format("Number of samples before and after pre-processing read counts: (%d, %d)",
                 rawReadCounts.columnNames().size(), numSamples));
         logger.info(String.format("Number of targets before and after pre-processing read counts: (%d, %d)",
@@ -1893,7 +1896,10 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         }
 
         /* the final result is normalized for number of samples */
-        return (logLikelihoodAllSamples + contribARD) / numSamples;
+        double logLikelihood = (logLikelihoodAllSamples + contribARD) / numSamples;
+        logLikelihoodHistory.add(logLikelihood);
+
+        return logLikelihood;
     }
 
     /**
@@ -2481,6 +2487,15 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray sampleLogLikelihoods = Nd4j.create(getLogLikelihoodPerSample(), new int[] {numSamples, 1});
         Nd4jIOUtils.writeNDArrayMatrixToTextFile(sampleLogLikelihoods, sampleLogLikelihoodsFile,
                 "SAMPLE_NAME", sampleNames, Collections.singletonList("LOG_LIKELIHOOD"));
+
+        /* save log likelihood history */
+        if (logLikelihoodHistory.size() > 0) {
+            final File logLikelihoodHistoryFile = new File(outputPath, CoverageModelGlobalConstants.LOG_LIKELIHOODS_HISTORY_FILENAME);
+            final INDArray logLikelihoodHistoryNDArray = Nd4j.create(logLikelihoodHistory.stream()
+                    .mapToDouble(Double::valueOf).toArray(), new int[] {logLikelihoodHistory.size(), 1});
+            Nd4jIOUtils.writeNDArrayMatrixToTextFile(logLikelihoodHistoryNDArray, logLikelihoodHistoryFile,
+                    "LOG_LIKELIHOOD", null, null);
+        }
     }
 
     /**
