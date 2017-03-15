@@ -43,7 +43,7 @@ script:
     echo "Running ACNV pipeline";
     bash scripts/acnv_cromwell_tests/run_acnv_pipelines.sh;
   elif [[ $TEST_DOCKER == true ]]; then
-    echo "Building docker image with unit tests...";
+    echo "Building docker image with unit tests...Branch: ${TRAVIS_BRANCH}";
     sudo cp -rfp scripts/docker/Dockerfile . ;
     sudo docker build -t broadinstitute/gatk-protected:${TRAVIS_BRANCH} --build-arg GITHUB_TAG=${TRAVIS_BRANCH} --build-arg GITHUB_DIR=\  . ;
   else
