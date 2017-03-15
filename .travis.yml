@@ -45,7 +45,7 @@ script:
   elif [[ $TEST_DOCKER == true ]]; then
     echo "Building docker image with unit tests...";
     sudo cp -rfp scripts/docker/Dockerfile . ;
-    sudo docker build -t broadinstitute/gatk-protected:${TRAVIS_PULL_REQUEST_SHA} --build-arg GITHUB_TAG=${TRAVIS_PULL_REQUEST_SHA} --build-arg GITHUB_DIR=\  . ;
+    sudo docker build -t broadinstitute/gatk-protected:${TRAVIS_BRANCH} --build-arg GITHUB_TAG=${TRAVIS_BRANCH} --build-arg GITHUB_DIR=\  . ;
   else
     ./gradlew check;
   fi
