@@ -411,6 +411,7 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
                     int numAll = tumorContext.getBasePileup().getNumberOfElements(p -> true);
                     PileupSummary pileupSummary = new PileupSummary(context.getContig(), context.getStart(), numRef, numNonRef, -1, (double) numNonRef/numAll);
                     activeRegions.add(pileupSummary);
+                    // Takuto: END TEST
                 }
             } else {
                 prob = 1;
