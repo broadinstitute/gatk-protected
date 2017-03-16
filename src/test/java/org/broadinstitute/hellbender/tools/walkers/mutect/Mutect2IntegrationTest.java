@@ -16,7 +16,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Created by davidben on 9/1/16.
@@ -108,7 +107,7 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         new Main().instanceMain(makeCommandLineArgs(Arrays.asList("-V", unfilteredVcf.getAbsolutePath(), "-O", filteredVcf.getAbsolutePath()), "FilterMutectCalls"));
 
 
-        final long numVariants = StreamSupport.stream(new FeatureDataSource<VariantContext>(filteredVcf).spliterator(), false)
+        final long numVariants = Utils.stream(new FeatureDataSource<VariantContext>(filteredVcf))
                 .filter(vc -> vc.getFilters().isEmpty()).count();
 
         Assert.assertEquals(numVariants, 0);
@@ -139,7 +138,7 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         };
 
         runCommandLine(args);
-        final long numVariants = StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false).count();
+        final long numVariants = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf)).count();
         Assert.assertTrue(numVariants < 4);
     }
 
@@ -199,11 +198,11 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
 
     //TODO: bring this to HaplotypeCallerIntegrationTest
     private Pair<Double, Double> calculateConcordance(final File outputVcf, final File truthVcf ) {
-        final Set<String> outputKeys = StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false)
+        final Set<String> outputKeys = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf))
                 .filter(vc -> vc.getFilters().isEmpty())
                 .filter(vc -> ! vc.isSymbolicOrSV())
                 .map(vc -> keyForVariant(vc)).collect(Collectors.toSet());
-        final Set<String> truthKeys = StreamSupport.stream(new FeatureDataSource<VariantContext>(truthVcf).spliterator(), false)
+        final Set<String> truthKeys = Utils.stream(new FeatureDataSource<VariantContext>(truthVcf))
                 .filter(vc -> vc.getFilters().isEmpty())
                 .filter(vc -> ! vc.isSymbolicOrSV())
                 .map(vc -> keyForVariant(vc)).collect(Collectors.toSet());
@@ -212,13 +211,13 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         final long falsePositives = outputKeys.size() - truePositives;
 
         // for debugging
-        final List<VariantContext> falseNegatives = StreamSupport.stream(new FeatureDataSource<VariantContext>(truthVcf).spliterator(), false)
+        final List<VariantContext> falseNegatives = Utils.stream(new FeatureDataSource<VariantContext>(truthVcf))
                 .filter(vc -> vc.getFilters().isEmpty())
                 .filter(vc -> ! vc.isSymbolicOrSV())
                 .filter(vc -> !outputKeys.contains(keyForVariant(vc)))
                 .collect(Collectors.toList());
 
-        final List<VariantContext> falsePositivesList = StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false)
+        final List<VariantContext> falsePositivesList = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf))
                 .filter(vc -> vc.getFilters().isEmpty())
                 .filter(vc -> !truthKeys.contains(keyForVariant(vc)))
                 .collect(Collectors.toList());

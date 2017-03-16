@@ -4,8 +4,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.FeatureDataSource;
-import org.broadinstitute.hellbender.tools.walkers.validation.AnnotateVcfWithExpectedAlleleFraction;
-import org.broadinstitute.hellbender.tools.walkers.validation.MixingFraction;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -13,7 +12,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Created by David Benjamin on 1/31/17.
@@ -44,9 +42,9 @@ public class AnnotateVcfWithExpectedAlleleFractionIntegrationTest extends Comman
 
         runCommandLine(arguments);
 
-        final List<VariantContext> input = StreamSupport.stream(new FeatureDataSource<VariantContext>(INPUT_VCF).spliterator(), false)
+        final List<VariantContext> input = Utils.stream(new FeatureDataSource<VariantContext>(INPUT_VCF))
                 .collect(Collectors.toList());
-        final List<VariantContext> output = StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false)
+        final List<VariantContext> output = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf))
                 .collect(Collectors.toList());
 
         Assert.assertEquals(input.size(), output.size());

@@ -5,6 +5,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFConstants;
 import org.broadinstitute.hellbender.engine.FeatureDataSource;
 import org.broadinstitute.hellbender.tools.picard.analysis.artifacts.Transition;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
@@ -14,7 +15,6 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.StreamSupport;
 
 
 public class OrientationBiasUtilsUnitTest extends BaseTest {
@@ -54,7 +54,7 @@ public class OrientationBiasUtilsUnitTest extends BaseTest {
     }
 
     private List<VariantContext> getVariantContexts(FeatureDataSource<VariantContext> featureDataSource) {
-        return StreamSupport.stream(featureDataSource.spliterator(), false).collect(Collectors.toList());
+        return Utils.stream(featureDataSource).collect(Collectors.toList());
     }
 
     @Test

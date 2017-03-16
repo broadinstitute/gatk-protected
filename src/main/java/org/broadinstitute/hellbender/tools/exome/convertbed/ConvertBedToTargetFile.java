@@ -14,11 +14,11 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.exome.Target;
 import org.broadinstitute.hellbender.tools.exome.TargetWriter;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 @CommandLineProgramProperties(
         summary = "Converts a target bed file to the target file format. Empty files will probably fail. Drops bed file columns other than the first four.",
@@ -55,7 +55,7 @@ public class ConvertBedToTargetFile extends CommandLineProgram {
         final Class<? extends Feature> featureType = codec.getFeatureType();
         if (BEDFeature.class.isAssignableFrom(featureType)) {
             final FeatureDataSource<? extends BEDFeature> source = new FeatureDataSource<>(inputBedFile);
-            final List<Target> targets = StreamSupport.stream(source.spliterator(), false).map(ConvertBedToTargetFile::createTargetFromBEDFeature)
+            final List<Target> targets = Utils.stream(source).map(ConvertBedToTargetFile::createTargetFromBEDFeature)
                     .collect(Collectors.toList());
             TargetWriter.writeTargetsToFile(outFile, targets);
         } else {
