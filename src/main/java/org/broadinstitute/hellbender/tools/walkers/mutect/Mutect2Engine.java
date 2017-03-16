@@ -16,6 +16,7 @@ import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.filters.WellformedReadFilter;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.VariantAnnotatorEngine;
+import org.broadinstitute.hellbender.tools.walkers.contamination.PileupSummary;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.GenotypingOutputMode;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.*;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.readthreading.ReadThreadingAssembler;
@@ -76,6 +77,8 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
     private AssemblyRegionTrimmer trimmer = new AssemblyRegionTrimmer();
 
     private final Predicate<GATKRead> useReadForGenotyping;
+
+    public final List<PileupSummary> activeRegions = new ArrayList<>();
 
     /**
      * Create and initialize a new HaplotypeCallerEngine given a collection of HaplotypeCaller arguments, a reads header,
@@ -401,6 +404,13 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
                 if (normalLod > 1.0 && nonRefInNormal < 4) {
                     prob = 1;
                     logger.debug("At " + ref.getInterval().toString() + " tlod: " + tumorLod + " nlod: " + normalLod + " with normal non-ref of " + nonRefInNormal);
+
+                    // Takuto: START TEST
+                    int numNonRef = tumorContext.getBasePileup().getNumberOfElements(p -> isNonRef(ref.getBase(), p));
+                    int numRef = tumorContext.getBasePileup().getNumberOfElements(p -> ! isNonRef(ref.getBase(), p));
+                    int numAll = tumorContext.getBasePileup().getNumberOfElements(p -> true);
+                    PileupSummary pileupSummary = new PileupSummary(context.getContig(), context.getStart(), numRef, numNonRef, -1, (double) numNonRef/numAll);
+                    activeRegions.add(pileupSummary);
                 }
             } else {
                 prob = 1;

@@ -11,6 +11,7 @@ import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
 import org.broadinstitute.hellbender.engine.*;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
+import org.broadinstitute.hellbender.tools.walkers.contamination.PileupSummary;
 import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
 
 import java.io.File;
@@ -146,6 +147,7 @@ public final class Mutect2 extends AssemblyRegionWalker {
 
     @Override
     public Object onTraversalSuccess() {
+        PileupSummary.writePileupSummaries(m2Engine.activeRegions, new File("/humgen/gsa-hpprojects/dev/tsato/tmp/active-regions-before.txt"));
         return "SUCCESS";
     }
 
