@@ -16,10 +16,10 @@ import org.broadinstitute.hellbender.tools.exome.HashedListTargetCollection;
 import org.broadinstitute.hellbender.tools.exome.Target;
 import org.broadinstitute.hellbender.tools.exome.TargetCollection;
 import org.broadinstitute.hellbender.utils.*;
+import org.broadinstitute.hellbender.utils.hmm.ForwardBackwardAlgorithm;
 import org.broadinstitute.hellbender.utils.hmm.interfaces.AlleleMetadataProducer;
 import org.broadinstitute.hellbender.utils.hmm.interfaces.CallStringProducer;
 import org.broadinstitute.hellbender.utils.hmm.interfaces.ScalarProducer;
-import org.broadinstitute.hellbender.utils.hmm.ForwardBackwardAlgorithm;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -109,7 +109,7 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
      * Calculating variance posterior on long segments is time consuming; we assume hidden states become
      * independent if their separation is larger than the following value
      */
-    public static final double INDEPENDENT_TARGETS_SEPARATION_THRESHOLD = 1000;
+    public static final double INDEPENDENT_TARGETS_SEPARATION_THRESHOLD = 0;
 
     /**
      * Threshold used to determine best way to calculate log(1- exp(a))
@@ -264,6 +264,7 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
         }
         logger.info("Generating genotyping segments...");
         final List<GenotypingSegment> genotypingSegments = composeGenotypingSegments(allSegmentsBySampleName);
+        logger.info("Composing and writing variant contexts...");
         composeVariantContextAndWrite(genotypingSegments, outputWriter, variantPrefix, commandLine);
     }
 
@@ -308,8 +309,9 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
      */
     private Map<String, List<HiddenStateSegment<S, T>>> calculateBestPathSegments() {
         final Map<String, List<HiddenStateSegment<S, T>>> allSegments = new LinkedHashMap<>(sampleNames.size());
-        IntStream.range(0, numSamples)
+        IntStream.range(0, numSamples).parallel()
                 .forEach(sampleIndex -> {
+                    logger.info("Current sample: " + sampleNames.get(sampleIndex) + "...");
                     final String sampleName = sampleNames.get(sampleIndex);
                     final TargetCollection<T> targets = sampleTargets.get(sampleIndex);
                     final List<S> bestPath = sampleBestPaths.get(sampleIndex);
@@ -354,7 +356,7 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
             final S nextState = pathIterator.next();
             final String nextContig = targetIterator.next().getContig();
             final boolean contigChanged = !currentContig.equals(nextContig);
-            final boolean stateChanged = (nextState != currentState);
+            final boolean stateChanged = !nextState.equals(currentState);
             if (contigChanged || stateChanged) {
                 final int newCurrentStartIndex = pathIterator.previousIndex();
                 result.add(new ImmutablePair<>(new IndexRange(currentStartIndex, newCurrentStartIndex), currentState));
@@ -592,40 +594,41 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
         builder.chr(segment.getContig());
         builder.start(segment.getStart());
         builder.stop(segment.getEnd());
-        builder.id(String.format(variantPrefix + "_%s_%d_%d", segment.getContig(),
-                segment.getStart(), segment.getEnd()));
+        builder.id(String.format(variantPrefix + "_%s_%d_%d", segment.getContig(), segment.getStart(), segment.getEnd()));
 
-        final List<Genotype> genotypes = IntStream.range(0, sampleNames.size())
+        final List<Genotype> genotypes = IntStream.range(0, sampleNames.size()).parallel()
                 .mapToObj(sampleIndex -> {
-                    final String sample = sampleNames.get(sampleIndex);
-                    final ForwardBackwardAlgorithm.Result<D, T, S> fbResult =
-                            sampleForwardBackwardResults.get(sampleIndex);
-
+                    final String sampleName = sampleNames.get(sampleIndex);
+                    final ForwardBackwardAlgorithm.Result<D, T, S> fbResult = sampleForwardBackwardResults.get(sampleIndex);
                     // Different samples could have different lists of targets; we must find the index
                     // range of the segment for each sample separately
                     final IndexRange sampleIndexRange = sampleTargets.get(sampleIndex).indexRange(segment);
-
-                    final double[] log10GP = calculateLog10GP(sampleIndexRange, fbResult);
-                    final double[] SQ = calculateSQ(sampleIndexRange, fbResult);
-                    final double[] LQ = calculateLQ(sampleIndexRange, fbResult);
-                    final double[] RQ = calculateRQ(sampleIndexRange, fbResult);
-                    final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(log10GP);
-                    final int[] PL = likelihoods.getAsPLs();
-                    final int GQ = calculateGQ(PL);
-                    final int genotypeCall = MathUtils.maxElementIndex(log10GP);
-
-                    final GenotypeBuilder genotypeBuilder = new GenotypeBuilder(sample);
-                    genotypeBuilder.PL(PL);
-                    genotypeBuilder.alleles(Collections.singletonList(allAlleles.get(genotypeCall)));
-                    genotypeBuilder.attribute(DISCOVERY_KEY, segment.containingSamples.contains(sample) ?
-                            DISCOVERY_TRUE : DISCOVERY_FALSE);
-                    genotypeBuilder.attribute(SOME_QUALITY_KEY, SQ);
-                    genotypeBuilder.attribute(START_QUALITY_KEY, LQ);
-                    genotypeBuilder.attribute(END_QUALITY_KEY, RQ);
-                    genotypeBuilder.attribute(NUMBER_OF_SAMPLE_SPECIFIC_TARGETS_KEY, sampleIndexRange.size());
-                    genotypeBuilder.GQ(GQ);
-
-                    return genotypeBuilder.make();
+                    if (sampleIndexRange.size() > 0) { /* the sample has some targets in this genotyping segment */
+                        final double[] log10GP = calculateLog10GP(sampleIndexRange, fbResult);
+                        final double[] SQ = calculateSQ(sampleIndexRange, fbResult);
+                        final double[] LQ = calculateLQ(sampleIndexRange, fbResult);
+                        final double[] RQ = calculateRQ(sampleIndexRange, fbResult);
+                        final GenotypeLikelihoods likelihoods = GenotypeLikelihoods.fromLog10Likelihoods(log10GP);
+                        final int[] PL = likelihoods.getAsPLs();
+                        final int GQ = calculateGQ(PL);
+                        final int genotypeCall = MathUtils.maxElementIndex(log10GP);
+                        final GenotypeBuilder genotypeBuilder = new GenotypeBuilder(sampleName);
+                        genotypeBuilder.PL(PL);
+                        genotypeBuilder.alleles(Collections.singletonList(allAlleles.get(genotypeCall)));
+                        genotypeBuilder.attribute(DISCOVERY_KEY, segment.containingSamples.contains(sampleName) ?
+                                DISCOVERY_TRUE : DISCOVERY_FALSE);
+                        genotypeBuilder.attribute(SOME_QUALITY_KEY, SQ);
+                        genotypeBuilder.attribute(START_QUALITY_KEY, LQ);
+                        genotypeBuilder.attribute(END_QUALITY_KEY, RQ);
+                        genotypeBuilder.attribute(NUMBER_OF_SAMPLE_SPECIFIC_TARGETS_KEY, sampleIndexRange.size());
+                        genotypeBuilder.GQ(GQ);
+                        return genotypeBuilder.make();
+                    } else { /* the sample has no targets in this genotyping segment */
+                        final GenotypeBuilder genotypeBuilder = new GenotypeBuilder(sampleName);
+                        genotypeBuilder.alleles(Collections.singletonList(Allele.NO_CALL));
+                        genotypeBuilder.noAD().noDP().noGQ().noPL();
+                        return genotypeBuilder.make();
+                    }
                 }).collect(Collectors.toList());
 
         final int alleleNumber = genotypes.size();
@@ -662,7 +665,7 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
                 VCFHeaderVersion.VCF4_2.getVersionString()));
 
         /* add description of alternative alleles */
-        alternativeStates.stream().forEach(s -> s.addHeaderLineTo(result));
+        alternativeStates.forEach(s -> s.addHeaderLineTo(result));
 
         /* add command line */
         if (commandLine != null) {
@@ -716,12 +719,20 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
                                                @Nonnull final String variantPrefix,
                                                @Nullable final String commandLine) {
         outputWriter.writeHeader(composeHeader(commandLine));
+        int counter = 0;
+        int prevReportedDonePercentage = -1;
         for (final GenotypingSegment segment : genotypingSegments) {
+            final int donePercentage = (int)(100 * counter / (double)genotypingSegments.size());
+            if (donePercentage % 10 == 0 && prevReportedDonePercentage != donePercentage) {
+                logger.info(String.format("%d%% done...", donePercentage));
+                prevReportedDonePercentage = donePercentage;
+            }
             final VariantContext variant = composeVariantContext(segment, variantPrefix);
+            counter++;
             outputWriter.add(variant);
         }
+        logger.info("100% done.");
     }
-
 
     /****************************************************************************************
      * methods related to calculating various quality scores, probabilities, and statistics *
@@ -795,7 +806,7 @@ public class HiddenMarkovModelPostProcessor<D, S extends AlleleMetadataProducer 
     }
 
     /**
-     * Calculates genotyping probability in log_10 scale for a segment
+     * Calculates genotype probability in log_10 scale for a segment
      *
      * @param targetIndexes the target index range for the segment for the -specific- sample
      * @param fbResult forward-backward result for the -specific- sample

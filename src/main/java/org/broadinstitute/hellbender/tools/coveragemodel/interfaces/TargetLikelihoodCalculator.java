@@ -1,6 +1,9 @@
-package org.broadinstitute.hellbender.tools.coveragemodel;
+package org.broadinstitute.hellbender.tools.coveragemodel.interfaces;
 
 import org.broadinstitute.hellbender.tools.exome.Target;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Calculate log-likelihoods of observed coverage as a function of copy ratio.  This is needed for
@@ -21,5 +24,5 @@ import org.broadinstitute.hellbender.tools.exome.Target;
  */
 @FunctionalInterface
 public interface TargetLikelihoodCalculator<D> {
-    double logLikelihood(final D likelihoodData, final double copyRatio, final Target target);
+    double logLikelihood(@Nonnull final D datum, final double copyRatio, @Nullable final Target target);
 }
