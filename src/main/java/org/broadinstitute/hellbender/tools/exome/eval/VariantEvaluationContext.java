@@ -69,9 +69,8 @@ public class VariantEvaluationContext extends VariantContext {
         final double[] alternativeAllelesFrequencies = GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(this, key,
                 () -> { return new double[alleles.size() - 1]; }, missingValue);
         final double[] result = new double[alleles.size()];
-        if (alternativeAllelesFrequencies.length != alleles.size() - 1) {
-            throw new IllegalStateException(String.format("We expect the %s Info annotation to contain an array of %d elements (alt. allele count)", key, alleles.size() - 1));
-        }
+        Utils.validate(alternativeAllelesFrequencies.length == alleles.size() - 1,
+                () -> String.format("We expect the %s Info annotation to contain an array of %d elements (alt. allele count)", key, alleles.size() - 1));
         System.arraycopy(alternativeAllelesFrequencies, 0, result, 1, alternativeAllelesFrequencies.length);
         final double nonRefSum = MathUtils.sum(result);
         Utils.validateArg(nonRefSum <= 1.0, () -> String.format("The sum of element on annotation %s cannot greater than 1.0: %g", key, nonRefSum));

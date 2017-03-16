@@ -1,5 +1,7 @@
 package org.broadinstitute.hellbender.utils.mcmc;
 
+import org.broadinstitute.hellbender.utils.Utils;
+
 import java.io.Serializable;
 
 /**
@@ -39,9 +41,7 @@ public final class PosteriorSummary implements Serializable {
      * @throws IllegalStateException    if deciles were not set previously
      */
     public DecileCollection getDeciles() {
-        if (deciles == null) {
-            throw new IllegalStateException("Cannot get deciles before they are set.");
-        }
+        Utils.validate(deciles != null, "Cannot get deciles before they are set.");
         return deciles;
     }
 

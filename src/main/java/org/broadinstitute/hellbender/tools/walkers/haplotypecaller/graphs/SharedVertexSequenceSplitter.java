@@ -173,9 +173,7 @@ public final class SharedVertexSequenceSplitter {
         Utils.validateArg( top != null || bot != null, "Cannot update graph without at least one top or bot vertex, but both were null");
         Utils.validateArg( top == null || outer.containsVertex(top), () -> "top " + top + " not found in graph " + outer);
         Utils.validateArg( bot == null || outer.containsVertex(bot), () -> "bot " + bot + " not found in graph " + outer);
-        if ( splitGraph == null ) {
-            throw new IllegalStateException("Cannot call updateGraph until split() has been called");
-        }
+        Utils.validate( splitGraph != null, "Cannot call updateGraph until split() has been called");
 
         outer.removeAllVertices(toSplits);
         outer.removeAllEdges(edgesToRemove);

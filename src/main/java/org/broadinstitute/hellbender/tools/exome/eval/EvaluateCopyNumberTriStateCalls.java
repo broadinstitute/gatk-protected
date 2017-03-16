@@ -35,7 +35,6 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * Tool to evaluate the output of {@link XHMMSegmentCaller}.
@@ -686,8 +685,7 @@ public final class EvaluateCopyNumberTriStateCalls extends CommandLineProgram {
      * @return never {@code null}, potentially immutably
      */
     private List<VariantContext> variantQueryToList(final VCFFileReader reader, final Locatable interval) {
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(reader.query(interval.getContig(),
-                interval.getStart(), interval.getEnd()), Spliterator.NONNULL),false)
+        return Utils.stream(reader.query(interval.getContig(), interval.getStart(), interval.getEnd()))
                 .sorted(IntervalUtils.LEXICOGRAPHICAL_ORDER_COMPARATOR)
                 .collect(Collectors.toList());
     }

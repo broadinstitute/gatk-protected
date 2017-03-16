@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.sexgenotyper;
 
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
 
 import javax.annotation.Nonnull;
@@ -64,11 +65,8 @@ public final class SexGenotypeData implements Serializable {
      * @return set of genotype string identifiers
      */
     public Set<String> getSexGenotypesSet() {
-        if (logLikelihoodMap != null) {
-            return logLikelihoodMap.keySet();
-        } else {
-            throw new IllegalStateException("Genotyping inference data is not available");
-        }
+        Utils.validate(logLikelihoodMap != null, "Genotyping inference data is not available");
+        return logLikelihoodMap.keySet();
     }
 
     /**
@@ -77,11 +75,8 @@ public final class SexGenotypeData implements Serializable {
      * @return log likelihood
      */
     public double getLogLikelihoodPerGenotype(@Nonnull final String genotype) {
-        if (logLikelihoodMap != null) {
-            return logLikelihoodMap.get(genotype);
-        } else {
-            throw new IllegalStateException("Genotyping inference data is not available");
-        }
+        Utils.validate(logLikelihoodMap != null, "Genotyping inference data is not available");
+        return logLikelihoodMap.get(genotype);
     }
 
     /**

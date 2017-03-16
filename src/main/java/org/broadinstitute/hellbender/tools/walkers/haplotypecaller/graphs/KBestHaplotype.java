@@ -82,9 +82,7 @@ public abstract class KBestHaplotype implements Comparable<KBestHaplotype> {
             return haplotype;
         }
         haplotype = new Haplotype(bases(),isReference());
-        if (score() > 0) {
-            throw new IllegalStateException("score cannot be greater than 0: " + score());
-        }
+        Utils.validate(score() <= 0, () -> "score cannot be greater than 0: " + score());
         haplotype.setScore(score());
         return haplotype;
     }

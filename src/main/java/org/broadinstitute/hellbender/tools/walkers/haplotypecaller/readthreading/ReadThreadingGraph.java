@@ -199,9 +199,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
      */
     private void addSequence(final String seqName, final String sampleName, final byte[] sequence, final int start, final int stop, final int count, final boolean isRef) {
         // note that argument testing is taken care of in SequenceForKmers
-        if ( alreadyBuilt ) {
-            throw new IllegalStateException("Graph already built");
-        }
+        Utils.validate( !alreadyBuilt, "Graph already built");
 
         // get the list of sequences for this sample
         List<SequenceForKmers> sampleSequences = pending.get(sampleName);
@@ -237,9 +235,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
 
         // keep track of information about the reference source
         if ( seqForKmers.isRef ) {
-            if ( refSource != null ) {
-                throw new IllegalStateException("Found two refSources! prev: " + refSource + ", new: " + startingVertex);
-            }
+            Utils.validate( refSource == null, () -> "Found two refSources! prev: " + refSource + ", new: " + startingVertex);
             refSource = new Kmer(seqForKmers.sequence, seqForKmers.start, kmerSize);
         }
 
@@ -473,10 +469,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
     public void recoverDanglingTails(final int pruneFactor, final int minDanglingBranchLength) {
         Utils.validateArg(pruneFactor >= 0, () -> "pruneFactor must be non-negative but was " + pruneFactor);
         Utils.validateArg(minDanglingBranchLength >= 0, () -> "minDanglingBranchLength must be non-negative but was " + minDanglingBranchLength);
-
-        if ( ! alreadyBuilt ) {
-            throw new IllegalStateException("recoverDanglingTails requires the graph be already built");
-        }
+        Utils.validate(alreadyBuilt, "recoverDanglingTails requires the graph be already built");
 
         int attempted = 0;
         int nRecovered = 0;
@@ -500,9 +493,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
     public void recoverDanglingHeads(final int pruneFactor, final int minDanglingBranchLength) {
         Utils.validateArg(pruneFactor >= 0, () -> "pruneFactor must be non-negative but was " + pruneFactor);
         Utils.validateArg(minDanglingBranchLength >= 0, () -> "minDanglingBranchLength must be non-negative but was " + minDanglingBranchLength);
-        if ( ! alreadyBuilt ) {
-            throw new IllegalStateException("recoverDanglingHeads requires the graph be already built");
-        }
+        Utils.validate(alreadyBuilt, "recoverDanglingHeads requires the graph be already built");
 
         // we need to build a list of dangling heads because that process can modify the graph (and otherwise generate
         // a ConcurrentModificationException if we do it while iterating over the vertexes)
@@ -530,9 +521,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
      * @return 1 if we successfully recovered the vertex and 0 otherwise
      */
     private int recoverDanglingTail(final MultiDeBruijnVertex vertex, final int pruneFactor, final int minDanglingBranchLength) {
-        if ( outDegreeOf(vertex) != 0 ) {
-            throw new IllegalStateException("Attempting to recover a dangling tail for " + vertex + " but it has out-degree > 0");
-        }
+        Utils.validate( outDegreeOf(vertex) == 0, () -> "Attempting to recover a dangling tail for " + vertex + " but it has out-degree > 0");
 
         // generate the CIGAR string from Smith-Waterman between the dangling tail and reference paths
         final DanglingChainMergeHelper danglingTailMergeResult = generateCigarAgainstDownwardsReferencePath(vertex, pruneFactor, minDanglingBranchLength);
@@ -555,9 +544,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
      * @return 1 if we successfully recovered a vertex and 0 otherwise
      */
     private int recoverDanglingHead(final MultiDeBruijnVertex vertex, final int pruneFactor, final int minDanglingBranchLength) {
-        if ( inDegreeOf(vertex) != 0 ) {
-            throw new IllegalStateException("Attempting to recover a dangling head for " + vertex + " but it has in-degree > 0");
-        }
+        Utils.validate( inDegreeOf(vertex) == 0, () -> "Attempting to recover a dangling head for " + vertex + " but it has in-degree > 0");
 
         // generate the CIGAR string from Smith-Waterman between the dangling tail and reference paths
         final DanglingChainMergeHelper danglingHeadMergeResult = generateCigarAgainstUpwardsReferencePath(vertex, pruneFactor, minDanglingBranchLength);
@@ -1076,13 +1063,11 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
         addVertex(newVertex);
 
         // make sure we aren't adding duplicates (would be a bug)
-        if ( vertexSet().size() != prevSize + 1) {
-            throw new IllegalStateException("Adding vertex " + newVertex + " to graph didn't increase the graph size");
-        }
+        Utils.validate( vertexSet().size() == prevSize + 1, () -> "Adding vertex " + newVertex + " to graph didn't increase the graph size");
 
         // add the vertex to the unique kmer map, if it is in fact unique
-        if ( ! nonUniqueKmers.contains(kmer) && ! uniqueKmers.containsKey(kmer) ) // TODO -- not sure this last test is necessary
-        {
+        // TODO -- not sure this last test is necessary
+        if ( ! nonUniqueKmers.contains(kmer) && ! uniqueKmers.containsKey(kmer) ) {
             uniqueKmers.put(kmer, newVertex);
         }
 
@@ -1117,9 +1102,7 @@ public class ReadThreadingGraph extends BaseGraph<MultiDeBruijnVertex, MultiSamp
         final Kmer kmer = new Kmer(sequence, kmerStart, kmerSize);
         final MultiDeBruijnVertex uniqueMergeVertex = getUniqueKmerVertex(kmer, false);
 
-        if ( isRef && uniqueMergeVertex != null ) {
-            throw new IllegalStateException("Found a unique vertex to merge into the reference graph " + prevVertex + " -> " + uniqueMergeVertex);
-        }
+        Utils.validate( !(isRef && uniqueMergeVertex != null), () -> "Found a unique vertex to merge into the reference graph " + prevVertex + " -> " + uniqueMergeVertex);
 
         // either use our unique merge vertex, or create a new one in the chain
         final MultiDeBruijnVertex nextVertex = uniqueMergeVertex == null ? createVertex(kmer) : uniqueMergeVertex;

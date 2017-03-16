@@ -5,7 +5,6 @@ import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFConstants;
-import org.broadinstitute.hellbender.engine.ReadsContext;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.locusiterator.AlignmentStateMachine;
@@ -14,7 +13,6 @@ import org.broadinstitute.hellbender.utils.pileup.ReadPileup;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 
 import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -23,7 +21,6 @@ import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * Miscellaneous utilities to work with Variant data structures.
@@ -106,8 +103,7 @@ public class GATKProtectedVariantContextUtils {
             }
             return result;
         } else if (value.getClass().isAssignableFrom(Iterable.class)) {
-            return StreamSupport.stream(((Iterable<?>)value).spliterator(), false)
-                    .mapToDouble(doubleConverter).toArray();
+            return Utils.stream(((Iterable<?>)value)).mapToDouble(doubleConverter).toArray();
         } else { // as a last resort with transform it into an String and try to parse an array out of it.
             return Stream.of(String.valueOf(value).trim().replaceAll("\\[|\\]", "")
                     .split(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR))
@@ -143,8 +139,7 @@ public class GATKProtectedVariantContextUtils {
             }
             return result;
         } else if (value.getClass().isAssignableFrom(Iterable.class)) {
-            return StreamSupport.stream(((Iterable<?>)value).spliterator(), false)
-                    .mapToInt(intConverter).toArray();
+            return Utils.stream(((Iterable<?>)value)).mapToInt(intConverter).toArray();
         } else { // as a last resort with transform it into an String and try to parse an array out of it.
             return Stream.of(String.valueOf(value).trim().replaceAll("\\[|\\]", "")
                     .split(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR))
@@ -280,7 +275,7 @@ public class GATKProtectedVariantContextUtils {
      * ReadsContexts and not AlignmentContexts.
      */
     public static ReadPileup getPileup(final Locatable loc, final Iterable<GATKRead> reads) {
-        final List<PileupElement> pile = StreamSupport.stream(reads.spliterator(), false)
+        final List<PileupElement> pile = Utils.stream(reads)
                 .filter(ReadFilterLibrary.PASSES_VENDOR_QUALITY_CHECK.and(ReadFilterLibrary.NOT_DUPLICATE))
                 .map(AlignmentStateMachine::new)
                 .map(asm -> {

@@ -130,9 +130,7 @@ public class AggregatedSubHaplotypeFinder<F extends KBestSubHaplotypeFinder> imp
 
         for (int i = rankedSubHaplotype.size(); i <= k; i++) {
             // since k < possibleHaplotypeCount is guarantee no to be empty.
-            if (nextBestSubHaplotypes.isEmpty()) {
-                throw new IllegalStateException("what the heck " + k + ' ' + count);
-            }
+            Utils.validate(!nextBestSubHaplotypes.isEmpty(), () -> "what the heck " + k + ' ' + count);
             final MyKBestHaplotypeResult nextResult = nextBestSubHaplotypes.remove();
             nextResult.rank = i;
             rankedSubHaplotype.add(nextResult);

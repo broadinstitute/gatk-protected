@@ -18,7 +18,9 @@ import org.broadinstitute.hellbender.tools.walkers.annotator.VariantAnnotatorEng
 import org.broadinstitute.hellbender.tools.walkers.genotyper.GenotypingOutputMode;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.*;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.readthreading.ReadThreadingAssembler;
-import org.broadinstitute.hellbender.utils.*;
+import org.broadinstitute.hellbender.utils.QualityUtils;
+import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.activityprofile.ActivityProfileState;
 import org.broadinstitute.hellbender.utils.downsampling.AlleleBiasedDownsamplingUtils;
 import org.broadinstitute.hellbender.utils.fasta.CachingIndexedFastaSequenceFile;
@@ -35,7 +37,7 @@ import org.broadinstitute.hellbender.utils.variant.GATKVCFHeaderLines;
 
 import java.util.*;
 import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
+import java.util.stream.Collectors;
 
 /**
  * Created by davidben on 9/15/16.
@@ -316,7 +318,7 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
 
         // since errors are rare, the number of errors (if reads are independent) is approximately a Poisson random variable,
         // with mean equal to its variance
-        final double expectedTumorNonRefDueToError = StreamSupport.stream(tumorContext.getBasePileup().spliterator(), false)
+        final double expectedTumorNonRefDueToError = Utils.stream(tumorContext.getBasePileup())
                 .mapToDouble(pe -> QualityUtils.qualToErrorProb(pe.getQual()))
                 .sum();
         final double tumorNonRefStdev = Math.sqrt(expectedTumorNonRefDueToError);
