@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.coveragemodel;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.math3.linear.*;
+import org.apache.commons.math3.util.FastMath;
 import org.apache.commons.math3.util.Precision;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.tools.coveragemodel.nd4jutils.Nd4jApacheAdapterUtils;
@@ -10,6 +11,8 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.ops.transforms.Transforms;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.stream.IntStream;
 
 /**
  * Common math utilities for {@link CoverageModelEMWorkspace}
@@ -40,6 +43,55 @@ public final class CoverageModelEMWorkspaceMathUtils {
         final RealMatrix rm = Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat);
         final RealMatrix rmInverse = new LUDecomposition(rm, singularityThreshold).getSolver().getInverse();
         return Nd4jApacheAdapterUtils.convertApacheMatrixToINDArray(rmInverse);
+    }
+
+    /**
+     * TODO
+     *
+     * @param mat
+     * @return
+     */
+    public static double det(@Nonnull final INDArray mat) {
+        if (mat.isScalar()) {
+            return mat.getDouble(0);
+        }
+        if (!mat.isSquare()) {
+            throw new IllegalArgumentException("Invalid array: must be square matrix");
+        }
+        return new LUDecomposition(Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat),
+                DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD).getDeterminant();
+    }
+
+    /**
+     * TODO
+     *
+     * @param mat
+     * @return
+     */
+    public static double logdet(@Nonnull final INDArray mat) {
+        if (mat.isScalar()) {
+            return mat.getDouble(0);
+        }
+        if (!mat.isSquare()) {
+            throw new IllegalArgumentException("Invalid array: must be square matrix");
+        }
+        final LUDecomposition decomp = new LUDecomposition(Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat),
+                DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD);
+        final double[] diagL = diag(decomp.getL());
+        final double[] diagU = diag(decomp.getU());
+        return Arrays.stream(diagL).map(FastMath::abs).map(FastMath::log).sum() +
+                Arrays.stream(diagU).map(FastMath::abs).map(FastMath::log).sum();
+    }
+
+    /**
+     * TODO
+     *
+     * @param mat
+     * @return
+     */
+    private static double[] diag(@Nonnull final RealMatrix mat) {
+        final int dim = FastMath.min(mat.getRowDimension(), mat.getColumnDimension());
+        return IntStream.range(0, dim).mapToDouble(i -> mat.getEntry(i, i)).toArray();
     }
 
     /**

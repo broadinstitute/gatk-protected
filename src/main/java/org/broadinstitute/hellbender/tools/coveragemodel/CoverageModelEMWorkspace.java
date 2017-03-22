@@ -1559,11 +1559,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.M_STEP_ALPHA));
         cacheWorkers("after M-step update of ARD coefficients initialization");
 
-        /* print asymptotics */
-        final INDArray coeffs = mapWorkersAndReduce(CoverageModelEMComputeBlock::calculateBiasCovariatesLogEvidenceAsymptoticsPartialTargetSum,
-                INDArray::add);
-        logger.info("ARD asymptotics: " + coeffs.toString());
-
         final SubroutineSignal sig;
         switch (params.getARDUpdateAlgorithm()) {
             case PICARD:
@@ -1644,7 +1639,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final double LINSOLVE_SINGULARITY_THRESHOLD = Double.MIN_VALUE;
 
         int iter = 0;
-//        final INDArray alpha_l = Nd4j.ones(1, numLatents).muli(params.getInitialARDPrecision());
         final INDArray alpha_l = biasCovariatesARDCoefficients.dup();
         double errorNormInfinity = Double.NaN;
         while (iter < params.getMaxARDIterations()) {
@@ -1695,6 +1689,22 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* info log to stdout */
         logger.info("Log ARD coefficients: " + Transforms.log(alpha_l, true).toString());
+
+        /* 1-off refinement */
+        double logEvidence = mapWorkersAndReduce(cb -> cb.calculateBiasCovariatesLogEvidencePartialTargetSum(alpha_l),
+                (a, b) -> a + b);
+        for (int li = 0; li < numLatents; li++) {
+            final INDArray alpha_trial_l = alpha_l.dup().put(0, li, params.getMaxARDPrecision());
+            final double logEvidenceTrial = mapWorkersAndReduce(cb -> cb.calculateBiasCovariatesLogEvidencePartialTargetSum(alpha_trial_l),
+                    (a, b) -> a + b);
+            if (logEvidenceTrial > logEvidence) {
+                logEvidence = logEvidenceTrial;
+                alpha_l.assign(alpha_trial_l);
+            }
+        }
+
+        /* info log to stdout */
+        logger.info("Log ARD coefficients after 1-to-infinity refinement: " + Transforms.log(alpha_l, true).toString());
 
         /* update the worker copy */
         mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,

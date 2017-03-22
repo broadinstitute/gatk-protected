@@ -50,7 +50,7 @@ public final class CoverageModelGlobalConstants implements Serializable {
     /**
      * Uniform random maximum for target-specific unexplained variance
      */
-    public static final double RANDOM_UNEXPLAINED_VARIANCE_MAX = 0.01;
+    public static final double RANDOM_UNEXPLAINED_VARIANCE_MAX = 0.0;
 
     /**
      * Gaussian random standard deviation for bias covariates
@@ -60,12 +60,12 @@ public final class CoverageModelGlobalConstants implements Serializable {
     /**
      * Gaussian random standard deviation for mean log bias
      */
-    public static final double RANDOM_MEAN_LOG_BIAS_STD = 0.1;
+    public static final double RANDOM_MEAN_LOG_BIAS_STD = 0.0;
 
     /**
      * Random generator seed for initial model parameters
      */
-    public static final long RANDOM_MODEL_SEED = 1986;
+    public static final long RANDOM_MODEL_SEED = 1984;
 
     /**
      * Copy ratio max likelihood estimates output file name

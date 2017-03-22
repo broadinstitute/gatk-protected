@@ -98,7 +98,7 @@ public final class CoverageModelEMParams {
     public static final String MAX_M_STEP_CYCLES_SHORT_NAME = "MMC";
     public static final String MAX_M_STEP_CYCLES_LONG_NAME = "maximumMStepCycles";
 
-    public static final int DEFAULT_MAX_E_STEP_CYCLES = 3;
+    public static final int DEFAULT_MAX_E_STEP_CYCLES = 5;
     public static final String MAX_E_STEP_CYCLES_SHORT_NAME = "MES";
     public static final String MAX_E_STEP_CYCLES_LONG_NAME = "maximumEStepCycles";
 
@@ -146,23 +146,23 @@ public final class CoverageModelEMParams {
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 
-    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-2;
+    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-4;
     public static final String INITIAL_ARD_PRECISION_SHORT_NAME = "IARDP";
     public static final String INITIAL_ARD_PRECISION_LONG_NAME = "initialARDPrecision";
 
-    public static final int DEFAULT_MAX_ARD_ITERATIONS = 10;
+    public static final int DEFAULT_MAX_ARD_ITERATIONS = 50;
     public static final String MAX_ARD_ITERATIONS_SHORT_NAME = "MARDI";
     public static final String MAX_ARD_ITERATIONS_LONG_NAME = "maxARDIterations";
 
-    public static final double DEFAULT_MAX_ARD_PRECISION = 1e20;
+    public static final double DEFAULT_MAX_ARD_PRECISION = 1e30;
     public static final String MAX_ARD_PRECISION_SHORT_NAME = "MARDP";
     public static final String MAX_ARD_PRECISION_LONG_NAME = "maxARDPrecision";
 
-    public static final double DEFAULT_LOG_ARD_ABS_TOL = 1e-6;
+    public static final double DEFAULT_LOG_ARD_ABS_TOL = 1e-16;
     public static final String LOG_ARD_ABS_TOL_SHORT_NAME = "LARDAT";
     public static final String LOG_ARD_ABS_TOL_LONG_NAME = "logARDAbsoluteTolerance";
 
-    public static final double DEFAULT_LOG_ARD_REL_TOL = 1e-4;
+    public static final double DEFAULT_LOG_ARD_REL_TOL = 1e-16;
     public static final String LOG_ARD_REL_TOL_SHORT_NAME = "LARDRT";
     public static final String LOG_ARD_REL_TOL_LONG_NAME = "logARDRelativeTolerance";
 

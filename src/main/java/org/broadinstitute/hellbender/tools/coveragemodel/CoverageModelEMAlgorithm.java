@@ -259,7 +259,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                 /* if partially converged, switch to target-resolved psi update mode (if enabled) */
                 final boolean partiallyConvergedForPsiSwitching = logLikelihoodIncreased &&
                         (latestMStepLikelihood - prevMStepLikelihood) < params.getLogLikelihoodTolThresholdPsiSwitching();
-                if (partiallyConvergedForPsiSwitching && params.adaptivePsiSolverModeSwitchingEnabled() &&
+                if (partiallyConvergedForPsiSwitching && params.psiUpdateEnabled() && params.adaptivePsiSolverModeSwitchingEnabled() &&
                         !params.getPsiUpdateMode().equals(CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED)) {
                     params.setPsiUpdateMode(CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED);
                     logger.info("Partial convergence achieved; switching to target-specific unexplained variance in" +

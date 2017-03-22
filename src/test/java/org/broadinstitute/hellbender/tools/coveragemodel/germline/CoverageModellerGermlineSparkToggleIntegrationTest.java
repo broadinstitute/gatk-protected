@@ -68,8 +68,8 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final int NUM_LATENTS = 10; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
-    private static final int MIN_LEARNING_READ_COUNT = 20;
-    private static final int MAX_LEARNING_EM_ITERATIONS = 20;
+    private static final int MIN_LEARNING_READ_COUNT = 2;
+    private static final int MAX_LEARNING_EM_ITERATIONS = 200;
     private static final int MAX_CALLING_EM_ITERATIONS = 30;
 
     private static final double MIN_PASS_REF_CONCORDANCE = 0.95;
@@ -147,11 +147,13 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModelEMParams.MIN_LEARNING_READ_COUNT_LONG_NAME,
                     String.valueOf(MIN_LEARNING_READ_COUNT),
                 "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-                    "true",
+                    "false",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
                     "false",
                 "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
-                    "true"
+                    "true",
+                "--" + CoverageModelEMParams.PSI_UPDATE_ENABLED_LONG_NAME,
+                    "false",
         }, getBaseArgs(extraArgs));
     }
 
@@ -168,11 +170,11 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModelEMParams.MAX_EM_ITERATIONS_LONG_NAME,
                     String.valueOf(MAX_CALLING_EM_ITERATIONS),
                 "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-                    "true",
+                    "false",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
                     "false",
                 "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
-                    "true"
+                    "true",
         }, getBaseArgs(extraArgs));
     }
 
