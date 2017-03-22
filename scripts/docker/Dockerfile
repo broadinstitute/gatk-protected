@@ -1,4 +1,3 @@
-# VERSION 0.2 -- very basic setup of an image.
 #JENKINS expects this file to be copied as Dockerfile to the root of the repo when Jenkins job is run for building
 FROM ubuntu:14.04
 
