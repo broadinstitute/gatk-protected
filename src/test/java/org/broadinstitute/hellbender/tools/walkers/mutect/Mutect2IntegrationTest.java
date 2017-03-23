@@ -13,7 +13,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -66,7 +65,7 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         final Pair<Double, Double> concordance = calculateConcordance(filteredVcf, truthVcf);
         final double sensitivity = concordance.getLeft();
         final double fdr = concordance.getRight();
-        Assert.assertTrue(sensitivity > requiredSensitivity);
+        Assert.assertTrue("Sensitivity " + sensitivity + " was lower than required sensitivity of " + requiredSensitivity, sensitivity > requiredSensitivity);
         Assert.assertTrue(fdr < 0.5);
     }
 
