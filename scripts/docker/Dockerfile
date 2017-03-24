@@ -84,6 +84,8 @@ ENV GITHUB_DIR ${GITHUB_DIR}
 RUN mkdir -p /root/gatk-protected/
 COPY . /root/gatk-protected/
 WORKDIR /root/gatk-protected/
+RUN ls /root/gatk-protected/
+RUN ls /root/gatk-protected/scripts
 RUN Rscript /root/gatk-protected/scripts/install_R_packages.R
 RUN ./gradlew clean compileTestJava shadowJar
 
