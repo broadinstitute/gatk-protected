@@ -18,6 +18,7 @@ cd $WORKING_DIR/gatk-protected
 sudo bash build_docker.sh  -e $HASH_TO_USE -s -u
 echo "Docker build done =========="
 echo "Putting the newly built docker image into the json parameters"
+cd $WORKING_DIR/gatk-protected/scripts/docker/
 sed -r "s/__M2_DOCKER__/broadinstitute\/gatk-protected\:$HASH_TO_USE/g" ../m2_cromwell_tests/test_m2_wdl_multi.json >$WORKING_DIR/test_m2_wdl_multi_mod.json
 echo "JSON FILE (modified) ======="
 cat $WORKING_DIR/test_m2_wdl_multi_mod.json
