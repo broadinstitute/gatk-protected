@@ -57,6 +57,7 @@ script:
   elif [[ $TEST_DOCKER == true ]]; then
     echo "Building docker image with unit tests..." ;
     echo "${TRAVIS_BRANCH}" ;
+    ls -al ;
     cp -rfp scripts/docker/Dockerfile . ;
     cp -rfp scripts/docker/build_docker.sh . ;
     sudo bash build_docker.sh  -e `git rev-parse ${TRAVIS_BRANCH}` -s;
