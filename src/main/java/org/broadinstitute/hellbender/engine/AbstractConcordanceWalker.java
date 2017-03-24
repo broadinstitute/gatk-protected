@@ -70,7 +70,14 @@ public abstract class AbstractConcordanceWalker extends GATKTool {
     // Overriding the superclass method to favor the truth variants' dictionary
     @Override
     public final SAMSequenceDictionary getBestAvailableSequenceDictionary() {
+        initializeTruthVariantsIfNecessary();
         return truthVariants.getSequenceDictionary();
+    }
+
+    private void initializeTruthVariantsIfNecessary() {
+        if (truthVariants == null) {
+            truthVariants = new FeatureDataSource<>(new FeatureInput<>(truthVariantsFile, "truth"), CACHE_LOOKAHEAD, VariantContext.class);
+        }
     }
 
     // this may often be overridden
@@ -89,7 +96,7 @@ public abstract class AbstractConcordanceWalker extends GATKTool {
     protected final void onStartup() {
         super.onStartup();
 
-        truthVariants = new FeatureDataSource<>(new FeatureInput<>(truthVariantsFile, "truth"), CACHE_LOOKAHEAD, VariantContext.class);
+        initializeTruthVariantsIfNecessary();
         evalVariants = new FeatureDataSource<>(new FeatureInput<>(evalVariantsFile, "eval"), CACHE_LOOKAHEAD, VariantContext.class);
 
         if ( hasIntervals() ) {
