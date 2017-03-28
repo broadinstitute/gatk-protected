@@ -76,6 +76,22 @@ public final class CoverageModelEMParams {
         RDD_JOIN
     }
 
+    public enum ModelInitializationStrategy {
+        /**
+         * Random factor loadings, zero mean bias, zero target-specific unexplained variance
+         */
+        RANDOM,
+
+        /**
+         * Estimate factor loadings, mean bias, and target-specific unexplained variance by performing PCA
+         */
+        PCA
+    }
+
+    public static final ModelInitializationStrategy DEFAULT_MODEL_INITIALIZATION_STRATEGY = ModelInitializationStrategy.PCA;
+    public static final String MODEL_INITIALIZATION_STRATEGY_SHORT_NAME = "MIS";
+    public static final String MODEL_INITIALIZATION_STRATEGY_LONG_NAME = "modelInitializationStrategy";
+
     /* TODO change back to a reasonable value */
     public static final double DEFAULT_LOG_LIKELIHOOD_TOL = 1e-8;
     public static final String LOG_LIKELIHOOD_TOL_SHORT_NAME = "LLT";
@@ -118,17 +134,11 @@ public final class CoverageModelEMParams {
     public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE_SHORT_NAME = "LLTTARDU";
     public static final String LOG_LIKELIHOOD_TOL_THRESHOLD_ARD_UPDATE_LONG_NAME = "logLikelihoodTolThresholdARDUpdate";
 
-    /**
-     * Number of bias continuous latent variables
-     */
     public static final int DEFAULT_NUM_LATENTS = 5;
     public static final String NUM_LATENTS_SHORT_NAME = "NL";
     public static final String NUM_LATENTS_LONG_NAME = "numLatents";
 
-    /**
-     * Minimum read count on a target to perform learning
-     */
-    public static final int DEFAULT_MIN_LEARNING_READ_COUNT = 5;
+    public static final int DEFAULT_MIN_LEARNING_READ_COUNT = 10;
     public static final String MIN_LEARNING_READ_COUNT_SHORT_NAME = "MLRC";
     public static final String MIN_LEARNING_READ_COUNT_LONG_NAME = "minimumLearningReadCount";
 
@@ -146,7 +156,7 @@ public final class CoverageModelEMParams {
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 
-    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-4;
+    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-8;
     public static final String INITIAL_ARD_PRECISION_SHORT_NAME = "IARDP";
     public static final String INITIAL_ARD_PRECISION_LONG_NAME = "initialARDPrecision";
 
@@ -154,7 +164,7 @@ public final class CoverageModelEMParams {
     public static final String MAX_ARD_ITERATIONS_SHORT_NAME = "MARDI";
     public static final String MAX_ARD_ITERATIONS_LONG_NAME = "maxARDIterations";
 
-    public static final double DEFAULT_MAX_ARD_PRECISION = 1e30;
+    public static final double DEFAULT_MAX_ARD_PRECISION = 1e100;
     public static final String MAX_ARD_PRECISION_SHORT_NAME = "MARDP";
     public static final String MAX_ARD_PRECISION_LONG_NAME = "maxARDPrecision";
 
@@ -209,6 +219,8 @@ public final class CoverageModelEMParams {
     public static final String PSI_SOLVER_NUM_THREADS_LONG_NAME = "psiSolverNumThreads";
 
 
+    /* W related */
+
     public static final WSolverStrategy DEFAULT_W_SOLVER_TYPE = WSolverStrategy.W_SOLVER_SPARK;
     public static final String W_SOLVER_TYPE_SHORT_NAME = "WST";
     public static final String W_SOLVER_TYPE_LONG_NAME = "wSolverStrategy";
@@ -229,8 +241,7 @@ public final class CoverageModelEMParams {
     public static final String W_REL_TOL_SHORT_NAME = "WRT";
     public static final String W_REL_TOL_LONG_NAME = "wRelativeTolerance";
 
-
-
+    /* gamma related */
 
     public static final boolean DEFAULT_GAMMA_UPDATE_ENABLED = true;
     public static final String GAMMA_UPDATE_ENABLED_SHORT_NAME = "GU";
@@ -260,8 +271,7 @@ public final class CoverageModelEMParams {
     public static final String GAMMA_SOLVER_REFINEMENT_DEPTH_SHORT_NAME = "GSRD";
     public static final String GAMMA_SOLVER_REFINEMENT_DEPTH_LONG_NAME = "gammaSolverRefinementDepth";
 
-
-
+    /* CNV-avoiding penalty related */
 
     public static final boolean DEFAULT_FOURIER_REGULARIZATION_ENABLED = false;
     public static final String FOURIER_REGULARIZATION_ENABLED_SHORT_NAME = "FR";
@@ -284,8 +294,6 @@ public final class CoverageModelEMParams {
     public static final String FOURIER_REGULARIZATION_STRENGTH_LONG_NAME = "fourierRegularizationStrength";
 
 
-
-
     public static final boolean DEFAULT_CR_UPDATE_ENABLED = true;
     public static final String CR_UPDATE_ENABLED_SHORT_NAME = "CRU";
     public static final String CR_UPDATE_ENABLED_LONG_NAME = "copyRatioUpdate";
@@ -293,7 +301,6 @@ public final class CoverageModelEMParams {
     public static final CopyRatioHMMType DEFAULT_CR_HMM_TYPE = CopyRatioHMMType.COPY_RATIO_HMM_SPARK;
     public static final String CR_HMM_TYPE_SHORT_NAME = "CRHMM";
     public static final String CR_HMM_TYPE_LONG_NAME = "copyRatioHMMType";
-
 
 
     public static final int DEFAULT_NUMBER_OF_TARGET_SPACE_PARTITIONS = 1;
@@ -311,8 +318,6 @@ public final class CoverageModelEMParams {
     public static final String DEFAULT_RDD_CHECKPOINTING_PATH = "/dev/null";
     public static final String RDD_CHECKPOINTING_PATH_SHORT_NAME = "RDDCPP";
     public static final String RDD_CHECKPOINTING_PATH_LONG_NAME = "rddCheckpointingPath";
-
-
 
 
     public static final int DEFAULT_RUN_CHECKPOINTING_INTERVAL = 1;
@@ -814,6 +819,14 @@ public final class CoverageModelEMParams {
     )
     protected int psiSolverNumThreads = DEFAULT_PSI_SOLVER_NUM_THREADS;
 
+    @Argument(
+            doc = "Model initialization strategy (only used in learning tasks)",
+            shortName = MODEL_INITIALIZATION_STRATEGY_SHORT_NAME,
+            fullName = MODEL_INITIALIZATION_STRATEGY_LONG_NAME,
+            optional = true
+    )
+    protected ModelInitializationStrategy modelInitializationStrategy = DEFAULT_MODEL_INITIALIZATION_STRATEGY;
+
     /*
      * setters and getters
      */
@@ -1014,6 +1027,10 @@ public final class CoverageModelEMParams {
     public double getARDRelativeTolerance() { return logARDRelativeTolerance; }
 
     public int getPsiSolverNumThreads() { return psiSolverNumThreads; }
+
+    public ModelInitializationStrategy getDefaultModelInitializationStrategy() {
+        return modelInitializationStrategy;
+    }
 
     /**
      * Validate parameters

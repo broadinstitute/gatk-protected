@@ -5,6 +5,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.math3.exception.NoBracketingException;
 import org.apache.commons.math3.exception.TooManyEvaluationsException;
+import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.tools.coveragemodel.cachemanager.Duplicable;
 import org.broadinstitute.hellbender.tools.coveragemodel.cachemanager.DuplicableNDArray;
 import org.broadinstitute.hellbender.tools.coveragemodel.cachemanager.DuplicableNumber;
@@ -127,6 +128,7 @@ public final class CoverageModelEMComputeBlock {
         WzzWT_st("W_{t\\mu} W_{t\\nu} E[z_{s\\mu} z_{s\\nu}]"),
         tot_Psi_st("The sum of target-specific and sample-specific unexplained variance of the log bias"),
         Delta_st("\\Delta_{st} (refer to the technical white paper)"),
+        Delta_PCA_st("\\Delta_PCA_{st} (refer to the technical white paper)"),
         M_log_Psi_s("Target-summed log precision of masked log bias"), /* a what a mouthful! */
         M_Psi_inv_st("Masked precision of log bias"),
         chi_t("Sample-summed and masked precision of log bias"),
@@ -158,7 +160,8 @@ public final class CoverageModelEMComputeBlock {
         M_STEP_ALPHA("Cache nodes to be updated for the M-step for the precision of bias covariates"),
         M_STEP_PSI("Cache nodes to be updated for the M-step for target-specific unexplained variance"),
         LOGLIKE_UNREG("Cache nodes to be updated for log likelihood calculation (w/o regularization)"),
-        LOGLIKE_REG("Cache nodes to be updated for log likelihood calculation (w/ regularization)");
+        LOGLIKE_REG("Cache nodes to be updated for log likelihood calculation (w/ regularization)"),
+        PCA_INIT("Cache nodes to be updated for performing PCA initialization");
 
         public final String description;
 
@@ -398,7 +401,16 @@ public final class CoverageModelEMComputeBlock {
                             new String[]{
                                     CoverageModelICGCacheNode.M_Psi_inv_st.name(),
                                     CoverageModelICGCacheNode.zz_sll.name()},
-                            calculate_Q_tll, true);
+                            calculate_Q_tll, true)
+                    /* M_{st} . (log(n_{st}) - E[log(c_{st})] - E[log(d_s)]) - mean */
+                    .addComputableNode(CoverageModelICGCacheNode.Delta_PCA_st.name(),
+                            new String[]{CoverageModelICGCacheTag.PCA_INIT.name()},
+                            new String[]{
+                                    CoverageModelICGCacheNode.log_n_st.name(),
+                                    CoverageModelICGCacheNode.log_c_st.name(),
+                                    CoverageModelICGCacheNode.log_d_s.name()},
+                            calculate_Delta_PCA_st, true);
+
 
             /* calculation of WzzWT_st node varies depending on wither ARD is enabled/disabled */
             if (ardEnabled) {
@@ -641,7 +653,7 @@ public final class CoverageModelEMComputeBlock {
      *
      * @return an {@link ImmutablePair} of (A_s, B_s)
      */
-    public ImmutablePair<INDArray, INDArray> getReadDepthLatentPosteriorData() {
+    public ImmutablePair<INDArray, INDArray> getReadDepthLatentPosteriorData(final boolean neglectBiasCovariates) {
         /* fetch data from cache */
         final INDArray log_n_st = getINDArrayFromCache(CoverageModelICGCacheNode.log_n_st);
         final INDArray log_c_st = getINDArrayFromCache(CoverageModelICGCacheNode.log_c_st);
@@ -651,7 +663,7 @@ public final class CoverageModelEMComputeBlock {
         /* calculate the required quantities */
         final INDArray denominator = M_Psi_inv_st.sum(1);
         final INDArray numerator;
-        if (biasCovariatesEnabled) {
+        if (biasCovariatesEnabled && !neglectBiasCovariates) {
             final INDArray Wz_st = getINDArrayFromCache(CoverageModelICGCacheNode.Wz_st);
             numerator = log_n_st.sub(log_c_st).subi(Wz_st).subiRowVector(m_t).muli(M_Psi_inv_st).sum(1);
         } else {
@@ -754,6 +766,26 @@ public final class CoverageModelEMComputeBlock {
         return W_tl.transpose().mmul(W_tl);
     }
 
+    /**
+     * TODO
+     *
+     * @return
+     */
+    public INDArray getBiasCovariatesSecondMomentPosteriorsPartialTargetSum() {
+        assertBiasCovariatesEnabled();
+        assertARDEnabled();
+        final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
+        final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
+        final INDArray meanContribution = Transforms.pow(W_tl, 2, true).sum(0);
+        final INDArray var_W_diag_tl = Nd4j.create(numTargets, numLatents);
+        for (int li = 0; li < numLatents; li++) {
+            var_W_diag_tl.get(NDArrayIndex.all(), NDArrayIndex.point(li)).assign(
+                    var_W_tll.get(NDArrayIndex.all(), NDArrayIndex.point(li), NDArrayIndex.point(li)));
+        }
+        final INDArray varContribution = var_W_diag_tl.sum(0);
+        return meanContribution.addi(varContribution);
+    }
+
     private double calculatePsiSolverObjectiveFunction(final int targetIndex,
                                               final double psi,
                                               @Nonnull final INDArray M_st,
@@ -824,7 +856,7 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     *
+     * TODO
      * @param alpha_l
      * @return
      */
@@ -934,6 +966,11 @@ public final class CoverageModelEMComputeBlock {
         return ImmutablePair.of(grad, hessian);
     }
 
+    /**
+     * TODO
+     * @param alpha_l
+     * @return
+     */
     public double calculateBiasCovariatesLogEvidencePartialTargetSum(final INDArray alpha_l) {
         assertARDEnabled();
         /* fetch the required caches */
@@ -971,10 +1008,18 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
+     * TODO
+     * @return
+     */
+    public INDArray calculateTargetCovarianceMatrixForPCAInitialization() {
+        assertBiasCovariatesEnabled();
+        final INDArray Delta_PCA_st = getINDArrayFromCache(CoverageModelICGCacheNode.Delta_PCA_st);
+        return Delta_PCA_st.mmul(Delta_PCA_st.transpose());
+    }
+
+    /**
      * Takes an arbitrary INDArray {@code arr} and a mask array {@code mask} with the same shape
      * and replace all entries in {@code arr} on which {@code mask} is 0 to {@code value}
-     *
-     * TODO github/gatk-protected issue #853 -- optimize this method
      *
      * @param arr an arbitrary INDArray
      * @param mask a mask array
@@ -983,14 +1028,19 @@ public final class CoverageModelEMComputeBlock {
      */
     @VisibleForTesting
     public static INDArray replaceMaskedEntries(final INDArray arr, final INDArray mask, final double value) {
-        arr.checkDimensions(mask);
-        final double[] maskArray = mask.dup().data().asDouble();
-        final int[] maskedIndices = IntStream.range(0, mask.length())
-                .filter(idx -> (int)maskArray[idx] == 0)
-                .toArray();
-        final double[] dat = arr.dup().data().asDouble();
-        Arrays.stream(maskedIndices).forEach(idx -> dat[idx] = value);
-        return Nd4j.create(dat, arr.shape());
+        Utils.validateArg(Arrays.equals(arr.shape(), mask.shape()), "The value and mask arrays have different shapes");
+        Utils.validateArg(mask.rank() <= 2, "The mask array must be at most rank 2");
+        final int rowDim = mask.shape()[0];
+        final int colDim = mask.shape()[1];
+        final INDArray res = arr.dup();
+        for (int i = 0; i < rowDim; i++) {
+            for (int j = 0; j < colDim; j++) {
+                if (mask.getInt(i, j) == 0) {
+                    res.putScalar(i, j, value);
+                }
+            }
+        }
+        return res;
     }
 
     /**
@@ -1010,19 +1060,11 @@ public final class CoverageModelEMComputeBlock {
         final INDArray mask = Nd4j.create(
                 Arrays.stream(initialDataBlock.maskBlock).mapToDouble(n -> (double)n).toArray(),
                 new int[] {numSamples, numTargets}, 'f');
-        final INDArray logCopyRatio = replaceMaskedEntries(
-                Nd4j.create(initialDataBlock.logCopyRatioPriorMeansBlock, new int[] {numSamples, numTargets}, 'f'),
-                mask, CoverageModelGlobalConstants.MEAN_LOG_COPY_RATIO_ON_MASKED_TARGETS);
-        final INDArray varLogCopyRatio = replaceMaskedEntries(
-                Nd4j.create(initialDataBlock.logCopyRatioPriorVariancesBlock, new int[] {numSamples, numTargets}, 'f'),
-                mask, CoverageModelGlobalConstants.VAR_LOG_COPY_RATIO_ON_MASKED_TARGETS);
         final INDArray mappingErrorRate = Nd4j.create(initialDataBlock.mappingErrorRateBlock,
                 new int[] {numSamples, numTargets}, 'f');
 
         return cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.n_st, readCounts)
                 .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.M_st, mask)
-                .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.log_c_st, logCopyRatio)
-                .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.var_log_c_st, varLogCopyRatio)
                 .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.MER_st, mappingErrorRate);
     }
 
@@ -1046,7 +1088,7 @@ public final class CoverageModelEMComputeBlock {
         final INDArray old_log_c_st = getINDArrayFromCache(CoverageModelICGCacheNode.log_c_st);
         final INDArray old_var_log_c_st = getINDArrayFromCache(CoverageModelICGCacheNode.var_log_c_st);
 
-        /* replaced values on masked targets with default values */
+        /* replace values on masked targets with default values */
         final INDArray rectified_log_c_st = replaceMaskedEntries(log_c_st, M_st,
                 CoverageModelGlobalConstants.MEAN_LOG_COPY_RATIO_ON_MASKED_TARGETS);
         final INDArray rectified_var_log_c_st = replaceMaskedEntries(var_log_c_st, M_st,
@@ -1065,6 +1107,31 @@ public final class CoverageModelEMComputeBlock {
         return cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.log_c_st, admixed_log_c_st)
                 .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.var_log_c_st, admixed_var_log_c_st)
                 .cloneWithUpdatedSignal(SubroutineSignal.builder().put("error_norm", errNormInfinity).build());
+    }
+
+    /**
+     * TODO
+     *
+     * @param log_c_st
+     * @param var_log_c_st
+     * @return
+     */
+    public CoverageModelEMComputeBlock cloneWithUpdateCopyRatioPriors(@Nonnull final INDArray log_c_st,
+                                                                      @Nonnull final INDArray var_log_c_st) {
+        Utils.nonNull(log_c_st, "Log copy ratio posterior means must be non-null");
+        Utils.nonNull(var_log_c_st, "Log copy ratio posterior variances must be non-null");
+
+        /* fetch required quantities from cache */
+        final INDArray M_st = getINDArrayFromCache(CoverageModelICGCacheNode.M_st);
+
+        /* replace values on masked targets with default values */
+        final INDArray rectified_log_c_st = replaceMaskedEntries(log_c_st, M_st,
+                CoverageModelGlobalConstants.MEAN_LOG_COPY_RATIO_ON_MASKED_TARGETS);
+        final INDArray rectified_var_log_c_st = replaceMaskedEntries(var_log_c_st, M_st,
+                CoverageModelGlobalConstants.VAR_LOG_COPY_RATIO_ON_MASKED_TARGETS);
+
+        return cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.log_c_st, rectified_log_c_st)
+                .cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.var_log_c_st, rectified_var_log_c_st);
     }
 
     /**
@@ -1404,6 +1471,23 @@ public final class CoverageModelEMComputeBlock {
                 }
             };
 
+    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_Delta_PCA_st =
+            new Function<Map<String, ? extends Duplicable>, Duplicable>() {
+                @Override
+                public Duplicable apply(Map<String, ? extends Duplicable> dat) {
+                    final INDArray M_st = getINDArrayFromMap(CoverageModelICGCacheNode.M_st, dat);
+                    final INDArray log_n_st = getINDArrayFromMap(CoverageModelICGCacheNode.log_n_st, dat);
+                    final INDArray log_c_st = getINDArrayFromMap(CoverageModelICGCacheNode.log_c_st, dat);
+                    final INDArray log_d_s = getINDArrayFromMap(CoverageModelICGCacheNode.log_d_s, dat);
+
+                    final INDArray MDelta_st = log_n_st.sub(log_c_st).subiColumnVector(log_d_s).muli(M_st);
+                    final int numSamples = MDelta_st.shape()[0];
+                    final INDArray MDelta_mean_t = MDelta_st.sum(0).divi(numSamples);
+
+                    return new DuplicableNDArray(MDelta_st.subiRowVector(MDelta_mean_t));
+                }
+            };
+
     /* dependents: [W_tl, z_sl] */
     private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_Wz_st =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
@@ -1480,7 +1564,9 @@ public final class CoverageModelEMComputeBlock {
                 public Duplicable apply(Map<String, ? extends Duplicable> dat) {
                     final INDArray M_st = getINDArrayFromMap(CoverageModelICGCacheNode.M_st, dat);
                     final INDArray tot_Psi_st = getINDArrayFromMap(CoverageModelICGCacheNode.tot_Psi_st, dat);
-                    final INDArray M_log_Psi_s = Transforms.log(tot_Psi_st, true).muli(M_st).sum(1);
+                    final INDArray M_log_Psi_s = Transforms.log(tot_Psi_st, true)
+                            .addi(FastMath.log(2 * FastMath.PI))
+                            .muli(M_st).sum(1);
                     return new DuplicableNDArray(M_log_Psi_s);
                 }
             };
@@ -1631,28 +1717,20 @@ public final class CoverageModelEMComputeBlock {
         private static final long serialVersionUID = -1843744574954246765L;
 
         public final int[] readCountBlock, maskBlock;
-        public final double[] logCopyRatioPriorMeansBlock, logCopyRatioPriorVariancesBlock, mappingErrorRateBlock;
+        public final double[] mappingErrorRateBlock;
 
         /**
          * Public constructor.
          *
          * @param readCountBlock read counts raveled in Fortran (column major) order
          * @param maskBlock learning mask raveled in Fortran (column major) order
-         * @param logCopyRatioPriorMeansBlock initial log copy ratio raveled in Fortran (column major) order
-         * @param logCopyRatioPriorVariancesBlock initial var log copy ratio raveled in Fortran (column major) order
          * @param mappingErrorRateBlock mapping error rate raveled in Fortran (column major) order
          */
         InitialDataBlock(@Nonnull final int[] readCountBlock,
                          @Nonnull final int[] maskBlock,
-                         @Nonnull final double[] logCopyRatioPriorMeansBlock,
-                         @Nonnull final double[] logCopyRatioPriorVariancesBlock,
                          @Nonnull final double[] mappingErrorRateBlock) {
             this.readCountBlock = Utils.nonNull(readCountBlock, "Read count data block must be non-null");
             this.maskBlock = Utils.nonNull(maskBlock, "Mask data block must be non-null");
-            this.logCopyRatioPriorMeansBlock = Utils.nonNull(logCopyRatioPriorMeansBlock, "Log copy ratio" +
-                    " prior means data block must be non-null");
-            this.logCopyRatioPriorVariancesBlock = Utils.nonNull(logCopyRatioPriorVariancesBlock, "Log copy ratio" +
-                    " prior variances data block must be non-null");
             this.mappingErrorRateBlock = Utils.nonNull(mappingErrorRateBlock, "Mapping error rate data block must" +
                     " be non-null");
         }
@@ -1661,10 +1739,6 @@ public final class CoverageModelEMComputeBlock {
             final int size = numTargets * numSamples;
             Utils.validateArg(readCountBlock.length == size, "The read count data block has the wrong length");
             Utils.validateArg(maskBlock.length == size, "The learning mask data block has the wrong length");
-            Utils.validateArg(logCopyRatioPriorMeansBlock.length == size, "The log copy ratio prior mean data" +
-                    " block has the wrong length");
-            Utils.validateArg(logCopyRatioPriorVariancesBlock.length == size, "The log copy ratio prior variance" +
-                    " data block has the wrong length");
             Utils.validateArg(mappingErrorRateBlock.length == size, "The mapping error rate data block has the" +
                     " wrong length");
         }

@@ -51,23 +51,6 @@ public final class CoverageModelEMWorkspaceMathUtils {
      * @param mat
      * @return
      */
-    public static double det(@Nonnull final INDArray mat) {
-        if (mat.isScalar()) {
-            return mat.getDouble(0);
-        }
-        if (!mat.isSquare()) {
-            throw new IllegalArgumentException("Invalid array: must be square matrix");
-        }
-        return new LUDecomposition(Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(mat),
-                DEFAULT_LU_DECOMPOSITION_SINGULARITY_THRESHOLD).getDeterminant();
-    }
-
-    /**
-     * TODO
-     *
-     * @param mat
-     * @return
-     */
     public static double logdet(@Nonnull final INDArray mat) {
         if (mat.isScalar()) {
             return mat.getDouble(0);
@@ -148,16 +131,16 @@ public final class CoverageModelEMWorkspaceMathUtils {
 
     /**
      * Takes a square symmetric real matrix [M] and finds an orthogonal transformation [U] such that
-     * [U] [M] [U]^T is diagonal, and diagonal entries are sorted in descending order.
+     * [U]^T [M] [U] is diagonal, and diagonal entries are sorted in descending order.
      *
      * @param matrix a symmetric matrix
      * @param symmetrize enforce symmetry
      * @param logger a logger instance
      * @return [U]
      */
-    public static ImmutablePair<double[], RealMatrix> getOrthogonalizerAndSorterTransformation(@Nonnull final RealMatrix matrix,
-                                                                      final boolean symmetrize,
-                                                                      @Nonnull final Logger logger) {
+    public static ImmutablePair<double[], RealMatrix> eig(@Nonnull final RealMatrix matrix,
+                                                          final boolean symmetrize,
+                                                          @Nonnull final Logger logger) {
         if (matrix.getRowDimension() != matrix.getColumnDimension()) {
             throw new IllegalArgumentException("The input matrix must be square");
         }
@@ -175,12 +158,12 @@ public final class CoverageModelEMWorkspaceMathUtils {
         }
         final EigenDecomposition decomposer = new EigenDecomposition(finalMatrix);
         final double[] eigs = decomposer.getRealEigenvalues();
-        final RealMatrix VT = decomposer.getVT();
-        return ImmutablePair.of(eigs, VT);
+        final RealMatrix V = decomposer.getV();
+        return ImmutablePair.of(eigs, V);
     }
 
     /**
-     * Same as {@link #getOrthogonalizerAndSorterTransformation(RealMatrix, boolean, Logger)} but with
+     * Same as {@link #eig(RealMatrix, boolean, Logger)} but with
      * INDArray input/output.
      *
      * @param matrix a square symmetric real matrix
@@ -188,10 +171,10 @@ public final class CoverageModelEMWorkspaceMathUtils {
      * @param logger a logger instance
      * @return an {@link INDArray} representation of the rotation operator
      */
-    public static ImmutablePair<INDArray, INDArray> getOrthogonalizerAndSorterTransformation(@Nonnull final INDArray matrix,
-                                                                                             final boolean symmetrize,
-                                                                                             @Nonnull final Logger logger) {
-        final ImmutablePair<double[], RealMatrix> out = getOrthogonalizerAndSorterTransformation(
+    public static ImmutablePair<INDArray, INDArray> eig(@Nonnull final INDArray matrix,
+                                                        final boolean symmetrize,
+                                                        @Nonnull final Logger logger) {
+        final ImmutablePair<double[], RealMatrix> out = eig(
                 Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(matrix), symmetrize, logger);
         return ImmutablePair.of(Nd4j.create(out.left, new int[] {1, matrix.shape()[0]}),
                 Nd4jApacheAdapterUtils.convertApacheMatrixToINDArray(out.right));

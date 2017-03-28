@@ -64,8 +64,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.broadinstitute.hellbender.tools.coveragemodel.CoverageModelEMParams.CopyRatioHMMType.COPY_RATIO_HMM_LOCAL;
-
 /**
  * This class represents the driver-node workspace for EM algorithm calculations of the coverage model
  *
@@ -216,6 +214,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     protected final INDArray sampleUnexplainedVariance;
 
     /**
+     * Posterior expectation of HMM backbone (log likelihood - log emission likelihood)
+     */
+    protected final INDArray sampleLogChainPosteriors;
+
+    /**
      * Norm_2 of bias covariates
      */
     protected final INDArray biasCovariatesNorm2;
@@ -292,7 +295,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         if (model != null) {
             final ReadCountCollection intermediateReadCounts = processReadCountCollection(targetSortedRawReadCounts,
                     params, logger);
-            /* adapt model and read counts */
+            /* adapt model and read count collection */
             final ImmutablePair<CoverageModelParameters, ReadCountCollection> modelReadCountsPair =
                     CoverageModelParameters.adaptModelToReadCountCollection(model, intermediateReadCounts, logger);
             processedModel = modelReadCountsPair.left;
@@ -339,6 +342,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         sampleMeanLogReadDepths = Nd4j.zeros(numSamples, 1);
         sampleVarLogReadDepths = Nd4j.zeros(numSamples, 1);
         sampleUnexplainedVariance = Nd4j.zeros(numSamples, 1);
+        sampleLogChainPosteriors = Nd4j.zeros(numSamples, 1);
 
         if (biasCovariatesEnabled) {
             sampleBiasLatentPosteriorFirstMoments = Nd4j.zeros(numSamples, numLatents);
@@ -355,7 +359,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         if (ardEnabled) { /* if so, numLatents > 0 by way of pre-validating {@code params} */
             biasCovariatesARDCoefficients = Nd4j.ones(new int[] {1, numLatents}).muli(params.getInitialARDPrecision());
             biasCovariatesARDCoefficientsHistory = new ArrayList<>();
-            biasCovariatesARDCoefficientsHistory.add(biasCovariatesARDCoefficients.dup());
         } else {
             logger.info("ARD for bias covariates is disabled");
             biasCovariatesARDCoefficients = null;
@@ -379,18 +382,29 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         /* push read counts to compute blocks and initialize copy ratio posterior expectations to prior expectations */
         pushInitialDataToComputeBlocks();
 
-        /* initialize model parameters */
-        initializeWorkersWithGivenModel(processedModel == null
-                ? CoverageModelParameters.generateRandomModel(processedTargetList, numLatents,
-                    CoverageModelGlobalConstants.RANDOM_MODEL_SEED,
-                    CoverageModelGlobalConstants.RANDOM_MEAN_LOG_BIAS_STD,
-                    CoverageModelGlobalConstants.RANDOM_BIAS_COVARIATES_STD,
-                    CoverageModelGlobalConstants.RANDOM_UNEXPLAINED_VARIANCE_MAX,
-                    biasCovariatesARDCoefficients)
-                : processedModel);
-
         /* initialize worker posteriors */
         initializeWorkerPosteriors();
+
+        /* initialize model parameters */
+        if (processedModel != null) { /* an initial model is already provided */
+            initializeWorkersWithGivenModel(processedModel);
+        } else {
+            if (params.getDefaultModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.RANDOM) ||
+                    !biasCovariatesEnabled) {
+                final CoverageModelParameters randomModel = CoverageModelParameters.generateRandomModel(
+                        processedTargetList, numLatents,
+                        CoverageModelGlobalConstants.RANDOM_MODEL_SEED,
+                        CoverageModelGlobalConstants.RANDOM_MEAN_LOG_BIAS_STD,
+                        CoverageModelGlobalConstants.RANDOM_BIAS_COVARIATES_STD,
+                        CoverageModelGlobalConstants.RANDOM_UNEXPLAINED_VARIANCE_MAX,
+                        biasCovariatesARDCoefficients);
+                initializeWorkersWithGivenModel(randomModel);
+            } else if (params.getDefaultModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.PCA)) {
+                initializeWorkersWithPCA();
+            } else {
+                throw new GATKException.ShouldNeverReachHereException("Bad value of model initialization strategy");
+            }
+        }
     }
 
     /**
@@ -574,41 +588,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                     .mapToDouble(idx -> params.getMappingErrorRate())
                     .toArray();
 
-            /* calculate copy ratio prior expectations */
-            final int[] activeTargetIndices = IntStream.range(tb.getBegIndex(), tb.getEndIndex()).toArray();
-            final List<Target> activeTargets = Arrays.stream(activeTargetIndices)
-                    .mapToObj(processedTargetList::get)
-                    .collect(Collectors.toList());
-            final List<CopyRatioExpectations> copyRatioPriorExpectationsList = sampleIndexStream()
-                    .mapToObj(si -> copyRatioExpectationsCalculator.getCopyRatioPriorExpectations(
-                            CopyRatioCallingMetadata.builder()
-                                    .setSampleIndex(si)
-                                    .setSampleName(processedSampleNameList.get(si))
-                                    .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(si))
-                                    .build(), activeTargets))
-                    .collect(Collectors.toList());
-
-            final double[] logCopyRatioPriorMeansBlock = IntStream.range(0, tb.getNumTargets())
-                    .mapToObj(rti -> copyRatioPriorExpectationsList.stream()
-                            .mapToDouble(cre -> cre.getLogCopyRatioMeans()[rti])
-                            .toArray())
-                    .flatMapToDouble(Arrays::stream)
-                    .toArray();
-
-            final double[] logCopyRatioPriorVariancesBlock = IntStream.range(0, tb.getNumTargets())
-                    .mapToObj(rti -> copyRatioPriorExpectationsList.stream()
-                            .mapToDouble(cre -> cre.getLogCopyRatioVariances()[rti])
-                            .toArray())
-                    .flatMapToDouble(Arrays::stream)
-                    .toArray();
-
-            /* we do not need to take care of log copy ratio means and variances on masked targets here.
-             * potential NaNs will be rectified in the compute blocks by calling the method
-             * {@link CoverageModelEMComputeBlock#cloneWithInitializedData} */
-
             /* add the block to list */
             dataBlockList.add(new Tuple2<>(tb, new CoverageModelEMComputeBlock.InitialDataBlock(rawReadCountBlock,
-                    maskBlock, logCopyRatioPriorMeansBlock, logCopyRatioPriorVariancesBlock, mappingErrorRateBlock)));
+                    maskBlock, mappingErrorRateBlock)));
         });
 
         /* push to compute blocks */
@@ -713,6 +695,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray sampleUnexplainedVariance = this.sampleUnexplainedVariance;
         final INDArray sampleBiasLatentPosteriorFirstMoments = this.sampleBiasLatentPosteriorFirstMoments;
         final INDArray sampleBiasLatentPosteriorSecondMoments = this.sampleBiasLatentPosteriorSecondMoments;
+
         mapWorkers(cb -> cb
                 .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_d_s,
                         sampleMeanLogReadDepths)
@@ -720,6 +703,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                         sampleVarLogReadDepths)
                 .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
                         sampleUnexplainedVariance));
+
         /* if bias covariates are enabled, initialize E[z] and E[z z^T] as well */
         if (biasCovariatesEnabled) {
             mapWorkers(cb -> cb
@@ -728,6 +712,120 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                     .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll,
                             sampleBiasLatentPosteriorSecondMoments));
         }
+
+        /* calculate copy ratio prior expectations */
+        final List<CopyRatioExpectations> copyRatioPriorExpectationsList = sampleIndexStream()
+                .mapToObj(si -> copyRatioExpectationsCalculator.getCopyRatioPriorExpectations(
+                        CopyRatioCallingMetadata.builder()
+                                .setSampleIndex(si)
+                                .setSampleName(processedSampleNameList.get(si))
+                                .setSampleSexGenotypeData(processedSampleSexGenotypeData.get(si))
+                                .build(), processedTargetList))
+                .collect(Collectors.toList());
+
+        /* update log chain posterior expectation */
+        sampleLogChainPosteriors.assign(Nd4j.create(copyRatioPriorExpectationsList.stream()
+                .mapToDouble(CopyRatioExpectations::getLogChainPosteriorProbability)
+                .toArray(), new int[] {numSamples, 1}));
+
+        /* push per-target copy ratio expectations to workers */
+        final List<Tuple2<LinearSpaceBlock, Tuple2<INDArray, INDArray>>> copyRatioPriorsList = new ArrayList<>();
+        for (final LinearSpaceBlock tb : targetBlocks) {
+            final double[] logCopyRatioPriorMeansBlock = IntStream.range(0, tb.getNumTargets())
+                    .mapToObj(rti -> copyRatioPriorExpectationsList.stream()
+                            .mapToDouble(cre -> cre.getLogCopyRatioMeans()[rti + tb.getBegIndex()])
+                            .toArray())
+                    .flatMapToDouble(Arrays::stream)
+                    .toArray();
+
+            final double[] logCopyRatioPriorVariancesBlock = IntStream.range(0, tb.getNumTargets())
+                    .mapToObj(rti -> copyRatioPriorExpectationsList.stream()
+                            .mapToDouble(cre -> cre.getLogCopyRatioVariances()[rti + tb.getBegIndex()])
+                            .toArray())
+                    .flatMapToDouble(Arrays::stream)
+                    .toArray();
+
+            /* we do not need to take care of log copy ratio means and variances on masked targets here.
+             * potential NaNs will be rectified in the compute blocks by calling the method
+             * {@link CoverageModelEMComputeBlock#cloneWithInitializedData} */
+
+            copyRatioPriorsList.add(new Tuple2<>(tb, new Tuple2<INDArray, INDArray>(
+                    Nd4j.create(logCopyRatioPriorMeansBlock, new int[] {numSamples, tb.getNumTargets()}, 'f'),
+                    Nd4j.create(logCopyRatioPriorVariancesBlock, new int[] {numSamples, tb.getNumTargets()}, 'f'))));
+        }
+
+        /* push to compute blocks */
+        joinWithWorkersAndMap(copyRatioPriorsList, p -> p._1.cloneWithUpdateCopyRatioPriors(p._2._1, p._2._2));
+    }
+
+    /**
+     * TODO case when bias covariates are disabled
+     * TODO ensure than D < S (must be done beforehand)
+     */
+    @EvaluatesRDD @UpdatesRDD @CachesRDD
+    private void initializeWorkersWithPCA() {
+        logger.info("Initializing model parameters using PCA...");
+        /* initially, set m_t and Psi_t to zero and update an estimate of read depth */
+        mapWorkers(cb -> cb
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.m_t,
+                        Nd4j.zeros(new int[] {1, cb.getTargetSpaceBlock().getNumTargets()}))
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Psi_t,
+                        Nd4j.zeros(new int[] {1, cb.getTargetSpaceBlock().getNumTargets()})));
+
+        /* update read depth without taking into account correction from bias covariates */
+        updateReadDepthPosteriorExpectations(1.0, true);
+
+        /* fetch sample covariance matrix */
+        mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.PCA_INIT));
+        cacheWorkers("PCA initialization");
+        final INDArray targetCovarianceMatrix = mapWorkersAndReduce(
+                CoverageModelEMComputeBlock::calculateTargetCovarianceMatrixForPCAInitialization,
+                INDArray::add);
+
+        /* perform eigen-decomposition on the taget covariance matrix */
+        final ImmutablePair<INDArray, INDArray> targetCovarianceEigensystem = CoverageModelEMWorkspaceMathUtils.eig(
+                targetCovarianceMatrix, false, logger);
+
+        /* the eigenvalues of sample covariance matrix can be immediately inferred by scaling */
+        final INDArray sampleCovarianceEigenvalues = targetCovarianceEigensystem.getLeft().div(numSamples);
+
+        /* estimate the isotropic unexplained variance -- see Bishop 12.46 */
+        final int residualDim = numSamples - numLatents;
+        final double isotropicVariance = sampleCovarianceEigenvalues.get(NDArrayIndex.interval(numLatents, numSamples))
+                .sumNumber().doubleValue() / residualDim;
+
+        /* estimate bias factors -- see Bishop 12.45 */
+        final INDArray scaleFactors = Transforms.sqrt(sampleCovarianceEigenvalues
+                .get(NDArrayIndex.interval(0, numLatents)).sub(isotropicVariance), false);
+        final INDArray biasCovariatesPCA = Nd4j.create(new int[] {numTargets, numLatents});
+        for (int li = 0; li < numLatents; li++) {
+            final INDArray v = targetCovarianceEigensystem.getRight().getColumn(li);
+            /* calculate [Delta_PCA_st]^T v */
+            /* note: we do not need to broadcast vec since it is small and lambda capture is just fine */
+            final INDArray unnormedBiasCovariate = CoverageModelSparkUtils.assembleINDArrayBlocksFromCollection(
+                    mapWorkersAndCollect(cb -> ImmutablePair.of(cb.getTargetSpaceBlock(),
+                            cb.getINDArrayFromCache(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.Delta_PCA_st)
+                                    .transpose().mmul(v))), 0);
+            final double norm = unnormedBiasCovariate.norm1Number().doubleValue();
+            final INDArray normedBiasCovariate = unnormedBiasCovariate
+                    .divi(norm)
+                    .muli(scaleFactors.getDouble(li));
+            biasCovariatesPCA.getColumn(li).assign(normedBiasCovariate);
+        }
+        if (ardEnabled) {
+            biasCovariatesARDCoefficients.assign(Nd4j.ones(new int[]{1, numLatents}).muli(0.001 / isotropicVariance));
+        }
+
+        final CoverageModelParameters modelParamsFromPCA = new CoverageModelParameters(
+                processedTargetList,
+                Nd4j.zeros(new int[] {1, numTargets}),
+                Nd4j.ones(new int[] {1, numTargets}).muli(isotropicVariance),
+                biasCovariatesPCA,
+                ardEnabled ? Nd4j.zeros(new int[] {numTargets, numLatents, numLatents}) : null, /* set initial covariance to zero */
+                biasCovariatesARDCoefficients);
+
+        initializeWorkersWithGivenModel(modelParamsFromPCA);
+        updateBiasLatentPosteriorExpectations(1.0);
     }
 
     /**
@@ -804,7 +902,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      *     (c) E[z_s z_s^T] = G_s + E[z_s] E[z_s^T] for each sample \sim O(S x D^2)
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
-    public SubroutineSignal updateBiasLatentPosteriorExpectations() {
+    public SubroutineSignal updateBiasLatentPosteriorExpectations(final double admixingRatio) {
         /* calculate and cache the required quantities on compute blocks */
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_Z));
         cacheWorkers("after E-step for bias initialization");
@@ -839,11 +937,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* admix with old posteriors */
         final INDArray newSampleBiasLatentPosteriorFirstMomentsAdmixed = newSampleBiasLatentPosteriorFirstMoments
-                .mul(params.getMeanFieldAdmixingRatio()).addi(sampleBiasLatentPosteriorFirstMoments
-                        .mul(1.0 - params.getMeanFieldAdmixingRatio()));
+                .mul(admixingRatio).addi(sampleBiasLatentPosteriorFirstMoments
+                        .mul(1.0 - admixingRatio));
         final INDArray newSampleBiasLatentPosteriorSecondMomentsAdmixed = newSampleBiasLatentPosteriorSecondMoments
-                .mul(params.getMeanFieldAdmixingRatio()).addi(sampleBiasLatentPosteriorSecondMoments
-                        .mul(1.0 - params.getMeanFieldAdmixingRatio()));
+                .mul(admixingRatio).addi(sampleBiasLatentPosteriorSecondMoments
+                        .mul(1.0 - admixingRatio));
 
         /* calculate the error from the change in E[z_s] */
         final double errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(
@@ -862,18 +960,23 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         return SubroutineSignal.builder().put("error_norm", errorNormInfinity).build();
    }
 
-    /**
-     * Fetches the data required for calculating bias latent posterior expectations from the compute blocks
-     * The return value is an {@link ImmutableTriple} of (contribGMatrix, contribZ, sharedPart)
-     *
-     * For the definition of the first two elements, refer to the javadoc of
-     * {@link CoverageModelEMComputeBlock#getBiasLatentPosteriorDataUnregularized}
-     *
-     * If the Fourier regularizer is enabled, sharedPart = [I] + W^T \lambda [F] [W]
-     * If the Fourier regularizer is disabled, sharedPart = [I]
-     *
-     * @return an {@link ImmutableTriple}
-     */
+    @EvaluatesRDD @UpdatesRDD @CachesRDD
+    public SubroutineSignal updateBiasLatentPosteriorExpectations() {
+        return updateBiasLatentPosteriorExpectations(params.getMeanFieldAdmixingRatio());
+    }
+
+        /**
+         * Fetches the data required for calculating bias latent posterior expectations from the compute blocks
+         * The return value is an {@link ImmutableTriple} of (contribGMatrix, contribZ, sharedPart)
+         *
+         * For the definition of the first two elements, refer to the javadoc of
+         * {@link CoverageModelEMComputeBlock#getBiasLatentPosteriorDataUnregularized}
+         *
+         * If the Fourier regularizer is enabled, sharedPart = [I] + W^T \lambda [F] [W]
+         * If the Fourier regularizer is disabled, sharedPart = [I]
+         *
+         * @return an {@link ImmutableTriple}
+         */
     private ImmutableTriple<INDArray, INDArray, INDArray> fetchBiasLatentPosteriorExpectationsDataFromWorkers() {
         /* query the compute blocks for bias latent posterior data and reduce by pairwise addition */
         if (params.fourierRegularizationEnabled()) {
@@ -903,16 +1006,15 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return a {@link SubroutineSignal} containing the update size (key: "error_norm")
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
-    public SubroutineSignal updateReadDepthPosteriorExpectations() {
-        /* TODO */
-        final boolean READ_DEPTH_ADMIX = false;
+    public SubroutineSignal updateReadDepthPosteriorExpectations(final double admixingRatio,
+                                                                 final boolean neglectBiasCovariates) {
 
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_D));
         cacheWorkers("after E-step for read depth initialization");
         /* map each compute block to their respective read depth estimation data (a triple of rank-1 INDArray's each
          * with S elements) and reduce by pairwise addition */
         final ImmutablePair<INDArray, INDArray> factors = mapWorkersAndReduce(
-                CoverageModelEMComputeBlock::getReadDepthLatentPosteriorData,
+                cb -> cb.getReadDepthLatentPosteriorData(neglectBiasCovariates),
                 (p1, p2) -> ImmutablePair.of(p1.left.add(p2.left), p1.right.add(p2.right)));
 
         /* put together */
@@ -925,18 +1027,13 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray newSampleMeanLogReadDepthsAdmixed;
         final INDArray newSampleVarLogReadDepthsAdmixed;
 
-        if (READ_DEPTH_ADMIX) {
-            /* admix */
-            newSampleMeanLogReadDepthsAdmixed = newSampleMeanLogReadDepths
-                    .mul(params.getMeanFieldAdmixingRatio())
-                    .addi(sampleMeanLogReadDepths.mul(1.0 - params.getMeanFieldAdmixingRatio()));
-            newSampleVarLogReadDepthsAdmixed = newSampleVarLogReadDepths
-                    .mul(params.getMeanFieldAdmixingRatio())
-                    .addi(sampleVarLogReadDepths.mul(1.0 - params.getMeanFieldAdmixingRatio()));
-        } else {
-            newSampleMeanLogReadDepthsAdmixed = newSampleMeanLogReadDepths;
-            newSampleVarLogReadDepthsAdmixed = newSampleVarLogReadDepths;
-        }
+        /* admix */
+        newSampleMeanLogReadDepthsAdmixed = newSampleMeanLogReadDepths
+                .mul(admixingRatio)
+                .addi(sampleMeanLogReadDepths.mul(1.0 - admixingRatio));
+        newSampleVarLogReadDepthsAdmixed = newSampleVarLogReadDepths
+                .mul(admixingRatio)
+                .addi(sampleVarLogReadDepths.mul(1.0 - admixingRatio));
 
         /* calculate the error only using the change in the mean */
         final double errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(
@@ -953,6 +1050,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_log_d_s, dat.right));
 
         return SubroutineSignal.builder().put("error_norm", errorNormInfinity).build();
+    }
+
+    @EvaluatesRDD @UpdatesRDD @CachesRDD
+    public SubroutineSignal updateReadDepthPosteriorExpectations() {
+        return updateReadDepthPosteriorExpectations(params.getMeanFieldAdmixingRatio(), false);
     }
 
     /**
@@ -1060,7 +1162,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         /* calculate posteriors */
         long startTime = System.nanoTime();
         final SubroutineSignal sig;
-        if (params.getCopyRatioHMMType().equals(COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
+        if (params.getCopyRatioHMMType().equals(CoverageModelEMParams.CopyRatioHMMType.COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
             /* local mode */
             sig = updateCopyRatioPosteriorExpectationsLocal();
         } else {
@@ -1084,7 +1186,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final List<List<HiddenStateSegmentRecord<S, Target>>> result;
         /* calculate posteriors */
         long startTime = System.nanoTime();
-        if (params.getCopyRatioHMMType().equals(COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
+        if (params.getCopyRatioHMMType().equals(CoverageModelEMParams.CopyRatioHMMType.COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
             /* local mode */
             result = getCopyRatioSegmentsLocal();
         } else {
@@ -1120,6 +1222,11 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                         processedTargetList,
                         copyRatioEmissionData.get(si)))
                 .collect(Collectors.toList());
+
+        /* update log chain posterior expectation */
+        sampleLogChainPosteriors.assign(Nd4j.create(copyRatioPosteriorResults.stream()
+                .mapToDouble(CopyRatioExpectations::getLogChainPosteriorProbability)
+                .toArray(), new int[] {numSamples, 1}));
 
         /* sent the results back to workers */
         final ImmutablePair<INDArray, INDArray> copyRatioPosteriorDataPair =
@@ -1263,7 +1370,18 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                             return newPartitionData.iterator();
                         }, true);
 
-        /* repartition in target space */
+        /* we need to do two things to copyRatioPosteriorExpectationsPairRDD; so we cache it */
+        /* step 1. update log chain posterior expectation on the driver node */
+        final double[] newSampleLogChainPosteriors = copyRatioPosteriorExpectationsPairRDD
+                .mapValues(CopyRatioExpectations::getLogChainPosteriorProbability)
+                .collect()
+                .stream()
+                .sorted(Comparator.comparingInt(t -> t._1))
+                .mapToDouble(t -> t._2)
+                .toArray();
+        sampleLogChainPosteriors.assign(Nd4j.create(newSampleLogChainPosteriors, new int[] {numSamples, 1}));
+
+        /* step 2. repartition in target space */
         final JavaPairRDD<LinearSpaceBlock, ImmutablePair<INDArray, INDArray>>
                 blockifiedCopyRatioPosteriorResultsPairRDD = copyRatioPosteriorExpectationsPairRDD
                 /* flat map to [target block, [sample index, [mean log copy ratio, var log copy ratio]]] */
@@ -1295,6 +1413,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                         /* collect to a list */
                         .collect(Collectors.toList()))
                 .mapValues(CoverageModelEMWorkspace::stackCopyRatioPosteriorDataForAllSamples);
+
+        /* we do not need copy ratio expectations anymore */
+        copyRatioPosteriorExpectationsPairRDD.unpersist();
 
         /* step 3. merge with computeRDD and update */
         final double admixingRatio = params.getMeanFieldAdmixingRatio();
@@ -1626,7 +1747,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* update the driver copy */
         biasCovariatesARDCoefficients.assign(alpha_l);
-        biasCovariatesARDCoefficientsHistory.add(alpha_l.dup());
 
         return SubroutineSignal.builder()
                 .put("error_norm", errorNormInfinity)
@@ -1688,12 +1808,36 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         }
 
         /* info log to stdout */
+        postProcessBiasCovariatesARDCoefficientsOneToInf(alpha_l);
         logger.info("Log ARD coefficients: " + Transforms.log(alpha_l, true).toString());
 
-        /* 1-off refinement */
+        /* update the worker copy */
+        mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
+                alpha_l));
+
+        /* update the driver copy */
+        biasCovariatesARDCoefficients.assign(alpha_l);
+
+        return SubroutineSignal.builder()
+                .put("error_norm", errorNormInfinity)
+                .put("iterations", iter)
+                .build();
+    }
+
+    /**
+     * TODO
+     * @param alpha_l
+     */
+    private void postProcessBiasCovariatesARDCoefficientsOneToInf(final INDArray alpha_l) {
+        final double EPS = 1e-6; /* TODO magic number */
         double logEvidence = mapWorkersAndReduce(cb -> cb.calculateBiasCovariatesLogEvidencePartialTargetSum(alpha_l),
                 (a, b) -> a + b);
         for (int li = 0; li < numLatents; li++) {
+            /* how close the current alpha_l is to the maximum value */
+            final double err = FastMath.abs(FastMath.log(alpha_l.getDouble(li)) - FastMath.log(params.getMaxARDPrecision()));
+            if (err < EPS) {
+                continue;
+            }
             final INDArray alpha_trial_l = alpha_l.dup().put(0, li, params.getMaxARDPrecision());
             final double logEvidenceTrial = mapWorkersAndReduce(cb -> cb.calculateBiasCovariatesLogEvidencePartialTargetSum(alpha_trial_l),
                     (a, b) -> a + b);
@@ -1702,22 +1846,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 alpha_l.assign(alpha_trial_l);
             }
         }
-
-        /* info log to stdout */
-        logger.info("Log ARD coefficients after 1-to-infinity refinement: " + Transforms.log(alpha_l, true).toString());
-
-        /* update the worker copy */
-        mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
-                alpha_l));
-
-        /* update the driver copy */
-        biasCovariatesARDCoefficients.assign(alpha_l);
-        biasCovariatesARDCoefficientsHistory.add(alpha_l.dup());
-
-        return SubroutineSignal.builder()
-                .put("error_norm", errorNormInfinity)
-                .put("iterations", iter)
-                .build();
     }
 
     /**
@@ -1893,60 +2021,69 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     @EvaluatesRDD
     public double getLogLikelihood() {
         /* this is normalized by active targets of each sample */
-        final double logLikelihoodAllSamples =  Arrays.stream(getLogLikelihoodPerSample()).reduce((a, b) -> a + b)
+        final double logLikelihoodEmissionAndChainPerTarget = Arrays.stream(getLogLikelihoodPerSample()).reduce((a, b) -> a + b)
                 .orElse(Double.NaN);
 
         /* contribution from ARD */
-        final double contribARD;
-        if (ardEnabled) {
-            contribARD = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true)
-                    .sumNumber().doubleValue() / numTargets - 0.5 * numLatents;
-        } else {
-            contribARD = 0;
-        }
+        final double logLikelihoodARDPerTarget = 0;
+//        if (ardEnabled) {
+//            final INDArray biasCovariatesSecondMoment = mapWorkersAndReduce(
+//                    CoverageModelEMComputeBlock::getBiasCovariatesSecondMomentPosteriorsPartialTargetSum, INDArray::add);
+//            logLikelihoodARDPerTarget = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true).sumNumber().doubleValue()
+//                    - 0.5 * biasCovariatesARDCoefficients.mul(biasCovariatesSecondMoment).sumNumber().doubleValue() / numTargets;
+//        } else {
+//            logLikelihoodARDPerTarget = 0;
+//        }
 
         /* the final result is normalized for number of samples */
-        double logLikelihood = (logLikelihoodAllSamples + contribARD) / numSamples;
-        logLikelihoodHistory.add(logLikelihood);
+        double logLikelihoodTotal = (logLikelihoodEmissionAndChainPerTarget + logLikelihoodARDPerTarget) / numSamples;
 
-        return logLikelihood;
+        /* log history */
+        logLikelihoodHistory.add(logLikelihoodTotal);
+        if (ardEnabled) {
+            biasCovariatesARDCoefficientsHistory.add(biasCovariatesARDCoefficients.dup());
+        }
+
+        return logLikelihoodTotal;
     }
 
     /**
      * Fetch the log likelihood from compute block(s)
      *
-     * @return log likelihood normalized per sample per target
+     * @return log likelihood normalized per target
      */
     @EvaluatesRDD @CachesRDD
     public double[] getLogLikelihoodPerSample() {
         updateLogLikelihoodCaches();
 
         /* contribution from latent bias prior */
-        final INDArray biasPriorContrib_s;
+        final INDArray biasPriorContrib = Nd4j.zeros(new int[] {numSamples, 1});
         if (biasCovariatesEnabled) {
-            biasPriorContrib_s = sampleBiasLatentPosteriorFirstMoments
-                    .mul(sampleBiasLatentPosteriorFirstMoments).muli(-0.5).sum(1);
-        } else {
-            biasPriorContrib_s = Nd4j.zeros(new int[] {numSamples, 1});
+            for (int li = 0; li < numLatents; li++) {
+                biasPriorContrib.addi(sampleBiasLatentPosteriorSecondMoments.get(NDArrayIndex.all(),
+                        NDArrayIndex.point(li), NDArrayIndex.point(li)));
+            }
+            biasPriorContrib.addi(0.5 * numLatents * FastMath.log(2 * FastMath.PI)).muli(-0.5);
         }
 
-        final CoverageModelEMComputeBlock.CoverageModelICGCacheNode key;
+        /* contribution from emission nodes */
+        final CoverageModelEMComputeBlock.CoverageModelICGCacheNode logLikelihoodKey;
         if (params.fourierRegularizationEnabled()) {
-            key = CoverageModelEMComputeBlock.CoverageModelICGCacheNode.loglike_reg;
+            logLikelihoodKey = CoverageModelEMComputeBlock.CoverageModelICGCacheNode.loglike_reg;
         } else {
-            key = CoverageModelEMComputeBlock.CoverageModelICGCacheNode.loglike_unreg;
+            logLikelihoodKey = CoverageModelEMComputeBlock.CoverageModelICGCacheNode.loglike_unreg;
         }
-        /* contribution from everything else */
-        final INDArray restContrib_s = mapWorkersAndReduce(cb -> cb.getINDArrayFromCache(key), INDArray::add);
+        final INDArray emissionContrib = mapWorkersAndReduce(cb -> cb.getINDArrayFromCache(logLikelihoodKey),
+                INDArray::add);
 
-        /* active target count per sample */
-        final INDArray sum_M_s = mapWorkersAndReduce(cb -> cb.getINDArrayFromCache(
+        /* unmasked target count per sample */
+        final INDArray sum_M = mapWorkersAndReduce(cb -> cb.getINDArrayFromCache(
                 CoverageModelEMComputeBlock.CoverageModelICGCacheNode.sum_M_s), INDArray::add);
 
-        /* put together and normalize by active targets */
-        final INDArray logLikelihood_s = restContrib_s.add(biasPriorContrib_s).divi(sum_M_s);
+        final INDArray logLikelihoodEmissionPerTarget = emissionContrib.add(biasPriorContrib).divi(sum_M);
+        final INDArray logLikelihoodChainPerTarget = sampleLogChainPosteriors.div(numTargets);
 
-        return logLikelihood_s.data().asDouble();
+        return logLikelihoodEmissionPerTarget.addi(logLikelihoodChainPerTarget).data().asDouble();
     }
 
     /**

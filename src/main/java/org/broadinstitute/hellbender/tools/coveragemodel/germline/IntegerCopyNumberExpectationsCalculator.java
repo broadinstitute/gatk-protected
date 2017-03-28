@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.tools.exome.germlinehmm.IntegerCopyNumberSt
 import org.broadinstitute.hellbender.tools.exome.germlinehmm.IntegerCopyNumberTransitionProbabilityCacheCollection;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.hmm.ForwardBackwardAlgorithm;
+import org.broadinstitute.hellbender.utils.hmm.HiddenMarkovModel;
 import org.broadinstitute.hellbender.utils.hmm.ViterbiAlgorithm;
 
 import javax.annotation.Nonnull;
@@ -158,7 +159,11 @@ public final class IntegerCopyNumberExpectationsCalculator implements
             }
         }
 
-        return new CopyRatioExpectations(logCopyRatioPosteriorMeans, logCopyRatioPosteriorVariances);
+        /* calculate chain posterior log probability */
+        final double logChainPosteriorProbability = result.logChainPosteriorProbability();
+
+        return new CopyRatioExpectations(logCopyRatioPosteriorMeans, logCopyRatioPosteriorVariances,
+                logChainPosteriorProbability);
     }
 
     @Override
@@ -232,7 +237,10 @@ public final class IntegerCopyNumberExpectationsCalculator implements
             }
         }
 
-        return new CopyRatioExpectations(logCopyRatioPriorMeans, logCopyRatioPriorVariances);
+        /* calculate chain posterior log probability */
+        final double logChainPriorProbability = calculateLogChainPriorProbability(genotypeSpecificHMM, targetsList);
+
+        return new CopyRatioExpectations(logCopyRatioPriorMeans, logCopyRatioPriorVariances, logChainPriorProbability);
     }
 
     @Override
@@ -299,6 +307,54 @@ public final class IntegerCopyNumberExpectationsCalculator implements
             sum += pdf[i];
         }
         return prod / sum;
+    }
+
+    /**
+     * TODO
+     *
+     * @param hmm
+     * @param positions
+     * @param <D>
+     * @param <T>
+     * @param <S>
+     * @return
+     */
+    private static <D, T, S> double calculateLogChainPriorProbability(final HiddenMarkovModel<D, T, S> hmm,
+                                                                      final List<T> positions) {
+        final List<S> states = hmm.hiddenStates();
+        if (positions.isEmpty() || states.isEmpty()) {
+            return 0;
+        }
+        final int numStates = states.size();
+        final int numPositions = positions.size();
+        final double[] logPriorProbabilities = states.stream()
+                .mapToDouble(state -> hmm.logPriorProbability(state, positions.get(0)))
+                .toArray();
+        final double[] priorProbabilities = Arrays.stream(logPriorProbabilities)
+                .map(FastMath::exp)
+                .toArray();
+
+        /* contribution of the first state */
+        double result = IntStream.range(0, numStates)
+                .mapToDouble(stateIndex -> logPriorProbabilities[stateIndex] * priorProbabilities[stateIndex])
+                .sum();
+
+        /* contribution of the rest of the chain */
+        if (numPositions > 1) {
+            for (int positionIndex = 0; positionIndex < numPositions - 1; positionIndex++) {
+                for (int i = 0; i < numStates; i++) { /* departure state */
+                    for (int j = 0; j < numStates; j++) { /* destination state */
+                        final double logTransitionProbability = hmm.logTransitionProbability(
+                                states.get(i), positions.get(positionIndex),
+                                states.get(j), positions.get(positionIndex + 1));
+                        if (logTransitionProbability != Double.NEGATIVE_INFINITY) { /* we assume NEGATIVE_INFINITY * 0 = 0 */
+                            result += logTransitionProbability * priorProbabilities[i] * priorProbabilities[j];
+                        }
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     private void verifyArgsForHiddenMarkovModelResults(@Nonnull final CopyRatioCallingMetadata copyRatioCallingMetadata,

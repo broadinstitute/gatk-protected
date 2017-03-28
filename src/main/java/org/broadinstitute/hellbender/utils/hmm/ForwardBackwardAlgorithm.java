@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.utils.hmm;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.apache.commons.lang.math.IntRange;
+import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
@@ -260,6 +261,18 @@ public final class ForwardBackwardAlgorithm {
          * @throws IllegalArgumentException if {@code target} is unknown to the model.
          */
         double logDataLikelihood(final T target);
+
+        /**
+         * Returns the posterior probability of the hidden chain, defined as:
+         *
+         *   \log \pi_i E[z_{i,0}] + \log T_{t, t+1}^{i, j} E[z_{i,t} z_{j,t+1}]
+         *
+         * This quantity is the logDataLikelihood excluding the emission probability
+         *
+         * @return a log scaled probability from -Inf to 0.
+         */
+        double logChainPosteriorProbability();
+
     }
 
     /**
@@ -477,7 +490,7 @@ public final class ForwardBackwardAlgorithm {
          * @return a valid probability in log scale (between -Inf and 0 inclusive).
          */
         private static double[] calculateLogDataLikelihood(final double[][] logForwardProbabilities,
-                                                         final double[][] logBackwardProbabilities) {
+                                                           final double[][] logBackwardProbabilities) {
             return IntStream.range(0, logForwardProbabilities.length)
                     .mapToObj(i ->
                             IntStream.range(0, logForwardProbabilities[i].length)
@@ -672,6 +685,62 @@ public final class ForwardBackwardAlgorithm {
         public double logDataLikelihood(final T position) {
             return logDataLikelihood[validPositionIndex(position)];
         }
+
+        @Override
+        public double logChainPosteriorProbability() {
+            final List<S> states = model.hiddenStates();
+            if (positions.isEmpty() || states.isEmpty()) {
+                return 0;
+            }
+            /* calculate the contribution of emission nodes */
+            final double logEmissionPosteriorExpectation = IntStream.range(0, positions.size())
+                    .mapToDouble(positionIndex -> IntStream.range(0, states.size())
+                            .mapToDouble(stateIndex -> FastMath.exp(logProbability(positionIndex, states.get(stateIndex))) *
+                                    model.logEmissionProbability(data.get(positionIndex), states.get(stateIndex),
+                                            positions.get(positionIndex)))
+                            .sum())
+                    .sum();
+            return logDataLikelihood() - logEmissionPosteriorExpectation;
+        }
+
+        /* TODO we can safely delete this ... */
+//        @Override
+//        public double logChainPosteriorProbabilityDirect() {
+//            final List<S> states = model.hiddenStates();
+//            if (positions.isEmpty() || states.isEmpty()) {
+//                return 0;
+//            }
+//
+//            double result = 0;
+//
+//            /* contribution of the first state */
+//            result += states.stream()
+//                    .mapToDouble(state -> FastMath.exp(logProbability(0, state)) *
+//                            model.logPriorProbability(state, positions.get(0)))
+//                    .sum();
+//
+//            if (positions.size() == 1) {
+//                return result;
+//            } else { /* contribution of the rest of the chain */
+//                for (int currentPositionIndex = 0; currentPositionIndex < positions.size() - 1; currentPositionIndex++) {
+//                    final int nextPositionIndex = currentPositionIndex + 1;
+//                    for (int currentStateIndex = 0; currentStateIndex < states.size(); currentStateIndex++) {
+//                        for (int nextStateIndex = 0; nextStateIndex < states.size(); nextStateIndex++) {
+//                            final double jointAdjacentPosterior = FastMath.exp(logProbability(currentPositionIndex,
+//                                    Arrays.asList(states.get(currentStateIndex), states.get(nextStateIndex))));
+//                            final double logTransitionProbability = model.logTransitionProbability(
+//                                    states.get(currentStateIndex), positions.get(currentPositionIndex),
+//                                    states.get(nextStateIndex), positions.get(nextPositionIndex));
+//                            if (logTransitionProbability == Double.NEGATIVE_INFINITY) {
+//                                continue;
+//                            }
+//                            result += jointAdjacentPosterior * logTransitionProbability;
+//                        }
+//                    }
+//                }
+//                return result;
+//            }
+//        }
 
         /**
          * Translates a model hidden state to its index.

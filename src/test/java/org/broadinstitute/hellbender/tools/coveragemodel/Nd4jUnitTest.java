@@ -83,4 +83,5 @@ public class Nd4jUnitTest extends BaseTest {
             Assert.assertEquals(X.getScalar(a).getDouble(0), prod, EPS);
         }
     }
+
 }

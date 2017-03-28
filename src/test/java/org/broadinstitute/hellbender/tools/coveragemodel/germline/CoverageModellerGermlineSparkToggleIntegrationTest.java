@@ -65,12 +65,12 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final File TEST_TARGETS_FILE = new File(TEST_TRUTH_SIM_MODEL, "targets.tsv");
 
     private static final double MAPPING_ERROR_RATE = 5e-4; /* reflects the simulated data */
-    private static final int NUM_LATENTS = 10; /* simulated data uses 3 */
+    private static final int NUM_LATENTS = 5; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
-    private static final int MIN_LEARNING_READ_COUNT = 2;
-    private static final int MAX_LEARNING_EM_ITERATIONS = 200;
-    private static final int MAX_CALLING_EM_ITERATIONS = 30;
+    private static final int MIN_LEARNING_READ_COUNT = 10;
+    private static final int MAX_LEARNING_EM_ITERATIONS = 20;
+    private static final int MAX_CALLING_EM_ITERATIONS = 50;
 
     private static final double MIN_PASS_REF_CONCORDANCE = 0.95;
     private static final double MIN_PASS_ALT_CONCORDANCE = 0.30;
@@ -80,6 +80,9 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final File CHECKPOINTING_PATH = createTempDir("coverage_modeller_germline_checkpointing");
     private static final File LEARNING_OUTPUT_PATH = createTempDir("coverage_modeller_germline_learning_output");
     private static final File CALLING_OUTPUT_PATH = createTempDir("coverage_modeller_germline_calling_output");
+//    private static final File LEARNING_OUTPUT_PATH = new File("/Users/mehrtash/Data/Genome/ARDTest/analysis/learning_wo_ARD_" + NUM_LATENTS);
+//    private static final File CALLING_OUTPUT_PATH = new File("/Users/mehrtash/Data/Genome/ARDTest/analysis/calling_wo_ARD_" + NUM_LATENTS);
+
     private static final File LEARNING_MODEL_OUTPUT_PATH = new File(LEARNING_OUTPUT_PATH,
             CoverageModellerGermlineSparkToggle.FINAL_MODEL_SUBDIR);
     private static final File LEARNING_POSTERIORS_OUTPUT_PATH = new File(LEARNING_OUTPUT_PATH,
@@ -116,8 +119,6 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     String.valueOf(MAPPING_ERROR_RATE),
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_PATH_LONG_NAME,
                     CHECKPOINTING_PATH.getAbsolutePath(),
-                "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
-                    CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED.name(),
                 "--" + CoverageModelEMParams.NUMBER_OF_TARGET_SPACE_PARTITIONS_LONG_NAME,
                     String.valueOf(SPARK_NUMBER_OF_PARTITIONS),
                 "--" + CoverageModellerGermlineSparkToggle.COPY_NUMBER_TRANSITION_PRIOR_TABLE_LONG_NAME,
@@ -128,6 +129,10 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                     SPARK_CHECKPOINTING_PATH.getAbsolutePath(),
                 "--" + CoverageModelEMParams.EXTENDED_POSTERIOR_OUTPUT_ENABLED_LONG_NAME,
                     "true",
+                "--" + CoverageModelEMParams.ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED_LONG_NAME,
+                    "true",
+                "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
+                    CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED.name(),
                 "--verbosity", "INFO"
         }, extraArgs);
     }
@@ -147,13 +152,13 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModelEMParams.MIN_LEARNING_READ_COUNT_LONG_NAME,
                     String.valueOf(MIN_LEARNING_READ_COUNT),
                 "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-                    "false",
+                    "true",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
                     "false",
                 "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
                     "true",
                 "--" + CoverageModelEMParams.PSI_UPDATE_ENABLED_LONG_NAME,
-                    "false",
+                    "true",
         }, getBaseArgs(extraArgs));
     }
 
@@ -170,7 +175,7 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModelEMParams.MAX_EM_ITERATIONS_LONG_NAME,
                     String.valueOf(MAX_CALLING_EM_ITERATIONS),
                 "--" + CoverageModelEMParams.GAMMA_UPDATE_ENABLED_LONG_NAME,
-                    "false",
+                    "true",
                 "--" + CoverageModelEMParams.RUN_CHECKPOINTING_ENABLED_LONG_NAME,
                     "false",
                 "--" + CoverageModelEMParams.ARD_ENABLED_LONG_NAME,
