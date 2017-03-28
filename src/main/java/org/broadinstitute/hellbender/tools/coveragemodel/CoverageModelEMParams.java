@@ -156,9 +156,13 @@ public final class CoverageModelEMParams {
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 
-    public static final double DEFAULT_INITIAL_ARD_PRECISION = 1e-8;
-    public static final String INITIAL_ARD_PRECISION_SHORT_NAME = "IARDP";
-    public static final String INITIAL_ARD_PRECISION_LONG_NAME = "initialARDPrecision";
+    public static final double DEFAULT_INITIAL_ARD_PRECISION_ABSOLUTE = 1e-8;
+    public static final String INITIAL_ARD_PRECISION_ABSOLUTE_SHORT_NAME = "IARDPA";
+    public static final String INITIAL_ARD_PRECISION_ABSOLUTE_LONG_NAME = "initialARDPrecisionAbsolute";
+
+    public static final double DEFAULT_INITIAL_ARD_PRECISION_RELATIVE_TO_NOISE = 1e-3;
+    public static final String INITIAL_ARD_PRECISION_RELATIVE_TO_NOISE_SHORT_NAME = "IARDPRN";
+    public static final String INITIAL_ARD_PRECISION_RELATIVE_TO_NOISE_LONG_NAME = "initialARDPrecisionRelativeToNoise";
 
     public static final int DEFAULT_MAX_ARD_ITERATIONS = 50;
     public static final String MAX_ARD_ITERATIONS_SHORT_NAME = "MARDI";
@@ -767,12 +771,21 @@ public final class CoverageModelEMParams {
 
     @Advanced
     @Argument(
-            doc = "Initial ARD precision",
-            shortName = INITIAL_ARD_PRECISION_SHORT_NAME,
-            fullName = INITIAL_ARD_PRECISION_LONG_NAME,
+            doc = "Initial absolute ARD precision (if RANDOM model initialization is selected)",
+            shortName = INITIAL_ARD_PRECISION_ABSOLUTE_SHORT_NAME,
+            fullName = INITIAL_ARD_PRECISION_ABSOLUTE_LONG_NAME,
             optional = true
     )
-    protected double initialARDPrecision = DEFAULT_INITIAL_ARD_PRECISION;
+    protected double initialARDPrecisionAbsolute = DEFAULT_INITIAL_ARD_PRECISION_ABSOLUTE;
+
+    @Advanced
+    @Argument(
+            doc = "Initial absolute ARD precision relative to noise (if PCA model initialization is selected)",
+            shortName = INITIAL_ARD_PRECISION_RELATIVE_TO_NOISE_SHORT_NAME,
+            fullName = INITIAL_ARD_PRECISION_RELATIVE_TO_NOISE_LONG_NAME,
+            optional = true
+    )
+    protected double initialARDPrecisionRelativeToNoise = DEFAULT_INITIAL_ARD_PRECISION_RELATIVE_TO_NOISE;
 
     @Advanced
     @Argument(
@@ -1010,8 +1023,12 @@ public final class CoverageModelEMParams {
         return ardUpdateAlgorithm;
     }
 
-    public double getInitialARDPrecision() {
-        return initialARDPrecision;
+    public double getInitialARDPrecisionAbsolute() {
+        return initialARDPrecisionAbsolute;
+    }
+
+    public double getInitialARDPrecisionRelativeToNoise() {
+        return initialARDPrecisionRelativeToNoise;
     }
 
     public double getMaxARDPrecision() {
@@ -1028,7 +1045,7 @@ public final class CoverageModelEMParams {
 
     public int getPsiSolverNumThreads() { return psiSolverNumThreads; }
 
-    public ModelInitializationStrategy getDefaultModelInitializationStrategy() {
+    public ModelInitializationStrategy getModelInitializationStrategy() {
         return modelInitializationStrategy;
     }
 
@@ -1080,7 +1097,8 @@ public final class CoverageModelEMParams {
         ParamUtils.isPositive(minLearningReadCount, "The minimum learning read count must be positive");
         ParamUtils.isPositiveOrZero(mappingErrorRate, "The mapping error rate must be non-negative");
         Utils.nonNull(ardUpdateAlgorithm, "The ARD update algorithm must be non-null");
-        ParamUtils.isPositive(initialARDPrecision, "The initial ARD precision must be positive");
+        ParamUtils.isPositive(initialARDPrecisionAbsolute, "The absolute initial ARD precision must be positive");
+        ParamUtils.isPositive(initialARDPrecisionRelativeToNoise, "The relative initial ARD precision must be positive");
         ParamUtils.isPositive(maxARDPrecision, "The maximum ARD precision must be positive");
         ParamUtils.isPositive(maxARDIterations, "The maximum ARD iteration count must be positive");
         ParamUtils.isPositive(logARDAbsoluteTolerance, "The absolute tolerance for ARD update must be positive");

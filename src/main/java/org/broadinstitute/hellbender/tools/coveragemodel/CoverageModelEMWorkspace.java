@@ -357,7 +357,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* allocate memory for driver-node copy of model parameters */
         if (ardEnabled) { /* if so, numLatents > 0 by way of pre-validating {@code params} */
-            biasCovariatesARDCoefficients = Nd4j.ones(new int[] {1, numLatents}).muli(params.getInitialARDPrecision());
+            biasCovariatesARDCoefficients = Nd4j.ones(new int[] {1, numLatents}).muli(params.getInitialARDPrecisionAbsolute());
             biasCovariatesARDCoefficientsHistory = new ArrayList<>();
         } else {
             logger.info("ARD for bias covariates is disabled");
@@ -389,7 +389,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         if (processedModel != null) { /* an initial model is already provided */
             initializeWorkersWithGivenModel(processedModel);
         } else {
-            if (params.getDefaultModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.RANDOM) ||
+            if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.RANDOM) ||
                     !biasCovariatesEnabled) {
                 final CoverageModelParameters randomModel = CoverageModelParameters.generateRandomModel(
                         processedTargetList, numLatents,
@@ -399,7 +399,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                         CoverageModelGlobalConstants.RANDOM_UNEXPLAINED_VARIANCE_MAX,
                         biasCovariatesARDCoefficients);
                 initializeWorkersWithGivenModel(randomModel);
-            } else if (params.getDefaultModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.PCA)) {
+            } else if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.PCA)) {
                 initializeWorkersWithPCA();
             } else {
                 throw new GATKException.ShouldNeverReachHereException("Bad value of model initialization strategy");
@@ -812,8 +812,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                     .muli(scaleFactors.getDouble(li));
             biasCovariatesPCA.getColumn(li).assign(normedBiasCovariate);
         }
-        if (ardEnabled) {
-            biasCovariatesARDCoefficients.assign(Nd4j.ones(new int[]{1, numLatents}).muli(0.001 / isotropicVariance));
+        if (ardEnabled) { /* a better estimate of ARD coefficients */
+            biasCovariatesARDCoefficients.assign(Nd4j.ones(new int[]{1, numLatents})
+                    .muli(params.getInitialARDPrecisionRelativeToNoise() / isotropicVariance));
         }
 
         final CoverageModelParameters modelParamsFromPCA = new CoverageModelParameters(
@@ -821,7 +822,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 Nd4j.zeros(new int[] {1, numTargets}),
                 Nd4j.ones(new int[] {1, numTargets}).muli(isotropicVariance),
                 biasCovariatesPCA,
-                ardEnabled ? Nd4j.zeros(new int[] {numTargets, numLatents, numLatents}) : null, /* set initial covariance to zero */
+                ardEnabled ? Nd4j.zeros(new int[] {numTargets, numLatents, numLatents}) : null,
                 biasCovariatesARDCoefficients);
 
         initializeWorkersWithGivenModel(modelParamsFromPCA);
