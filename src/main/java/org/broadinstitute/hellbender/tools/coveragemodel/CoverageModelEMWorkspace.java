@@ -1794,7 +1794,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             alpha_l.assign(alpha_l_new_stabilized);
 
             /* debug log to stdout */
-            logger.debug(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
+            logger.info(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
 
             /* check for convergence */
             final double minErrorConvergence = params.getARDAbsoluteTolerance() + params.getARDRelativeTolerance() *
