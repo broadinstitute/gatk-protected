@@ -129,7 +129,7 @@ public final class CoverageModelEMComputeBlock {
         tot_Psi_st("The sum of target-specific and sample-specific unexplained variance of the log bias"),
         Delta_st("\\Delta_{st} (refer to the technical white paper)"),
         Delta_PCA_st("\\Delta_PCA_{st} (refer to the technical white paper)"),
-        M_log_Psi_s("Target-summed log precision of masked log bias"), /* a what a mouthful! */
+        loglike_normalization_s("Target-summed log precision of masked log bias"), /* what a mouthful! */
         M_Psi_inv_st("Masked precision of log bias"),
         v_tl("v_{t\\mu}} (refer to the technical white paper)"),
         Q_tll("Q_{t\\mu\\nu} (refer to the technical white paper)"),
@@ -331,12 +331,15 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.m_t.name()},
                         calculate_Delta_st, true)
                 /* \sum_{t} M_{st} \log(\Psi_{st}) */
-                .addComputableNode(CoverageModelICGCacheNode.M_log_Psi_s.name(),
-                        new String[]{},
+                .addComputableNode(CoverageModelICGCacheNode.loglike_normalization_s.name(),
+                        new String[]{
+                                CoverageModelICGCacheTag.LOGLIKE_REG.name(),
+                                CoverageModelICGCacheTag.LOGLIKE_UNREG.name()},
                         new String[]{
                                 CoverageModelICGCacheNode.M_st.name(),
-                                CoverageModelICGCacheNode.tot_Psi_st.name()},
-                        calculate_M_log_Psi_s, true)
+                                CoverageModelICGCacheNode.tot_Psi_st.name(),
+                                CoverageModelICGCacheNode.log_n_st.name()},
+                        calculate_loglike_normalization_s, true)
                 /* M_{st} \Psi_{st}^{-1} */
                 .addComputableNode(CoverageModelICGCacheNode.M_Psi_inv_st.name(),
                         new String[]{
@@ -356,7 +359,7 @@ public final class CoverageModelEMComputeBlock {
                         new String[]{
                                 CoverageModelICGCacheNode.B_st.name(),
                                 CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-                                CoverageModelICGCacheNode.M_log_Psi_s.name()},
+                                CoverageModelICGCacheNode.loglike_normalization_s.name()},
                         calculate_loglike_unreg, true);
 
         /* nodes specific to bias covariates */
@@ -466,7 +469,7 @@ public final class CoverageModelEMComputeBlock {
         //                    new String[]{
         //                            CoverageModelICGCacheNode.B_st.name(),
         //                            CoverageModelICGCacheNode.M_Psi_inv_st.name(),
-        //                            CoverageModelICGCacheNode.M_log_Psi_s.name(),
+        //                            CoverageModelICGCacheNode.loglike_normalization_s.name(),
         //                            CoverageModelICGCacheNode.W_tl.name(),
         //                            CoverageModelICGCacheNode.F_W_tl.name(),
         //                            CoverageModelICGCacheNode.zz_sll.name()},
@@ -1543,17 +1546,21 @@ public final class CoverageModelEMComputeBlock {
                 }
             };
 
-    /* dependents: ["M_st", "tot_Psi_st"] */
-    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_M_log_Psi_s =
+    /* dependents: ["M_st", "tot_Psi_st", "log_n_st"] */
+    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_loglike_normalization_s =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
                 @Override
                 public Duplicable apply(Map<String, ? extends Duplicable> dat) {
                     final INDArray M_st = getINDArrayFromMap(CoverageModelICGCacheNode.M_st, dat);
                     final INDArray tot_Psi_st = getINDArrayFromMap(CoverageModelICGCacheNode.tot_Psi_st, dat);
-                    final INDArray M_log_Psi_s = Transforms.log(tot_Psi_st, true)
+                    final INDArray log_n_st = getINDArrayFromMap(CoverageModelICGCacheNode.log_n_st, dat);
+                    final INDArray loglike_normalization_s = Transforms.log(tot_Psi_st, true)
                             .addi(FastMath.log(2 * FastMath.PI))
-                            .muli(M_st).sum(1);
-                    return new DuplicableNDArray(M_log_Psi_s);
+                            .muli(-0.5)
+                            .subi(log_n_st)
+                            .muli(M_st)
+                            .sum(1);
+                    return new DuplicableNDArray(loglike_normalization_s);
                 }
             };
 
@@ -1641,7 +1648,7 @@ public final class CoverageModelEMComputeBlock {
      * log likelihood nodes *
      ************************/
 
-    /* dependents: ["B_st", "M_Psi_inv_st", "M_log_Psi_s"] */
+    /* dependents: ["B_st", "M_Psi_inv_st", "loglike_normalization_s"] */
     private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_loglike_unreg =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
                 @Override
@@ -1649,29 +1656,27 @@ public final class CoverageModelEMComputeBlock {
                     /* fetch */
                     final INDArray B_st = getINDArrayFromMap(CoverageModelICGCacheNode.B_st, dat);
                     final INDArray M_Psi_inv_st = getINDArrayFromMap(CoverageModelICGCacheNode.M_Psi_inv_st, dat);
-                    final INDArray M_log_Psi_s = getINDArrayFromMap(CoverageModelICGCacheNode.M_log_Psi_s, dat);
+                    final INDArray loglike_normalization_s = getINDArrayFromMap(CoverageModelICGCacheNode.loglike_normalization_s, dat);
 
-                    /* the diagonal part of the covariance of W */
-                    final INDArray part_1 = B_st.mul(M_Psi_inv_st).sum(1);
-                    final INDArray part_2 = M_log_Psi_s;
-
-                    return new DuplicableNDArray(part_1.addi(part_2).muli(-0.5));
+                    return new DuplicableNDArray(B_st.mul(M_Psi_inv_st).sum(1)
+                            .muli(-0.5)
+                            .addi(loglike_normalization_s));
                 }
             };
 
     /* TODO github/gatk-protected issue #853 -- the filter contribution part could be cached */
     /* TODO does not include the ARD part */
-    /* dependents: ["B_st", "M_Psi_inv_st", "M_log_Psi_s", "W_tl", "F_W_tl", "zz_sll"] */
+    /* dependents: ["B_st", "M_Psi_inv_st", "loglike_normalization_s", "W_tl", "F_W_tl", "zz_sll"] */
     private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_loglike_reg =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
                 @Override
                 public Duplicable apply(Map<String, ? extends Duplicable> dat) {
                     final INDArray B_st = getINDArrayFromMap(CoverageModelICGCacheNode.B_st, dat);
                     final INDArray M_Psi_inv_st = getINDArrayFromMap(CoverageModelICGCacheNode.M_Psi_inv_st, dat);
-                    final INDArray M_log_Psi_s = getINDArrayFromMap(CoverageModelICGCacheNode.M_log_Psi_s, dat);
+                    final INDArray loglike_normalization_s = getINDArrayFromMap(CoverageModelICGCacheNode.loglike_normalization_s, dat);
                     final INDArray regularPart = B_st.mul(M_Psi_inv_st).sum(1)
-                            .addi(M_log_Psi_s)
-                            .muli(-0.5);
+                            .muli(-0.5)
+                            .addi(loglike_normalization_s);
 
                     final INDArray W_tl = getINDArrayFromMap(CoverageModelICGCacheNode.W_tl, dat);
                     final INDArray F_W_tl = getINDArrayFromMap(CoverageModelICGCacheNode.F_W_tl, dat);
