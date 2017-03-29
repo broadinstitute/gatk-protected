@@ -706,23 +706,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray sampleBiasLatentPosteriorFirstMoments = this.sampleBiasLatentPosteriorFirstMoments;
         final INDArray sampleBiasLatentPosteriorSecondMoments = this.sampleBiasLatentPosteriorSecondMoments;
 
-        mapWorkers(cb -> cb
-                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_d_s,
-                        sampleMeanLogReadDepths)
-                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_d_s,
-                        sampleVarLogReadDepths)
-                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
-                        sampleUnexplainedVariance));
-
-        /* if bias covariates are enabled, initialize E[z] and E[z z^T] as well */
-        if (biasCovariatesEnabled) {
-            mapWorkers(cb -> cb
-                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl,
-                            sampleBiasLatentPosteriorFirstMoments)
-                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll,
-                            sampleBiasLatentPosteriorSecondMoments));
-        }
-
         /* calculate copy ratio prior expectations */
         final List<CopyRatioExpectations> copyRatioPriorExpectationsList = sampleIndexStream()
                 .mapToObj(si -> copyRatioExpectationsCalculator.getCopyRatioPriorExpectations(
@@ -766,7 +749,27 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         /* push to compute blocks */
         logger.info("Pushing posteriors to worker(s)...");
+
+        /* copy ratio priors */
         joinWithWorkersAndMap(copyRatioPriorsList, p -> p._1.cloneWithUpdateCopyRatioPriors(p._2._1, p._2._2));
+
+        /* read depth and sample-specific unexplained variance */
+        mapWorkers(cb -> cb
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.log_d_s,
+                        sampleMeanLogReadDepths)
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.var_log_d_s,
+                        sampleVarLogReadDepths)
+                .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.gamma_s,
+                        sampleUnexplainedVariance));
+
+        /* if bias covariates are enabled, initialize E[z] and E[z z^T] as well */
+        if (biasCovariatesEnabled) {
+            mapWorkers(cb -> cb
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl,
+                            sampleBiasLatentPosteriorFirstMoments)
+                    .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll,
+                            sampleBiasLatentPosteriorSecondMoments));
+        }
     }
 
     /**
@@ -804,7 +807,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final int residualDim = numTargets - numLatents;
         final double isotropicVariance = sampleCovarianceEigenvalues.get(NDArrayIndex.interval(numLatents, numSamples))
                 .sumNumber().doubleValue() / residualDim;
-        logger.info("PCA estimate of isotropic unexplained variance: " + isotropicVariance);
+        logger.info(String.format("PCA estimate of isotropic unexplained variance: %f" , isotropicVariance));
 
         /* estimate bias factors -- see Bishop 12.45 */
         final INDArray scaleFactors = Transforms.sqrt(sampleCovarianceEigenvalues
