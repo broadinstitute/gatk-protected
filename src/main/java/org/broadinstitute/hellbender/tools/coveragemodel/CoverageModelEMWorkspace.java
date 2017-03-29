@@ -790,7 +790,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray sampleCovarianceEigenvalues = targetCovarianceEigensystem.getLeft().div(numSamples);
 
         /* estimate the isotropic unexplained variance -- see Bishop 12.46 */
-        final int residualDim = numSamples - numLatents;
+        final int residualDim = numTargets - numLatents;
         final double isotropicVariance = sampleCovarianceEigenvalues.get(NDArrayIndex.interval(numLatents, numSamples))
                 .sumNumber().doubleValue() / residualDim;
         logger.info("PCA estimate of isotropic unexplained variance: " + isotropicVariance);
