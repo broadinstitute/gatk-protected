@@ -793,6 +793,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final int residualDim = numSamples - numLatents;
         final double isotropicVariance = sampleCovarianceEigenvalues.get(NDArrayIndex.interval(numLatents, numSamples))
                 .sumNumber().doubleValue() / residualDim;
+        logger.info("PCA estimate of isotropic unexplained variance: " + isotropicVariance);
 
         /* estimate bias factors -- see Bishop 12.45 */
         final INDArray scaleFactors = Transforms.sqrt(sampleCovarianceEigenvalues
@@ -1742,6 +1743,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         /* info log to stdout */
         logger.info("Log ARD coefficients: " + Transforms.log(alpha_l, true).toString());
 
+        errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(
+                Transforms.log(alpha_l, true).subi(Transforms.log(biasCovariatesARDCoefficients, true)));
+
         /* update the worker copy */
         mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
                 alpha_l));
@@ -1809,8 +1813,12 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         }
 
         /* info log to stdout */
-        postProcessBiasCovariatesARDCoefficientsOneToInf(alpha_l);
+        /* TODO */
+        // postProcessBiasCovariatesARDCoefficientsOneToInf(alpha_l);
         logger.info("Log ARD coefficients: " + Transforms.log(alpha_l, true).toString());
+
+        errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(
+                Transforms.log(alpha_l, true).subi(Transforms.log(biasCovariatesARDCoefficients, true)));
 
         /* update the worker copy */
         mapWorkers(cb -> cb.cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.alpha_l,
