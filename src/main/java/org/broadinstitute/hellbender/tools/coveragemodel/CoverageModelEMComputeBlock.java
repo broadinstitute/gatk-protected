@@ -131,7 +131,6 @@ public final class CoverageModelEMComputeBlock {
         Delta_PCA_st("\\Delta_PCA_{st} (refer to the technical white paper)"),
         M_log_Psi_s("Target-summed log precision of masked log bias"), /* a what a mouthful! */
         M_Psi_inv_st("Masked precision of log bias"),
-        chi_t("Sample-summed and masked precision of log bias"),
         v_tl("v_{t\\mu}} (refer to the technical white paper)"),
         Q_tll("Q_{t\\mu\\nu} (refer to the technical white paper)"),
         sum_Q_ll("\\sum_t Q_{t\\mu\\nu} (refer to the technical white paper)"),
@@ -351,15 +350,6 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.M_st.name(),
                                 CoverageModelICGCacheNode.tot_Psi_st.name()},
                         calculate_M_Psi_inv_st, true)
-                /* chi_t = \sum_s M_{st} \Psi_{st}^{-1} */
-                .addComputableNode(CoverageModelICGCacheNode.chi_t.name(),
-                        new String[]{
-                                CoverageModelICGCacheTag.E_STEP_W_UNREG.name(),
-                                CoverageModelICGCacheTag.E_STEP_W_REG.name(),
-                                CoverageModelICGCacheTag.M_STEP_ALPHA.name()},
-                        new String[]{
-                                CoverageModelICGCacheNode.M_Psi_inv_st.name()},
-                        calculate_chi_t, true)
                 /* log likelihood (w/o regularization) */
                 .addComputableNode(CoverageModelICGCacheNode.loglike_unreg.name(),
                         new String[]{CoverageModelICGCacheTag.LOGLIKE_UNREG.name()},
@@ -867,8 +857,6 @@ public final class CoverageModelEMComputeBlock {
         /* fetch the required caches */
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
-        /* TODO -- remove? */
-        final INDArray chi_t = getINDArrayFromCache(CoverageModelICGCacheNode.chi_t);
 
         final int numTargets = v_tl.shape()[0];
         final int numLatents = v_tl.shape()[1];
@@ -911,8 +899,6 @@ public final class CoverageModelEMComputeBlock {
         /* fetch the required caches */
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
-        /* TODO -- remove? */
-        final INDArray chi_t = getINDArrayFromCache(CoverageModelICGCacheNode.chi_t);
 
         final int numTargets = v_tl.shape()[0];
         final int numLatents = v_tl.shape()[1];
@@ -980,7 +966,6 @@ public final class CoverageModelEMComputeBlock {
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
 
         final int numTargets = v_tl.shape()[0];
-        final int numLatents = v_tl.shape()[1];
         final INDArray alpha_ll = Nd4j.diag(alpha_l);
 
         /* calculate log|A| */
@@ -1002,7 +987,8 @@ public final class CoverageModelEMComputeBlock {
             final INDArray X_inv_v_l = CoverageModelEMWorkspaceMathUtils.linsolve(
                     Q_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
                             .add(alpha_ll),
-                    v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()), LINSOLVE_SINGULARITY_THRESHOLD);
+                    v_tl.get(NDArrayIndex.point(ti), NDArrayIndex.all()),
+                    LINSOLVE_SINGULARITY_THRESHOLD);
             v_X_v += v_l.mul(X_inv_v_l.transpose()).sumNumber().doubleValue();
         }
 
@@ -1215,8 +1201,6 @@ public final class CoverageModelEMComputeBlock {
         final INDArray Q_tll = getINDArrayFromCache(CoverageModelICGCacheNode.Q_tll);
         final INDArray v_tl = getINDArrayFromCache(CoverageModelICGCacheNode.v_tl);
         final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
-        /* TODO -- remove? */
-        final INDArray chi_t = getINDArrayFromCache(CoverageModelICGCacheNode.chi_t);
 
         final int numTargets = v_tl.shape()[0];
         final int numLatents = v_tl.shape()[1];
@@ -1251,12 +1235,12 @@ public final class CoverageModelEMComputeBlock {
         /* if ARD is enabled, update var_W_tll as well */
         if (ardEnabled) {
             final INDArray var_W_tll = getINDArrayFromCache(CoverageModelICGCacheNode.var_W_tll);
-            final INDArray new_var_W_tll = Nd4j.create(numTargets, numLatents, numLatents);
+            final INDArray new_var_W_tll = Nd4j.create(new int[] {numTargets, numLatents, numLatents});
             /* calculate cov[W_{tl}, W_{tm}] = (Q_t + A)^{-1}_{mn} */
             for (int ti = 0; ti < numTargets; ti++) {
                 final INDArray X_inv_ll = CoverageModelEMWorkspaceMathUtils.minv(Q_tll
                         .get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all())
-                                .add(alpha_ll));
+                        .add(alpha_ll));
                 new_var_W_tll.get(NDArrayIndex.point(ti), NDArrayIndex.all(), NDArrayIndex.all()).assign(X_inv_ll);
             }
             final INDArray new_var_W_tll_admixed = new_var_W_tll.mul(admixingRatio).addi(var_W_tll.mul(1.0 - admixingRatio));
@@ -1521,7 +1505,7 @@ public final class CoverageModelEMComputeBlock {
                         final INDArray var_W_contrib_t = var_W_tll.reshape(new int[] {numTargets, numLatents * numLatents})
                                 .mmul(zz_ll.reshape(new int[] {numLatents * numLatents, 1}))
                                 .transpose();
-                        WzzWT_st.get(NDArrayIndex.point(si)).assign(mean_W_contrib_t.addi(var_W_contrib_t));
+                        WzzWT_st.get(NDArrayIndex.point(si), NDArrayIndex.all()).assign(mean_W_contrib_t.addi(var_W_contrib_t));
                     }
                     return new DuplicableNDArray(WzzWT_st);
                 }
@@ -1541,7 +1525,7 @@ public final class CoverageModelEMComputeBlock {
                         final INDArray zz_ll = zz_sll.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all());
                         /* mean_W_contrib_t = \sum_{m,n} E[W_{tm}] E[W_{tn}] E[z_{sm} z_{sn}] */
                         final INDArray mean_W_contrib_t = W_tl.mmul(zz_ll).muli(W_tl).sum(1).transpose();
-                        WzzWT_st.get(NDArrayIndex.point(si)).assign(mean_W_contrib_t);
+                        WzzWT_st.get(NDArrayIndex.point(si), NDArrayIndex.all()).assign(mean_W_contrib_t);
                     }
                     return new DuplicableNDArray(WzzWT_st);
                 }
@@ -1580,15 +1564,6 @@ public final class CoverageModelEMComputeBlock {
                 public Duplicable apply(Map<String, ? extends Duplicable> dat) {
                     return new DuplicableNDArray(getINDArrayFromMap(CoverageModelICGCacheNode.M_st, dat).div(
                             getINDArrayFromMap(CoverageModelICGCacheNode.tot_Psi_st, dat)));
-                }
-            };
-
-    /* dependents: ["M_Psi_inv_st"] */
-    private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_chi_t =
-            new Function<Map<String, ? extends Duplicable>, Duplicable>() {
-                @Override
-                public Duplicable apply(Map<String, ? extends Duplicable> dat) {
-                    return new DuplicableNDArray(getINDArrayFromMap(CoverageModelICGCacheNode.M_Psi_inv_st, dat).sum(0));
                 }
             };
 

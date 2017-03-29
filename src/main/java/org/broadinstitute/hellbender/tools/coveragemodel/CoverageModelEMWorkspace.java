@@ -1149,7 +1149,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return a {@link SubroutineSignal} containing the update size (key: "error_norm")
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
-    public SubroutineSignal updateCopyRatioPosteriorExpectations() {
+    public SubroutineSignal updateCopyRatioPosteriorExpectations(final double admixingRatio) {
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_C));
         cacheWorkers("after E-step for copy ratio initialization");
 
@@ -1158,14 +1158,19 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final SubroutineSignal sig;
         if (params.getCopyRatioHMMType().equals(CoverageModelEMParams.CopyRatioHMMType.COPY_RATIO_HMM_LOCAL) || !sparkContextIsAvailable) {
             /* local mode */
-            sig = updateCopyRatioPosteriorExpectationsLocal();
+            sig = updateCopyRatioPosteriorExpectationsLocal(admixingRatio);
         } else {
             /* spark mode */
-            sig = updateCopyRatioPosteriorExpectationsSpark();
+            sig = updateCopyRatioPosteriorExpectationsSpark(admixingRatio);
         }
         long endTime = System.nanoTime();
         logger.debug("Copy ratio posteriors calculation time: " + (double)(endTime - startTime)/1000000 + " ms");
         return sig;
+    }
+
+    @EvaluatesRDD @UpdatesRDD @CachesRDD
+    public SubroutineSignal updateCopyRatioPosteriorExpectations() {
+        return updateCopyRatioPosteriorExpectations(params.getMeanFieldAdmixingRatio());
     }
 
     /**
@@ -1197,7 +1202,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      *
      * @return a {@link SubroutineSignal} containing the update size (key: "error_norm")
      */
-    public SubroutineSignal updateCopyRatioPosteriorExpectationsLocal() {
+    public SubroutineSignal updateCopyRatioPosteriorExpectationsLocal(final double admixingRatio) {
         /* step 1. fetch copy ratio emission data */
         final List<List<CoverageModelCopyRatioEmissionData>> copyRatioEmissionData = fetchCopyRatioEmissionDataLocal();
 
@@ -1228,14 +1233,12 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray log_c_st = copyRatioPosteriorDataPair.left;
         final INDArray var_log_c_st = copyRatioPosteriorDataPair.right;
 
-        final double meanFieldAdmixingRatio = params.getMeanFieldAdmixingRatio();
-
         /* partition the pair of (log_c_st, var_log_c_st), sent the result to workers via broadcast-hash-map */
         pushToWorkers(mapINDArrayPairToBlocks(log_c_st.transpose(), var_log_c_st.transpose()),
                 (p, cb) -> cb.cloneWithUpdatedCopyRatioPosteriors(
                         p.get(cb.getTargetSpaceBlock()).left.transpose(),
                         p.get(cb.getTargetSpaceBlock()).right.transpose(),
-                        meanFieldAdmixingRatio));
+                        admixingRatio));
         cacheWorkers("after E-step update of copy ratio posteriors");
 
         /* collect subroutine signals */
@@ -1324,7 +1327,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return a {@link SubroutineSignal} containing the update size
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
-    private SubroutineSignal updateCopyRatioPosteriorExpectationsSpark() {
+    private SubroutineSignal updateCopyRatioPosteriorExpectationsSpark(final double admixingRatio) {
         /* local final member variables for lambda capture */
         final List<LinearSpaceBlock> targetBlocks = new ArrayList<>();
         targetBlocks.addAll(this.targetBlocks);
@@ -1412,7 +1415,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         copyRatioPosteriorExpectationsPairRDD.unpersist();
 
         /* step 3. merge with computeRDD and update */
-        final double admixingRatio = params.getMeanFieldAdmixingRatio();
         computeRDD = computeRDD.join(blockifiedCopyRatioPosteriorResultsPairRDD)
                 .mapValues(t -> t._1.cloneWithUpdatedCopyRatioPosteriors(t._2.left, t._2.right, admixingRatio));
         cacheWorkers("after E-step for copy ratio update");
@@ -1720,7 +1722,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             alpha_l.assign(alpha_l_new);
 
             /* debug log to stdout */
-            logger.debug(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
+            logger.info(String.format("Log ARD coefficients at iter %d: ", iter) + Transforms.log(alpha_l, true).toString());
 
             /* check for convergence */
             final double minErrorConvergence = params.getARDAbsoluteTolerance() + params.getARDRelativeTolerance() *
@@ -1855,15 +1857,20 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return a {@link SubroutineSignal} object containing "error_norm"
      */
     @UpdatesRDD @CachesRDD
-    public SubroutineSignal updateBiasCovariates() {
+    public SubroutineSignal updateBiasCovariates(final double admixingRatio) {
         /* perform the M-step update */
         final SubroutineSignal sig;
         if (!params.fourierRegularizationEnabled()) {
-            sig = updateBiasCovariatesUnregularized();
+            sig = updateBiasCovariatesUnregularized(admixingRatio);
         } else {
-            sig = updateBiasCovariatesRegularized();
+            sig = updateBiasCovariatesRegularized(admixingRatio);
         }
         return sig;
+    }
+
+    @UpdatesRDD @CachesRDD
+    public SubroutineSignal updateBiasCovariates() {
+        return updateBiasCovariates(params.getMeanFieldAdmixingRatio());
     }
 
     /**
@@ -1872,8 +1879,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return a {@link SubroutineSignal} containing the update size (key: "error_norm")
      */
     @UpdatesRDD @CachesRDD
-    private SubroutineSignal updateBiasCovariatesUnregularized() {
-        final double admixingRatio = params.getMeanFieldAdmixingRatio();
+    private SubroutineSignal updateBiasCovariatesUnregularized(final double admixingRatio) {
         mapWorkers(cb -> cb
                 .cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_W_UNREG)
                 .cloneWithUpdatedBiasCovariatesUnregularized(admixingRatio));
@@ -1893,7 +1899,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @return a {@link SubroutineSignal} containing the update size (key: "error_norm")
      */
     @UpdatesRDD @EvaluatesRDD @CachesRDD
-    private SubroutineSignal updateBiasCovariatesRegularized() {
+    private SubroutineSignal updateBiasCovariatesRegularized(final double admixingRatio) {
         mapWorkers(cb -> cb.cloneWithUpdatedCachesByTag(CoverageModelEMComputeBlock.CoverageModelICGCacheTag.E_STEP_W_REG));
         cacheWorkers("after E-step update of bias covariates w/ regularization");
 
@@ -2026,15 +2032,15 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 .orElse(Double.NaN);
 
         /* contribution from ARD */
-        final double logLikelihoodARDPerTarget = 0;
-//        if (ardEnabled) {
-//            final INDArray biasCovariatesSecondMoment = mapWorkersAndReduce(
-//                    CoverageModelEMComputeBlock::getBiasCovariatesSecondMomentPosteriorsPartialTargetSum, INDArray::add);
-//            logLikelihoodARDPerTarget = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true).sumNumber().doubleValue()
-//                    - 0.5 * biasCovariatesARDCoefficients.mul(biasCovariatesSecondMoment).sumNumber().doubleValue() / numTargets;
-//        } else {
-//            logLikelihoodARDPerTarget = 0;
-//        }
+        final double logLikelihoodARDPerTarget;
+        if (ardEnabled) {
+            final INDArray biasCovariatesSecondMoment = mapWorkersAndReduce(
+                    CoverageModelEMComputeBlock::getBiasCovariatesSecondMomentPosteriorsPartialTargetSum, INDArray::add);
+            logLikelihoodARDPerTarget = 0.5 * Transforms.log(biasCovariatesARDCoefficients, true).sumNumber().doubleValue()
+                    - 0.5 * biasCovariatesARDCoefficients.mul(biasCovariatesSecondMoment).sumNumber().doubleValue() / numTargets;
+        } else {
+            logLikelihoodARDPerTarget = 0;
+        }
 
         /* the final result is normalized for number of samples */
         double logLikelihoodTotal = (logLikelihoodEmissionAndChainPerTarget + logLikelihoodARDPerTarget) / numSamples;

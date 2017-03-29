@@ -106,7 +106,7 @@ public final class CoverageModelEMParams {
     public static final String POSTERIOR_ABS_TOL_SHORT_NAME = "PSAT";
     public static final String POSTERIOR_ABS_TOL_LONG_NAME = "posteriorAbsoluteTolerance";
 
-    public static final double DEFAULT_MEAN_FIELD_ADMIXING_RATIO = 0.75;
+    public static final double DEFAULT_MEAN_FIELD_ADMIXING_RATIO = 1.0;
     public static final String MEAN_FIELD_ADMIXING_RATIO_SHORT_NAME = "MFAR";
     public static final String MEAN_FIELD_ADMIXING_RATIO_LONG_NAME = "meanFieldAdmixingRatio";
 
