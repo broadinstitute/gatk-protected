@@ -386,25 +386,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         initializeWorkerPosteriors();
 
         /* initialize model parameters */
-        if (processedModel != null) { /* an initial model is already provided */
-            initializeWorkersWithGivenModel(processedModel);
-        } else {
-            if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.RANDOM) ||
-                    !biasCovariatesEnabled) {
-                final CoverageModelParameters randomModel = CoverageModelParameters.generateRandomModel(
-                        processedTargetList, numLatents,
-                        CoverageModelGlobalConstants.RANDOM_MODEL_SEED,
-                        CoverageModelGlobalConstants.RANDOM_MEAN_LOG_BIAS_STD,
-                        CoverageModelGlobalConstants.RANDOM_BIAS_COVARIATES_STD,
-                        CoverageModelGlobalConstants.RANDOM_UNEXPLAINED_VARIANCE_MAX,
-                        biasCovariatesARDCoefficients);
-                initializeWorkersWithGivenModel(randomModel);
-            } else if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.PCA)) {
-                initializeWorkersWithPCA();
-            } else {
-                throw new GATKException.ShouldNeverReachHereException("Bad value of model initialization strategy");
-            }
-        }
+        initializeWorkerModelParameters();
     }
 
     /**
@@ -540,7 +522,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     @UpdatesRDD
     private void pushInitialDataToComputeBlocks() {
         /* parse reads and initialize containers */
-        logger.info("Collecting read count data on the driver node...");
+        logger.info("Collecting coverage data to the driver node...");
         final List<ReadCountRecord> recs = processedReadCounts.records();
 
         final List<Tuple2<LinearSpaceBlock, CoverageModelEMComputeBlock.InitialDataBlock>> dataBlockList =
@@ -594,7 +576,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         });
 
         /* push to compute blocks */
-        logger.info("Pushing read count data to worker(s)...");
+        logger.info("Pushing coverage data to worker(s)...");
         joinWithWorkersAndMap(dataBlockList, p -> p._1.cloneWithInitializedData(p._2));
     }
 
@@ -690,8 +672,34 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     }
 
     @UpdatesRDD
+    private void initializeWorkerModelParameters() {
+        if (processedModel != null) { /* an initial model is already provided */
+            logger.info("Initializing workers with the provided model...");
+            initializeWorkersWithGivenModel(processedModel);
+        } else {
+            logger.info("Initializing workers with a random model...");
+            if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.RANDOM) ||
+                    !biasCovariatesEnabled) {
+                final CoverageModelParameters randomModel = CoverageModelParameters.generateRandomModel(
+                        processedTargetList, numLatents,
+                        CoverageModelGlobalConstants.RANDOM_MODEL_SEED,
+                        CoverageModelGlobalConstants.RANDOM_MEAN_LOG_BIAS_STD,
+                        CoverageModelGlobalConstants.RANDOM_BIAS_COVARIATES_STD,
+                        CoverageModelGlobalConstants.RANDOM_UNEXPLAINED_VARIANCE_MAX,
+                        biasCovariatesARDCoefficients);
+                initializeWorkersWithGivenModel(randomModel);
+            } else if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.PCA)) {
+                initializeWorkersWithPCA();
+            } else {
+                throw new GATKException.ShouldNeverReachHereException("Bad value of model initialization strategy");
+            }
+        }
+    }
+
+    @UpdatesRDD
     private void initializeWorkerPosteriors() {
         /* make a local copy for lambda capture (these are small, so no broadcasting is necessary) */
+        logger.info("Initializing posteriors on driver node...");
         final INDArray sampleMeanLogReadDepths = this.sampleMeanLogReadDepths;
         final INDArray sampleVarLogReadDepths = this.sampleVarLogReadDepths;
         final INDArray sampleUnexplainedVariance = this.sampleUnexplainedVariance;
@@ -757,6 +765,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         }
 
         /* push to compute blocks */
+        logger.info("Pushing posteriors to worker(s)...");
         joinWithWorkersAndMap(copyRatioPriorsList, p -> p._1.cloneWithUpdateCopyRatioPriors(p._2._1, p._2._2));
     }
 
