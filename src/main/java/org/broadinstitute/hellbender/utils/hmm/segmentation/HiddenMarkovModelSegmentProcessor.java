@@ -49,7 +49,7 @@ public class HiddenMarkovModelSegmentProcessor<D, S extends CallStringProducer &
      * Maximum reportable output quality score; higher quality scores will
      * capped to this value.
      */
-    public static final double MAX_QUAL_SCORE = 199.99999999999;
+    public static final double MAX_QUAL_SCORE = 9999.99999999999;
 
     /**
      * Precision of Phred-scale scores
