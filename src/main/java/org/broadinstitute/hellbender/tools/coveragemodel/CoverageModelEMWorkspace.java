@@ -540,9 +540,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     @UpdatesRDD
     private void pushInitialDataToComputeBlocks() {
         /* parse reads and initialize containers */
+        logger.info("Collecting read count data on the driver node...");
         final List<ReadCountRecord> recs = processedReadCounts.records();
 
-        logger.info("Pushing read count data to the worker(s)");
         final List<Tuple2<LinearSpaceBlock, CoverageModelEMComputeBlock.InitialDataBlock>> dataBlockList =
                 new ArrayList<>();
 
@@ -594,6 +594,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         });
 
         /* push to compute blocks */
+        logger.info("Pushing read count data to worker(s)...");
         joinWithWorkersAndMap(dataBlockList, p -> p._1.cloneWithInitializedData(p._2));
     }
 
@@ -608,6 +609,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @param model coverage model parameters
      */
     private void initializeWorkersWithGivenModel(@Nonnull final CoverageModelParameters model) {
+        logger.info("Pushing model parameters to worker(s)...");
         if (sparkContextIsAvailable) {
             initializeWorkersWithGivenModelSpark(model);
         } else {
