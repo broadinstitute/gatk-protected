@@ -130,9 +130,9 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
                 "--" + CoverageModelEMParams.EXTENDED_POSTERIOR_OUTPUT_ENABLED_LONG_NAME,
                     "true",
                 "--" + CoverageModelEMParams.ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED_LONG_NAME,
-                    "true",
+                    "false",
                 "--" + CoverageModelEMParams.PSI_SOLVER_MODE_LONG_NAME,
-                    CoverageModelEMParams.PsiUpdateMode.PSI_TARGET_RESOLVED.name(),
+                    CoverageModelEMParams.PsiUpdateMode.PSI_ISOTROPIC.name(),
                 "--verbosity", "INFO"
         }, extraArgs);
     }

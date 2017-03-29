@@ -1,5 +1,9 @@
 package org.broadinstitute.hellbender.tools.coveragemodel;
 
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.random.MersenneTwister;
+import org.apache.commons.math3.random.RandomGenerator;
+import org.broadinstitute.hellbender.tools.coveragemodel.nd4jutils.Nd4jApacheAdapterUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.nd4j.linalg.api.buffer.DataBuffer;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -7,6 +11,8 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.indexing.NDArrayIndex;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.stream.IntStream;
 
 /**
  * This test is to ensure that the DType is correctly set to Double
@@ -30,7 +36,7 @@ public class Nd4jUnitTest extends BaseTest {
      * using matrix products and successive reshapes.
      */
     @Test
-    public void test_mul_tensor_vector() {
+    public void testMulTensorVector() {
         /* generate random data */
         final int A = 5;
         final int B = 6;
@@ -60,7 +66,7 @@ public class Nd4jUnitTest extends BaseTest {
      *      X_{a} = \sum_{b, c} W_{a b c} V_{b c}
      */
     @Test
-    public void test_mul_tensor_matrix() {
+    public void testMulTensorMatrix() {
         /* generate random data */
         final int A = 5;
         final int B = 6;
@@ -82,6 +88,25 @@ public class Nd4jUnitTest extends BaseTest {
             }
             Assert.assertEquals(X.getScalar(a).getDouble(0), prod, EPS);
         }
+    }
+
+    @Test
+    public void testStability() {
+        final int N = 10000;
+        final int m = 2;
+        final int seed = 1234;
+        final RandomGenerator rg = new MersenneTwister(seed);
+        final double[] rand = IntStream.range(0, N*N).mapToDouble(i -> 1 - 2*rg.nextDouble()).toArray();
+        final INDArray arr = Nd4j.create(rand, new int[] {N, N});
+        final long t0 = System.nanoTime();
+        for (int k = 0; k < m; k++) {
+            final RealMatrix mat = Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(arr);
+            final INDArray arr2 = Nd4jApacheAdapterUtils.convertApacheMatrixToINDArray(mat);
+            arr.get(NDArrayIndex.all()).assign(arr.mmul(arr2));
+        }
+        final long t1 = System.nanoTime();
+        System.out.println(arr.sumNumber());
+        System.out.println((double)(t1-t0)/1000000000);
     }
 
 }

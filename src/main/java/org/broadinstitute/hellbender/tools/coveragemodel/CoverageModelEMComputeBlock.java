@@ -598,20 +598,22 @@ public final class CoverageModelEMComputeBlock {
         }
 
         /* calculate the required quantities */
-        final INDArray contribGMatrix = Nd4j.create(numSamples, numLatents, numLatents);
-        final INDArray contribZ = Nd4j.create(numLatents, numSamples);
+        final INDArray contribGMatrix = Nd4j.create(new int[] {numSamples, numLatents, numLatents});
+        final INDArray contribZ = Nd4j.create(new int[] {numLatents, numSamples});
         for (int si = 0; si < numSamples; si++) {
-            final INDArray M_psi_int_row_t = M_Psi_inv_st.getRow(si).transpose();
-            contribZ.get(NDArrayIndex.all(), NDArrayIndex.point(si)).assign(
-                    W_tl.transpose().mmul(M_Psi_inv_st.getRow(si).mul(Delta_st.getRow(si)).transpose()));
+            final INDArray M_psi_int_row_t = M_Psi_inv_st.getRow(si);
+            final INDArray M_psi_int_row_t_trans = M_psi_int_row_t.transpose();
+            final INDArray Delta_row_t = Delta_st.getRow(si);
+            final INDArray contribZ_col_l = contribZ.getColumn(si);
+            contribZ_col_l.assign(W_tl.transpose().mmul(M_psi_int_row_t.mul(Delta_row_t).transpose()));
 
             /* mean_W_part_{mn} = \sum_t E[W_{tm}] E[W_{tn}] M_{st} Psi^{-1}_{st} */
-            final INDArray mean_W_part_ll = W_tl.transpose().mmul(W_tl.mulColumnVector(M_psi_int_row_t));
+            final INDArray mean_W_part_ll = W_tl.transpose().mmul(W_tl.mulColumnVector(M_psi_int_row_t_trans));
 
             if (ardEnabled) { /* if ARD is enabled, add contribution from the covariance of W */
                /* var_W_part_{mn} = \sum_t var[W_{tm} W_{tn}] M_{st} Psi^{-1}_{st} */
-                final INDArray var_W_part_ll = var_W_tll.reshape(new int[]{numTargets, numLatents * numLatents}).transpose()
-                        .mmul(M_psi_int_row_t).reshape(new int[]{numLatents, numLatents});
+                final INDArray var_W_part_ll = var_W_tll.reshape(new int[] {numTargets, numLatents * numLatents}).transpose()
+                        .mmul(M_psi_int_row_t_trans).reshape(new int[] {numLatents, numLatents});
                 contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
                         .assign(mean_W_part_ll.addi(var_W_part_ll));
             } else { /* just the contribution from mean of W */

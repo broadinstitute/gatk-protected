@@ -899,8 +899,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      * @implNote the operations done on the driver node have low complexity only if D, the dimension of the latent
      * space, is small:
      *
-     *     (a) G_s = (I + [contribGMatrix])^{-1} for each sample \sim O(S x D^3)
-     *     (b) E[z_s] = G_s [contribZ_s] for each sample \sim O(S x D^3)
+     *     (a) G_s = (I + [G_partial_sll])^{-1} for each sample \sim O(S x D^3)
+     *     (b) E[z_s] = G_s [z_rhs_ls] for each sample \sim O(S x D^3)
      *     (c) E[z_s z_s^T] = G_s + E[z_s] E[z_s^T] for each sample \sim O(S x D^2)
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
@@ -911,50 +911,42 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
 
         final ImmutableTriple<INDArray, INDArray, INDArray> biasLatentPosteriorExpectationsData =
                 fetchBiasLatentPosteriorExpectationsDataFromWorkers();
-        final INDArray contribGMatrix = biasLatentPosteriorExpectationsData.left;
-        final INDArray contribZ = biasLatentPosteriorExpectationsData.middle;
-        final INDArray sharedPart = biasLatentPosteriorExpectationsData.right;
+        final INDArray G_partial_sll = biasLatentPosteriorExpectationsData.left;
+        final INDArray z_rhs_ls = biasLatentPosteriorExpectationsData.middle;
+        final INDArray shared_ll = biasLatentPosteriorExpectationsData.right;
 
         /* calculate G_{s\mu\nu} = (sharedPart + W^T M \Psi^{-1} W)^{-1} by doing sample-wise matrix inversion */
-        final INDArray sampleGTensor = Nd4j.create(numSamples, numLatents, numLatents);
-        for (int si = 0; si < numSamples; si++) {
-            sampleGTensor.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
-                    .assign(CoverageModelEMWorkspaceMathUtils.minv(sharedPart
-                            .add(contribGMatrix.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all()))));
-        }
-
-        final INDArray newSampleBiasLatentPosteriorFirstMoments = Nd4j.create(numSamples, numLatents);
-        final INDArray newSampleBiasLatentPosteriorSecondMoments = Nd4j.create(numSamples, numLatents, numLatents);
+        final INDArray new_z_sl = Nd4j.create(new int[] {numSamples, numLatents});
+        final INDArray new_zz_sll = Nd4j.create(new int[] {numSamples, numLatents, numLatents});
 
         for (int si = 0; si < numSamples; si++) {
-            final INDArray sampleGMatrix = sampleGTensor.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all());
+            final INDArray G_ll = CoverageModelEMWorkspaceMathUtils.minv(shared_ll
+                    .add(G_partial_sll.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())));
             /* E[z_s] = G_s W^T M_{st} \Psi_{st}^{-1} (m_{st} - m_t) */
-            newSampleBiasLatentPosteriorFirstMoments.get(NDArrayIndex.point(si), NDArrayIndex.all())
-                    .assign(sampleGMatrix.mmul(contribZ.get(NDArrayIndex.all(), NDArrayIndex.point(si))).transpose());
+            new_z_sl.get(NDArrayIndex.point(si), NDArrayIndex.all())
+                    .assign(G_ll.mmul(z_rhs_ls.get(NDArrayIndex.all(), NDArrayIndex.point(si))).transpose());
             /* E[z_s z_s^T] = G_s + E[z_s] E[z_s^T] */
-            newSampleBiasLatentPosteriorSecondMoments.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
-                    .assign(sampleGMatrix.add(newSampleBiasLatentPosteriorFirstMoments.get(NDArrayIndex.point(si), NDArrayIndex.all()).transpose()
-                                    .mmul(newSampleBiasLatentPosteriorFirstMoments.get(NDArrayIndex.point(si), NDArrayIndex.all()))));
+            final INDArray z = new_z_sl.get(NDArrayIndex.point(si), NDArrayIndex.all());
+            new_zz_sll.get(NDArrayIndex.point(si), NDArrayIndex.all(), NDArrayIndex.all())
+                    .assign(G_ll.add(z.transpose().mmul(z)));
         }
 
         /* admix with old posteriors */
-        final INDArray newSampleBiasLatentPosteriorFirstMomentsAdmixed = newSampleBiasLatentPosteriorFirstMoments
-                .mul(admixingRatio).addi(sampleBiasLatentPosteriorFirstMoments
-                        .mul(1.0 - admixingRatio));
-        final INDArray newSampleBiasLatentPosteriorSecondMomentsAdmixed = newSampleBiasLatentPosteriorSecondMoments
-                .mul(admixingRatio).addi(sampleBiasLatentPosteriorSecondMoments
-                        .mul(1.0 - admixingRatio));
+        final INDArray new_z_sl_admixed = new_z_sl
+                .mul(admixingRatio).addi(sampleBiasLatentPosteriorFirstMoments.mul(1.0 - admixingRatio));
+        final INDArray new_zz_sll_admixed = new_zz_sll
+                .mul(admixingRatio).addi(sampleBiasLatentPosteriorSecondMoments.mul(1.0 - admixingRatio));
 
         /* calculate the error from the change in E[z_s] */
         final double errorNormInfinity = CoverageModelEMWorkspaceMathUtils.getINDArrayNormInfinity(
-                newSampleBiasLatentPosteriorFirstMomentsAdmixed.sub(sampleBiasLatentPosteriorFirstMoments));
+                new_z_sl_admixed.sub(sampleBiasLatentPosteriorFirstMoments));
 
         /* update driver-node copies */
-        sampleBiasLatentPosteriorFirstMoments.assign(newSampleBiasLatentPosteriorFirstMomentsAdmixed);
-        sampleBiasLatentPosteriorSecondMoments.assign(newSampleBiasLatentPosteriorSecondMomentsAdmixed);
+        sampleBiasLatentPosteriorFirstMoments.assign(new_z_sl_admixed);
+        sampleBiasLatentPosteriorSecondMoments.assign(new_zz_sll_admixed);
 
         /* broadcast the new bias latent posteriors */
-        pushToWorkers(ImmutablePair.of(newSampleBiasLatentPosteriorFirstMomentsAdmixed, newSampleBiasLatentPosteriorSecondMomentsAdmixed),
+        pushToWorkers(ImmutablePair.of(new_z_sl_admixed, new_zz_sll_admixed),
                 (dat, cb) -> cb
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.z_sl, dat.left)
                         .cloneWithUpdatedPrimitive(CoverageModelEMComputeBlock.CoverageModelICGCacheNode.zz_sll, dat.right));
@@ -967,18 +959,18 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         return updateBiasLatentPosteriorExpectations(params.getMeanFieldAdmixingRatio());
     }
 
-        /**
-         * Fetches the data required for calculating bias latent posterior expectations from the compute blocks
-         * The return value is an {@link ImmutableTriple} of (contribGMatrix, contribZ, sharedPart)
-         *
-         * For the definition of the first two elements, refer to the javadoc of
-         * {@link CoverageModelEMComputeBlock#getBiasLatentPosteriorDataUnregularized}
-         *
-         * If the Fourier regularizer is enabled, sharedPart = [I] + W^T \lambda [F] [W]
-         * If the Fourier regularizer is disabled, sharedPart = [I]
-         *
-         * @return an {@link ImmutableTriple}
-         */
+    /**
+     * Fetches the data required for calculating bias latent posterior expectations from the compute blocks
+     * The return value is an {@link ImmutableTriple} of (contribGMatrix, contribZ, sharedPart)
+     *
+     * For the definition of the first two elements, refer to the javadoc of
+     * {@link CoverageModelEMComputeBlock#getBiasLatentPosteriorDataUnregularized}
+     *
+     * If the Fourier regularizer is enabled, sharedPart = [I] + W^T \lambda [F] [W]
+     * If the Fourier regularizer is disabled, sharedPart = [I]
+     *
+     * @return an {@link ImmutableTriple}
+     */
     private ImmutableTriple<INDArray, INDArray, INDArray> fetchBiasLatentPosteriorExpectationsDataFromWorkers() {
         /* query the compute blocks for bias latent posterior data and reduce by pairwise addition */
         if (params.fourierRegularizationEnabled()) {
