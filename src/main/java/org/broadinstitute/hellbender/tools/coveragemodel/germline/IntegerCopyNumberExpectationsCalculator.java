@@ -347,7 +347,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         final double logTransitionProbability = hmm.logTransitionProbability(
                                 states.get(i), positions.get(positionIndex),
                                 states.get(j), positions.get(positionIndex + 1));
-                        if (logTransitionProbability != Double.NEGATIVE_INFINITY) { /* we assume NEGATIVE_INFINITY * 0 = 0 */
+                        if (logTransitionProbability != Double.NEGATIVE_INFINITY) { /* NEGATIVE_INFINITY * 0 = 0 here */
                             result += logTransitionProbability * priorProbabilities[i] * priorProbabilities[j];
                         }
                     }

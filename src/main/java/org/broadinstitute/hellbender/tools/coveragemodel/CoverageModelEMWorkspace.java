@@ -699,7 +699,6 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     @UpdatesRDD
     private void initializeWorkerPosteriors() {
         /* make a local copy for lambda capture (these are small, so no broadcasting is necessary) */
-        logger.info("Initializing posteriors on driver node...");
         final INDArray sampleMeanLogReadDepths = this.sampleMeanLogReadDepths;
         final INDArray sampleVarLogReadDepths = this.sampleVarLogReadDepths;
         final INDArray sampleUnexplainedVariance = this.sampleUnexplainedVariance;
@@ -707,6 +706,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         final INDArray sampleBiasLatentPosteriorSecondMoments = this.sampleBiasLatentPosteriorSecondMoments;
 
         /* calculate copy ratio prior expectations */
+        logger.info("Calculating copy ratio priors on the driver node...");
         final List<CopyRatioExpectations> copyRatioPriorExpectationsList = sampleIndexStream()
                 .mapToObj(si -> copyRatioExpectationsCalculator.getCopyRatioPriorExpectations(
                         CopyRatioCallingMetadata.builder()
