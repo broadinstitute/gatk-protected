@@ -164,9 +164,7 @@ final class ReferenceConfidenceVariantContextMerger {
         final Allele vcRef = vc.getReference();
         final byte[] refBases = refAllele.getBases();
         final int extraBaseCount = refBases.length - vcRef.getBases().length;
-        if (extraBaseCount < 0) {
-            throw new IllegalStateException("the wrong reference was selected");
-        }
+        Utils.validate(extraBaseCount >= 0, "the wrong reference was selected");
 
         final List<Allele> result = new ArrayList<>(vc.getNAlleles());
         result.add(refAllele);

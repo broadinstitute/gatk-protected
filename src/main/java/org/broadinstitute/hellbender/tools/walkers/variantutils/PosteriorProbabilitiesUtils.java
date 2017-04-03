@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.walkers.variantutils;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Ints;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.VCFConstants;
 import org.broadinstitute.hellbender.exceptions.UserException;
@@ -112,9 +113,7 @@ public final class PosteriorProbabilitiesUtils {
                                                             final double[] knownAlleleCountsByAllele,
                                                             final int ploidy,
                                                             final boolean useFlatPriors) {
-        if ( ploidy != 2 ) {
-            throw new IllegalStateException("Genotype posteriors not yet implemented for ploidy != 2");
-        }
+        Utils.validate( ploidy == 2, "Genotype posteriors not yet implemented for ploidy != 2");
 
         final double[] genotypePriorByAllele = getDirichletPrior(knownAlleleCountsByAllele,ploidy, useFlatPriors);
         final List<double[]> posteriors = new ArrayList<>(genotypeLikelihoods.size());
@@ -122,10 +121,9 @@ public final class PosteriorProbabilitiesUtils {
             double[] posteriorProbabilities = null;
 
             if ( likelihoods != null ) {
-                if ( likelihoods.length != genotypePriorByAllele.length ) {
-                    throw new IllegalStateException(String.format("Likelihoods not of correct size: expected %d, observed %d",
+                Utils.validate( likelihoods.length == genotypePriorByAllele.length,
+                        () -> String.format("Likelihoods not of correct size: expected %d, observed %d",
                             knownAlleleCountsByAllele.length*(knownAlleleCountsByAllele.length+1)/2,likelihoods.length));
-                }
 
                 posteriorProbabilities = new double[genotypePriorByAllele.length];
                 for ( int genoIdx = 0; genoIdx < likelihoods.length; genoIdx ++ ) {
@@ -165,9 +163,7 @@ public final class PosteriorProbabilitiesUtils {
      */
     @VisibleForTesting
     static double[] getDirichletPrior(final double[] knownCountsByAllele, final int ploidy, final boolean useFlatPrior) {
-        if ( ploidy != 2 ) {
-            throw new IllegalStateException("Genotype priors not yet implemented for ploidy != 2");
-        }
+        Utils.validate( ploidy == 2, "Genotype priors not yet implemented for ploidy != 2");
 
         // multi-allelic format is
         // AA AB BB AC BC CC AD BD CD DD ...
@@ -286,16 +282,10 @@ public final class PosteriorProbabilitiesUtils {
         Utils.nonNull( mleList, () -> String.format("VCF does not have properly formatted %s or %s.",
                     GATKVCFConstants.MLE_ALLELE_COUNT_KEY, VCFConstants.ALLELE_COUNT_KEY));
 
-        final int[] mle = new int[mleList.size()];
+        final Integer firstElement = mleList.get(0);
+        Utils.validate( firstElement instanceof Integer,
+                () -> "BUG: The AC values should be an Integer, but was " + firstElement.getClass().getCanonicalName());
 
-        if ( ! ( mleList.get(0) instanceof Integer) ) {
-            throw new IllegalStateException("BUG: The AC values should be an Integer, but was " + mleList.get(0).getClass().getCanonicalName());
-        }
-
-        for ( int idx = 0; idx < mle.length; idx++) {
-            mle[idx] = mleList.get(idx);
-        }
-
-        return mle;
+        return Ints.toArray(mleList);
     }
 }

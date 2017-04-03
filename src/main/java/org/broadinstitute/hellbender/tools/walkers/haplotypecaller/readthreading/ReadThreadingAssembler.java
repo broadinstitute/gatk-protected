@@ -350,18 +350,12 @@ public final class ReadThreadingAssembler {
      * @param refHaplotype the reference haplotype
      */
     private static <T extends BaseVertex, E extends BaseEdge> void sanityCheckReferenceGraph(final BaseGraph<T,E> graph, final Haplotype refHaplotype) {
-        if( graph.getReferenceSourceVertex() == null ) {
-            throw new IllegalStateException("All reference graphs must have a reference source vertex.");
-        }
-        if( graph.getReferenceSinkVertex() == null ) {
-            throw new IllegalStateException("All reference graphs must have a reference sink vertex.");
-        }
-        if( !Arrays.equals(graph.getReferenceBytes(graph.getReferenceSourceVertex(), graph.getReferenceSinkVertex(), true, true), refHaplotype.getBases()) ) {
-            throw new IllegalStateException("Mismatch between the reference haplotype and the reference assembly graph path. for graph " + graph +
+        Utils.validate( graph.getReferenceSourceVertex() != null, "All reference graphs must have a reference source vertex.");
+        Utils.validate( graph.getReferenceSinkVertex() != null, "All reference graphs must have a reference sink vertex.");
+        Utils.validate( Arrays.equals(graph.getReferenceBytes(graph.getReferenceSourceVertex(), graph.getReferenceSinkVertex(), true, true), refHaplotype.getBases()),
+                () -> "Mismatch between the reference haplotype and the reference assembly graph path. for graph " + graph +
                     " graph = " + new String(graph.getReferenceBytes(graph.getReferenceSourceVertex(), graph.getReferenceSinkVertex(), true, true)) +
-                    " haplotype = " + new String(refHaplotype.getBases())
-            );
-        }
+                    " haplotype = " + new String(refHaplotype.getBases()));
     }
 
     private static void addResult(final Collection<AssemblyResult> results, final AssemblyResult maybeNullResult) {

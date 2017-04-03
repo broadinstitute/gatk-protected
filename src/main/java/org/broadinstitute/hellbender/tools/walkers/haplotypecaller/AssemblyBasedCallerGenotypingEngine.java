@@ -402,9 +402,7 @@ public abstract class AssemblyBasedCallerGenotypingEngine extends GenotypingEngi
                     indexes.add(index);
                 }
             }
-            if ( indexes.size() < 2 ) {
-                throw new IllegalStateException("Somehow we have a group of phased variants that has fewer than 2 members");
-            }
+            Utils.validate( indexes.size() > 1, "Somehow we have a group of phased variants that has fewer than 2 members");
 
             // create a unique ID based on the leftmost one
             final String uniqueID = createUniqueID(originalCalls.get(indexes.get(0)));

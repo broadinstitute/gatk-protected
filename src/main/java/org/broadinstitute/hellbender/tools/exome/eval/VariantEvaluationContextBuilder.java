@@ -81,9 +81,7 @@ public class VariantEvaluationContextBuilder extends VariantContextBuilder {
     @Override
     public List<Allele> getAlleles() {
         final List<Allele> result = super.getAlleles();
-        if (result == null) {
-            throw new IllegalStateException("you must set the alleles before calling getAlleles");
-        }
+        Utils.validate(result != null, "you must set the alleles before calling getAlleles");
         return result;
     }
 
