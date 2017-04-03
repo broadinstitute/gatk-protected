@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 
+import avro.shaded.com.google.common.collect.ImmutableMap;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import javax.annotation.Nonnull;
@@ -242,6 +243,20 @@ public class ImmutableComputableGraph implements Serializable {
         } else {
             return out;
         }
+    }
+
+    /**
+     *
+     * @param nodeKey
+     * @return
+     * @throws IllegalArgumentException
+     * @throws UnsupportedOperationException
+     */
+    public ImmutableComputableGraph nullifyNode(@Nonnull final String nodeKey)
+            throws IllegalArgumentException, UnsupportedOperationException {
+        assertNodeExists(Utils.nonNull(nodeKey, "The key of the node can not be null."));
+        CacheNode oldNode = nodesMap.get(nodeKey);
+        return duplicateWithUpdatedNodes(ImmutableMap.of(nodeKey, oldNode.duplicateWithUpdatedValue(null)));
     }
 
     /**

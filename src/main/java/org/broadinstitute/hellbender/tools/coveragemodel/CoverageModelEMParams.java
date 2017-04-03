@@ -152,7 +152,7 @@ public final class CoverageModelEMParams {
     public static final String ARD_ENABLED_SHORT_NAME = "ARDU";
     public static final String ARD_ENABLED_LONG_NAME = "ARDUpdate";
 
-    public static final ARDUpdateAlgorithm DEFAULT_ARD_UPDATE_ALGORITHM = ARDUpdateAlgorithm.NEWTON;
+    public static final ARDUpdateAlgorithm DEFAULT_ARD_UPDATE_ALGORITHM = ARDUpdateAlgorithm.PICARD;
     public static final String ARD_UPDATE_ALGORITHM_SHORT_NAME = "ARDUA";
     public static final String ARD_UPDATE_ALGORITHM_LONG_NAME = "ARDUpdateAlgorithm";
 

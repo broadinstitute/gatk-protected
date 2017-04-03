@@ -68,7 +68,7 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     private static final int NUM_LATENTS = 5; /* simulated data uses 3 */
     private static final int MAX_COPY_NUMBER = 3; /* reflects the simulated data */
 
-    private static final int MIN_LEARNING_READ_COUNT = 10;
+    private static final int MIN_LEARNING_READ_COUNT = 1;
     private static final int MAX_LEARNING_EM_ITERATIONS = 20;
     private static final int MAX_CALLING_EM_ITERATIONS = 50;
 

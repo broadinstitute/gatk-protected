@@ -129,7 +129,7 @@ public final class CoverageModelEMComputeBlock {
         tot_Psi_st("The sum of target-specific and sample-specific unexplained variance of the log bias"),
         Delta_st("\\Delta_{st} (refer to the technical white paper)"),
         Delta_PCA_st("\\Delta_PCA_{st} (refer to the technical white paper)"),
-        loglike_normalization_s("Target-summed log precision of masked log bias"), /* what a mouthful! */
+        loglike_normalization_s("Additive normalization factor of the variational log likelihood"),
         M_Psi_inv_st("Masked precision of log bias"),
         v_tl("v_{t\\mu}} (refer to the technical white paper)"),
         Q_tll("Q_{t\\mu\\nu} (refer to the technical white paper)"),
@@ -394,7 +394,7 @@ public final class CoverageModelEMComputeBlock {
                             new String[]{
                                     CoverageModelICGCacheNode.M_Psi_inv_st.name(),
                                     CoverageModelICGCacheNode.zz_sll.name()},
-                            calculate_Q_tll, true)
+                            calculate_Q_tll, false)
                     /* M_{st} . (log(n_{st}) - E[log(c_{st})] - E[log(d_s)]) - mean */
                     .addComputableNode(CoverageModelICGCacheNode.Delta_PCA_st.name(),
                             new String[]{CoverageModelICGCacheTag.PCA_INIT.name()},
@@ -1285,6 +1285,14 @@ public final class CoverageModelEMComputeBlock {
                 SubroutineSignal.builder().put("error_norm", errNormInfinity).build());
     }
 
+    /**
+     * TODO
+     * @return
+     */
+    public CoverageModelEMComputeBlock cloneWithRemovedPCAInitializationData() {
+        return cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.Delta_PCA_st, null);
+    }
+
 
     /**
      * Creates a new instance of this compute block with an updated primitive node
@@ -1299,7 +1307,7 @@ public final class CoverageModelEMComputeBlock {
                                                                  @Nullable final INDArray value) {
         if (value == null) {
             return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
-                    icg.setValue(key.name(), new DuplicableNDArray()), latestMStepSignal);
+                    icg.nullifyNode(key.name()), latestMStepSignal);
         } else {
             return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
                     icg.setValue(key.name(), new DuplicableNDArray(value.dup())), latestMStepSignal);
@@ -1488,7 +1496,7 @@ public final class CoverageModelEMComputeBlock {
                 }
             };
 
-    /* dependents: [W_tl, var_W_tl, zz_sll] */
+    /* dependents: [W_tl, var_W_tll, zz_sll] */
     private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_WzzWT_st_with_W_var =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
                 @Override

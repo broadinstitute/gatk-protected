@@ -840,7 +840,13 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 ardEnabled ? Nd4j.zeros(new int[] {numTargets, numLatents, numLatents}) : null,
                 biasCovariatesARDCoefficients);
 
+        /* clear PCA initialization data from workers */
+        mapWorkers(CoverageModelEMComputeBlock::cloneWithRemovedPCAInitializationData);
+
+        /* push model parameters to workers */
         initializeWorkersWithGivenModel(modelParamsFromPCA);
+
+        /* update bias latent posterior expectations without admixing */
         updateBiasLatentPosteriorExpectations(1.0);
     }
 
@@ -1711,7 +1717,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      */
     @EvaluatesRDD @UpdatesRDD
     public SubroutineSignal updateBiasCovariatesARDCoefficientsPicard() {
-        final double ARD_ADMIXING_RATIO_PICARD = 0.75;
+        final double ARD_ADMIXING_RATIO_PICARD = 1.0;
 
         final INDArray alpha_l = biasCovariatesARDCoefficients.dup();
         int iter = 0;
