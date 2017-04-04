@@ -98,25 +98,19 @@ public class Target implements Locatable, Feature, Serializable {
      // Three methods to implement Locatable
     @Override
     public String getContig() {
-        if (interval == null) {
-            throw new IllegalStateException("the target does not have an interval assigned");
-        }
+        Utils.validate(interval != null, "the target does not have an interval assigned");
         return interval.getContig();
     }
 
     @Override
     public int getStart() {
-        if (interval == null) {
-            throw new IllegalStateException("the target does not have an interval assigned");
-        }
+        Utils.validate(interval != null, "the target does not have an interval assigned");
         return interval.getStart();
     }
 
     @Override
     public int getEnd() {
-        if (interval == null) {
-            throw new IllegalStateException("the target does not have an interval assigned");
-        }
+        Utils.validate(interval != null, "the target does not have an interval assigned");
         return interval.getEnd();
     }
 

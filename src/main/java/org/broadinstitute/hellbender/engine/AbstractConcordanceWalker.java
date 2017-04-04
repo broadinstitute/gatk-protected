@@ -3,14 +3,11 @@ package org.broadinstitute.hellbender.engine;
 import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.samtools.util.Locatable;
 import htsjdk.samtools.util.PeekableIterator;
-import htsjdk.samtools.util.SequenceUtil;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextComparator;
 import htsjdk.variant.vcf.VCFHeader;
 import org.apache.commons.collections4.Predicate;
 import org.apache.commons.collections4.iterators.FilterIterator;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.walkers.validation.ConcordanceState;
@@ -22,7 +19,6 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.stream.StreamSupport;
 
 /**
  * Base class for concordance walkers, which process one variant at a time from one or more sources of variants,
@@ -85,10 +81,10 @@ public abstract class AbstractConcordanceWalker extends GATKTool {
         return vc -> !vc.isFiltered();
     }
 
-    private Spliterator<TruthVersusEval> getSpliteratorForDrivingVariants() {
+    private Iterator<TruthVersusEval> getIteratorForDrivingVariants() {
         final Iterator<VariantContext> truthIterator = new FilterIterator<>(truthVariants.iterator(), makeVariantFilter());
         final Iterator<VariantContext> evalIterator = new FilterIterator<>(evalVariants.iterator(), makeVariantFilter());
-        return new ConcordanceIterator(truthIterator, evalIterator).spliterator();
+        return new ConcordanceIterator(truthIterator, evalIterator);
     }
 
     // ********** The basic traversal structure of GATKTool
@@ -115,7 +111,7 @@ public abstract class AbstractConcordanceWalker extends GATKTool {
     @Override
     public final void traverse() {
         // Process each variant in the input stream.
-        StreamSupport.stream(getSpliteratorForDrivingVariants(), false)
+        Utils.stream(getIteratorForDrivingVariants())
                 .forEach(truthVersusEval -> {
                     final SimpleInterval variantInterval = new SimpleInterval(truthVersusEval);
                     apply(truthVersusEval, new ReadsContext(reads, variantInterval), new ReferenceContext(reference, variantInterval));

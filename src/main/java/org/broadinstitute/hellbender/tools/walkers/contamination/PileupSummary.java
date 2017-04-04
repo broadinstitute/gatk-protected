@@ -4,7 +4,9 @@ import htsjdk.samtools.util.Locatable;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFConstants;
 import org.broadinstitute.hellbender.exceptions.UserException;
-import org.broadinstitute.hellbender.utils.*;
+import org.broadinstitute.hellbender.utils.BaseUtils;
+import org.broadinstitute.hellbender.utils.MathUtils;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.pileup.ReadPileup;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
@@ -14,8 +16,6 @@ import org.broadinstitute.hellbender.utils.tsv.TableWriter;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.OptionalDouble;
-import java.util.stream.StreamSupport;
 
 /**
  * Created by David Benjamin on 2/14/17.

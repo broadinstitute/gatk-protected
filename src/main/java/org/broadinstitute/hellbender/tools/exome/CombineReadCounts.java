@@ -9,6 +9,7 @@ import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGrou
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
@@ -504,9 +505,7 @@ public final class CombineReadCounts extends CommandLineProgram {
             for (final TableReader<ReadCountRecord> reader : readers) {
                 unsortedCountColumnNames.addAll(readCountColumnNames(reader.columns()));
             }
-            if (unsortedCountColumnNames.isEmpty()) {
-                throw new IllegalStateException("there must be at least one count column");
-            }
+            Utils.validate(!unsortedCountColumnNames.isEmpty(), "there must be at least one count column");
             countColumnSourceIndexMap = IntStream.range(0, unsortedCountColumnNames.size()).boxed()
                     .sorted(Comparator.comparing(unsortedCountColumnNames::get))
                     .mapToInt(Integer::intValue).toArray();

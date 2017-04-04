@@ -89,15 +89,9 @@ public class PerAlleleCollection<X> {
     }
 
     public X getRef(){
-        if (type == Type.ALT_ONLY) {
-            throw new IllegalStateException("Collection does not hold the REF allele");
-        }
-
-        if (refAllele.isPresent()){
-            return refValue.get();
-        } else {
-            throw new IllegalStateException("Collection's ref allele has not been set yet");
-        }
+        Utils.validate(type != Type.ALT_ONLY, "Collection does not hold the REF allele");
+        Utils.validate(refAllele.isPresent(), "Collection's ref allele has not been set yet");
+        return refValue.get();
     }
 
     public X getAlt(Allele allele){

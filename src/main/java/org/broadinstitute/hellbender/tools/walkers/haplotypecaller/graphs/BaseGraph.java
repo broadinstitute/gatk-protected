@@ -481,9 +481,7 @@ public abstract class BaseGraph<V extends BaseVertex, E extends BaseEdge> extend
      * paths that do not also meet eventually with the reference sink vertex
      */
     public final void removePathsNotConnectedToRef() {
-        if ( getReferenceSourceVertex() == null || getReferenceSinkVertex() == null ) {
-            throw new IllegalStateException("Graph must have ref source and sink vertices");
-        }
+        Utils.validate( getReferenceSourceVertex() != null && getReferenceSinkVertex() != null, "Graph must have ref source and sink vertices");
 
         // get the set of vertices we can reach by going forward from the ref source
         final Collection<V> onPathFromRefSource = new HashSet<>(vertexSet().size());
@@ -504,13 +502,8 @@ public abstract class BaseGraph<V extends BaseVertex, E extends BaseEdge> extend
         removeAllVertices(verticesToRemove);
 
         // simple sanity checks that this algorithm is working.
-        if ( getSinks().size() > 1 ) {
-            throw new IllegalStateException("Should have eliminated all but the reference sink, but found " + getSinks());
-        }
-
-        if ( getSources().size() > 1 ) {
-            throw new IllegalStateException("Should have eliminated all but the reference source, but found " + getSources());
-        }
+        Utils.validate( getSinks().size() <= 1, () -> "Should have eliminated all but the reference sink, but found " + getSinks());
+        Utils.validate( getSources().size() <= 1, () -> "Should have eliminated all but the reference source, but found " + getSources());
     }
 
     /**

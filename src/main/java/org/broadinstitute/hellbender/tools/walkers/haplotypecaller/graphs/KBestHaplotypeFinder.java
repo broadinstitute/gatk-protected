@@ -142,14 +142,9 @@ public final class KBestHaplotypeFinder extends AbstractList<KBestHaplotype> {
             foundSomePath = findGuiltyVerticesAndEdgesToRemoveCycles(original, source, sinks, edgesToRemove, vertexToRemove, parentVertices) || foundSomePath;
         }
 
-        if (!foundSomePath) {
-            throw new IllegalStateException("could not find any path from the source vertex to the sink vertex after removing cycles: "
+        Utils.validate(foundSomePath, () -> "could not find any path from the source vertex to the sink vertex after removing cycles: "
                     + Arrays.toString(sources.toArray()) + " => " + Arrays.toString(sinks.toArray()));
-        }
-
-        if (edgesToRemove.isEmpty() && vertexToRemove.isEmpty()) {
-            throw new IllegalStateException("cannot find a way to remove the cycles");
-        }
+        Utils.validate(!(edgesToRemove.isEmpty() && vertexToRemove.isEmpty()), "cannot find a way to remove the cycles");
 
         final SeqGraph result = original.clone();
         result.removeAllEdges(edgesToRemove);
@@ -376,10 +371,8 @@ public final class KBestHaplotypeFinder extends AbstractList<KBestHaplotype> {
         Utils.nonNull(file, "the output file cannot be null");
         final PrintWriter out = new PrintWriter(file);
         printDOT(out);
-        if (out.checkError()) {
-            throw new IllegalStateException("error occurred while writing k-best haplotype search graph into file '"
+        Utils.validate(!out.checkError(), () -> "error occurred while writing k-best haplotype search graph into file '"
                     + file.getAbsolutePath() + '\'');
-        }
         out.close();
     }
 
