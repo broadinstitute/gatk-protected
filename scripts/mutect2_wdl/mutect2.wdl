@@ -44,6 +44,7 @@ task M2 {
   String m2_docker
   File? gatk4_jar_override
   Int preemptible_attempts
+  Int interval_padding
 
   command {
   if [[ "_${normal_bam}" == *.bam ]]; then
@@ -65,7 +66,8 @@ task M2 {
     ${"--cosmic " + cosmic} \
     ${"--normal_panel " + pon} \
     -L ${intervals} \
-    -O "${output_vcf_name}.vcf"
+    -O "${output_vcf_name}.vcf" \
+    -ip ${interval_padding}
   }
 
   runtime {
@@ -446,6 +448,7 @@ workflow Mutect2 {
   String? onco_ds_local_db_dir
   Array[String] artifact_modes
   File picard_jar
+  Int interval_padding
 
   call ProcessOptionalArguments {
     input:
@@ -506,7 +509,8 @@ workflow Mutect2 {
         output_vcf_name = ProcessOptionalArguments.output_name,
         gatk4_jar_override = gatk4_jar_override,
         preemptible_attempts = preemptible_attempts,
-        m2_docker = m2_docker
+        m2_docker = m2_docker,
+        interval_padding=interval_padding
     }
   }
 

@@ -20,7 +20,7 @@ workflow create_m2_pon {
     scatter (p in bam_pairs) {
          call m2.Mutect2 as m2_full {
              input:
-                 gatk_jar="/root/gatk-protected.jar",
+                 gatk4_jar="/root/gatk-protected.jar",
                  intervals = intervals,
                  ref_fasta = ref_fasta,
                  ref_fasta_index = ref_fasta_index,
