@@ -39,7 +39,8 @@ workflow create_m2_pon {
                  gatk4_jar_override = gatk4_jar_override,
                  preemptible_attempts = 2,
                  artifact_modes = [],
-                 picard_jar = picard_jar
+                 picard_jar = picard_jar,
+                 interval_padding=20
          }
     }
 
