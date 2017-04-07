@@ -68,6 +68,8 @@ import java.util.*;
 public final class GenotypeGVCFs extends VariantWalker {
 
     public static final String PHASED_HOM_VAR_STRING = "1|1";
+    private static final String GVCF_BLOCK = "GVCFBlock";
+
     @Argument(fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
             doc="File to which variants should be written", optional=false)
     private File outputFile;
@@ -89,17 +91,17 @@ public final class GenotypeGVCFs extends VariantWalker {
 
     @Advanced
     @Argument(fullName="annotationsToExclude", shortName="AX", doc="One or more specific annotations to exclude from recomputation.", optional=true)
-    List<String> annotationsToExclude = new ArrayList<>();
+    private List<String> annotationsToExclude = new ArrayList<>();
 
     /**
-     * Which groups of annotations to add to the output VCF file. The single value 'none' removes the default group. See
-     * the VariantAnnotator -list argument to view available groups. Note that this usage is not recommended because
+     * Which groups of annotations to add to the output VCF file.
+     * Note that this usage is not recommended because
      * it obscures the specific requirements of individual annotations. Any requirements that are not met (e.g. failing
      * to provide a pedigree file for a pedigree-based annotation) may cause the run to fail.
      */
     @Advanced
     @Argument(fullName="group", shortName="G", doc="One or more classes/groups of annotations to apply to variant calls", optional=true)
-    protected List<String> annotationGroupsToUse = new ArrayList<>(Arrays.asList(new String[]{StandardAnnotation.class.getSimpleName()}));
+    private List<String> annotationGroupsToUse = new ArrayList<>(Arrays.asList(new String[]{StandardAnnotation.class.getSimpleName()}));
 
     /**
      * The rsIDs from this file are used to populate the ID column of the output.  Also, the DB INFO flag will be set when appropriate. Note that dbSNP is not used in any way for the calculations themselves.
@@ -148,7 +150,7 @@ public final class GenotypeGVCFs extends VariantWalker {
         final Set<VCFHeaderLine> headerLines = new LinkedHashSet<>(inputVCFHeader.getMetaDataInInputOrder());
 
         // Remove GCVFBlocks
-        headerLines.removeIf(vcfHeaderLine -> vcfHeaderLine.getKey().startsWith("GVCFBlock"));
+        headerLines.removeIf(vcfHeaderLine -> vcfHeaderLine.getKey().startsWith(GVCF_BLOCK));
 
         headerLines.addAll(annotationEngine.getVCFAnnotationDescriptions());
         headerLines.addAll(genotypingEngine.getAppropriateVCFInfoHeaders());
@@ -171,7 +173,7 @@ public final class GenotypeGVCFs extends VariantWalker {
 
     @Override
     public void apply(VariantContext variant, ReadsContext reads, ReferenceContext ref, FeatureContext features) {
-        ref.setWindow(10, 10);
+        ref.setWindow(10, 10); //TODO this matches the gatk3 behavior but may be unnecessary
         final VariantContext mergedVC = merger.merge(Collections.singletonList(variant), variant, includeNonVariants ? ref.getBase() : null, true, false);
         final VariantContext regenotypedVC = regenotypeVC(mergedVC, ref, features, includeNonVariants);
         if (regenotypedVC != null) {
