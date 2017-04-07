@@ -196,7 +196,6 @@ public final class GenotypeGVCFs extends VariantWalker {
             if (isProperlyPolymorphic(regenotypedVC)) {
                 final VariantContext allelesTrimmed = GATKVariantContextUtils.reverseTrimAlleles(regenotypedVC);
                 final VariantContext withAnnotations = addGenotypingAnnotations(originalVC.getAttributes(), allelesTrimmed);
-
                 //TODO: remove this when proper support for reducible annotations is added
                 result = RMS_MAPPING_QUALITY.finalizeRawMQ(withAnnotations);
             } else if (includeNonVariants) {
@@ -244,19 +243,25 @@ public final class GenotypeGVCFs extends VariantWalker {
     }
 
     /**
-     * Determines whether the provided VariantContext has real alternate alleles
+     * Determines whether the provided VariantContext has real alternate alleles.
+     *
+     * There is a bit of a hack to handle the <NON-REF> case because it is not defined in htsjdk.Allele
+     * We check for this as a biallelic symbolic allele.
      *
      * @param vc  the VariantContext to evaluate
      * @return true if it has proper alternate alleles, false otherwise
      */
     private boolean isProperlyPolymorphic(final VariantContext vc) {
-        return ( vc != null &&
-                !vc.getAlternateAlleles().isEmpty() &&
-                (!vc.isBiallelic() ||
-                        (!vc.getAlternateAllele(0).equals(Allele.SPAN_DEL) &&
-                                !vc.getAlternateAllele(0).equals(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED))
-                )
-        );
+        //obvious cases
+        if (vc == null || vc.getAlternateAlleles().isEmpty()) {
+            return false;
+        } else if (vc.isBiallelic()) {
+            return !(vc.getAlternateAllele(0).equals(Allele.SPAN_DEL) ||
+                    vc.getAlternateAllele(0).equals(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED) ||
+                    vc.isSymbolic());
+        } else {
+            return true;
+        }
     }
 
     /**
