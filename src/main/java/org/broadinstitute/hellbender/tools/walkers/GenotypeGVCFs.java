@@ -190,22 +190,19 @@ public final class GenotypeGVCFs extends VariantWalker {
         Utils.nonNull(originalVC);
 
         final VariantContext result;
-        if ( originalVC.isVariant() ) {
+        if ( originalVC.isVariant()  && originalVC.getAttributeAsInt(VCFConstants.DEPTH_KEY,0) > 0 ) {
             // only re-genotype polymorphic sites
             final VariantContext regenotypedVC = calculateGenotypes(originalVC);
-            if ( !isProperlyPolymorphic(regenotypedVC) ) {
-                if (!includeNonVariants) {
-                    return null;
-                } else {
-                    result = originalVC;
-                }
-            } else {
+            if (isProperlyPolymorphic(regenotypedVC)) {
                 final VariantContext allelesTrimmed = GATKVariantContextUtils.reverseTrimAlleles(regenotypedVC);
-
                 final VariantContext withAnnotations = addGenotypingAnnotations(originalVC.getAttributes(), allelesTrimmed);
 
                 //TODO: remove this when proper support for reducible annotations is added
                 result = RMS_MAPPING_QUALITY.finalizeRawMQ(withAnnotations);
+            } else if (includeNonVariants) {
+                result = originalVC;
+            } else {
+                return null;
             }
         } else {
             result = originalVC;
@@ -217,18 +214,16 @@ public final class GenotypeGVCFs extends VariantWalker {
         // For polymorphic sites we need to make sure e.g. the SB tag is sent to the annotation engine and then removed later.
         // For monomorphic sites we need to make sure e.g. the hom ref genotypes are created and only then are passed to the annotation engine.
         // We could theoretically make 2 passes to re-create the genotypes, but that gets extremely expensive with large sample sizes.
-        if ( result.isMonomorphicInSamples() ) {
-            if ( !includeNonVariants) {
-                return null;
-            } else {
-                // For monomorphic sites we need to make sure e.g. the hom ref genotypes are created and only then are passed to the annotation engine.
-                final VariantContext reannotated = new VariantContextBuilder(result).genotypes(cleanupGenotypeAnnotations(result, true)).make();
-                return annotationEngine.annotateContext(reannotated, features, ref, null, GenotypeGVCFs::annotationShouldBeSkippedForHomRefSites);
-            }
-        } else {
+        if (result.isPolymorphicInSamples()) {
             // For polymorphic sites we need to make sure e.g. the SB tag is sent to the annotation engine and then removed later.
             final VariantContext reannotated = annotationEngine.annotateContext(result, features, ref, null, a -> true);
             return new VariantContextBuilder(reannotated).genotypes(cleanupGenotypeAnnotations(reannotated, false)).make();
+        } else if (includeNonVariants) {
+            // For monomorphic sites we need to make sure e.g. the hom ref genotypes are created and only then are passed to the annotation engine.
+            final VariantContext reannotated = new VariantContextBuilder(result).genotypes(cleanupGenotypeAnnotations(result, true)).make();
+            return annotationEngine.annotateContext(reannotated, features, ref, null, GenotypeGVCFs::annotationShouldBeSkippedForHomRefSites);
+        } else {
+            return null;
         }
     }
 

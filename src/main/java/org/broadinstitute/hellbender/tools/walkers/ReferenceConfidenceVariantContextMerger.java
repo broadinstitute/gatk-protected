@@ -190,18 +190,19 @@ final class ReferenceConfidenceVariantContextMerger {
         return result;
     }
 
-    private static class VCWithNewAlleles {
+    @VisibleForTesting
+    static class VCWithNewAlleles {
         private final VariantContext vc;
         private final List<Allele> newAlleles;
         private final boolean isSpanningEvent;
 
-        private VCWithNewAlleles(final VariantContext vc, final List<Allele> newAlleles, final boolean isSpanningEvent) {
+        VCWithNewAlleles(final VariantContext vc, final List<Allele> newAlleles, final boolean isSpanningEvent) {
             this.vc = vc;
             this.newAlleles = newAlleles;
             this.isSpanningEvent = isSpanningEvent;
         }
 
-        public Stream<Allele> filterAllelesForFinalSet() {
+        private Stream<Allele> filterAllelesForFinalSet() {
             return newAlleles.stream().filter(a -> !a.equals(GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE))
                     .filter(a -> !a.isReference())
                     .filter(a -> !(a.isSymbolic() && vc.isSymbolic())) // skip <*DEL> if there isn't a real alternate allele.
@@ -211,7 +212,8 @@ final class ReferenceConfidenceVariantContextMerger {
         // record whether it's also a spanning deletion/event (we know this because the VariantContext type is no
         // longer "symbolic" but "mixed" because there are real alleles mixed in with the symbolic non-ref allele)
         public boolean isSpanningDeletion() {
-            return  (isSpanningEvent && vc.isMixed()) || vc.getAlleles().contains(Allele.SPAN_DEL)
+            return  (isSpanningEvent && vc.isMixed())
+                    || vc.getAlleles().contains(Allele.SPAN_DEL)
                     || vc.getAlleles().contains(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED);
         }
 

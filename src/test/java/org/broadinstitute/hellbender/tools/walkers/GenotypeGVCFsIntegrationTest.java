@@ -33,6 +33,10 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
     private static final List<String> NO_EXTRA_ARGS = Collections.emptyList();
     private static final String b38_reference_20_21 =largeFileTestDir + "Homo_sapiens_assembly38.20.21.fasta";
 
+    private static final List<String> ATTRIBUTES_TO_IGNORE = Arrays.asList(
+            "QD",//TODO QD has a cap value and anything that reaches that is randomized.  It's difficult to reproduce the same random numbers across gatk3 -> 4
+            "FS");//TODO There's some bug in either gatk3 or gatk4 fisherstrand that's making them not agree still, I'm not sure which is correct
+
     private static <T> void assertForEachElementInLists(final List<T> actual, final List<T> expected, final BiConsumer<T, T> assertion) {
         Assert.assertEquals(actual.size(), expected.size(), "different number of elements in lists:\n"
                 + actual.stream().map(Object::toString).collect(Collectors.joining("\n","actual:\n","\n"))
@@ -46,31 +50,46 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
     public Object[][] gvcfsToGenotype() {
         String basePairGVCF = "gvcf.basepairResolution.gvcf";
         return new Object[][]{
-//                {"combine.single.sample.pipeline.1.vcf", null, Arrays.asList("-V", getTestFile("combine.single.sample.pipeline.2.vcf").toString() , "-V", getTestFile("combine.single.sample.pipeline.3.vcf").toString()), b37_reference_20_21}, //combine not supported yet
-                {getTestFile(basePairGVCF), getTestFile( "gvcf.basepairResolution.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //base pair level gvcf
-                {getTestFile("testUpdatePGT.gvcf"), getTestFile( "testUpdatePGT.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},   //testUpdatePGT
-                {getTestFile("gvcfExample1.vcf"), getTestFile( "gvcfExample1.vcf.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //single sample vcf
-                {getTestFile("gvcfExample1.vcf"), getTestFile( "gvcfExample1.vcf.expected.vcf"), Arrays.asList("-L", "20"), b37_reference_20_21}, //single sample vcf with -L
-                {getTestFile("combined_genotype_gvcf_exception.original.vcf"), getTestFile( "combined_genotype_gvcf_exception.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //test that an input vcf with 0/0 already in GT field is overwritten
-                {getTestFile("combined_genotype_gvcf_exception.nocall.vcf"), getTestFile( "combined_genotype_gvcf_exception.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},  //same test as above but with ./.
-                {getTestFile(basePairGVCF), getTestFile( "ndaTest.expected.vcf"), Collections.singletonList("-nda"), b37_reference_20_21},  //annotating with the number of alleles discovered option
-                {getTestFile(basePairGVCF), getTestFile( "maxAltAllelesTest.expected.vcf"), Arrays.asList("-maxAltAlleles", "1"), b37_reference_20_21 }, //restricting the max number of alt alleles
-                {getTestFile(basePairGVCF), getTestFile( "standardConfTest.expected.vcf"), Arrays.asList("-stand_call_conf","300"),b37_reference_20_21}, //set minimum calling threshold
-                {getTestFile("spanningDel.combined.g.vcf"), getTestFile( "spanningDel.combined.g.vcf.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},
-                {getTestFile("spanningDel.delOnly.g.vcf"), getTestFile( "spanningDel.delOnly.g.vcf.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},
-                {getTestFile("spanningDel.depr.delOnly.g.vcf"), getTestFile( "spanningDel.depr.delOnly.g.vcf.expected.vcf" ), NO_EXTRA_ARGS, b37_reference_20_21},
-                {getTestFile("ad-bug-input.vcf"), getTestFile( "ad-bug-output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //Bad AD Propagation Haploid Bug
-                {getTestFile("CEUTrio.20.21.gatk3.4.g.vcf"), getTestFile( "CEUTrio.20.21.expected.vcf"), Arrays.asList("--dbsnp", "src/test/resources/large/dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
-                {getTestFile("CEUTrio.20.21.missingIndel.g.vcf"), getTestFile( "CEUTrio.20.21.missingIndel.expected.vcf"), Arrays.asList("--dbsnp", "src/test/resources/large/dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
-                {new File(largeFileTestDir + "gvcfs/cutDown.24_sample.21.g.vcf"), new File( largeFileTestDir + "gvcfs/cutDown.24_sample.21.expected.vcf"), NO_EXTRA_ARGS, b38_reference_20_21},
-                {getTestFile("chr21.bad.pl.g.vcf"), getTestFile( "chr21.bad.pl.expected.vcf"), Arrays.asList("-L", "chr21:28341770-28341790"), b38_reference_20_21},
-                {new File(largeFileTestDir + "gvcfs/combined.gatk3.7.g.vcf.gz"),  new File(largeFileTestDir + "gvcfs/combined.gatk3.7.expected.vcf.gz"), NO_EXTRA_ARGS, b38_reference_20_21}
-                //{getTestFile(basePairGVCF), getTestFile( "gvcf.basepairResolution.includeNonVariantSites.expected.vcf"), Collections.singletonList("--includeNonVariantSites") //allsites not supported yet
+                //combine not supported yet, see https://github.com/broadinstitute/gatk/issues/2429 and https://github.com/broadinstitute/gatk/issues/2584
+                //{"combine.single.sample.pipeline.1.vcf", null, Arrays.asList("-V", getTestFile("combine.single.sample.pipeline.2.vcf").toString() , "-V", getTestFile("combine.single.sample.pipeline.3.vcf").toString()), b37_reference_20_21},
+                {getTestFile(basePairGVCF), getTestFile( "gvcf.basepairResolution.gatk3.7_30_ga4f720357.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //base pair level gvcf
+                {getTestFile("testUpdatePGT.gvcf"), getTestFile( "testUpdatePGT.gatk3.7_30_ga4f720357.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},   //testUpdatePGT
+                {getTestFile("gvcfExample1.vcf"), getTestFile( "gvcfExample1.gatk3.7_30_ga4f720357.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //single sample vcf
+                {getTestFile("gvcfExample1.vcf"), getTestFile( "gvcfExample1.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("-L", "20"), b37_reference_20_21}, //single sample vcf with -L
+                {getTestFile("combined_genotype_gvcf_exception.original.vcf"), getTestFile( "combined_genotype_gvcf_exception.gatk3.7_30_ga4f720357.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //test that an input vcf with 0/0 already in GT field is overwritten
+                {getTestFile("combined_genotype_gvcf_exception.nocall.vcf"), getTestFile( "combined_genotype_gvcf_exception.gatk3.7_30_ga4f720357.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},  //same test as above but with ./.
+                {getTestFile(basePairGVCF), getTestFile( "ndaTest.gatk3.7_30_ga4f720357.expected.vcf"), Collections.singletonList("-nda"), b37_reference_20_21},  //annotating with the number of alleles discovered option
+                {getTestFile(basePairGVCF), getTestFile( "maxAltAllelesTest.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("-maxAltAlleles", "1"), b37_reference_20_21 }, //restricting the max number of alt alleles
+                {getTestFile(basePairGVCF), getTestFile( "standardConfTest.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("-stand_call_conf","300"),b37_reference_20_21}, //set minimum calling threshold
+                {getTestFile("spanningDel.combined.g.vcf"), getTestFile( "spanningDel.combined.gatk3.7_30_ga4f720357.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},
+                {getTestFile("spanningDel.delOnly.g.vcf"), getTestFile( "spanningDel.delOnly.gatk3.7_30_ga4f720357.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},
+                {getTestFile("spanningDel.depr.delOnly.g.vcf"), getTestFile( "spanningDel.depr.delOnly.gatk3.7_30_ga4f720357.expected.vcf" ), NO_EXTRA_ARGS, b37_reference_20_21},
+                {getTestFile("ad-bug-input.vcf"), getTestFile( "ad-bug-gatk3.7_30_ga4f720357-output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //Bad AD Propagation Haploid Bug
+                {getTestFile("CEUTrio.20.21.gatk3.4.g.vcf"), getTestFile( "CEUTrio.20.21.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("--dbsnp", "src/test/resources/large/dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
+                {getTestFile("CEUTrio.20.21.missingIndel.g.vcf"), getTestFile( "CEUTrio.20.21.missingIndel.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("--dbsnp", "src/test/resources/large/dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
+                {new File(largeFileTestDir + "gvcfs/gatk3.7_30_ga4f720357.24_sample.21.g.vcf"), new File( largeFileTestDir + "gvcfs/gatk3.7_30_ga4f720357.24_sample.21.expected.vcf"), NO_EXTRA_ARGS, b38_reference_20_21},
+                {getTestFile("chr21.bad.pl.g.vcf"), getTestFile( "chr21.bad.pl.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("-L", "chr21:28341770-28341790"), b38_reference_20_21},
+                {new File(largeFileTestDir + "gvcfs/combined.gatk3.7_30_ga4f720357.g.vcf.gz"),  new File(largeFileTestDir + "gvcfs/combined.gatk3.7_30_ga4f720357.expected.vcf.gz"), NO_EXTRA_ARGS, b38_reference_20_21}
+                //all sites not supported yet see https://github.com/broadinstitute/gatk-protected/issues/580 and  https://github.com/broadinstitute/gatk/issues/2429
+                //{getTestFile(basePairGVCF), getTestFile( "gvcf.basepairResolution.includeNonVariantSites.gatk3.7_30_ga4f720357.expected.vcf"), Collections.singletonList("--includeNonVariantSites") //allsites not supported yet
         };
     }
 
 
-    @Test(dataProvider = "gvcfsToGenotype", enabled = false) // this is useful for development
+    /*
+    This test is useful for testing changes in GATK4 versus different versions of GATK3.
+    To use, set GATK3_PATH to point to a particular version of gatk, then enable this test and run.
+
+    It will cache the gatk3 outputs in a folder called gatk3results, it does it's best to avoid reusing bad results by
+    comparing the md5 of the gatk3 path, input file path, reference, and commandline, but it doesn't know about internal changes to files
+    You have to manually delete the cache if you make changes inside the input files.
+
+    The expected outputs based on gatk3's results will be put in a folder called expectedResults.
+    These are overwritten during each test, the names are based on the name of the existing expected output file.
+
+    This method should be removed after GenotypeGVCFs has been completely validated against GATK3.
+     */
+    @Test(dataProvider = "gvcfsToGenotype", enabled = false)
     public void compareToGATK3(File input, File outputFile, List<String> extraArgs, String reference) throws IOException, NoSuchAlgorithmException {
         final String GATK3_PATH = "gatk3.7-30-ga4f720357.jar";
         final String params = GATK3_PATH + input.getAbsolutePath() + extraArgs.stream().collect(Collectors.joining()) + reference;
@@ -125,10 +144,7 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
     }
 
     private void assertVariantContextsMatch(File input, File expected, List<String> extraArgs, String reference) throws IOException {
-        runGenotypeGVCFSAndAssertSomething(input, expected, extraArgs, (a, e) -> VariantContextTestUtils.assertVariantContextsAreEqual(a, e,
-                Arrays.asList("QD",//TODO QD has a cap value and anything that reaches that is randomized.  It's difficult to reproduce the same random numbers accross gatk3 -> 4
-                              "FS")),//TODO There's some bug in either gatk3 or gatk4 fisherstrand that's making them not agree still, I'm not sure which is correct
-                 reference);
+        runGenotypeGVCFSAndAssertSomething(input, expected, extraArgs, (a, e) -> VariantContextTestUtils.assertVariantContextsAreEqual(a, e, ATTRIBUTES_TO_IGNORE), reference);
     }
 
     private void assertGenotypesMatch(File input, File expected, List<String> additionalArguments, String reference) throws IOException {
@@ -151,7 +167,7 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
 
         final List<VariantContext> expectedVC = getVariantContexts(expected);
         final List<VariantContext> actualVC = getVariantContexts(output);
-        assertForEachElementInLists(actualVC, expectedVC, assertion); //TODO Inbreeding calculation changed between 3.4 and now
+        assertForEachElementInLists(actualVC, expectedVC, assertion);
     }
 
     /**
