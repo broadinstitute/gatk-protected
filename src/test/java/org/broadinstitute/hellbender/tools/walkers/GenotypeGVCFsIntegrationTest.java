@@ -51,7 +51,6 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
                 {getTestFile("testUpdatePGT.gvcf"), getTestFile( "testUpdatePGT.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},   //testUpdatePGT
                 {getTestFile("gvcfExample1.vcf"), getTestFile( "gvcfExample1.vcf.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //single sample vcf
                 {getTestFile("gvcfExample1.vcf"), getTestFile( "gvcfExample1.vcf.expected.vcf"), Arrays.asList("-L", "20"), b37_reference_20_21}, //single sample vcf with -L
-                {getTestFile("combined_genotype_gvcf_exception.vcf"), getTestFile( "combined_genotype_gvcf_exception.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //test that an input vcf with 0/0 already in GT field is overwritten
                 {getTestFile("combined_genotype_gvcf_exception.original.vcf"), getTestFile( "combined_genotype_gvcf_exception.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //test that an input vcf with 0/0 already in GT field is overwritten
                 {getTestFile("combined_genotype_gvcf_exception.nocall.vcf"), getTestFile( "combined_genotype_gvcf_exception.output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},  //same test as above but with ./.
                 {getTestFile(basePairGVCF), getTestFile( "ndaTest.expected.vcf"), Collections.singletonList("-nda"), b37_reference_20_21},  //annotating with the number of alleles discovered option
