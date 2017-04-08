@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-import static org.broadinstitute.hellbender.utils.variant.GATKVCFConstants.STRAND_BIAS_BY_SAMPLE_KEY;
 
 public class GenotypeGVCFsUnitTest extends BaseTest {
 
@@ -99,10 +98,10 @@ public class GenotypeGVCFsUnitTest extends BaseTest {
 
     @Test
     public void testSBRemoved(){
-        final VariantContext vcWithSB = getHetWithGenotype(generateGenotypes(b -> b.attribute(STRAND_BIAS_BY_SAMPLE_KEY, new int[]{6, 11, 11, 10})));
-        Assert.assertNotNull(vcWithSB.getGenotype("Sample_0").getAnyAttribute(STRAND_BIAS_BY_SAMPLE_KEY));
+        final VariantContext vcWithSB = getHetWithGenotype(generateGenotypes(b -> b.attribute(GATKVCFConstants.STRAND_BIAS_BY_SAMPLE_KEY, new int[]{6, 11, 11, 10})));
+        Assert.assertNotNull(vcWithSB.getGenotype("Sample_0").getAnyAttribute(GATKVCFConstants.STRAND_BIAS_BY_SAMPLE_KEY));
         final Genotype afterCleanup = GenotypeGVCFs.cleanupGenotypeAnnotations(vcWithSB, true).get(0);
-        Assert.assertNull(afterCleanup.getExtendedAttribute(STRAND_BIAS_BY_SAMPLE_KEY));
+        Assert.assertNull(afterCleanup.getExtendedAttribute(GATKVCFConstants.STRAND_BIAS_BY_SAMPLE_KEY));
     }
 
     @Test
@@ -135,4 +134,37 @@ public class GenotypeGVCFsUnitTest extends BaseTest {
         }
     }
 
+    @DataProvider
+    public Object[][] getVariantsForIsProperlyPolymorphic(){
+        return new Object[][]{
+                {new VariantContextBuilder("test", "1", 1, 1, Collections.singleton(REF)).make(), false},
+                {new VariantContextBuilder("test", "1", 1, 1, Arrays.asList(REF, ALT)).make(), true},
+                {new VariantContextBuilder("test", "1", 1, 1, Arrays.asList(REF, GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE)).make(), false},
+                {new VariantContextBuilder("test", "1", 1, 1, Arrays.asList(REF, Allele.SPAN_DEL)).make(), false},
+                {new VariantContextBuilder("test", "1", 1, 2, Arrays.asList(REF, Allele.create("<SOME_SYMBOLIC_ALLELE>"))).make(), false},
+                {new VariantContextBuilder("test", "1", 1, 1, Arrays.asList(REF, ALT, Allele.create("G"))).make(), true},
+                {null, false}
+        };
+    }
+
+    @Test(dataProvider = "getVariantsForIsProperlyPolymorphic")
+    public void testIsProperlyPolymorphic(VariantContext vc, boolean expected){
+        Assert.assertEquals(GenotypeGVCFs.isProperlyPolymorphic(vc), expected);
+    }
+
+    @DataProvider
+    public Object[][] getSpanningAndNonSpanningAlleles(){
+        return new Object[][]{
+                {Allele.SPAN_DEL, true},
+                {GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED, true},
+                {GATKVCFConstants.NON_REF_SYMBOLIC_ALLELE, false},
+                {Allele.NO_CALL, false},
+                {Allele.create("A", true), false}
+        };
+    }
+
+    @Test(dataProvider = "getSpanningAndNonSpanningAlleles")
+    public void testIsSpanningDeletion(Allele allele, boolean expected){
+        Assert.assertEquals(GenotypeGVCFs.isSpanningDeletion(allele), expected);
+    }
 }

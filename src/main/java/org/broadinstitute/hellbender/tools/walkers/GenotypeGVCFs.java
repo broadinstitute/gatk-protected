@@ -227,18 +227,13 @@ public final class GenotypeGVCFs extends VariantWalker {
     }
 
     private VariantContext calculateGenotypes(VariantContext vc){
-
-        final VariantContext.Type type = vc.getType();
-        final GenotypeLikelihoodsCalculationModel model;
         /*
          * Query the VariantContext for the appropriate model.  If type == MIXED, one would want to use model = BOTH.
          * However GenotypingEngine.getAlleleFrequencyPriors throws an exception if you give it anything but a SNP or INDEL model.
          */
-        if ( type == VariantContext.Type.INDEL ) {
-            model = GenotypeLikelihoodsCalculationModel.INDEL;
-        } else {
-            model = GenotypeLikelihoodsCalculationModel.SNP;
-        }
+        final GenotypeLikelihoodsCalculationModel model = vc.getType() == VariantContext.Type.INDEL
+                ? GenotypeLikelihoodsCalculationModel.INDEL
+                : GenotypeLikelihoodsCalculationModel.SNP;
         return genotypingEngine.calculateGenotypes(vc, model, null);
     }
 
@@ -251,17 +246,21 @@ public final class GenotypeGVCFs extends VariantWalker {
      * @param vc  the VariantContext to evaluate
      * @return true if it has proper alternate alleles, false otherwise
      */
-    private boolean isProperlyPolymorphic(final VariantContext vc) {
+    @VisibleForTesting
+    static boolean isProperlyPolymorphic(final VariantContext vc) {
         //obvious cases
         if (vc == null || vc.getAlternateAlleles().isEmpty()) {
             return false;
         } else if (vc.isBiallelic()) {
-            return !(vc.getAlternateAllele(0).equals(Allele.SPAN_DEL) ||
-                    vc.getAlternateAllele(0).equals(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED) ||
-                    vc.isSymbolic());
+            return !(isSpanningDeletion(vc.getAlternateAllele(0)) || vc.isSymbolic());
         } else {
             return true;
         }
+    }
+
+    @VisibleForTesting
+    static boolean isSpanningDeletion(final Allele allele){
+        return allele.equals(Allele.SPAN_DEL) || allele.equals(GATKVCFConstants.SPANNING_DELETION_SYMBOLIC_ALLELE_DEPRECATED);
     }
 
     /**
