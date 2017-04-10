@@ -8,6 +8,7 @@ import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.util.OverlapDetector;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
+import htsjdk.variant.vcf.VCFHeader;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -25,6 +26,7 @@ import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.engine.spark.SparkReadShard;
+import org.broadinstitute.hellbender.engine.spark.datasources.VariantsSparkSink;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCaller;
@@ -112,7 +114,12 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
     protected void runTool(final JavaSparkContext ctx) {
         final List<SimpleInterval> intervals = hasIntervals() ? getIntervals() : IntervalUtils.getAllIntervalsForReference(getHeaderForReads().getSequenceDictionary());
         final JavaRDD<VariantContext> variants = callVariantsWithHaplotypeCaller(getAuthHolder(), ctx, getReads(), getHeaderForReads(), getReference(), intervals, hcArgs, shardingArgs);
-        writeVariants(variants);
+        final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgs, getHeaderForReads(), new ReferenceMultiSourceAdapter(getReference(), getAuthHolder()));
+        try {
+            VariantsSparkSink.writeVariants(ctx, output, variants, hcEngine.makeVCFHeader(getHeaderForReads().getSequenceDictionary()));
+        } catch (IOException e) {
+            throw new UserException.CouldNotCreateOutputFile(output,"writing failed", e);
+        }
     }
 
     @Override
@@ -194,26 +201,6 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             return variantContexts.stream()
                 .filter(vc -> shardBoundary.contains(new SimpleInterval(vc.getContig(), vc.getStart(), vc.getStart())));
         };
-    }
-
-    /**
-     * WriteVariants, this is currently going to be horribly slow and explosive on a full size file since it performs a collect.
-     *
-     * This will be replaced by a parallel writer similar to what's done with {@link org.broadinstitute.hellbender.engine.spark.datasources.ReadsSparkSink}
-     */
-    private void writeVariants(JavaRDD<VariantContext> variants) {
-        final List<VariantContext> collectedVariants = variants.collect();
-        final SAMSequenceDictionary referenceDictionary = getReferenceSequenceDictionary();
-
-        final List<VariantContext> sortedVariants = collectedVariants.stream()
-                .sorted((o1, o2) -> IntervalUtils.compareLocatables(o1, o2, referenceDictionary))
-                .collect(Collectors.toList());
-
-        final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgs, getHeaderForReads(), new ReferenceMultiSourceAdapter(getReference(), getAuthHolder()));
-        try(final VariantContextWriter writer = hcEngine.makeVCFWriter(output, getBestAvailableSequenceDictionary())) {
-            hcEngine.writeHeader(writer, getHeaderForReads().getSequenceDictionary());
-            sortedVariants.forEach(writer::add);
-        }
     }
 
     /**
