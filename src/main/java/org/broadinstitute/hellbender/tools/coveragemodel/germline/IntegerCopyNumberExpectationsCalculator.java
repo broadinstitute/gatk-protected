@@ -9,7 +9,6 @@ import org.broadinstitute.hellbender.tools.exome.germlinehmm.IntegerCopyNumberSt
 import org.broadinstitute.hellbender.tools.exome.germlinehmm.IntegerCopyNumberTransitionProbabilityCacheCollection;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.hmm.ForwardBackwardAlgorithm;
-import org.broadinstitute.hellbender.utils.hmm.HiddenMarkovModel;
 import org.broadinstitute.hellbender.utils.hmm.ViterbiAlgorithm;
 
 import javax.annotation.Nonnull;
@@ -46,6 +45,18 @@ public final class IntegerCopyNumberExpectationsCalculator implements
      */
     private final static boolean CHECK_FOR_NANS = false;
 
+    /**
+     * Calculate the log prior probability in {@link #getCopyRatioPriorExpectations(CopyRatioCallingMetadata, List)}
+     *
+     * TODO github/gatk-protected issue #853 -- currently, the calculation is done on the master node and is slow.
+     *      Also, it is unnecessary in practice since it only affects the reported log likelihood in the first
+     *      iteration. In the future, we may either remove this feature altogether or sparkify it.
+     */
+    private final static boolean CALCULATE_PRIOR_LOG_PROBABILITY = false;
+
+    /**
+     * Set of sex genotypes
+     */
     private final Set<String> sexGenotypesSet;
 
     /**
@@ -157,8 +168,8 @@ public final class IntegerCopyNumberExpectationsCalculator implements
     @Override
     public CopyRatioExpectations getCopyRatioPriorExpectations(
             @Nonnull final CopyRatioCallingMetadata copyRatioCallingMetadata,
-            @Nonnull final List<Target> targetsList) {
-        verifyArgsForPriorExpectations(copyRatioCallingMetadata, targetsList);
+            @Nonnull final List<Target> targetList) {
+        verifyArgsForPriorExpectations(copyRatioCallingMetadata, targetList);
 
         /* choose the HMM */
         final IntegerCopyNumberHiddenMarkovModel<CoverageModelCopyRatioEmissionData> genotypeSpecificHMM =
@@ -168,7 +179,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
         final List<IntegerCopyNumberState> hiddenStates = genotypeSpecificHMM.hiddenStates();
 
         /* exponentiate log copy number priors on all targets */
-        final List<double[]> hiddenStatePriorProbabilities = targetsList.stream()
+        final List<double[]> hiddenStatePriorProbabilities = targetList.stream()
                 .map(target -> hiddenStates.stream()
                         .mapToDouble(state -> FastMath.exp(genotypeSpecificHMM.logPriorProbability(state, target)))
                         .toArray())
@@ -176,14 +187,14 @@ public final class IntegerCopyNumberExpectationsCalculator implements
 
         /* copy ratio corrected for mapping error */
         final double err = copyRatioCallingMetadata.getSampleAverageMappingErrorProbability();
-        final List<double[]> logCopyRatiosWithMappingError = IntStream.range(0, targetsList.size())
+        final List<double[]> logCopyRatiosWithMappingError = IntStream.range(0, targetList.size())
                 .mapToObj(ti -> hiddenStates.stream()
                             .mapToDouble(s -> FastMath.log((1 - err) * s.getCopyNumber() + err))
                             .toArray())
                 .collect(Collectors.toList());
 
         if (CHECK_FOR_NANS) {
-            final int[] badTargets = IntStream.range(0, targetsList.size())
+            final int[] badTargets = IntStream.range(0, targetList.size())
                     .filter(ti -> Arrays.stream(hiddenStatePriorProbabilities.get(ti))
                             .anyMatch(p -> Double.isNaN(p) || Double.isInfinite(p))).toArray();
             if (badTargets.length > 0) {
@@ -194,12 +205,12 @@ public final class IntegerCopyNumberExpectationsCalculator implements
 
         /* calculate copy ratio posterior mean and variance */
         final int[] includedHiddenStatesIndices = IntStream.range(0, hiddenStates.size()).toArray();
-        final double[] logCopyRatioPriorMeans = IntStream.range(0, targetsList.size())
+        final double[] logCopyRatioPriorMeans = IntStream.range(0, targetList.size())
                 .mapToDouble(ti -> calculateMeanDiscreteStates(
                         includedHiddenStatesIndices, hiddenStatePriorProbabilities.get(ti),
                         logCopyRatiosWithMappingError.get(ti)))
                 .toArray();
-        final double[] logCopyRatioPriorVariances = IntStream.range(0, targetsList.size())
+        final double[] logCopyRatioPriorVariances = IntStream.range(0, targetList.size())
                 .mapToDouble(ti -> calculateMeanDiscreteStates(
                         includedHiddenStatesIndices, hiddenStatePriorProbabilities.get(ti),
                         Arrays.stream(logCopyRatiosWithMappingError.get(ti)).map(x -> x * x).toArray()) -
@@ -207,7 +218,7 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                 .toArray();
 
         if (CHECK_FOR_NANS) {
-            final int[] badTargets = IntStream.range(0, targetsList.size())
+            final int[] badTargets = IntStream.range(0, targetList.size())
                     .filter(ti -> Double.isNaN(logCopyRatioPriorMeans[ti]) ||
                             Double.isNaN(logCopyRatioPriorVariances[ti])).toArray();
             if (badTargets.length > 0) {
@@ -216,11 +227,12 @@ public final class IntegerCopyNumberExpectationsCalculator implements
             }
         }
 
-        /* TODO -- this is slow and unnecessary anyway */
         /* calculate chain posterior log probability */
-//        final double logChainPriorProbability = calculateLogChainPriorProbability(genotypeSpecificHMM, targetsList);
+        final double logChainPriorProbability = CALCULATE_PRIOR_LOG_PROBABILITY
+                ? genotypeSpecificHMM.calculateLogChainPriorProbability(targetList)
+                : 0.0;
 
-        return new CopyRatioExpectations(logCopyRatioPriorMeans, logCopyRatioPriorVariances, 0.0);
+        return new CopyRatioExpectations(logCopyRatioPriorMeans, logCopyRatioPriorVariances, logChainPriorProbability);
     }
 
     @Override
@@ -287,54 +299,6 @@ public final class IntegerCopyNumberExpectationsCalculator implements
             sum += pdf[i];
         }
         return prod / sum;
-    }
-
-    /**
-     * TODO
-     *
-     * @param hmm
-     * @param positions
-     * @param <D>
-     * @param <T>
-     * @param <S>
-     * @return
-     */
-    private static <D, T, S> double calculateLogChainPriorProbability(final HiddenMarkovModel<D, T, S> hmm,
-                                                                      final List<T> positions) {
-        final List<S> states = hmm.hiddenStates();
-        if (positions.isEmpty() || states.isEmpty()) {
-            return 0;
-        }
-        final int numStates = states.size();
-        final int numPositions = positions.size();
-        final double[] logPriorProbabilities = states.stream()
-                .mapToDouble(state -> hmm.logPriorProbability(state, positions.get(0)))
-                .toArray();
-        final double[] priorProbabilities = Arrays.stream(logPriorProbabilities)
-                .map(FastMath::exp)
-                .toArray();
-
-        /* contribution of the first state */
-        double result = IntStream.range(0, numStates)
-                .mapToDouble(stateIndex -> logPriorProbabilities[stateIndex] * priorProbabilities[stateIndex])
-                .sum();
-
-        /* contribution of the rest of the chain */
-        if (numPositions > 1) {
-            for (int positionIndex = 0; positionIndex < numPositions - 1; positionIndex++) {
-                for (int i = 0; i < numStates; i++) { /* departure state */
-                    for (int j = 0; j < numStates; j++) { /* destination state */
-                        final double logTransitionProbability = hmm.logTransitionProbability(
-                                states.get(i), positions.get(positionIndex),
-                                states.get(j), positions.get(positionIndex + 1));
-                        if (logTransitionProbability != Double.NEGATIVE_INFINITY) { /* NEGATIVE_INFINITY * 0 = 0 here */
-                            result += logTransitionProbability * priorProbabilities[i] * priorProbabilities[j];
-                        }
-                    }
-                }
-            }
-        }
-        return result;
     }
 
     private void verifyArgsForHiddenMarkovModelResults(@Nonnull final CopyRatioCallingMetadata copyRatioCallingMetadata,

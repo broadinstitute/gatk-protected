@@ -80,13 +80,11 @@ public final class CoverageModelEMParams {
     public static final String MODEL_INITIALIZATION_STRATEGY_SHORT_NAME = "MIS";
     public static final String MODEL_INITIALIZATION_STRATEGY_LONG_NAME = "modelInitializationStrategy";
 
-    /* TODO change back to a reasonable value */
-    public static final double DEFAULT_LOG_LIKELIHOOD_TOL = 1e-8;
+    public static final double DEFAULT_LOG_LIKELIHOOD_TOL = 1e-5;
     public static final String LOG_LIKELIHOOD_TOL_SHORT_NAME = "LLT";
     public static final String LOG_LIKELIHOOD_TOL_LONG_NAME = "logLikelihoodTol";
 
-    /* TODO change back to a reasonable value */
-    public static final double DEFAULT_PARAM_ABS_TOL = 1e-8;
+    public static final double DEFAULT_PARAM_ABS_TOL = 1e-5;
     public static final String PARAM_ABS_TOL_SHORT_NAME = "PMAT";
     public static final String PARAM_ABS_TOL_LONG_NAME = "paramAbsoluteTolerance";
 
@@ -106,7 +104,7 @@ public final class CoverageModelEMParams {
     public static final String MAX_E_STEP_CYCLES_SHORT_NAME = "MES";
     public static final String MAX_E_STEP_CYCLES_LONG_NAME = "maximumEStepCycles";
 
-    public static final int DEFAULT_MAX_EM_ITERATIONS = 20;
+    public static final int DEFAULT_MAX_EM_ITERATIONS = 50;
     public static final String MAX_EM_ITERATIONS_SHORT_NAME = "MEMI";
     public static final String MAX_EM_ITERATIONS_LONG_NAME = "maximumEMIterations";
 
@@ -126,9 +124,13 @@ public final class CoverageModelEMParams {
     public static final String NUM_LATENTS_SHORT_NAME = "NL";
     public static final String NUM_LATENTS_LONG_NAME = "numLatents";
 
-    public static final int DEFAULT_MIN_LEARNING_READ_COUNT = 10;
+    public static final int DEFAULT_MIN_LEARNING_READ_COUNT = 5;
     public static final String MIN_LEARNING_READ_COUNT_SHORT_NAME = "MLRC";
     public static final String MIN_LEARNING_READ_COUNT_LONG_NAME = "minimumLearningReadCount";
+
+    public static final int DEFAULT_MIN_PCA_INIT_READ_COUNT = 10;
+    public static final String MIN_PCA_INIT_READ_COUNT_SHORT_NAME = "MPCAIRC";
+    public static final String MIN_PCA_INIT_READ_COUNT_LONG_NAME = "minimumPCAInitializationReadCount";
 
     public static final double DEFAULT_MAPPING_ERROR_RATE = 1e-3;
     public static final String MAPPING_ERROR_RATE_SHORT_NAME = "MER";
@@ -166,7 +168,7 @@ public final class CoverageModelEMParams {
     public static final String PSI_SOLVER_MODE_SHORT_NAME = "PSM";
     public static final String PSI_SOLVER_MODE_LONG_NAME = "psiUpdateMode";
 
-    public static final boolean DEFAULT_ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED = true;
+    public static final boolean DEFAULT_ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED = false;
     public static final String ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED_SHORT_NAME = "APSMS";
     public static final String ADAPTIVE_PSI_SOLVER_MODE_SWITCHING_ENABLED_LONG_NAME = "adaptivePsiSolverModeSwitching";
 
@@ -190,7 +192,7 @@ public final class CoverageModelEMParams {
     public static final String PSI_SOLVER_NUM_BISECTIONS_SHORT_NAME = "PSNB";
     public static final String PSI_SOLVER_NUM_BISECTIONS_LONG_NAME = "psiSolverNumBisections";
 
-    public static final int DEFAULT_PSI_SOLVER_REFINEMENT_DEPTH = 5;
+    public static final int DEFAULT_PSI_SOLVER_REFINEMENT_DEPTH = 3;
     public static final String PSI_SOLVER_REFINEMENT_DEPTH_SHORT_NAME = "SSRD";
     public static final String PSI_SOLVER_REFINEMENT_DEPTH_LONG_NAME = "psiSolverRefinementDepth";
 
@@ -462,6 +464,15 @@ public final class CoverageModelEMParams {
             optional = true
     )
     protected int minLearningReadCount = DEFAULT_MIN_LEARNING_READ_COUNT;
+
+    @Advanced
+    @Argument(
+            doc = "Minimum read count on a target to use it for PCA initialization (if chosen)",
+            shortName = MIN_PCA_INIT_READ_COUNT_SHORT_NAME,
+            fullName = MIN_PCA_INIT_READ_COUNT_LONG_NAME,
+            optional = true
+    )
+    protected int minPCAInitializationReadCount = DEFAULT_MIN_PCA_INIT_READ_COUNT;
 
     @Argument(
             doc = "Typical mapping error rate (used for safeguarding CNV calls on low-coverage targets)",
@@ -959,6 +970,10 @@ public final class CoverageModelEMParams {
         return minLearningReadCount;
     }
 
+    public int getMinPCAInitializationReadCount() {
+        return minPCAInitializationReadCount;
+    }
+
     public double getMappingErrorRate() {
         return mappingErrorRate;
     }
@@ -990,11 +1005,11 @@ public final class CoverageModelEMParams {
     }
 
     /**
-     * Validate parameters
+     * Validate parameters.
      *
      * TODO github/gatk-protected issue #843 -- more validations
-     * - positive/negative values
-     * - Maxes greater than mins
+     *      positive/negative values
+     *      Maxes greater than mins
      *
      */
     public void validate() {
@@ -1034,7 +1049,8 @@ public final class CoverageModelEMParams {
         Utils.nonNull(runCheckpointingPath, "Run checkpointing path must be non-null");
         Utils.nonNull(rddCheckpointingPath, "RDD checkpointing path must be non-null");
         ParamUtils.isPositive(numTargetSpacePartitions, "Number of target space partitions must be positive");
-        ParamUtils.isPositive(minLearningReadCount, "The minimum learning read count must be non-negative");
+        ParamUtils.isPositive(minLearningReadCount, "The minimum learning read count must be positive");
+        ParamUtils.isPositive(minPCAInitializationReadCount, "The minimum PCA initialization read count must be positive");
         ParamUtils.isPositiveOrZero(mappingErrorRate, "The mapping error rate must be non-negative");
         ParamUtils.isPositive(initialARDPrecisionAbsolute, "The absolute initial ARD precision must be positive");
         ParamUtils.isPositive(initialARDPrecisionRelativeToNoise, "The relative initial ARD precision must be positive");

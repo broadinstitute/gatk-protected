@@ -41,7 +41,7 @@ import java.util.stream.IntStream;
  *
  * TODO github/gatk-protected issue #803 test case-sample calling on rearranged targets
  * TODO github/gatk-protected issue #803 test concordance on parameter estimation
- * TODO github/gatk-protected issue #803 test Spark results match local results (of course they do, but is good to test anyway...)
+ * TODO github/gatk-protected issue #803 test Spark results match local results
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
@@ -272,21 +272,21 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
     public void runCaseSampleCallingTestOnExactModelParamsLocal() {
         runCaseSampleCallingTestOnExactModelParams("--" + SparkToggleCommandLineProgram.DISABLE_SPARK_FULL_NAME, "true");
     }
-//
-//    @Test
-//    public void runLearningAndCallingTestSpark() {
-//        runLearningAndCallingTest();
-//    }
-//
-//    @Test(dependsOnMethods = "runLearningAndCallingTestSpark")
-//    public void runCaseSampleCallingTestOnLearnedModelParamsSpark() {
-//        runCaseSampleCallingTestOnLearnedModelParams();
-//    }
-//
-//    @Test
-//    public void runCaseSampleCallingTestOnExactModelParamsSpark() {
-//        runCaseSampleCallingTestOnExactModelParams();
-//    }
+
+    @Test
+    public void runLearningAndCallingTestSpark() {
+        runLearningAndCallingTest();
+    }
+
+    @Test(dependsOnMethods = "runLearningAndCallingTestSpark")
+    public void runCaseSampleCallingTestOnLearnedModelParamsSpark() {
+        runCaseSampleCallingTestOnLearnedModelParams();
+    }
+
+    @Test
+    public void runCaseSampleCallingTestOnExactModelParamsSpark() {
+        runCaseSampleCallingTestOnExactModelParams();
+    }
 
     /* Shame on me for using {@link ReadCountCollection} to store copy numbers! */
     private void reportCopyNumberSummaryStatistics(@Nonnull final File posteriorsOutputPath,
@@ -298,7 +298,7 @@ public class CoverageModellerGermlineSparkToggleIntegrationTest extends CommandL
 
         final RealMatrix calledCopyNumberMatrix = Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(
                 Nd4jIOUtils.readNDArrayMatrixFromTextFile(new File(posteriorsOutputPath,
-                        CoverageModelGlobalConstants.COPY_RATIO_VITERBI_FILENAME)).transpose());
+                        CoverageModelGlobalConstants.COPY_RATIO_VITERBI_FILENAME)));
         final ReadCountCollection calledCopyNumberCollection = new ReadCountCollection(targets,
                 truthCopyNumberCollection.columnNames(), calledCopyNumberMatrix);
 

@@ -53,7 +53,8 @@ public final class CoverageModelGlobalConstants implements Serializable {
     public static final double RANDOM_UNEXPLAINED_VARIANCE_MAX = 0.0;
 
     /**
-     * TODO: either estimate this from data for expose to user
+     * TODO -- either estimate this from data for expose to user
+     *
      * Gaussian random standard deviation for bias covariates
      */
     public static final double RANDOM_BIAS_COVARIATES_STD = 0.1;
@@ -132,11 +133,6 @@ public final class CoverageModelGlobalConstants implements Serializable {
      * Norm_2 of bias covariates (= \sum_t |W_{t\mu}|^2) output file name
      */
     public static final String MEAN_BIAS_COVARIATES_NORM2_OUTPUT_FILE = "mean_bias_covariates_norm2.tsv";
-
-    /**
-     * Covariance of bias covariates output file
-     */
-    public static final String VAR_BIAS_COVARIATES_OUTPUT_FILE = "var_bias_covariates_tensor_flattened.tsv";
 
     /**
      * ARD coefficients of bias covariates output file

@@ -8,7 +8,7 @@ import java.io.Serializable;
 
 /**
  * This class stores the data required for calculating the emission probability according to the
- * GATK Bayesian coverage model:
+ * GATK4 coverage model:
  *
  * <p>
  *     Mean log multiplicative bias:
@@ -16,7 +16,7 @@ import java.io.Serializable;
  * </p>
  *
  * <p>
- *     Sum of target- and sample-specific unexplained variances about the mean:
+ *     Sum of target- and sample-specific unexplained variances about the mean log multiplicative bias:
  *     {@link #psi} = \Psi_t + \gamma_s
  * </p>
  *
@@ -26,8 +26,8 @@ import java.io.Serializable;
  * </p>
  *
  * <p>
- *     Additive noise in the Poisson parameter:
- *     {@link #mappingErrorProbability} = [read depth]_s x [mapping error rate]_{st}
+ *     Mapping error probability:
+ *     {@link #mappingErrorProbability} = \varepsilon_{st}
  * </p>
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;

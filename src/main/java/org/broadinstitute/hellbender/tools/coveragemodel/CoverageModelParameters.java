@@ -141,12 +141,9 @@ public final class CoverageModelParameters implements Serializable {
 
     public INDArray getMeanBiasCovariatesOnTargetBlock(@Nonnull final LinearSpaceBlock tb) {
         checkTargetBlock(tb);
-        if (biasCovariatesEnabled) {
-            return meanBiasCovariates.get(NDArrayIndex.interval(tb.getBegIndex(), tb.getEndIndex()),
-                    NDArrayIndex.all());
-        } else {
-            return null;
-        }
+        Utils.validateArg(biasCovariatesEnabled, "Bias covariates are disabled");
+        return meanBiasCovariates.get(NDArrayIndex.interval(tb.getBegIndex(), tb.getEndIndex()),
+                NDArrayIndex.all());
     }
 
     private static void createOutputPath(final String outputPath) {
@@ -183,16 +180,17 @@ public final class CoverageModelParameters implements Serializable {
     }
 
     /**
-     * TODO
+     * Generates random coverage model parameters.
      *
-     * @param targetList
-     * @param numLatents
-     * @param seed
-     * @param randomMeanLogBiasStandardDeviation
-     * @param randomBiasCovariatesStandardDeviation
-     * @param randomMaxUnexplainedVariance
-     * @param initialBiasCovariatesARDCoefficients
-     * @return
+     * @param targetList list of targets
+     * @param numLatents number of latent variables
+     * @param seed random seed
+     * @param randomMeanLogBiasStandardDeviation std of mean log bias (mean is set to 0)
+     * @param randomBiasCovariatesStandardDeviation std of bias covariates (mean is set to 0)
+     * @param randomMaxUnexplainedVariance max value of unexplained variance (samples are taken from a uniform
+     *                                     distribution [0, {@code randomMaxUnexplainedVariance}])
+     * @param initialBiasCovariatesARDCoefficients initial row vector of ARD coefficients
+     * @return an instance of {@link CoverageModelParameters}
      */
     public static CoverageModelParameters generateRandomModel(final List<Target> targetList,
                                                               final int numLatents,
@@ -207,9 +205,9 @@ public final class CoverageModelParameters implements Serializable {
         Utils.validateArg(randomMeanLogBiasStandardDeviation >= 0, "Standard deviation of random mean log bias" +
                 " must be non-negative");
         Utils.validateArg(randomMaxUnexplainedVariance >= 0, "Max random unexplained variance must be non-negative");
-        Utils.validateArg(initialBiasCovariatesARDCoefficients == null || numLatents > 0, "If ARD is enabled, the dimension" +
-                " of the bias latent space must be positive");
-        final boolean ardEnabled = initialBiasCovariatesARDCoefficients != null;
+        Utils.validateArg(initialBiasCovariatesARDCoefficients == null || numLatents > 0 &&
+                initialBiasCovariatesARDCoefficients.length() == numLatents, "If ARD is enabled, the dimension" +
+                " of the bias latent space must be positive and match the length of ARD coeffecient vector");
         final boolean biasCovariatesEnabled = numLatents > 0;
 
         final int numTargets = targetList.size();
@@ -238,9 +236,7 @@ public final class CoverageModelParameters implements Serializable {
     }
 
     /**
-     * Reads the model from disk
-     *
-     * TODO ARD, var log bias
+     * Reads the model from disk.
      *
      * @param modelPath input model path
      * @return an instance of {@link CoverageModelParameters}
@@ -264,7 +260,7 @@ public final class CoverageModelParameters implements Serializable {
         final File targetUnexplainedVarianceFile = new File(modelPath, CoverageModelGlobalConstants.TARGET_UNEXPLAINED_VARIANCE_OUTPUT_FILE);
         final INDArray targetUnexplainedVariance = Nd4jIOUtils.readNDArrayMatrixFromTextFile(targetUnexplainedVarianceFile);
 
-        /* if bias covariates file is found, then the model has bias covariates enabled */
+        /* if the bias covariates file is found, then the model has bias covariates enabled */
         final File meanBiasCovariatesFile = new File(modelPath, CoverageModelGlobalConstants.MEAN_BIAS_COVARIATES_OUTPUT_FILE);
         final INDArray meanBiasCovariates, biasCovariatesARDCoefficients;
         if (meanBiasCovariatesFile.exists()) {
@@ -287,9 +283,7 @@ public final class CoverageModelParameters implements Serializable {
     }
 
     /**
-     * Writes the model to disk
-     *
-     * TODO ARD, var log bias
+     * Writes the model to disk.
      *
      * @param outputPath model output path
      */

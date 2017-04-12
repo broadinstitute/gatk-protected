@@ -24,7 +24,7 @@ import java.util.stream.IntStream;
 public final class Nd4jIOUtils {
 
     /**
-     * Write NDArray to a binary dump
+     * Writes NDArray to a binary dump.
      *
      * @param arr an instance of {@link INDArray}
      * @param outputFile the output path
@@ -39,7 +39,7 @@ public final class Nd4jIOUtils {
     }
 
     /**
-     * Read NDArray from a binary dump
+     * Reads NDArray from a binary dump.
      *
      * @param inputFile the input Nd4j binary dump file
      * @return an {@link INDArray}
@@ -53,7 +53,7 @@ public final class Nd4jIOUtils {
     }
 
     /**
-     * Write NDArray to a tab-separated file
+     * Writes NDArray to a tab-separated file.
      *
      * @param arr an instance of {@link INDArray}
      * @param outputFile the output file
@@ -136,7 +136,7 @@ public final class Nd4jIOUtils {
     }
 
     /**
-     * Read NDArray from a tab-separated file and return a triple of the array, row names, and column names
+     * Reads NDArray from a tab-separated file and returns a triple of the array, row names, and column names
      *
      * @param inputFile the input tab-separated file
      * @return a triple of ({@link INDArray}, row names, column names)
@@ -173,7 +173,7 @@ public final class Nd4jIOUtils {
     }
 
     /**
-     * Read NDArray from a tab-separated file
+     * Reads NDArray from a tab-separated file and returns an instance of {@link INDArray}.
      *
      * @param inputFile the input tab-separated file
      * @return an {@link INDArray}
@@ -183,15 +183,15 @@ public final class Nd4jIOUtils {
     }
 
     /**
-     * Write a tensor NDArray (all possible ranks) to a tab-separated files
+     * Writes a tensor NDArray (rank >= 2) to a tab-separated file.
      *
-     * For a tensor of dim D, this method flattens the tensor along the last D-1 dimensions
-     * and writes it as a matrix. The shape of the tensor is encoded in the column names.
+     * For a tensor of dim D, it is flattened along the last D - 1 dimensions (in c order) and is written as a
+     * matrix. The shape of the tensor is written as a comment line for proper reshaping upon loading.
      *
      * @param arr an arbitrary NDArray
      * @param outputFile output file
      * @param identifier an identifier string
-     * @param rowNames the name
+     * @param rowNames list of row names
      */
     public static void writeNDArrayTensorToTextFile(@Nonnull final INDArray arr,
                                                     @Nonnull final File outputFile,
@@ -201,7 +201,6 @@ public final class Nd4jIOUtils {
         Utils.nonNull(outputFile, "The output file must be non-null");
         Utils.validateArg(arr.rank() >= 2, "The array must be at least rank-2");
 
-        /* TODO -- correct generation of column names */
         final int[] shape = arr.shape();
         int extraDims = 1;
         for (int i = 1; i < arr.rank(); i++) {
@@ -212,11 +211,10 @@ public final class Nd4jIOUtils {
     }
 
     /**
+     * Reads an NDArray of rank >= 2 from a tab-separated file.
      *
-     * TODO
-     *
-     * @param inputFile
-     * @return
+     * @param inputFile the input tab-separated file
+     * @return an instance of {@link INDArray}
      */
     public static INDArray readNDArrayTensorFromTextFile(@Nonnull final File inputFile) {
         Utils.regularReadableUserFile(inputFile);
@@ -229,8 +227,8 @@ public final class Nd4jIOUtils {
             throw new UserException.CouldNotReadInputFile("Could not read the input file");
         }
         Utils.validateArg(commentLine.startsWith(TableUtils.COMMENT_PREFIX),
-                "Invalid input file: the first line must be a comment line starting with " + TableUtils.COMMENT_PREFIX
-                + " followed by the tensor shape");
+                "Invalid input file: the first line must be a comment line (starting with " + TableUtils.COMMENT_PREFIX
+                + ") followed by the tensor shape");
         final int shape[] = getIntArrayFromStringRepr(commentLine.substring(TableUtils.COMMENT_PREFIX.length()));
         final INDArray tensorToMatrix = readNDArrayMatrixFromTextFile(inputFile);
         return tensorToMatrix.reshape('c', shape);
@@ -259,7 +257,7 @@ public final class Nd4jIOUtils {
     static int[] getIntArrayFromStringRepr(@Nonnull final String stringRepr) {
         Utils.nonNull(stringRepr, "The column name must be non-null");
         Utils.validateArg(stringRepr.length() > 2 && stringRepr.startsWith("[") && stringRepr.endsWith("]"),
-                "The column name is not a valid flattened tensor identifier string");
+                "The provided string is not a valid shape string");
         return Arrays.stream(stringRepr.substring(1, stringRepr.length() - 1).split("_"))
                 .mapToInt(Integer::valueOf).toArray();
     }
@@ -276,7 +274,7 @@ public final class Nd4jIOUtils {
             this.data = data;
         }
 
-        public void composeDataLine(final DataLine dataLine) {
+        void composeDataLine(final DataLine dataLine) {
             dataLine.append(rowName);
             dataLine.append(data);
         }

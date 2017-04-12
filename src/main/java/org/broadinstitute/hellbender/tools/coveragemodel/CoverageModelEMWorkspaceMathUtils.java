@@ -46,14 +46,14 @@ public final class CoverageModelEMWorkspaceMathUtils {
     }
 
     /**
-     * TODO
+     * Calculates log abs determinant of a matrix via LU decomposition.
      *
-     * @param mat
-     * @return
+     * @param mat a square matrix
+     * @return log abs determinant of {@code mat}
      */
     public static double logdet(@Nonnull final INDArray mat) {
         if (mat.isScalar()) {
-            return mat.getDouble(0);
+            return FastMath.log(FastMath.abs(mat.getDouble(0)));
         }
         if (!mat.isSquare()) {
             throw new IllegalArgumentException("Invalid array: must be square matrix");
@@ -67,10 +67,10 @@ public final class CoverageModelEMWorkspaceMathUtils {
     }
 
     /**
-     * TODO
+     * Returns the (truncated) diagonal entries of a matrix. The matrix does not need to be square.
      *
-     * @param mat
-     * @return
+     * @param mat a matrix
+     * @return an array of diagonal entries
      */
     private static double[] diag(@Nonnull final RealMatrix mat) {
         final int dim = FastMath.min(mat.getRowDimension(), mat.getColumnDimension());

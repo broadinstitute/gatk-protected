@@ -667,7 +667,9 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         if (processedModel != null) { /* an initial model is already provided */
             logger.info("Initializing workers with the provided model...");
             initializeWorkersWithGivenModel(processedModel);
-        } else {
+        } else { /* model parameters need to be learned */
+            Utils.validateArg(numLatents < numSamples, "Number of bias latent variables must be strictly less than the" +
+                    " number of samples");
             if (params.getModelInitializationStrategy().equals(CoverageModelEMParams.ModelInitializationStrategy.RANDOM) ||
                     !biasCovariatesEnabled) {
                 initializeWorkersWithRandomModel();
@@ -757,7 +759,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * TODO
+     * Initialize workers with randomly generated model parameters.
      */
     private void initializeWorkersWithRandomModel() {
         logger.info("Initializing workers with a random model...");
@@ -772,8 +774,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * TODO case when bias covariates are disabled
-     * TODO ensure than D < S (must be done beforehand)
+     * Initialize model parameters by performing PCA.
      */
     @EvaluatesRDD @UpdatesRDD @CachesRDD
     private void initializeWorkersWithPCA() {
@@ -789,9 +790,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
         updateReadDepthPosteriorExpectations(1.0, true);
 
         /* fetch sample covariance matrix */
-        /* TODO */
-        final int minLearningReadCount = params.getMinLearningReadCount();
-        mapWorkers(cb -> cb.cloneWithPCAInitializationData(minLearningReadCount, Integer.MAX_VALUE));
+        final int minPCAInitializationReadCount = params.getMinPCAInitializationReadCount();
+        mapWorkers(cb -> cb.cloneWithPCAInitializationData(minPCAInitializationReadCount, Integer.MAX_VALUE));
         cacheWorkers("PCA initialization");
         final INDArray targetCovarianceMatrix = mapWorkersAndReduce(
                 CoverageModelEMComputeBlock::calculateTargetCovarianceMatrixForPCAInitialization,
@@ -1505,8 +1505,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * Fetch forward-backward and Viterbi results from compute blocks (Spark implementation)
-     * TODO
+     * Fetch copy ratio segments from compute blocks (Spark implementation)
      *
      * @return a list of {@link CopyRatioHiddenMarkovModelResults}
      */
@@ -2373,8 +2372,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * Fetches the Viterbi copy ratio (or copy number) states as a sample-target matrix
-     * TODO
+     * Fetches the Viterbi copy ratio (or copy number) states as a target-sample matrix
+     *
      * @return an {@link INDArray}
      */
     protected INDArray getViterbiAsNDArray(final List<List<HiddenStateSegmentRecord<S, Target>>> segments) {
@@ -2396,7 +2395,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             });
             res.get(NDArrayIndex.point(si), NDArrayIndex.all()).assign(Nd4j.create(calls, new int[] {1, numTargets}));
         }
-        return res;
+        return res.transpose();
     }
 
     /**
@@ -2563,8 +2562,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * Saves copy ratio posteriors (segments, VCF, etc.) to disk
-     * TODO
+     * Saves copy-ratio-related posteriors to disk.
+     *
      * @param outputPath the output path
      */
     protected void saveCopyRatioPosteriors(final String outputPath) {
@@ -2590,7 +2589,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             final List<String> targetNames = processedReadCounts.targets().stream()
                     .map(Target::getName).collect(Collectors.toList());
             Nd4jIOUtils.writeNDArrayMatrixToTextFile(getViterbiAsNDArray(segments),
-                    copyRatioViterbiFile, "SAMPLE_NAME", processedSampleNameList, targetNames);
+                    copyRatioViterbiFile, "VITERBI_STATES", targetNames, processedSampleNameList);
         }
 
     }

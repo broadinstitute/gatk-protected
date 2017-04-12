@@ -97,7 +97,7 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
     }
 
     /**
-     * Run the full EM algorithm stack
+     * Run the full EM algorithm stack for variational inference and model parameter optimization
      *
      * @return the exit status of the EM algorithm
      */
@@ -310,7 +310,9 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
     }
 
     /**
+     * Perform variational inference for given model parameters
      *
+     * @return the exit status
      */
     public EMAlgorithmStatus runExpectation() {
         params.validate();
@@ -373,13 +375,11 @@ public final class CoverageModelEMAlgorithm<S extends AlleleMetadataProducer & C
                 }
             }
 
-            /* if the likelihood has increased and the increment is small, start updating copy number posteriors */
-            if (params.copyRatioUpdateEnabled() &&
-                    !updateCopyRatioPosteriors &&
-                    (latestEStepLikelihood - prevEStepLikelihood) > 0 &&
-                    (latestEStepLikelihood - prevEStepLikelihood) < params.getLogLikelihoodTolThresholdCRCalling()) {
+            /* if the change in log likelihood is small enough, start updating copy number posteriors */
+            if (params.copyRatioUpdateEnabled() && !updateCopyRatioPosteriors &&
+                    FastMath.abs(latestEStepLikelihood - prevEStepLikelihood) < params.getLogLikelihoodTolThresholdCRCalling()) {
                 updateCopyRatioPosteriors = true;
-                logger.info("Partial convergence achieved; will start calling copy ratio posteriors");
+                logger.info("Partial convergence achieved; starting to update copy ratio posteriors in the next iteration");
             }
 
             iterInfo.increaseIterationCount();

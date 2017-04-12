@@ -703,45 +703,6 @@ public final class ForwardBackwardAlgorithm {
             return logDataLikelihood() - logEmissionPosteriorExpectation;
         }
 
-        /* TODO we can safely delete this ... */
-//        @Override
-//        public double logChainPosteriorProbabilityDirect() {
-//            final List<S> states = model.hiddenStates();
-//            if (positions.isEmpty() || states.isEmpty()) {
-//                return 0;
-//            }
-//
-//            double result = 0;
-//
-//            /* contribution of the first state */
-//            result += states.stream()
-//                    .mapToDouble(state -> FastMath.exp(logProbability(0, state)) *
-//                            model.logPriorProbability(state, positions.get(0)))
-//                    .sum();
-//
-//            if (positions.size() == 1) {
-//                return result;
-//            } else { /* contribution of the rest of the chain */
-//                for (int currentPositionIndex = 0; currentPositionIndex < positions.size() - 1; currentPositionIndex++) {
-//                    final int nextPositionIndex = currentPositionIndex + 1;
-//                    for (int currentStateIndex = 0; currentStateIndex < states.size(); currentStateIndex++) {
-//                        for (int nextStateIndex = 0; nextStateIndex < states.size(); nextStateIndex++) {
-//                            final double jointAdjacentPosterior = FastMath.exp(logProbability(currentPositionIndex,
-//                                    Arrays.asList(states.get(currentStateIndex), states.get(nextStateIndex))));
-//                            final double logTransitionProbability = model.logTransitionProbability(
-//                                    states.get(currentStateIndex), positions.get(currentPositionIndex),
-//                                    states.get(nextStateIndex), positions.get(nextPositionIndex));
-//                            if (logTransitionProbability == Double.NEGATIVE_INFINITY) {
-//                                continue;
-//                            }
-//                            result += jointAdjacentPosterior * logTransitionProbability;
-//                        }
-//                    }
-//                }
-//                return result;
-//            }
-//        }
-
         /**
          * Translates a model hidden state to its index.
          * @param state the input state object.

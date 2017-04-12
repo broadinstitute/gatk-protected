@@ -11,6 +11,9 @@ import java.io.Serializable;
 import java.util.function.BiFunction;
 
 /**
+ * This class implements a {@link BiFunction} that takes a sex genotype and a target and outputs the reference
+ * integer copy number state, as an instance of {@link IntegerCopyNumberState}, for that sex genotype and target.
+ *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 public class IntegerCopyNumberReferenceStateFactory implements BiFunction<SexGenotypeData, Target,

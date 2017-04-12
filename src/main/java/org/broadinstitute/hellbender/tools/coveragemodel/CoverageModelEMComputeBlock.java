@@ -421,8 +421,8 @@ public final class CoverageModelEMComputeBlock {
                             calculate_B_st_without_bias_covariates, true);
         }
 
-        // TODO
-        // regularized bias covariates -- disabled for now
+        // TODO github/gatk-protected issue #701 -- this class is part of the upcoming CNV-avoiding regularizer
+        //
         //            /* FFT[W] */
         //            .addComputableNode(CoverageModelICGCacheNode.F_W_tl.name(),
         //                   new String[]{},
@@ -521,18 +521,17 @@ public final class CoverageModelEMComputeBlock {
 
     private void assertBiasCovariatesEnabled() {
         Utils.validateArg(biasCovariatesEnabled, "Bias covariates are disabled but a method was invoked that" +
-                " performs calculations relating to bias covariates");
+                " is related to bias covariates");
     }
 
     private void assertARDEnabled() {
-        Utils.validateArg(ardEnabled, "ARD is disabled but a method was invoked that" +
-                " performs calculations relating to ARD coefficients");
+        Utils.validateArg(ardEnabled, "ARD is disabled but a method was invoked that is related to ARD");
     }
 
     /**
      * Calculates the contribution of the target-space block represented by this compute node
-     * to the E-step for $z_{s\mu}$ w/o regularization. The final calculation is
-     * performed on the driver node by {@link CoverageModelEMWorkspace}
+     * to the E-step for $z_{s\mu}$ w/o regularization. The final calculation is performed on the
+     * driver node in {@link CoverageModelEMWorkspace}.
      *
      * The result is the following pair of INDArrays:
      *
@@ -698,21 +697,14 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     * Calculate [W]^T [W] in this target-space block. The driver node sums the results from all compute
-     * nodes in a reduction step to find the full result.
+     * Returns the partially target-summed posterior second moment of W:
      *
-     * @return [W]^T [W] in this target-space block
-     */
-    public INDArray getBiasCovariatesInnerProduct() {
-        assertBiasCovariatesEnabled();
-        final INDArray W_tl = getINDArrayFromCache(CoverageModelICGCacheNode.W_tl);
-        return W_tl.transpose().mmul(W_tl);
-    }
-
-    /**
-     * TODO
+     *     \sum_{t in target-space block} E[W_{tl} W_{tl}]
      *
-     * @return
+     * We currently treat W in the max likelihood sense and neglect its covariance. Therefore,
+     * E[W_{tl} W_{tl}] = E[W_{tl}] E[W_{tl}].
+     *
+     * @return an {@link INDArray}
      */
     public INDArray getBiasCovariatesSecondMomentPosteriorsPartialTargetSum() {
         assertBiasCovariatesEnabled();
@@ -791,8 +783,9 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     * TODO
-     * @param alpha_l
+     * Calculates the contribution of this target-space block to log model evidence for given ARD coefficients.
+     *
+     * @param alpha_l ARD coefficients (as a 1 x D row vector)
      * @return
      */
     public double calculateBiasCovariatesLogEvidencePartialTargetSum(final INDArray alpha_l) {
@@ -832,8 +825,10 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     * TODO
-     * @return
+     * Calculates the contribution of this target-space block to the target covariance matrix.
+     * This method is used in {@link CoverageModelEMWorkspace#initializeWorkersWithPCA}.
+     *
+     * @return an {@link INDArray}
      */
     public INDArray calculateTargetCovarianceMatrixForPCAInitialization() {
         assertBiasCovariatesEnabled();
@@ -844,6 +839,9 @@ public final class CoverageModelEMComputeBlock {
     /**
      * Takes an arbitrary INDArray {@code arr} and a mask array {@code mask} with the same shape
      * and replace all entries in {@code arr} on which {@code mask} is 0 to {@code value}
+     *
+     * TODO github/gatk-protected issue #853 -- this could be optimized perhaps using the existing
+     *      nd4j native Ops. I haven't found a way yet.
      *
      * @param arr an arbitrary INDArray
      * @param mask a mask array
@@ -934,11 +932,11 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     * TODO
+     * Clones this compute block with updated prior mean and variance of log copy ratios.
      *
-     * @param log_c_st
-     * @param var_log_c_st
-     * @return
+     * @param log_c_st prior mean of log copy ratio
+     * @param var_log_c_st prior variance of log copy ratio
+     * @return an instance of {@link CoverageModelEMComputeBlock}
      */
     public CoverageModelEMComputeBlock cloneWithUpdateCopyRatioPriors(@Nonnull final INDArray log_c_st,
                                                                       @Nonnull final INDArray var_log_c_st) {
@@ -1103,8 +1101,13 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     * TODO
-     * @return
+     * Clones this compute block with updated cache node {@link CoverageModelICGCacheNode#Delta_PCA_st}.
+     * Used for PCA initialization of the model parameters in {@link CoverageModelEMWorkspace#initializeWorkersWithPCA()}
+     *
+     * @implNote The design choice for defining {@link CoverageModelICGCacheNode#Delta_PCA_st} as externally mutable
+     *           computable node is to be able to nullify it later on to save memory.
+     *           See {{@link #cloneWithRemovedPCAInitializationData()}}.
+     * @return an updated instance of {@link CoverageModelEMComputeBlock}
      */
     public CoverageModelEMComputeBlock cloneWithPCAInitializationData(final int minIncludedReadCount,
                                                                       final int maxIncludedReadCount) {
@@ -1115,7 +1118,7 @@ public final class CoverageModelEMComputeBlock {
         final INDArray log_c_st = getINDArrayFromCache(CoverageModelICGCacheNode.log_c_st);
         final INDArray log_d_s = getINDArrayFromCache(CoverageModelICGCacheNode.log_d_s);
 
-        /* create the second mask based on min and max read counts */
+        /* create the second mask based on the provided min and max read counts */
         final INDArray M_extra_st = M_st.dup();
         for (int si = 0; si < numSamples; si++) {
             for (int ti = 0; ti < numTargets; ti++) {
@@ -1140,8 +1143,10 @@ public final class CoverageModelEMComputeBlock {
     }
 
     /**
-     * TODO
-     * @return
+     * Clone this compute block with nullified {@link CoverageModelICGCacheNode#Delta_PCA_st}. This method is
+     * invoked after the PCA initialization is complete.
+     *
+     * @return an updated instance of {@link CoverageModelEMComputeBlock}
      */
     public CoverageModelEMComputeBlock cloneWithRemovedPCAInitializationData() {
         return cloneWithUpdatedPrimitive(CoverageModelICGCacheNode.Delta_PCA_st, null);
@@ -1150,8 +1155,6 @@ public final class CoverageModelEMComputeBlock {
 
     /**
      * Creates a new instance of this compute block with an updated primitive node
-     *
-     * TODO duplicates the value, check every use case and see if it is necessary
      *
      * @param key the key for the node to update
      * @param value the new value
@@ -1164,15 +1167,13 @@ public final class CoverageModelEMComputeBlock {
                     icg.nullifyNode(key.name()), latestMStepSignal);
         } else {
             return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
-                    icg.setValue(key.name(), new DuplicableNDArray(value.dup())), latestMStepSignal);
+                    icg.setValue(key.name(), new DuplicableNDArray(value)), latestMStepSignal);
         }
     }
 
     /**
      * Creates a new instance of this compute block with an updated primitive node and a subroutine
      * signal calculated externally (i.e. on the driver node)
-     *
-     * TODO github/gatk-protected issue #853 -- duplicates the value, check every use case and see if it is necessary
      *
      * @param key the key for the node to update
      * @param value the new value
@@ -1187,7 +1188,7 @@ public final class CoverageModelEMComputeBlock {
                     icg.setValue(key.name(), new DuplicableNDArray()), latestMStepSignal);
         } else {
             return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
-                    icg.setValue(key.name(), new DuplicableNDArray(value.dup())), latestMStepSignal);
+                    icg.setValue(key.name(), new DuplicableNDArray(value)), latestMStepSignal);
         }
     }
 
@@ -1484,7 +1485,6 @@ public final class CoverageModelEMComputeBlock {
             };
 
     /* TODO github/gatk-protected issue #853 -- the filter contribution part could be cached */
-    /* TODO does not include the ARD part */
     /* dependents: ["B_st", "M_Psi_inv_st", "loglike_normalization_s", "W_tl", "F_W_tl", "zz_sll"] */
     private static final Function<Map<String, ? extends Duplicable>, ? extends Duplicable> calculate_loglike_reg =
             new Function<Map<String, ? extends Duplicable>, Duplicable>() {
