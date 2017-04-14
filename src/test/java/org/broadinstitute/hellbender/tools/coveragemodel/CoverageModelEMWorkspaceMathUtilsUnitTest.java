@@ -41,4 +41,3 @@ public class CoverageModelEMWorkspaceMathUtilsUnitTest extends BaseTest {
         Assert.assertEquals(logDet, expected, EPS);
     }
 }
-
