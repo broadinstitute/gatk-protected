@@ -2432,10 +2432,10 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             saveBiasCovariatesARDHistory(outputPath);
         }
         saveCopyRatioPosteriors(outputPath);
+        saveCopyRatioMaxLikelihoodEstimates(outputPath);
 
         if (verbosityLevel.equals(PosteriorVerbosityLevel.EXTENDED)) {
-            saveCopyRatioMaxLikelihoodEstimates(outputPath);
-            saveDebugPosteriors(outputPath);
+            saveExtendedPosteriors(outputPath);
         }
     }
 
@@ -2480,7 +2480,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
                 targetNames, sampleNames);
 
         final File copyRatioPrecisionFile = new File(outputPath, CoverageModelGlobalConstants.COPY_RATIO_PRECISION_FILENAME);
-        Nd4jIOUtils.writeNDArrayMatrixToTextFile(copyRatioMLEData.right, copyRatioPrecisionFile, "COPY_RATIO_PRECISIONS",
+        Nd4jIOUtils.writeNDArrayMatrixToTextFile(copyRatioMLEData.right, copyRatioPrecisionFile, "LOG_COPY_RATIO_PRECISIONS",
                 targetNames, sampleNames);
     }
 
@@ -2564,6 +2564,8 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
     /**
      * Saves copy-ratio-related posteriors to disk.
      *
+     * TODO github/gatk-protected issue #855 -- save local copy ratio posteriors as well
+     *
      * @param outputPath the output path
      */
     protected void saveCopyRatioPosteriors(final String outputPath) {
@@ -2589,7 +2591,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
             final List<String> targetNames = processedReadCounts.targets().stream()
                     .map(Target::getName).collect(Collectors.toList());
             Nd4jIOUtils.writeNDArrayMatrixToTextFile(getViterbiAsNDArray(segments),
-                    copyRatioViterbiFile, "VITERBI_STATES", targetNames, processedSampleNameList);
+                    copyRatioViterbiFile, "VITERBI_COPY_RATIO_CHAIN", targetNames, processedSampleNameList);
         }
 
     }
@@ -2599,7 +2601,7 @@ public final class CoverageModelEMWorkspace<S extends AlleleMetadataProducer & C
      *
      * @param outputPath the output path
      */
-    protected void saveDebugPosteriors(final String outputPath) {
+    protected void saveExtendedPosteriors(final String outputPath) {
         final List<String> sampleNames = processedReadCounts.columnNames();
         final List<String> targetNames = processedReadCounts.targets().stream()
                 .map(Target::getName).collect(Collectors.toList());

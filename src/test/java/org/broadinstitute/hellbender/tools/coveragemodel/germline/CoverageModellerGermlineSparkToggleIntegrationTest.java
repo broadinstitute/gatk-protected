@@ -42,6 +42,8 @@ import java.util.stream.IntStream;
  * TODO github/gatk-protected issue #803 test case-sample calling on rearranged targets
  * TODO github/gatk-protected issue #803 test concordance on parameter estimation
  * TODO github/gatk-protected issue #803 test Spark results match local results
+ * TODO github/gatk-protected issue #803 report statistics on max likelihood copy ratio as well
+ * TODO github/gatk-protected issue #803 report statistics on local copy ratio posteriors as well
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */

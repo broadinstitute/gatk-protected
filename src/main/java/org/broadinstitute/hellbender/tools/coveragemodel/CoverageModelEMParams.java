@@ -314,7 +314,7 @@ public final class CoverageModelEMParams {
     public static final String RUN_CHECKPOINTING_PATH_SHORT_NAME = "RCPP";
     public static final String RUN_CHECKPOINTING_PATH_LONG_NAME = "runCheckpointingPath";
 
-    public static final boolean DEFAULT_EXTENDED_POSTERIOR_OUTPUT_ENABLED = false;
+    public static final boolean DEFAULT_EXTENDED_POSTERIOR_OUTPUT_ENABLED = true;
     public static final String EXTENDED_POSTERIOR_OUTPUT_ENABLED_SHORT_NAME = "XPO";
     public static final String EXTENDED_POSTERIOR_OUTPUT_ENABLED_LONG_NAME = "extendedPosteriorOutputEnabled";
 
