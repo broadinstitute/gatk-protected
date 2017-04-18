@@ -566,9 +566,10 @@ public final class ReadCountCollectionUtils {
     /**
      * Remove columns with NaNs and infinities
      *
-     * @param readCounts
-     * @param logger
-     * @return
+     * @param readCounts the input read counts.
+     * @param logger instance of logger.
+     * @return never {@code null}. It might be a reference to the input read-counts if there is
+     *   is no target to be dropped.
      */
     public static ReadCountCollection removeColumnsWithBadValues(final ReadCountCollection readCounts,
                                                                  final Logger logger) {
@@ -578,9 +579,7 @@ public final class ReadCountCollectionUtils {
         final Set<String> columnsToKeep = new LinkedHashSet<>(readCounts.columnNames().size());
         final Set<String> columnsToDrop = new HashSet<>();
         for (int i = 0; i < columnNames.size(); i++) {
-            if (Arrays.stream(readCounts.getColumn(i))
-                    .filter(d -> Double.isNaN(d) || Double.isInfinite(d))
-                    .count() == 0) {
+            if (Arrays.stream(readCounts.getColumn(i)).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d))) {
                 columnsToKeep.add(columnNames.get(i));
             } else {
                 columnsToDrop.add(columnNames.get(i));
@@ -681,7 +680,7 @@ public final class ReadCountCollectionUtils {
     public static ReadCountCollection removeTargetsWithUniformlyLowCoverage(final ReadCountCollection readCounts,
                                                                             final int minCoverage,
                                                                             final Logger logger) {
-        /* filter targets to keep, put them in an ordered set */
+        // filter targets to keep, put them in an ordered set
         final RealMatrix counts = readCounts.counts();
         final List<Target> originalTargets = readCounts.targets();
         final Set<Target> targetsToKeep = IntStream.range(0, counts.getRowDimension())
@@ -695,7 +694,7 @@ public final class ReadCountCollectionUtils {
             logger.info(String.format("There are no targets with coverage uniformly lower than %d. Keeping all" +
                     " %d targets.", minCoverage, originalTargets.size()));
             return readCounts;
-        } else if (targetsToDropCount == readCounts.targets().size()) {
+        } else if (targetsToDropCount == originalTargets.size()) {
             throw new UserException.BadInput(String.format("The coverage on all targets and samples lower than %d," +
                     " resulting in all targets being dropped", minCoverage));
         } else {

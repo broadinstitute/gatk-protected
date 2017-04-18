@@ -37,6 +37,14 @@ public final class CoverageModelCopyRatioEmissionData implements Serializable {
     private static final long serialVersionUID = -7363264674200250712L;
 
     /**
+     * Validate the constructor parameters or not
+     *
+     * @implNote since the constructor is called a lot, we disable validation by default. it can be enabled by
+     *           the developer for debugging purposes.
+     */
+    private static final boolean VALIDATE_CONSTRUCTOR_PARAMETERS = false;
+
+    /**
      * Mean log multiplicative bias
      */
     private final double mu;
@@ -77,13 +85,21 @@ public final class CoverageModelCopyRatioEmissionData implements Serializable {
                                               final double psi,
                                               final int readCount,
                                               final double mappingErrorProbability) {
-        this.mu = ParamUtils.isFinite(mu, "Log multiplicative bias must be finite. Bad value: " + mu);
-        this.psi = ParamUtils.isPositiveOrZero(psi, "Unexplained variance must be a non-negative real number." +
-                " Bad value: " + psi);
-        this.readCount = ParamUtils.isPositiveOrZero(readCount, "Read count must be a non-negative real number." +
-                " Bad value: " + readCount);
-        this.mappingErrorProbability = ParamUtils.isPositiveOrZero(mappingErrorProbability, "Mapping error probability " +
-                " must be non-negative. Bad value: " + mappingErrorProbability);
+        this.mu = mu;
+        this.psi = psi;
+        this.readCount = readCount;
+        this.mappingErrorProbability = mappingErrorProbability;
+
+        if (VALIDATE_CONSTRUCTOR_PARAMETERS) {
+            validateParameters();
+        }
+    }
+
+    private void validateParameters() {
+        ParamUtils.isFinite(mu, "Log multiplicative bias must be finite. Bad value: " + mu);
+        ParamUtils.isPositiveOrZero(psi, "Unexplained variance must be a non-negative real number. Bad value: " + psi);
+        ParamUtils.isPositiveOrZero(readCount, "Read count must be a non-negative real number. Bad value: " + readCount);
+        ParamUtils.isPositiveOrZero(mappingErrorProbability, "Mapping error probability must be non-negative. Bad value: " + mappingErrorProbability);
     }
 
     public double getMu() {
@@ -114,7 +130,8 @@ public final class CoverageModelCopyRatioEmissionData implements Serializable {
     public void setCopyRatioCallingMetadata(@Nonnull final CopyRatioCallingMetadata copyRatioCallingMetadata) {
         this.copyRatioCallingMetadata = Utils.nonNull(copyRatioCallingMetadata, "The metadata must be non-null");
         Utils.validateArg(copyRatioCallingMetadata.hasSampleCoverageDepth(), "The metadata must contain depth of coverage field");
-        Utils.validateArg(copyRatioCallingMetadata.hasSampleSexGenotypeData(), "The metadata must contain sex genotype data");
+        Utils.validateArg(copyRatioCallingMetadata.hasSampleSexGenotypeData(), "The metadata must contain sex genotype field");
+        Utils.validateArg(copyRatioCallingMetadata.hasEmissionCalculationStrategy(), "The metadata must contain emission calculation strategy field");
     }
 
     @Override

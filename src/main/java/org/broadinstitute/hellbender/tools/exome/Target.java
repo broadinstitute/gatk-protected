@@ -163,10 +163,6 @@ public class Target implements Locatable, Feature, Serializable {
     /**
      * Calculate the distance between two targets.
      * <p>
-     * If any of the targets provided does not contain intervals, the distance is set to {@code defaultDistance}
-     * in order to revert to a non-distance dependent model
-     * </p>
-     * <p>
      * If both targets map to different chromosomes then we return {@link Double#POSITIVE_INFINITY}.
      * </p>
      * <p>
@@ -178,12 +174,13 @@ public class Target implements Locatable, Feature, Serializable {
      * @return any values between 0 and {@link Double#POSITIVE_INFINITY}.
      * @throws NullPointerException if any of the targets is {@code null}.
      */
-    public static double calculateDistance(final Target fromTarget, final Target toTarget,
-                                           final double defaultDistance) {
+    public static double calculateDistance(final Target fromTarget, final Target toTarget) {
         final SimpleInterval fromInterval = fromTarget.getInterval();
         final SimpleInterval toInterval = toTarget.getInterval();
         if (fromInterval == null || toInterval == null) {
-            return defaultDistance;
+            throw new IllegalArgumentException(String.format("Either the departure target (%s) or the destination" +
+                    " target (%s) has missing interval annotation and the separation between can not be calculated",
+                    fromTarget.toString(), toTarget.toString()));
         } else if (!fromInterval.getContig().equals(toInterval.getContig())) {
             return Double.POSITIVE_INFINITY;
         } else {

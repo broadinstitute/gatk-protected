@@ -1,18 +1,18 @@
-package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
+package org.broadinstitute.hellbender.utils.hmm.segmentation;
 
 import junit.framework.AssertionFailedError;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.annotations.Test;
 
 /**
- * Unit tests for {@link ComputableGraphStructure}
+ * Unit tests for {@link HMMPostProcessor}
  *
- * TODO github/gatk-protected issue #803
+ * TODO github/gatk-protected issue #843
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public class ComputableGraphStructureUnitTest extends BaseTest {
-    @Test(enabled = false)
+public class HMMPostProcessorUnitTest extends BaseTest {
+    @Test
     public void test() {
         throw new AssertionFailedError("Test is not implemented yet");
     }

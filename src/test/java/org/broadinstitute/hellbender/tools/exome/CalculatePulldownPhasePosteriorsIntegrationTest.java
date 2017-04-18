@@ -29,7 +29,7 @@ public class CalculatePulldownPhasePosteriorsIntegrationTest extends CommandLine
     private static final String TEST_SUB_DIR = publicTestDir + "org/broadinstitute/hellbender/tools/exome";
     private static final File TUMOR_ALLELIC_COUNTS_FILE = new File(TEST_SUB_DIR, "snps-for-allelic-integration.tsv");
     private static final File ACNV_SEGMENT_FILE = new File(TEST_SUB_DIR, "acnv-segments-from-allelic-integration.seg");
-    private static final File AF_PARAMS_FILE = new File(TEST_SUB_DIR, "af-params-from-allelic-integration.af.param");
+    private static final File AF_PARAMS_FILE = new File(TEST_SUB_DIR, "af-config-from-allelic-integration.af.param");
     private static final File ALLELIC_PON_FILE = new File(TEST_SUB_DIR, "allelic-pon-test-pon-normal.tsv");
     private static final String OUTPUT_FILE_NAME = "phase.tsv";
 
