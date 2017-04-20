@@ -64,6 +64,13 @@ public final class CollectAllelicCounts extends LocusWalker {
     public List<ReadFilter> getDefaultReadFilters() {
         final List<ReadFilter> initialReadFilters = super.getDefaultReadFilters();
         initialReadFilters.add(new MappingQualityReadFilter(DEFAULT_MINIMUM_MAPPING_QUALITY));
+        /*            final List<SamRecordFilter> samFilters = Arrays.asList(new NotPrimaryAlignmentFilter(), new DuplicateReadFilter());
+            locusIterator.setSamFilters(samFilters);
+            locusIterator.setEmitUncoveredLoci(true);
+            locusIterator.setIncludeNonPfReads(false);
+            locusIterator.setMappingQualityScoreCutoff(minMappingQuality);
+            locusIterator.setQualityScoreCutoff(minBaseQuality);*/
+
         return initialReadFilters;
     }
 
