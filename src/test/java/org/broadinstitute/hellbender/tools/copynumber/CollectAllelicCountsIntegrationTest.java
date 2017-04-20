@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.copynumber;
 
 import htsjdk.samtools.ValidationStringency;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
-import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.copynumber.allelic.alleliccount.AllelicCount;
@@ -70,7 +69,7 @@ public final class CollectAllelicCountsIntegrationTest extends CommandLineProgra
         final File outputFile = createTempFile("collect-allelic-counts-test-output", ".tsv");
         final String[] arguments = {
                 "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, inputBAMFile.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.SITES_FILE_SHORT_NAME, SITES_FILE.getAbsolutePath(),
+                "-L", SITES_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, outputFile.getAbsolutePath()
         };
@@ -85,7 +84,7 @@ public final class CollectAllelicCountsIntegrationTest extends CommandLineProgra
         final File outputFile = createTempFile("collect-allelic-counts-test-output", ".tsv");
         final String[] arguments = {
                 "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, NON_STRICT_BAM_FILE.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.SITES_FILE_SHORT_NAME, SITES_FILE.getAbsolutePath(),
+                "-L", SITES_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, outputFile.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.READ_VALIDATION_STRINGENCY_SHORT_NAME, ValidationStringency.STRICT.toString()
@@ -100,7 +99,7 @@ public final class CollectAllelicCountsIntegrationTest extends CommandLineProgra
         final File outputFile = createTempFile("collect-allelic-counts-test-output", ".tsv");
         final String[] arguments = {
                 "-" + StandardArgumentDefinitions.INPUT_SHORT_NAME, NON_STRICT_BAM_FILE.getAbsolutePath(),
-                "-" + ExomeStandardArgumentDefinitions.SITES_FILE_SHORT_NAME, SITES_FILE.getAbsolutePath(),
+                "-L", SITES_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.REFERENCE_SHORT_NAME, REF_FILE.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.OUTPUT_SHORT_NAME, outputFile.getAbsolutePath(),
                 "-" + StandardArgumentDefinitions.READ_VALIDATION_STRINGENCY_SHORT_NAME, ValidationStringency.SILENT.toString()
