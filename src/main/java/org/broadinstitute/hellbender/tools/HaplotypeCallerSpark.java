@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterables;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.samtools.reference.ReferenceSequence;
@@ -9,6 +10,7 @@ import htsjdk.samtools.util.OverlapDetector;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.VCFHeader;
+import java.util.TreeSet;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -36,6 +38,7 @@ import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
+import org.broadinstitute.hellbender.utils.read.ReadCoordinateComparator;
 import org.broadinstitute.hellbender.utils.reference.ReferenceBases;
 import scala.Tuple2;
 
@@ -163,7 +166,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
         final OverlapDetector<ShardBoundary> overlaps = getShardBoundaryOverlapDetector(header, intervals, shardingArgs.readShardSize, shardingArgs.readShardPadding);
         final Broadcast<OverlapDetector<ShardBoundary>> shardBoundariesBroadcast = ctx.broadcast(overlaps);
 
-        final JavaRDD<Shard<GATKRead>> readShards = createReadShards(shardBoundariesBroadcast, reads);
+        final JavaRDD<Shard<GATKRead>> readShards = createReadShards(shardBoundariesBroadcast, reads, header);
 
         final JavaRDD<Tuple2<AssemblyRegion, SimpleInterval>> assemblyRegions = readShards
                 .mapPartitions(shardsToAssemblyRegions(authHolder, referenceBroadcast, hcArgsBroadcast, shardingArgs, header));
@@ -209,13 +212,19 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
      * @param reads Rdd of {@link GATKRead}
      * @return a Rdd of reads grouped into potentially overlapping shards
      */
-    private static JavaRDD<Shard<GATKRead>> createReadShards(final Broadcast<OverlapDetector<ShardBoundary>> shardBoundariesBroadcast, final JavaRDD<GATKRead> reads) {
+    private static JavaRDD<Shard<GATKRead>> createReadShards(final Broadcast<OverlapDetector<ShardBoundary>> shardBoundariesBroadcast, final JavaRDD<GATKRead> reads, final SAMFileHeader header) {
         final JavaPairRDD<ShardBoundary, GATKRead> paired = reads.flatMapToPair(read -> {
             final Collection<ShardBoundary> overlappingShards = shardBoundariesBroadcast.value().getOverlaps(read);
             return overlappingShards.stream().map(key -> new Tuple2<>(key, read)).iterator();
         });
         final JavaPairRDD<ShardBoundary, Iterable<GATKRead>> shardsWithReads = paired.groupByKey();
-        return shardsWithReads.map(shard -> new SparkReadShard(shard._1(), shard._2()));
+        return shardsWithReads.map(shard -> new SparkReadShard(shard._1(), sortReadsInMemory(shard._2(), header)));
+    }
+
+    private static Iterable<GATKRead> sortReadsInMemory(final Iterable<GATKRead> reads, final SAMFileHeader header) {
+        TreeSet<GATKRead> sortedReads =  new TreeSet<>(new ReadCoordinateComparator(header));
+        Iterables.addAll(sortedReads, reads);
+        return sortedReads;
     }
 
     /**
