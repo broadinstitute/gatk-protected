@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.walkers.haplotypecaller;
 
+import htsjdk.variant.vcf.VCFConstants;
 import org.broadinstitute.barclay.argparser.Advanced;
 import org.broadinstitute.barclay.argparser.Argument;
 
@@ -59,7 +60,7 @@ public class HaplotypeCallerArgumentCollection extends AssemblyBasedCallerArgume
             for (int i=1; i<=60; ++i) {
                 GVCFGQBands.add(i);
             }
-            GVCFGQBands.add(70); GVCFGQBands.add(80); GVCFGQBands.add(90); GVCFGQBands.add(99);
+            GVCFGQBands.add(70); GVCFGQBands.add(80); GVCFGQBands.add(90); GVCFGQBands.add(VCFConstants.MAX_GENOTYPE_QUAL);
     };
 
     /**

@@ -35,7 +35,6 @@ public class AllelicCountCollection {
     public AllelicCountCollection(final File inputFile) {
         Utils.nonNull(inputFile);
         IOUtils.canReadFile(inputFile);
-
         try (final AllelicCountReader reader = new AllelicCountReader(inputFile)) {
             counts = reader.stream().collect(Collectors.toList());
         } catch (final IOException | UncheckedIOException e) {
