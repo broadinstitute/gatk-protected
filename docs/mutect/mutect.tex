@@ -1,0 +1,120 @@
+\documentclass[nofootinbib,amssymb,amsmath]{revtex4}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{bm}
+
+%Put an averaged random variable between brackets
+\newcommand{\ave}[1]{\left\langle #1 \right\rangle}
+
+\newcommand{\vzero}{{\bf 0}}
+\newcommand{\vI}{{\bf I}}
+\newcommand{\vb}{{\bf b}}
+\newcommand{\vd}{{\bf d}}
+\newcommand{\vf}{{\bf f}}
+\newcommand{\vc}{{\bf c}}
+\newcommand{\vv}{{\bf v}}
+\newcommand{\vz}{{\bf z}}
+\newcommand{\vn}{{\bf n}}
+\newcommand{\vm}{{\bf m}}
+\newcommand{\vG}{{\bf G}}
+\newcommand{\vQ}{{\bf Q}}
+\newcommand{\vM}{{\bf M}}
+\newcommand{\vW}{{\bf W}}
+\newcommand{\vX}{{\bf X}}
+\newcommand{\vPsi}{{\bf \Psi}}
+\newcommand{\vSigma}{{\bf \Sigma}}
+\newcommand{\vlambda}{{\bf \lambda}}
+\newcommand{\vpi}{{\bf \pi}}
+\newcommand{\valpha}{{\bm{\alpha}}}
+\newcommand{\vLambda}{{\bf \Lambda}}
+\newcommand{\vA}{{\bf A}}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+
+\def\SL#1{{\color [rgb]{0,0,0.8} [SL: #1]}}
+\def\DB#1{{\color [rgb]{0,0.8,0} [DB: #1]}}
+
+\newcommand{\HOM}{$\mathsf{Hom}$}
+\newcommand{\HET}{$\mathsf{Het}$}
+\newcommand{\REF}{$\mathsf{Ref}$}
+\newcommand{\epss}{\varepsilon}
+
+\begin{document}
+
+\title{Mathematical Notes on Mutect}
+\author{David Benjamin}
+\email{davidben@broadinstitute.org}
+\affiliation{Broad Institute, 75 Ames Street, Cambridge, MA 02142}
+
+\date{\today}
+
+\maketitle
+
+\section{Introduction}\label{introduction}
+
+We have a set of potential somatic alleles and read-allele likelihoods $\ell_{ra} \equiv P({\rm read~}r|{\rm allele~}a)$.  We don't know which alleles are real somatic alleles and so we must compute, for each subset $\mathbb{A}$ of alleles, the likelihood that the reads come from $\mathbb{A}$.  A simple model for this likelihood is as follows: each read $r$ is associated with a latent indicator vector $\vz_r$ with one-hot encoding $z_{ra} = 1$ iff read $r$ came from allele $a \in \mathbb{A}$.  The conditional probability of the reads $\mathbb{R}$ given their allele assignments is
+\begin{equation}
+P( \mathbb{R} | \vz, \mathbb{A}) = \prod_{r \in \mathbb{R}} \prod_a \ell_{ra}^{z_{ra}}.
+\end{equation}
+The alleles are not equally likely because there is a latent vector $\vf$ of allele fractions -- $f_a$ is the allele fraction of allele $a$.  Since the components of $\vf$ sum to one it is a categorical distribution and can be given a Dirichlet prior,
+\begin{equation}
+P(\vf) = {\rm Dir}(\vf | \valpha).
+\end{equation}
+Then $f_a$ is the prior probability that a read comes from allele $a$ and thus the conditional probability of the indicators $\vz$ given the allele fractions $\vf$ is
+\begin{equation}
+P(\vz | \vf) = \prod_r \prod_a f_a^{z_{ra}}.
+\end{equation}
+The full-model likelihood is therefore
+\begin{equation}
+\mathbb{L}(\mathbb{A}) = P(\mathbb{R}, \vz, \vf | \mathbb{A}) = {\rm Dir}(\vf | \valpha) \prod_a  \prod_r \left( f_a \ell_{ra}\right)^{z_{ra}}.
+\label{full_likelihood}
+\end{equation}
+And the marginalized likelihood of $\mathbb{A}$, that is, the model evidence for allele subset $\mathbb{A}$, is
+\begin{equation}
+P(\mathbb{R} | \mathbb{A}) = \sum_\vz \int d \vf \, {\rm Dir}(\vf | \valpha) \prod_a  \prod_r \left( f_a \ell_{ra}\right)^{z_{ra}},
+\label{evidence}
+\end{equation}
+where the integral is over the probability simplex $\sum_a f_a = 1$.
+
+The integral over $\vf$ is the normalization constant of a Dirichlet distribution and as such we can simply look up its formula.  However, the sum over all values of $\vz$ for all reads has exponentially many terms.  We will get around this difficulty by handling $\vz$ with a mean-field approximation in which we factorize the likelihood as $\mathbb{L} \approx q(\vz) q(\vf)$.  This approximation is exact in two limits: first, if there are many reads, each allele is associated with many reads and therefore the Law of Large Numbers causes $\vf$ and $\vz$ to become uncorrelated.  Second, if the allele assignments of reads are obvious $\vz_r$ is effectively not a random variable at all (there is no uncertainty as to which of component is non-zero) and also becomes uncorrelated with $\vf$.
+
+In the variational Bayesian mean-field formalism the value of $\vf$ that $\vz$ ``sees'' is the expectation of $\log \mathbb{L}$ with respect to $q(\vf)$ and vice versa.  That is,
+\begin{equation}
+q(\vf) \propto {\rm Dir}(\vf | \valpha) \prod_a  \prod_r f_a^{\bar{z}_{ra}} \propto {\rm Dir}(\vf | \valpha + \sum_r \bar{\vz}_r)
+\end{equation}
+and
+\begin{equation}
+q(\vz_r) = \prod_a \left( \tilde{f}_a \ell_{ra}\right)^{z_{ra}}, \tilde{f}_a = \exp E[\ln f_a]
+\end{equation}
+Because $q(\vz)$ is categorical and $q(\vf)$ is Dirichlet\footnote{Note that we didn't \textit{impose} this in any way.  It simply falls out of the mean field equations.} the necessary mean fields are easily obtained and we have
+\begin{equation}
+\bar{z}_{ra} = \frac{\tilde{f}_a \ell_{ra}}{\sum_{a^\prime} \tilde{f}_{a^\prime} \ell_{ra^\prime}}
+\label{z_mean_field}
+\end{equation}
+and 
+\begin{equation}
+\ln \tilde{f}_a = \psi(\alpha_a + \sum_r \bar{z}_{ra}) - \psi(\sum_{a^\prime} \alpha_{a^\prime} + N)
+\label{f_mean_field}
+\end{equation}
+where $\psi$ is the digamma function and $N$ is the number of reads.  To obtain $q(\vz)$ and $q(\vf)$ we iterate Equations \ref{z_mean_field} and \ref{f_mean_field} until convergence.  A very reasonable initialization is to set $\bar{z}_{ra} = 1$ if $a$ is the most likely allele for read $r$, 0 otherwise.  Having obtained the mean field of $\vz$, we plug it into Eq \ref{evidence} to obtain\footnote{Because we are doing model comparison of different $\mathbb{A}$, we do not drop constant multiplicative factors below.}
+\begin{align}
+P(\mathbb{R} | \mathbb{A}) =& \int d \vf \, {\rm Dir}(\vf | \valpha) \prod_a  \prod_r \left( f_a \ell_{ra}\right)^{\bar{z}_{ra}} \\
+=& \frac{\Gamma(\sum_a \alpha_a)}{\prod_a \Gamma(\alpha_a)} 
+\prod_{ra} \ell_{ra}^{\bar{z}_{ra}} 
+\int d \vf \, \prod_a f_a^{\alpha_a + \sum_r \bar{z}_{ra} - 1} \\
+=& \frac{\Gamma(\sum_a \alpha_a)}{\prod_a \Gamma(\alpha_a)} 
+\prod_{ra} \ell_{ra}^{\bar{z}_{ra}} 
+\frac{\prod_a \Gamma(\alpha_a + \sum_r \bar{z}_{ra})}{\Gamma(\sum_a \alpha_a + N)}
+\end{align}
+
+We now have the model evidence for allele subset $\mathbb{A}$.  This lets us choose which alleles are true somatic variants.  It also lets us make calls on somatic loss of heterozygosity events.  Furthermore, instead of reporting max-likelihood allele fractions as before, we may emit the parameters of the Dirichlet posterior $q(\vf)$, which encode both the maximum likelihood allele fractions and their uncertainty.
+
+\end{document}
