@@ -39,6 +39,11 @@ public final class ComputableGraphStructure implements Serializable {
     private final List<String> topologicalOrderForCompleteEvaluation;
 
     /**
+     * An arbitrary negative number to denote the to-be-determined depth of a node
+     */
+    private static final int UNDEFINED_DEPTH = -1;
+
+    /**
      * Package-private constructor from a set of {@link CacheNode}s. The graph is specified by the immediate
      * parents and descendents of each node. A {@link CyclicGraphException} is thrown of the graph has a cycle.
      *
@@ -84,15 +89,11 @@ public final class ComputableGraphStructure implements Serializable {
             allDescendentsMap.put(key, new HashSet<>());
             allParentsMap.put(key, new HashSet<>());
             allTagsMap.put(key, new HashSet<>());
-            depthsMap.put(key, null);
+            depthsMap.put(key, UNDEFINED_DEPTH);
         });
 
-        /* calculate the depth of each node; primitive nodes or nodes with no immediateParentsMap have depth 0 */
-        immediateParentsMap.keySet().stream()
-                .filter(node -> immediateParentsMap.get(node).size() == 0)
-                .forEach(rootNodeKey -> depthsMap.replace(rootNodeKey, 0));
-        nodeKeysSet.forEach(this::updateDepth);
-
+        /* calculate the depth of each node; nodes with empty immediate parents have depth 0 (these include primitive nodes) */
+        nodeKeysSet.forEach(nodeKey -> updateDepth(nodeKey, 0));
         final int maxDepth = Collections.max(depthsMap.values());
 
         /* list of nodes by their depthsMap */
@@ -198,15 +199,19 @@ public final class ComputableGraphStructure implements Serializable {
      *
      * @param nodeKey the key of the node to update
      */
-    private void updateDepth(final String nodeKey) {
-        if (depthsMap.get(nodeKey) == null) {
-            immediateParentsMap.get(nodeKey).forEach(this::updateDepth);
-            final int depth = Collections.max(immediateParentsMap.get(nodeKey).stream().map(depthsMap::get)
-                    .collect(Collectors.toList())) + 1;
-            if (depth > nodeKeysSet.size() - 1) {
-                throw new CyclicGraphException("The graph has cycles");
-            }
-            depthsMap.replace(nodeKey, depth);
+    private void updateDepth(final String nodeKey, final int recursion) {
+        if (recursion > nodeKeysSet.size()) {
+            throw new CyclicGraphException("The graph has cycles");
+        }
+        if (immediateParentsMap.get(nodeKey).isEmpty()) {
+            depthsMap.put(nodeKey, 0);
+        } else if (depthsMap.get(nodeKey) == UNDEFINED_DEPTH) {
+            immediateParentsMap.get(nodeKey).forEach(parentNodeKey -> updateDepth(parentNodeKey, recursion + 1));
+            final int maxParentDepth = immediateParentsMap.get(nodeKey).stream()
+                    .map(depthsMap::get)
+                    .max(Integer::compareTo)
+                    .get(); /* guaranteed to have a value */
+            depthsMap.put(nodeKey, maxParentDepth + 1);
         }
     }
 

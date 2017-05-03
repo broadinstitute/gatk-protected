@@ -17,7 +17,6 @@ import java.util.Set;
 /**
  * Unit tests for {@link ImmutableComputableGraph}
  *
- *
  * Example:
  *
  *     x    y    z
@@ -175,8 +174,30 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                 .build();
     }
 
+    @Test(expectedExceptions = ComputableGraphStructure.CyclicGraphException.class)
+    public void testCyclicGraphException_1() {
+        ImmutableComputableGraph.builder()
+                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
+                .addComputableNode("y", new String[] {}, new String[] {"x", "w"}, null, true) /* cycle */
+                .addComputableNode("z", new String[] {}, new String[] {"y"}, null, true)
+                .addComputableNode("w", new String[] {}, new String[] {"z"}, null, true)
+                .build();
+    }
+
+    @Test(expectedExceptions = ComputableGraphStructure.CyclicGraphException.class)
+    public void testCyclicGraphException_2() {
+        ImmutableComputableGraph.builder()
+                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
+                .addPrimitiveNode("y", new String[] {}, new DuplicableNDArray())
+                .addPrimitiveNode("z", new String[] {}, new DuplicableNDArray())
+                .addComputableNode("f", new String[] {}, new String[] {"x", "y", "h"}, null, true) /* cycle */
+                .addComputableNode("g", new String[] {}, new String[] {"y", "z"}, null, true)
+                .addComputableNode("h", new String[] {}, new String[] {"f", "g"}, null, true)
+                .build();
+    }
+
     @Test(enabled = false)
-    public void testCyclicGraphException() {
+    public void testAutoUpdateCache() {
         throw new AssertionFailedError("Test is not implemented yet");
     }
 
@@ -212,11 +233,6 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
 
     @Test(enabled = false)
     public void testCacheByNode() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testCacheAutoUpdate() {
         throw new AssertionFailedError("Test is not implemented yet");
     }
 
