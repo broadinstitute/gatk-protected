@@ -59,7 +59,7 @@ public final class ComputableCacheNode extends CacheNode {
     public boolean isPrimitive() { return false; }
 
     @Override
-    public boolean isExternallyComputable() { return func == null; }
+    public boolean isExternallyComputed() { return func == null; }
 
     public boolean isCacheCurrent() { return isCacheCurrent; }
 
@@ -72,7 +72,7 @@ public final class ComputableCacheNode extends CacheNode {
      * @return a boolean
      */
     @Override
-    public boolean isStoredValueAvailable() {
+    public boolean hasValue() {
         return cacheEvals && cachedValue != null && !cachedValue.hasValue();
     }
 
@@ -81,18 +81,18 @@ public final class ComputableCacheNode extends CacheNode {
      *
      * @return a boolean
      */
-    public boolean isStoredValueAvailableAndCurrent() {
-        return isStoredValueAvailable() && isCacheCurrent();
+    public boolean hasValueAndIsCurrent() {
+        return hasValue() && isCacheCurrent();
     }
 
     @Override
     public void set(@Nullable final Duplicable val) {
-        if (isExternallyComputable()) {
+        if (isExternallyComputed()) {
             cachedValue = val;
             isCacheCurrent = true;
         } else {
             throw new UnsupportedOperationException("Can not explicitly set the value of a computable cache node with" +
-                    " non-null function.");
+                    " non-null function");
         }
     }
 
@@ -108,9 +108,9 @@ public final class ComputableCacheNode extends CacheNode {
     @Override
     public Duplicable get(@Nonnull final Map<String, Duplicable> parentsValues)
             throws ComputableNodeFunction.ParentValueNotFoundException, ExternallyComputableNodeValueUnavailableException {
-        if (isStoredValueAvailableAndCurrent()) {
+        if (hasValueAndIsCurrent()) {
             return cachedValue;
-        } else if (!isExternallyComputable()) {
+        } else if (!isExternallyComputed()) {
             return func.apply(parentsValues); /* may throw {@link ComputableNodeFunction.ParentValueNotFoundException} */
         } else { /* externally computable node */
             throw new ExternallyComputableNodeValueUnavailableException(getKey());
@@ -119,7 +119,7 @@ public final class ComputableCacheNode extends CacheNode {
 
     @Override
     public ComputableCacheNode duplicate() {
-        if (isStoredValueAvailable()) {
+        if (hasValue()) {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, true, cachedValue.duplicate(), isCacheCurrent);
         } else {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, cacheEvals, null, isCacheCurrent);

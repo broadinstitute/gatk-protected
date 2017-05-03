@@ -20,7 +20,7 @@ public final class PrimitiveCacheNode extends CacheNode {
     public boolean isPrimitive() { return true; }
 
     @Override
-    public boolean isExternallyComputable() { return true; }
+    public boolean isExternallyComputed() { return true; }
 
     @Override
     public void set(@Nullable final Duplicable val) {
@@ -35,14 +35,14 @@ public final class PrimitiveCacheNode extends CacheNode {
     }
 
     @Override
-    public boolean isStoredValueAvailable() {
+    public boolean hasValue() {
         return value != null && !value.hasValue();
     }
 
     @Override
     public Duplicable get(@Nullable final Map<String, Duplicable> parentsValues)
             throws PrimitiveValueNotInitializedException {
-        if (isStoredValueAvailable()) {
+        if (hasValue()) {
             return value;
         } else {
             throw new PrimitiveValueNotInitializedException(String.format(

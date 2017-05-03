@@ -2,11 +2,7 @@ package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 
 import junit.framework.AssertionFailedError;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
-import org.nd4j.linalg.api.ndarray.INDArray;
 import org.testng.annotations.Test;
-
-import java.util.Map;
-import java.util.function.Function;
 
 /**
  * Unit tests for {@link ImmutableComputableGraph}
@@ -17,17 +13,20 @@ import java.util.function.Function;
  */
 public class ImmutableComputableGraphUnitTest extends BaseTest {
 
-    public static Function<Map<String, ? extends Duplicable>, ? extends Duplicable> func_0 = col -> {
-        final INDArray x = DuplicableNDArray.of(col.get("X"));
-        final double y = DuplicableNumber.of(col.get("Y"));
-        return new DuplicableNDArray(x.mul(y));
-    };
+//    public static ComputableNodeFunction f_computation_function = new ComputableNodeFunction() {
+//        @Override
+//        public Duplicable apply(Map<String, Duplicable> parents) throws ParentValueNotFoundException {
+//            final INDArray x = fetchINDArray("x", parents);
+//            final double y = fetch()
+//            return new DuplicableNDArray(x.add(y));
+//        }
+//    };
 
-    public static Function<Map<String, ? extends Duplicable>, ? extends Duplicable> func_1 = col -> {
-        final INDArray xProdY = DuplicableNDArray.of(col.get("X_prod_Y"));
-        final double y = DuplicableNumber.of(col.get("Y"));
-        return new DuplicableNDArray(xProdY.add(y));
-    };
+//    public static Function<Map<String, ? extends Duplicable>, ? extends Duplicable> g_computation_function = parents -> {
+//        final INDArray y = DuplicableNDArray.of(col.get("X_prod_Y"));
+//        final double y = DuplicableNumber.of(col.get("Y"));
+//        return new DuplicableNDArray(xProdY.add(y));
+//    };
 
     @Test(enabled = false)
     public void testMissingParents() {
@@ -40,7 +39,7 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
     }
 
     @Test(enabled = false)
-    public void testCyclicGraph() {
+    public void testCyclicGraphException() {
         throw new AssertionFailedError("Test is not implemented yet");
     }
 
@@ -87,5 +86,18 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
     @Test(enabled = false)
     public void testUnchangedNodesSameReferenceAfterUpdate() {
         throw new AssertionFailedError("Test is not implemented yet");
+    }
+
+    @Test(enabled = false)
+    public void testNoRedundantComputation() {
+        throw new AssertionFailedError("Test is not implemented yet");
+    }
+
+    public void testUninitializedPrimitiveNode() {
+
+    }
+
+    public void testUninitializedExternallyComputedNode() {
+
     }
 }

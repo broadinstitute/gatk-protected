@@ -231,7 +231,7 @@ public final class ImmutableComputableGraph implements Serializable {
             throws IllegalArgumentException, UnsupportedOperationException {
         assertNodeExists(nodeKey);
         CacheNode node = nodesMap.get(nodeKey);
-        if (!node.isExternallyComputable()) {
+        if (!node.isExternallyComputed()) {
             throw new UnsupportedOperationException("Can not explicitly set the value of a non-primitive cache node.");
         }
         final Map<String, CacheNode> updatedNodesMap = new HashMap<>();
@@ -431,9 +431,9 @@ public final class ImmutableComputableGraph implements Serializable {
             }
             out += "\tvalue: " + value + "\n";
             if (!nodesMap.get(key).isPrimitive()) {
-                out += "\tup to date: " + ((ComputableCacheNode)nodesMap.get(key)).isStoredValueAvailableAndCurrent() + "\n";
+                out += "\tup to date: " + ((ComputableCacheNode)nodesMap.get(key)).hasValueAndIsCurrent() + "\n";
                 out += "\tcaches values: " + ((ComputableCacheNode)nodesMap.get(key)).doesCacheEvaluations() + "\n";
-                out += "\thas a value: " + nodesMap.get(key).isStoredValueAvailable() + "\n";
+                out += "\thas a value: " + nodesMap.get(key).hasValue() + "\n";
             }
         }
         return out;
