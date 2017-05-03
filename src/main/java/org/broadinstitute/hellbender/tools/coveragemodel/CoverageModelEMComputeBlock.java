@@ -183,7 +183,7 @@ public final class CoverageModelEMComputeBlock {
                                                                   final boolean ardEnabled) {
         Utils.validateArg(!ardEnabled || biasCovariatesEnabled, "If ARD is enabled, bias covariates must be" +
                 " enabled as well");
-        final ImmutableComputableGraph.ImmutableComputableGraphBuilder cgbuilder =
+        final ImmutableComputableGraphUtils.ImmutableComputableGraphBuilder cgbuilder =
                 ImmutableComputableGraph.builder();
         /*
          * Data nodes

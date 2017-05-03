@@ -37,11 +37,23 @@ public interface ComputableNodeFunction {
      * @param key parent key
      * @param parents parent key-value map
      * @throws ParentValueNotFoundException if the parent key is not in the map
-     * @return
      */
     default INDArray fetchINDArray(final String key, final Map<String, Duplicable> parents)
             throws ParentValueNotFoundException, ClassCastException {
         return ((DuplicableNDArray)fetch(key, parents)).value();
+    }
+
+    /**
+     * Fetches a parent node value from a given map and casts it to a double
+     *
+     * @param key parent key
+     * @param parents parent key-value map
+     * @throws ParentValueNotFoundException if the parent key is not in the map
+     */
+    @SuppressWarnings("unchecked")
+    default double fetchDouble(final String key, final Map<String, Duplicable> parents)
+            throws ParentValueNotFoundException, ClassCastException {
+        return ((DuplicableNumber<Double>)fetch(key, parents)).value();
     }
 
     /**

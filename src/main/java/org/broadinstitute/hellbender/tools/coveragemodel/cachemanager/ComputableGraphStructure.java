@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 
+import avro.shaded.com.google.common.collect.Sets;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import javax.annotation.Nonnull;
@@ -44,8 +45,19 @@ public final class ComputableGraphStructure implements Serializable {
      * @param nodeSet a set of {@link CacheNode}s
      */
     ComputableGraphStructure(@Nonnull final Set<CacheNode> nodeSet) {
-        /* create maps for descendents, parents, and tags */
+        /* create the set of keys */
         nodeKeysSet = nodeSet.stream().map(CacheNode::getKey).collect(Collectors.toSet());
+
+        /* assert that all parents exist */
+        for (final CacheNode node : nodeSet) {
+            Utils.validateArg(nodeKeysSet.containsAll(node.getParents()), () -> {
+                final Set<String> undefinedParents = Sets.difference(new HashSet<>(node.getParents()), nodeKeysSet);
+                return "Node " + ImmutableComputableGraphUtils.quote(node.getKey()) + " depends on undefined parent(s): " +
+                        undefinedParents.stream().map(ImmutableComputableGraphUtils::quote).collect(Collectors.joining(", "));
+            });
+        }
+
+        /* create maps for descendents, parents, and tags */
         immediateDescendentsMap = new HashMap<>();
         immediateParentsMap = new HashMap<>();
         final Map<String, Set<String>> initialTagsMap = new HashMap<>();
@@ -62,14 +74,6 @@ public final class ComputableGraphStructure implements Serializable {
             immediateParentsMap.get(nodeKey).addAll(node.getParents());
             initialTagsMap.get(nodeKey).addAll(node.getTags());
         });
-
-        /* check the descendents and parents */
-        for (final String node : nodeKeysSet) {
-            Utils.validateArg(nodeKeysSet.containsAll(immediateDescendentsMap.get(node)), "The immediate descendents" +
-                    " node map refers to unknown nodes.");
-            Utils.validateArg(nodeKeysSet.containsAll(immediateParentsMap.get(node)), "The immediate parents node map" +
-                    " refers to unknown nodes.");
-        }
 
         /* create maps for descendents, parents, and depthsMap */
         allDescendentsMap = new HashMap<>();
