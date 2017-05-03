@@ -30,14 +30,14 @@ public class DuplicableNDArray implements Duplicable {
 
     @Override
     public boolean hasValue() {
-        return value == null;
+        return value != null;
     }
 
     public INDArray value() {
         return value;
     }
 
-    public static INDArray of(final Duplicable obj) {
+    public static INDArray strip(final Duplicable obj) {
         if (obj == null) {
             throw new NullPointerException("The input duplicable object is null.");
         }

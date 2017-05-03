@@ -36,7 +36,7 @@ public final class PrimitiveCacheNode extends CacheNode {
 
     @Override
     public boolean hasValue() {
-        return value != null && !value.hasValue();
+        return value != null && value.hasValue();
     }
 
     @Override
@@ -52,7 +52,7 @@ public final class PrimitiveCacheNode extends CacheNode {
 
     @Override
     public PrimitiveCacheNode duplicate() {
-        if (value != null && !value.hasValue()) {
+        if (value != null && value.hasValue()) {
             return new PrimitiveCacheNode(getKey(), getTags(), value.duplicate());
         } else {
             return new PrimitiveCacheNode(getKey(), getTags(), null);

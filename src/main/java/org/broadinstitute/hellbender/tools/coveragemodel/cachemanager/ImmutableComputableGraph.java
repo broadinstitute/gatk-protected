@@ -172,12 +172,16 @@ public final class ImmutableComputableGraph implements Serializable {
         final ImmutableComputableGraph out = duplicateWithUpdatedNodes(
                 addDuplicateOfOutdatedDescendents(nodeKey, updatedNodesMap));
         if (cacheAutoUpdate) {
-            Map<String, Duplicable> accumulatedValues = out.evaluateInTopologicalOrder(
-                    cgs.getTopologicalOrderForNodeMutation(nodeKey));
-            return out.updateCachesFromAccumulatedValues(accumulatedValues);
-        } else {
-            return out;
+            try { /* try to update caches; it is not guaranteed if some of the nodes are not initialized */
+                final Map<String, Duplicable> accumulatedValues = out.evaluateInTopologicalOrder(
+                        cgs.getTopologicalOrderForNodeMutation(nodeKey));
+                return out.updateCachesFromAccumulatedValues(accumulatedValues);
+            } catch (final PrimitiveCacheNode.PrimitiveValueNotInitializedException |
+                    ComputableCacheNode.ExternallyComputableNodeValueUnavailableException ex) {
+                /* cache auto-update failed; will return "out" */
+            }
         }
+        return out;
     }
 
     /**
@@ -332,10 +336,12 @@ public final class ImmutableComputableGraph implements Serializable {
      */
     private ImmutableComputableGraph duplicateWithUpdatedNodes(final Map<String, CacheNode> updatedNodesMap) {
         final Map<String, CacheNode> newNodesMap = new HashMap<>();
-        /* nodes that are present in the new map */
+        final Set<String> updatedNodeKeys = updatedNodesMap.keySet();
+        /* intact nodes */
         cgs.getNodeKeysSet().stream()
-                .filter(node -> !updatedNodesMap.keySet().contains(node))
+                .filter(node -> !updatedNodeKeys.contains(node))
                 .forEach(node -> newNodesMap.put(node, nodesMap.get(node)));
+        /* updated nodes */
         newNodesMap.putAll(updatedNodesMap);
         return new ImmutableComputableGraph(newNodesMap, cgs, cacheAutoUpdate);
     }
@@ -359,7 +365,7 @@ public final class ImmutableComputableGraph implements Serializable {
             String value;
             try {
                 value = getValueDirect(key).toString();
-            } catch (final IllegalStateException | NullPointerException e) {
+            } catch (final Exception ex) {
                 value = "not available";
             }
             out += "\tvalue: " + value + "\n";

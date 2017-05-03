@@ -24,14 +24,14 @@ public class DuplicableNumber<NUMBER extends Number> implements Duplicable {
 
     @Override
     public boolean hasValue() {
-        return value == null;
+        return value != null;
     }
 
     public NUMBER value() {
         return value;
     }
 
-    public static double of(final Duplicable obj) {
+    public static double strip(final Duplicable obj) {
         if (obj instanceof DuplicableNumber) {
             return ((DuplicableNumber)obj).value().doubleValue();
         } else {

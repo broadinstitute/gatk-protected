@@ -3,10 +3,13 @@ package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 import avro.shaded.com.google.common.collect.Sets;
 import junit.framework.AssertionFailedError;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.broadinstitute.hellbender.tools.coveragemodel.nd4jutils.Nd4jApacheAdapterUtils;
+import org.broadinstitute.hellbender.utils.MathObjectAsserts;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -196,9 +199,55 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                 .build();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testAutoUpdateCache() {
-        throw new AssertionFailedError("Test is not implemented yet");
+        final int NUM_TRIALS = 10;
+
+        final ImmutableComputableGraph icg = ImmutableComputableGraph.builder()
+                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
+                .addPrimitiveNode("y", new String[] {}, new DuplicableNumber<Double>())
+                .addPrimitiveNode("z", new String[] {}, new DuplicableNDArray())
+                .addComputableNode("f", new String[] {}, new String[] {"x", "y"}, f_computation_function, true)
+                .addComputableNode("g", new String[] {}, new String[] {"y", "z"}, g_computation_function, true)
+                .addComputableNode("h", new String[] {}, new String[] {"f", "g"}, h_computation_function, true)
+                .enableCacheAutoUpdate()
+                .build();
+
+        for (int i = 0; i < NUM_TRIALS; i++) {
+            final INDArray x = getRandomINDArray();
+            final double y = getRandomDouble();
+            final INDArray z = getRandomINDArray();
+            final ImmutableComputableGraph initializedICG = icg
+                    .setValue("x", new DuplicableNDArray(x))
+                    .setValue("y", new DuplicableNumber<>(y))
+                    .setValue("z", new DuplicableNDArray(z));
+            /* primitive */
+            final INDArray xActual = DuplicableNDArray.strip(initializedICG.getValueDirect("x"));
+            final double yActual = DuplicableNumber.strip(initializedICG.getValueDirect("y"));
+            final INDArray zActual = DuplicableNDArray.strip(initializedICG.getValueDirect("z"));
+            /* computable */
+            final INDArray fActual = DuplicableNDArray.strip(initializedICG.getValueDirect("f"));
+            final INDArray gActual = DuplicableNDArray.strip(initializedICG.getValueDirect("g"));
+            final INDArray hActual = DuplicableNDArray.strip(initializedICG.getValueDirect("h"));
+            final ImmutableTriple<INDArray, INDArray, INDArray> expected = CALCULATE_DIRECT(x, y, z);
+            MathObjectAsserts.assertRealMatrixEquals(
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(xActual),
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(x));
+            MathObjectAsserts.assertRealMatrixEquals(
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(zActual),
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(z));
+            Assert.assertEquals(yActual, y, 1e-16);
+            MathObjectAsserts.assertRealMatrixEquals(
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(fActual),
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(expected.getLeft()));
+            MathObjectAsserts.assertRealMatrixEquals(
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(gActual),
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(expected.getMiddle()));
+            MathObjectAsserts.assertRealMatrixEquals(
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(hActual),
+                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(expected.getRight()));
+        }
+
     }
 
     @Test(enabled = false)

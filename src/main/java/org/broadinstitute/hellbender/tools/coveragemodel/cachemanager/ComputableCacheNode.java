@@ -73,7 +73,7 @@ public final class ComputableCacheNode extends CacheNode {
      */
     @Override
     public boolean hasValue() {
-        return cacheEvals && cachedValue != null && !cachedValue.hasValue();
+        return cacheEvals && cachedValue != null && cachedValue.hasValue();
     }
 
     /**
@@ -133,7 +133,7 @@ public final class ComputableCacheNode extends CacheNode {
      * @return a new instance of {@link ComputableCacheNode}
      */
     public ComputableCacheNode duplicateWithUpdatedValue(final Duplicable newValue) {
-        if (cacheEvals && newValue != null && !newValue.hasValue()) {
+        if (cacheEvals && newValue != null && newValue.hasValue()) {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, true, newValue, true);
         } else {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, cacheEvals, null, false);
