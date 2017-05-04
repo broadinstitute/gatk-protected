@@ -178,7 +178,7 @@ public final class ImmutableComputableGraph implements Serializable {
                 return out.updateCachesFromAccumulatedValues(accumulatedValues);
             } catch (final PrimitiveCacheNode.PrimitiveValueNotInitializedException |
                     ComputableCacheNode.ExternallyComputableNodeValueUnavailableException ex) {
-                /* cache auto-update failed; will return "out" */
+                /* cache auto-update failed; will return "out" = ICG with updated node and outdated descendents */
             }
         }
         return out;
@@ -258,7 +258,7 @@ public final class ImmutableComputableGraph implements Serializable {
      *
      * Note: this method does not check whether {@code topologicallyOrderedNodeKeys} is actually topologically ordered.
      *
-     * @param topologicallyOrderedNodeKeys depth-sorted list of nodes
+     * @param topologicallyOrderedNodeKeys topologically sorted list of nodes
      * @throws ComputableNodeFunction.ParentValueNotFoundException if a parent value required for a computation function
      *         is not found; it can be thrown if {@code topologicallyOrderedNodeKeys} is not truly topologically ordered
      * @throws ComputableCacheNode.ExternallyComputableNodeValueUnavailableException if the value of an externally computable
@@ -271,6 +271,29 @@ public final class ImmutableComputableGraph implements Serializable {
         final Map<String, Duplicable> accumulatedValues = new HashMap<>();
         for (final String nodeKey : topologicallyOrderedNodeKeys) {
             accumulatedValues.put(nodeKey, nodesMap.get(nodeKey).get(accumulatedValues));
+        }
+        return accumulatedValues;
+    }
+
+    /**
+     * This method is similar to {@link #evaluateInTopologicalOrder(List)} except for it catches all exceptions
+     * and performs a partial evaluation when possible
+     *
+     * @param topologicallyOrderedNodeKeys topologically sorted list of nodes
+     * @return a map from node keys to their values accumulated during computation
+     */
+    private Map<String, Duplicable> evaluateInTopologicalOrderIfPossible(@Nonnull final List<String> topologicallyOrderedNodeKeys) {
+        final Map<String, Duplicable> accumulatedValues = new HashMap<>();
+        for (final String nodeKey : topologicallyOrderedNodeKeys) {
+            Duplicable value = null;
+            try {
+                value = nodesMap.get(nodeKey).get(accumulatedValues);
+            } catch (final Exception ex) {
+                /* do nothing */
+            }
+            if (value != null) {
+                accumulatedValues.put(nodeKey, value);
+            }
         }
         return accumulatedValues;
     }
@@ -319,11 +342,23 @@ public final class ImmutableComputableGraph implements Serializable {
     }
 
     /**
-     * Update all caches values
+     * Update all caching nodes
+     *
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
     public ImmutableComputableGraph updateAllCaches() {
         final Map<String, Duplicable> accumulatedValues = evaluateInTopologicalOrder(
+                cgs.getTopologicalOrderForCompleteEvaluation());
+        return updateCachesFromAccumulatedValues(accumulatedValues);
+    }
+
+    /**
+     * Update all possibly updatable caches
+     *
+     * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
+     */
+    public ImmutableComputableGraph updateAllCachesIfPossible() {
+        final Map<String, Duplicable> accumulatedValues = evaluateInTopologicalOrderIfPossible(
                 cgs.getTopologicalOrderForCompleteEvaluation());
         return updateCachesFromAccumulatedValues(accumulatedValues);
     }
@@ -344,6 +379,16 @@ public final class ImmutableComputableGraph implements Serializable {
         /* updated nodes */
         newNodesMap.putAll(updatedNodesMap);
         return new ImmutableComputableGraph(newNodesMap, cgs, cacheAutoUpdate);
+    }
+
+    public boolean isValueDirectlyAvailable(final String nodeKey) {
+        assertNodeExists(nodeKey);
+        final CacheNode node = nodesMap.get(nodeKey);
+        if (node.isPrimitive()) {
+            return node.hasValue();
+        } else {
+            return ((ComputableCacheNode)node).hasValueAndIsCurrent();
+        }
     }
 
     private void assertNodeExists(final String nodeKey) {

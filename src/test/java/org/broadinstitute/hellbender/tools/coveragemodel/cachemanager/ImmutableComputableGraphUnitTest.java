@@ -1,8 +1,8 @@
 package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 
+import avro.shaded.com.google.common.collect.ImmutableMap;
 import avro.shaded.com.google.common.collect.Sets;
 import junit.framework.AssertionFailedError;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.broadinstitute.hellbender.tools.coveragemodel.nd4jutils.Nd4jApacheAdapterUtils;
 import org.broadinstitute.hellbender.utils.MathObjectAsserts;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -20,79 +20,47 @@ import java.util.Set;
 /**
  * Unit tests for {@link ImmutableComputableGraph}
  *
- * Example:
- *
- *     x    y    z
- *      \  / \  /
- *       \/   \/
- *       f    g
- *        \  /
- *         \/
- *         h
- *
- *  x stores DuplicableNDArray
- *  y stores DuplicableNumber
- *  z stores DuplicableNDArray
- *
- *  f = x+y
- *  g = y.z
- *  h = log(f.g) = (x+y).(y.z)
- *
- *  All operations are point-wise
- *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 public class ImmutableComputableGraphUnitTest extends BaseTest {
 
-    /**
-     * A simple helper class for keeping track of function evaluations
+    private static final Random rng = new Random(1984);
+
+    private static final double EPSILON = 1e-16;
+
+    private static final int NUM_TRIALS = 10;
+
+    /*
+     * A working example:
+     *
+     *     x    y    z
+     *     /\  / \  /
+     *     \ \/   \/
+     *      \f    g
+     *       \\  /
+     *        \\/
+     *         h
+     *
+     *  x stores DuplicableNDArray
+     *  y stores DuplicableNumber
+     *  z stores DuplicableNDArray
+     *
+     *  f = x+y
+     *  g = y.z
+     *  h = f.g - x
+     *
+     *  All operations are point-wise
      */
-    private static class Counter {
-        final Map<String, Integer> counts;
 
-        Counter(String ... keys) {
-            counts = new HashMap<>();
-            for (final String key : keys) {
-                counts.put(key, 0);
-            }
-        }
+    private static final Counter counter = new Counter("f", "g", "h");
 
-        private Counter(final Map<String, Integer> otherCounts) {
-            counts = new HashMap<>(otherCounts.size());
-            counts.putAll(otherCounts);
-        }
-
-        public void increment(final String key) {
-            counts.put(key, getCount(key) + 1);
-        }
-
-        public int getCount(final String key) {
-            return counts.get(key);
-        }
-
-        public Set<String> getKeys() {
-            return counts.keySet();
-        }
-
-        public Counter copy() {
-            return new Counter(counts);
-        }
-
-        public Counter diff(final Counter oldCounter) {
-            Utils.validateArg(Sets.symmetricDifference(oldCounter.getKeys(), getKeys()).isEmpty(),
-                    "the counters must have the same keys");
-            final Map<String, Integer> diffMap = new HashMap<>(getKeys().size());
-            getKeys().forEach(key -> diffMap.put(key, getCount(key) - oldCounter.getCount(key)));
-            return new Counter(diffMap);
-        }
-    }
-
-    private static Counter counter = new Counter("f", "g", "h");
-    private static int[] TEST_INDARRAY_SHAPE = new int[] {2, 3};
-    private static Random rng = new Random(1984);
+    /**
+     * Shape of "x" and "z"
+     */
+    private static final int[] TEST_NDARRAY_SHAPE = new int[] {2, 3};
 
     private static INDArray getRandomINDArray() {
-        return Nd4j.rand(TEST_INDARRAY_SHAPE);
+        return Nd4j.rand(TEST_NDARRAY_SHAPE);
     }
 
     private static double getRandomDouble() {
@@ -128,24 +96,275 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         public Duplicable apply(Map<String, Duplicable> parents) throws ParentValueNotFoundException {
             final INDArray f = fetchINDArray("f", parents);
             final INDArray g = fetchINDArray("g", parents);
+            final INDArray x = fetchINDArray("x", parents);
             counter.increment("h");
-            return new DuplicableNDArray(f.mul(g));
+            return new DuplicableNDArray(f.mul(g).sub(x));
         }
     };
 
-    public static INDArray g_external_computer(final double y, final INDArray z) {
-        return z.mul(y);
+    private static ImmutableComputableGraphUtils.ImmutableComputableGraphBuilder getTestICGBuilder(
+            final boolean f_caching, final boolean f_external,
+            final boolean g_caching, final boolean g_external,
+            final boolean h_caching, final boolean h_external) {
+        return ImmutableComputableGraph.builder()
+                .addPrimitiveNode("x", new String[]{}, new DuplicableNDArray())
+                .addPrimitiveNode("y", new String[]{}, new DuplicableNumber<Double>())
+                .addPrimitiveNode("z", new String[]{}, new DuplicableNDArray())
+                .addComputableNode("f", new String[]{}, new String[]{"x", "y"},
+                        f_external ? null : f_computation_function, f_caching)
+                .addComputableNode("g", new String[]{}, new String[]{"y", "z"},
+                        g_external ? null : g_computation_function, g_caching)
+                .addComputableNode("h", new String[]{}, new String[]{"f", "g", "x"},
+                        h_external ? null : h_computation_function, h_caching);
     }
 
     /**
      * Calculates f, g, and h directly
      */
-    public static ImmutableTriple<INDArray, INDArray, INDArray> CALCULATE_DIRECT(final INDArray x, final double y,
-                                                                                 final INDArray z) {
-        final INDArray f = x.add(y);
-        final INDArray g = z.mul(y);
-        final INDArray h = f.mul(g);
-        return ImmutableTriple.of(f, g, h);
+    private static void assertCorrectness(final INDArray x, final double y, final INDArray z,
+                                          final INDArray xICG, final double yICG, final INDArray zICG,
+                                          final INDArray fICG, final INDArray gICG, final INDArray hICG) {
+        final INDArray fExpected = x.add(y);
+        final INDArray gExpected = z.mul(y);
+        final INDArray hExpected = fExpected.mul(gExpected).sub(x);
+
+        MathObjectAsserts.assertRealMatrixEquals(
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(xICG),
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(x));
+        MathObjectAsserts.assertRealMatrixEquals(
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(zICG),
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(z));
+        Assert.assertEquals(yICG, y, EPSILON);
+        MathObjectAsserts.assertRealMatrixEquals(
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(fICG),
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(fExpected));
+        MathObjectAsserts.assertRealMatrixEquals(
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(gICG),
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(gExpected));
+        MathObjectAsserts.assertRealMatrixEquals(
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(hICG),
+                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(hExpected));
+    }
+
+    /**
+     * Tests a fully automated auto-updating ICG
+     */
+    @Test
+    public void testAutoUpdateCache() {
+        final ImmutableComputableGraph icg = getTestICGBuilder(true, false, true, false, true, false)
+                .enableCacheAutoUpdate().build();
+        for (int i = 0; i < NUM_TRIALS; i++) {
+            final INDArray x = getRandomINDArray();
+            final double y = getRandomDouble();
+            final INDArray z = getRandomINDArray();
+
+            final Counter startCounts = getCounterInstance();
+            final ImmutableComputableGraph initializedICG = icg
+                    .setValue("x", new DuplicableNDArray(x))
+                    .setValue("y", new DuplicableNumber<>(y))
+                    .setValue("z", new DuplicableNDArray(z));
+            final INDArray xICG = DuplicableNDArray.strip(initializedICG.getValueDirect("x"));
+            final double yICG = DuplicableNumber.strip(initializedICG.getValueDirect("y"));
+            final INDArray zICG = DuplicableNDArray.strip(initializedICG.getValueDirect("z"));
+            final INDArray fICG = DuplicableNDArray.strip(initializedICG.getValueDirect("f"));
+            final INDArray gICG = DuplicableNDArray.strip(initializedICG.getValueDirect("g"));
+            final INDArray hICG = DuplicableNDArray.strip(initializedICG.getValueDirect("h"));
+            final Counter diffCounts = getCounterInstance().diff(startCounts);
+
+            assertCorrectness(x, y, z, xICG, yICG, zICG, fICG, gICG, hICG);
+
+            /* each function must be calculated only once; otherwise, ICG is doing redundant computations */
+            Assert.assertEquals(diffCounts.getCount("f"), 1);
+            Assert.assertEquals(diffCounts.getCount("g"), 1);
+            Assert.assertEquals(diffCounts.getCount("h"), 1);
+        }
+    }
+
+    /**
+     * Tests bookkeeping of outdated nodes
+     */
+    @Test
+    public void testBookkeeping() {
+        for (final boolean f_caching : new boolean[] {true, false})
+            for (final boolean f_external : f_caching ? new boolean[] {true, false} : new boolean[] {false})
+                for (final boolean g_caching : new boolean[] {true, false})
+                    for (final boolean g_external : g_caching ? new boolean[] {true, false} : new boolean[] {false})
+                        for (final boolean h_caching : new boolean[] {true, false})
+                            for (final boolean h_external : h_caching ? new boolean[] {true, false} : new boolean[] {false})
+                                performBookkeepingTest(f_caching, f_external, g_caching, g_external, h_caching, h_external);
+    }
+
+    private void performBookkeepingTest(final boolean f_caching, final boolean f_external,
+                                        final boolean g_caching, final boolean g_external,
+                                        final boolean h_caching, final boolean h_external) {
+        for (int i = 0; i < NUM_TRIALS; i++) {
+            final ImmutableComputableGraph icg_0 = getTestICGBuilder(f_caching, f_external, g_caching, g_external,
+                    h_caching, h_external).build();
+
+            Assert.assertTrue(!icg_0.isValueDirectlyAvailable("x"));
+            Assert.assertTrue(!icg_0.isValueDirectlyAvailable("y"));
+            Assert.assertTrue(!icg_0.isValueDirectlyAvailable("z"));
+            Assert.assertTrue(!icg_0.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_0.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_0.isValueDirectlyAvailable("h"));
+
+            ImmutableComputableGraph icg_tmp = icg_0;
+            icg_tmp = icg_tmp.setValue("x", new DuplicableNDArray(getRandomINDArray()));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("x"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("y"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("z"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+
+            icg_tmp = icg_tmp.setValue("y", new DuplicableNumber<>(getRandomDouble()));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("x"));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("y"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("z"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+
+            icg_tmp = icg_tmp.setValue("z", new DuplicableNDArray(getRandomINDArray()));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("x"));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("y"));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("z"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+
+            try {
+                icg_tmp = icg_tmp.updateAllCaches();
+            } catch (final Exception ex) {
+                if (!f_external && !g_external && !h_external) {
+                    throw new AssertionError("Could not update all caches but it should have been possible");
+                } else {
+                    icg_tmp = icg_tmp.updateAllCachesIfPossible(); /* this will not throw exception by design */
+                }
+            }
+
+            Assert.assertTrue(!f_caching ||
+                    (f_external && !icg_tmp.isValueDirectlyAvailable("f")) ||
+                    (!f_external && icg_tmp.isValueDirectlyAvailable("f")));
+
+            Assert.assertTrue(!g_caching ||
+                    (g_external && !icg_tmp.isValueDirectlyAvailable("g")) ||
+                    (!g_external && icg_tmp.isValueDirectlyAvailable("g")));
+
+            if (!f_external && !g_external) {
+                Assert.assertTrue(!h_caching ||
+                        (h_external && !icg_tmp.isValueDirectlyAvailable("h")) ||
+                        (!h_external && icg_tmp.isValueDirectlyAvailable("h")));
+            } else {
+                Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+            }
+
+            /* fill in the external values */
+            if (f_external) {
+                icg_tmp = icg_tmp.setValue("f", f_computation_function.apply(
+                        ImmutableMap.of("x", icg_tmp.getValueDirect("x"), "y", icg_tmp.getValueDirect("y"))));
+                Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("f"));
+            }
+
+            if (g_external) {
+                icg_tmp = icg_tmp.setValue("g", g_computation_function.apply(
+                        ImmutableMap.of("y", icg_tmp.getValueDirect("y"), "z", icg_tmp.getValueDirect("z"))));
+                Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("g"));
+            }
+
+            if (h_external) {
+                icg_tmp = icg_tmp.setValue("h", h_computation_function.apply(ImmutableMap.of(
+                        "f", icg_tmp.getValueWithRequiredEvaluations("f"),
+                        "g", icg_tmp.getValueWithRequiredEvaluations("g"),
+                        "x", icg_tmp.getValueDirect("x"))));
+                Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("h"));
+            }
+
+            /* since all externally computed nodes are initialized, a call to updateAllCaches() must succeed */
+            icg_tmp = icg_tmp.updateAllCaches();
+
+            /* at this point, every caching node must be up-to-date */
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("x"));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("y"));
+            Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("z"));
+            Assert.assertTrue(!f_caching || icg_tmp.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!g_caching || icg_tmp.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!h_caching || icg_tmp.isValueDirectlyAvailable("h"));
+
+            /* update x -- f and h must go out of date */
+            ImmutableComputableGraph icg_tmp_x = icg_tmp.setValue("x", new DuplicableNDArray(getRandomINDArray()));
+            Assert.assertTrue(!icg_tmp_x.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!g_caching || icg_tmp_x.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp_x.isValueDirectlyAvailable("h"));
+
+            /* update y -- f, g and h must go out of date */
+            ImmutableComputableGraph icg_tmp_y = icg_tmp.setValue("y", new DuplicableNumber<>(getRandomDouble()));
+            Assert.assertTrue(!icg_tmp_y.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp_y.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp_y.isValueDirectlyAvailable("h"));
+
+            /* update z -- g and h must go out of date */
+            ImmutableComputableGraph icg_tmp_z = icg_tmp.setValue("z", new DuplicableNDArray(getRandomINDArray()));
+            Assert.assertTrue(!f_caching || icg_tmp_z.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp_z.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp_z.isValueDirectlyAvailable("h"));
+
+            /* update x and y -- f, g and h must go out of date */
+            ImmutableComputableGraph icg_tmp_xy = icg_tmp
+                    .setValue("x", new DuplicableNDArray(getRandomINDArray()))
+                    .setValue("y", new DuplicableNumber<>(getRandomDouble()));
+            Assert.assertTrue(!icg_tmp_xy.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp_xy.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp_xy.isValueDirectlyAvailable("h"));
+
+            /* update x and z -- f, g and h must go out of date */
+            ImmutableComputableGraph icg_tmp_xz = icg_tmp
+                    .setValue("x", new DuplicableNDArray(getRandomINDArray()))
+                    .setValue("z", new DuplicableNDArray(getRandomINDArray()));
+            Assert.assertTrue(!icg_tmp_xz.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp_xz.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp_xz.isValueDirectlyAvailable("h"));
+
+            /* update x and z -- f, g and h must go out of date */
+            ImmutableComputableGraph icg_tmp_xyz = icg_tmp
+                    .setValue("x", new DuplicableNDArray(getRandomINDArray()))
+                    .setValue("y", new DuplicableNumber<>(getRandomDouble()))
+                    .setValue("z", new DuplicableNDArray(getRandomINDArray()));
+            Assert.assertTrue(!icg_tmp_xyz.isValueDirectlyAvailable("f"));
+            Assert.assertTrue(!icg_tmp_xyz.isValueDirectlyAvailable("g"));
+            Assert.assertTrue(!icg_tmp_xyz.isValueDirectlyAvailable("h"));
+        }
+    }
+
+    @Test(enabled = false)
+    public void testCacheByTag() {
+        throw new AssertionFailedError("Test is not implemented yet");
+    }
+
+    @Test(enabled = false)
+    public void testCacheByNode() {
+        throw new AssertionFailedError("Test is not implemented yet");
+    }
+
+    @Test(enabled = false)
+    public void testTagPropagation() {
+    }
+
+    @Test(enabled = false)
+    public void testUnchangedNodesSameReferenceAfterUpdate() {
+        throw new AssertionFailedError("Test is not implemented yet");
+    }
+
+    @Test(enabled = false)
+    public void testUninitializedPrimitiveNode() {
+    }
+
+    @Test(enabled = false)
+    public void testUninitializedExternallyComputedNode() {
+    }
+
+    @Test(enabled = false)
+    public void testNonRedundantComputation() {
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -199,107 +418,48 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                 .build();
     }
 
-    @Test
-    public void testAutoUpdateCache() {
-        final int NUM_TRIALS = 10;
 
-        final ImmutableComputableGraph icg = ImmutableComputableGraph.builder()
-                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .addPrimitiveNode("y", new String[] {}, new DuplicableNumber<Double>())
-                .addPrimitiveNode("z", new String[] {}, new DuplicableNDArray())
-                .addComputableNode("f", new String[] {}, new String[] {"x", "y"}, f_computation_function, true)
-                .addComputableNode("g", new String[] {}, new String[] {"y", "z"}, g_computation_function, true)
-                .addComputableNode("h", new String[] {}, new String[] {"f", "g"}, h_computation_function, true)
-                .enableCacheAutoUpdate()
-                .build();
+    /**
+     * A simple helper class for keeping track of function evaluations
+     */
+    private static class Counter {
+        final Map<String, Integer> counts;
 
-        for (int i = 0; i < NUM_TRIALS; i++) {
-            final INDArray x = getRandomINDArray();
-            final double y = getRandomDouble();
-            final INDArray z = getRandomINDArray();
-            final ImmutableComputableGraph initializedICG = icg
-                    .setValue("x", new DuplicableNDArray(x))
-                    .setValue("y", new DuplicableNumber<>(y))
-                    .setValue("z", new DuplicableNDArray(z));
-            /* primitive */
-            final INDArray xActual = DuplicableNDArray.strip(initializedICG.getValueDirect("x"));
-            final double yActual = DuplicableNumber.strip(initializedICG.getValueDirect("y"));
-            final INDArray zActual = DuplicableNDArray.strip(initializedICG.getValueDirect("z"));
-            /* computable */
-            final INDArray fActual = DuplicableNDArray.strip(initializedICG.getValueDirect("f"));
-            final INDArray gActual = DuplicableNDArray.strip(initializedICG.getValueDirect("g"));
-            final INDArray hActual = DuplicableNDArray.strip(initializedICG.getValueDirect("h"));
-            final ImmutableTriple<INDArray, INDArray, INDArray> expected = CALCULATE_DIRECT(x, y, z);
-            MathObjectAsserts.assertRealMatrixEquals(
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(xActual),
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(x));
-            MathObjectAsserts.assertRealMatrixEquals(
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(zActual),
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(z));
-            Assert.assertEquals(yActual, y, 1e-16);
-            MathObjectAsserts.assertRealMatrixEquals(
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(fActual),
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(expected.getLeft()));
-            MathObjectAsserts.assertRealMatrixEquals(
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(gActual),
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(expected.getMiddle()));
-            MathObjectAsserts.assertRealMatrixEquals(
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(hActual),
-                    Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(expected.getRight()));
+        Counter(String ... keys) {
+            counts = new HashMap<>();
+            for (final String key : keys) {
+                counts.put(key, 0);
+            }
         }
 
+        private Counter(final Map<String, Integer> otherCounts) {
+            counts = new HashMap<>(otherCounts.size());
+            counts.putAll(otherCounts);
+        }
+
+        public void increment(final String key) {
+            counts.put(key, getCount(key) + 1);
+        }
+
+        public int getCount(final String key) {
+            return counts.get(key);
+        }
+
+        public Set<String> getKeys() {
+            return counts.keySet();
+        }
+
+        public Counter copy() {
+            return new Counter(counts);
+        }
+
+        public Counter diff(final Counter oldCounter) {
+            Utils.validateArg(Sets.symmetricDifference(oldCounter.getKeys(), getKeys()).isEmpty(),
+                    "the counters must have the same keys");
+            final Map<String, Integer> diffMap = new HashMap<>(getKeys().size());
+            getKeys().forEach(key -> diffMap.put(key, getCount(key) - oldCounter.getCount(key)));
+            return new Counter(diffMap);
+        }
     }
 
-    @Test(enabled = false)
-    public void testOutdatedCaches() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testUpToDateCaches() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testComputeOnDemandNodes() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testPrimitiveUpdating() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testExternallyComputableUpdating() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testCacheByTag() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testCacheByNode() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testUnchangedNodesSameReferenceAfterUpdate() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
-    public void testNoRedundantComputation() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    public void testUninitializedPrimitiveNode() {
-
-    }
-
-    public void testUninitializedExternallyComputedNode() {
-
-    }
 }
