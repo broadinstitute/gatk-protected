@@ -13,7 +13,7 @@ import org.broadinstitute.hellbender.cmdline.argumentcollections.RequiredReferen
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
 import org.broadinstitute.hellbender.tools.copynumber.allelic.alleliccount.AllelicCountCollection;
 import org.broadinstitute.hellbender.tools.copynumber.allelic.alleliccount.AllelicCountCollector;
-import org.broadinstitute.hellbender.utils.Utils;
+import org.broadinstitute.hellbender.utils.io.IOUtils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
 import org.broadinstitute.hellbender.utils.read.ReadConstants;
 
@@ -105,9 +105,9 @@ public final class CollectAllelicCounts extends CommandLineProgram {
     }
 
     private void validateArguments() {
-        Utils.regularReadableUserFile(inputBAMFile);
-        Utils.regularReadableUserFile(inputSiteIntervalsFile);
-        Utils.regularReadableUserFile(referenceArguments.getReferenceFile());
+        IOUtils.canRead(inputBAMFile);
+        IOUtils.canRead(inputSiteIntervalsFile);
+        IOUtils.canRead(referenceArguments.getReferenceFile());
         ParamUtils.isPositiveOrZero(minimumMappingQuality, "Mapping-quality threshold must be greater than or equal to zero.");
         ParamUtils.isPositiveOrZero(minimumBaseQuality, "Base-quality threshold must be greater than or equal to zero.");
     }

@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.exome.alleliccount;
 
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.io.IOUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 
@@ -35,7 +36,7 @@ public class AllelicCountCollection {
      */
     public AllelicCountCollection(final File inputFile) {
         Utils.nonNull(inputFile);
-        Utils.regularReadableUserFile(inputFile);
+        IOUtils.canRead(inputFile);
 
         try (final AllelicCountReader reader = new AllelicCountReader(inputFile)) {
             counts = reader.stream().collect(Collectors.toList());
