@@ -3,19 +3,17 @@ package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 import avro.shaded.com.google.common.collect.ImmutableMap;
 import avro.shaded.com.google.common.collect.Sets;
 import junit.framework.AssertionFailedError;
-import org.broadinstitute.hellbender.tools.coveragemodel.nd4jutils.Nd4jApacheAdapterUtils;
+import org.apache.commons.lang.RandomStringUtils;
 import org.broadinstitute.hellbender.utils.MathObjectAsserts;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -38,10 +36,10 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
      *     x    y    z
      *     /\  / \  /
      *     \ \/   \/
-     *      \f    g
-     *       \\  /
-     *        \\/
-     *         h
+     *      \ f   g
+     *       \ \  /
+     *        \ \/
+     *          h
      *
      *  x stores DuplicableNDArray
      *  y stores DuplicableNumber
@@ -53,6 +51,10 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
      *
      *  All operations are point-wise
      */
+
+    private static final Set<String> ALL_NODES = new HashSet<>(Arrays.asList("x", "y", "z", "f", "g", "h"));
+    private static final Set<String> ALL_PRIMITIVE_NODES = new HashSet<>(Arrays.asList("x", "y", "z"));
+    private static final Set<String> ALL_COMPUTABLE_NODES = new HashSet<>(Arrays.asList("f", "g", "h"));
 
     private static final Counter counter = new Counter("f", "g", "h");
 
@@ -141,22 +143,12 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         final INDArray gExpected = z.mul(y);
         final INDArray hExpected = fExpected.mul(gExpected).sub(x);
 
-        MathObjectAsserts.assertRealMatrixEquals(
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(xICG),
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(x));
-        MathObjectAsserts.assertRealMatrixEquals(
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(zICG),
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(z));
+        MathObjectAsserts.assertNDArrayEquals(xICG, x);
         Assert.assertEquals(yICG, y, EPSILON);
-        MathObjectAsserts.assertRealMatrixEquals(
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(fICG),
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(fExpected));
-        MathObjectAsserts.assertRealMatrixEquals(
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(gICG),
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(gExpected));
-        MathObjectAsserts.assertRealMatrixEquals(
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(hICG),
-                Nd4jApacheAdapterUtils.convertINDArrayToApacheMatrix(hExpected));
+        MathObjectAsserts.assertNDArrayEquals(zICG, z);
+        MathObjectAsserts.assertNDArrayEquals(fICG, fExpected);
+        MathObjectAsserts.assertNDArrayEquals(gICG, gExpected);
+        MathObjectAsserts.assertNDArrayEquals(hICG, hExpected);
     }
 
     /**
@@ -193,23 +185,26 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         }
     }
 
-    /**
-     * Tests bookkeeping of outdated nodes
-     */
-    @Test
-    public void testBookkeeping() {
+    @DataProvider(name = "allPossibleNodeFlags")
+    public Object[][] getAllPossibleNodeFlags() {
+        final List<Object[]> data = new ArrayList<>();
         for (final boolean f_caching : new boolean[] {true, false})
             for (final boolean f_external : f_caching ? new boolean[] {true, false} : new boolean[] {false})
                 for (final boolean g_caching : new boolean[] {true, false})
                     for (final boolean g_external : g_caching ? new boolean[] {true, false} : new boolean[] {false})
                         for (final boolean h_caching : new boolean[] {true, false})
                             for (final boolean h_external : h_caching ? new boolean[] {true, false} : new boolean[] {false})
-                                performBookkeepingTest(f_caching, f_external, g_caching, g_external, h_caching, h_external);
+                                data.add(new Object[] {f_caching, f_external, g_caching, g_external, h_caching, h_external});
+        return data.toArray(new Object[data.size()][6]);
     }
 
-    private void performBookkeepingTest(final boolean f_caching, final boolean f_external,
-                                        final boolean g_caching, final boolean g_external,
-                                        final boolean h_caching, final boolean h_external) {
+    /**
+     * Tests bookkeeping of outdated nodes
+     */
+    @Test(dataProvider = "allPossibleNodeFlags")
+    public void testBookkeeping(final boolean f_caching, final boolean f_external,
+                                final boolean g_caching, final boolean g_external,
+                                final boolean h_caching, final boolean h_external) {
         for (int i = 0; i < NUM_TRIALS; i++) {
             final ImmutableComputableGraph icg_0 = getTestICGBuilder(f_caching, f_external, g_caching, g_external,
                     h_caching, h_external).build();
@@ -376,17 +371,19 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
     /**
      * Tests propagation of tags from descendents to parents
      */
-    @Test
-    public void testTagPropagation() {
-        final int MAX_TAGS_PER_NODE = 5;
+    @Test(dataProvider = "allPossibleNodeFlags")
+    public void testTagPropagation(final boolean f_caching, final boolean f_external,
+                                   final boolean g_caching, final boolean g_external,
+                                   final boolean h_caching, final boolean h_external) {
         for (int i = 0; i < NUM_TRIALS; i++) {
-            final Set<String> x_tags = getRandomSetOfStrings(rng.nextInt(MAX_TAGS_PER_NODE));
-            final Set<String> y_tags = getRandomSetOfStrings(rng.nextInt(MAX_TAGS_PER_NODE));
-            final Set<String> z_tags = getRandomSetOfStrings(rng.nextInt(MAX_TAGS_PER_NODE));
-            final Set<String> f_tags = getRandomSetOfStrings(rng.nextInt(MAX_TAGS_PER_NODE));
-            final Set<String> g_tags = getRandomSetOfStrings(rng.nextInt(MAX_TAGS_PER_NODE));
-            final Set<String> h_tags = getRandomSetOfStrings(rng.nextInt(MAX_TAGS_PER_NODE));
-            final ImmutableComputableGraph icg = getTestICGBuilder(true, true, true, true, true, true,
+            final Set<String> x_tags = getRandomSetOfTags();
+            final Set<String> y_tags = getRandomSetOfTags();
+            final Set<String> z_tags = getRandomSetOfTags();
+            final Set<String> f_tags = getRandomSetOfTags();
+            final Set<String> g_tags = getRandomSetOfTags();
+            final Set<String> h_tags = getRandomSetOfTags();
+            final ImmutableComputableGraph icg = getTestICGBuilder(
+                    f_caching, f_external, g_caching, g_external, h_caching, h_external,
                     x_tags.toArray(new String[0]), y_tags.toArray(new String[0]),
                     z_tags.toArray(new String[0]), f_tags.toArray(new String[0]),
                     g_tags.toArray(new String[0]), h_tags.toArray(new String[0])).build();
@@ -414,22 +411,117 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         }
     }
 
-    private Set<String> getRandomSetOfStrings(final int num) {
-        return IntStream.range(0, num)
-                .mapToObj(n -> String.valueOf(rng.nextLong()))
+    private Set<String> getRandomSetOfTags() {
+        final int MAX_NUM_TAGS = 5;
+        final int TAG_LENGTH = 12;
+        return IntStream.range(0, rng.nextInt(MAX_NUM_TAGS))
+                .mapToObj(n -> RandomStringUtils.randomAlphanumeric(TAG_LENGTH))
                 .collect(Collectors.toSet());
     }
 
-    @Test(enabled = false)
-    public void testCacheByTag() {
-        throw new AssertionFailedError("Test is not implemented yet");
+    private Map<String, INDArray> getExpectedComputableNodeValues(final Duplicable x, final Duplicable y, final Duplicable z) {
+        final INDArray xVal = DuplicableNDArray.strip(x);
+        final Double yVal = DuplicableNumber.strip(y);
+        final INDArray zVal = DuplicableNDArray.strip(z);
+        final INDArray fExpected = xVal.add(yVal);
+        final INDArray gExpected = zVal.mul(yVal);
+        final INDArray hExpected = fExpected.mul(gExpected).sub(xVal);
+        return ImmutableMap.of("f", fExpected, "g", gExpected, "h", hExpected);
     }
 
-    @Test(enabled = false)
-    public void testCacheByNode() {
-        throw new AssertionFailedError("Test is not implemented yet");
+    @Test(dataProvider = "allPossibleNodeFlags")
+    public void testUpdateCachesByTag(final boolean f_caching, final boolean f_external,
+                                      final boolean g_caching, final boolean g_external,
+                                      final boolean h_caching, final boolean h_external) {
+        for (int i = 0; i < NUM_TRIALS; i++) {
+            final ImmutableComputableGraph icg_empty = getTestICGBuilder(
+                    f_caching, f_external, g_caching, g_external, h_caching, h_external,
+                    getRandomSetOfTags().toArray(new String[0]), getRandomSetOfTags().toArray(new String[0]),
+                    getRandomSetOfTags().toArray(new String[0]), getRandomSetOfTags().toArray(new String[0]),
+                    getRandomSetOfTags().toArray(new String[0]), getRandomSetOfTags().toArray(new String[0])).build();
+
+            final Set<String> all_x_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("x");
+            final Set<String> all_y_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("y");
+            final Set<String> all_z_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("z");
+            final Set<String> all_f_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("f");
+            final Set<String> all_g_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("g");
+            final Set<String> all_h_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("h");
+            final Set<String> all_tags = new HashSet<>();
+            all_tags.addAll(all_x_tags); all_tags.addAll(all_y_tags); all_tags.addAll(all_z_tags);
+            all_tags.addAll(all_f_tags); all_tags.addAll(all_g_tags); all_tags.addAll(all_h_tags);
+
+            final INDArray x = getRandomINDArray();
+            final double y = getRandomDouble();
+            final INDArray z = getRandomINDArray();
+            final ImmutableComputableGraph icg_0 = icg_empty
+                    .setValue("x", new DuplicableNDArray(x))
+                    .setValue("y", new DuplicableNumber<>(y))
+                    .setValue("z", new DuplicableNDArray(z));
+            final Map<String, INDArray> expectedComputableNodeValues = getExpectedComputableNodeValues(
+                    icg_0.getValueDirect("x"), icg_0.getValueDirect("y"), icg_0.getValueDirect("z"));
+
+            for (final String tag : all_tags) {
+                ImmutableComputableGraph icg_1;
+                Counter startCounter;
+                try {
+                    startCounter = getCounterInstance();
+                    icg_1 = icg_0.updateCachesForTag(tag);
+                } catch (final Exception ex) { /* should fail only if some of the tagged nodes are external */
+                    if (!f_external && !g_external && !h_external) {
+                        throw new AssertionError("Could not update tagged nodes but it should have been possible");
+                    }
+                    startCounter = getCounterInstance();
+                    icg_1 = icg_0.updateCachesForTagIfPossible(tag);
+                }
+                final Counter evalCounts = getCounterInstance().diff(startCounter);
+
+                /* check updated caches */
+                final Set<String> updatedNodesExpected = new HashSet<>();
+                if (!f_external && f_caching && all_f_tags.contains(tag)) {
+                    updatedNodesExpected.add("f");
+                }
+                if (!g_external && g_caching && all_g_tags.contains(tag)) {
+                    updatedNodesExpected.add("g");
+                }
+                if (!h_external && !f_external && !g_external && h_caching && all_h_tags.contains(tag)) {
+                    updatedNodesExpected.add("h");
+                }
+                for (final String nodeKey : updatedNodesExpected) {
+                    Assert.assertTrue(icg_1.isValueDirectlyAvailable(nodeKey));
+                    MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(icg_1.getValueDirect(nodeKey)),
+                            expectedComputableNodeValues.get(nodeKey));
+                }
+                for (final String nodeKey : Sets.difference(ALL_COMPUTABLE_NODES, updatedNodesExpected)) {
+                    Assert.assertTrue(!icg_1.isValueDirectlyAvailable(nodeKey));
+                }
+
+                /* check function evaluation counts */
+                if ((!f_external && all_f_tags.contains(tag)) /* f is computable and caching */ ||
+                        (all_h_tags.contains(tag) && !f_external && !g_external && !h_external) /* h, as a descendant, is computable */) {
+                    Assert.assertEquals(evalCounts.getCount("f"), 1);
+                } else {
+                    Assert.assertEquals(evalCounts.getCount("f"), 0);
+                }
+                if ((!g_external && all_g_tags.contains(tag)) /* g is computable and caching */ ||
+                        (all_h_tags.contains(tag) && !g_external && !f_external && !h_external) /* h, as a descendant, is computable */) {
+                    Assert.assertEquals(evalCounts.getCount("g"), 1);
+                } else {
+                    Assert.assertEquals(evalCounts.getCount("g"), 0);
+                }
+                if (all_h_tags.contains(tag) && !f_external && !g_external && !h_external) {
+                    Assert.assertEquals(evalCounts.getCount("h"), 1);
+                } else {
+                    Assert.assertEquals(evalCounts.getCount("h"), 0);
+                }
+            }
+        }
     }
 
+    
+    @Test(enabled = false)
+    public void testUpdateCacheByNode() {
+        throw new AssertionFailedError("Test is not implemented yet");
+    }
 
     @Test(enabled = false)
     public void testUnchangedNodesSameReferenceAfterUpdate() {
@@ -442,10 +534,6 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
 
     @Test(enabled = false)
     public void testUninitializedExternallyComputedNode() {
-    }
-
-    @Test(enabled = false)
-    public void testNonRedundantComputation() {
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -498,7 +586,6 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                 .addComputableNode("h", new String[] {}, new String[] {"f", "g"}, null, true)
                 .build();
     }
-
 
     /**
      * A simple helper class for keeping track of function evaluations
