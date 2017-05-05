@@ -43,7 +43,7 @@ public final class PoNTestUtils {
      * @return HDF5 File.  Never {@code null}
      */
     public static File createDummyHDF5FilePoN(final File inputPCovFile, final int numEigensamples) {
-        Utils.regularReadableUserFile(inputPCovFile);
+        IOUtils.canRead(inputPCovFile);
         ParamUtils.isPositive(numEigensamples, "Number of eigensamples must be greater than zero.");
         final File outputFile = IOUtils.createTempFile("dummy-pon-", ".pon");
         final TargetCollection<Target> targets = TargetArgumentCollection.readTargetCollection(inputPCovFile);
@@ -103,8 +103,8 @@ public final class PoNTestUtils {
      * @param right never {@code null}
      */
     public static void assertEquivalentPoN(final File left, final File right) {
-        Utils.regularReadableUserFile(left);
-        Utils.regularReadableUserFile(right);
+        IOUtils.canRead(left);
+        IOUtils.canRead(right);
         try (final HDF5File leftFile = new HDF5File(left);
              final HDF5File rightFile = new HDF5File(right)) {
             final HDF5PCACoveragePoN leftPoN = new HDF5PCACoveragePoN(leftFile);
@@ -153,7 +153,7 @@ public final class PoNTestUtils {
      */
     public static RealMatrix readTsvIntoMatrix(final File inputFile) {
 
-        Utils.regularReadableUserFile(inputFile);
+        IOUtils.canRead(inputFile);
         final List<double []> allData = new ArrayList<>();
         int ctr = 0;
         try {

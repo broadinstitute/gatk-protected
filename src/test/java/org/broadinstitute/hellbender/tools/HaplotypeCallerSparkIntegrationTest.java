@@ -30,7 +30,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
     private  static final String TEST_FILES_DIR = publicTestDir + "org/broadinstitute/hellbender/tools/haplotypecaller/";
 
     /*
-    * Test that in VCF mode we're >= 99% concordant with GATK3.5 results
+    * Test that in VCF mode we're >= 99% concordant with GATK3.7 results
     */
     @Test
     public void testVCFModeIsConcordantWithGATK3_5Results() throws Exception {
@@ -38,12 +38,12 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
         final File output = createTempFile("testVCFModeIsConcordantWithGATK3Results", ".vcf");
         //Created by running:
-        //java -jar ~/bin/GenomeAnalysisTK-3.5.0/GenomeAnalysisTK.jar -T HaplotypeCaller \
+        //java -jar /humgen/gsa-hpprojects/GATK/private_unstable_builds/GenomeAnalysisTK-3.7-42-gbe6a37c/GenomeAnalysisTK.jar -T HaplotypeCaller \
         // -I ./src/test/resources/large/CEUTrio.HiSeq.WGS.b37.NA12878.20.21.bam \
         // -R src/test/resources/large/human_g1k_v37.20.21.fasta -L 20:10000000-10100000 \
-        // --out a.gatk3.5.noDownsample.vcf -G StandardHC -G Standard \
-        // --disableDithering --no_cmdline_in_header  -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
-        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testVCFMode.gatk3.5.vcf");
+        // --out expected.testVCFMode.gatk3.7.vcf -G StandardHC -G Standard \
+        // --disableDithering --no_cmdline_in_header -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
+        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testVCFMode.gatk3.7.vcf");
 
         final String[] args = {
                 "-I", NA12878_20_21_WGS_bam,
@@ -57,11 +57,11 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         runCommandLine(args);
 
         final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
-        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in VCF mode is < 99% (" +  concordance + ")");
+        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.7 in VCF mode is < 99% (" +  concordance + ")");
     }
 
     /**
-     * Test that in VCF mode we're >= 99% concordant with GATK3.5 results
+     * Test that in VCF mode we're >= 99% concordant with GATK3.7 results
      * THIS TEST explodes with an exception because Allele-Specific annotations are not supported in vcf mode yet.
      * It's included to parallel the matching (also exploding) test for the non-spark HaplotypeCaller
      * {@link org.broadinstitute.hellbender.tools.walkers.haplotypecaller.HaplotypeCallerIntegrationTest#testVCFModeIsConcordantWithGATK3_5ResultsAlleleSpecificAnnotations()}
@@ -73,12 +73,12 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         final File output = createTempFile("testVCFModeIsConcordantWithGATK3_5ResultsAlleleSpecificAnnotations", ".vcf");
 
         //Created by running
-        //java -jar ~/bin/GenomeAnalysisTK-3.5.0/GenomeAnalysisTK.jar -T HaplotypeCaller \
+        //java -jar /humgen/gsa-hpprojects/GATK/private_unstable_builds/GenomeAnalysisTK-3.7-42-gbe6a37c/GenomeAnalysisTK.jar -T HaplotypeCaller \
         // -I ./src/test/resources/large/CEUTrio.HiSeq.WGS.b37.NA12878.20.21.bam \
         // -R src/test/resources/large/human_g1k_v37.20.21.fasta -L 20:10000000-10100000 \
-        // --out as.gatk3.5.noDownsample.vcf -G StandardHC -G Standard -G AS_Standard \
-        // --disableDithering --no_cmdline_in_header  -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
-        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testVCFMode.gatk3.5.alleleSpecific.vcf");
+        // --out expected.testVCFMode.gatk3.7.alleleSpecific.vcf -G StandardHC -G Standard -G AS_Standard \
+        // --disableDithering --no_cmdline_in_header -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
+        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testVCFMode.gatk3.7.alleleSpecific.vcf");
 
         final String[] args = {
                 "-I", NA12878_20_21_WGS_bam,
@@ -94,7 +94,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         runCommandLine(args);
 
         final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
-        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in AS VCF mode is < 99% (" +  concordance + ")");
+        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.7 in AS VCF mode is < 99% (" +  concordance + ")");
     }
 
     /*
@@ -106,12 +106,12 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
 
         final File output = createTempFile("testGVCFModeIsConcordantWithGATK3Results", ".g.vcf");
         //Created by running:
-        //java -jar ~/bin/GenomeAnalysisTK-3.5.0/GenomeAnalysisTK.jar -T HaplotypeCaller \
+        //java -jar /humgen/gsa-hpprojects/GATK/private_unstable_builds/GenomeAnalysisTK-3.7-42-gbe6a37c/GenomeAnalysisTK.jar -T HaplotypeCaller \
         // -I ./src/test/resources/large/CEUTrio.HiSeq.WGS.b37.NA12878.20.21.bam \
         // -R src/test/resources/large/human_g1k_v37.20.21.fasta -L 20:10000000-10100000 \
-        // -ERC GVCF --out a.gatk3.5.noDownsample.g.vcf -G StandardHC -G Standard \
-        // --disableDithering --no_cmdline_in_header  -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
-        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testGVCFMode.gatk3.5.g.vcf");
+        // -ERC GVCF --out expected.testGVCFMode.gatk3.7.g.vcf\
+        // --disableDithering --no_cmdline_in_header -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
+        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testGVCFMode.gatk3.7.g.vcf");
 
         final String[] args = {
                 "-I", NA12878_20_21_WGS_bam,
@@ -126,7 +126,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         runCommandLine(args);
 
         final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
-        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in GVCF mode is < 99% (" +  concordance + ")");
+        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.7 in GVCF mode is < 99% (" +  concordance + ")");
     }
 
 
@@ -136,12 +136,12 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         final File output = createTempFile("testGVCFModeIsConcordantWithGATK3_5AlelleSpecificResults", ".g.vcf");
 
         //Created by running:
-        // java -jar ~/bin/GenomeAnalysisTK-3.5.0/GenomeAnalysisTK.jar -T HaplotypeCaller \
+        // java -jar /humgen/gsa-hpprojects/GATK/private_unstable_builds/GenomeAnalysisTK-3.7-42-gbe6a37c/GenomeAnalysisTK.jar -T HaplotypeCaller \
         // -I ./src/test/resources/large/CEUTrio.HiSeq.WGS.b37.NA12878.20.21.bam \
         // -R src/test/resources/large/human_g1k_v37.20.21.fasta -L 20:10000000-10100000 \
-        // -ERC GVCF --out as.gatk3.5.noDownsample.g.vcf -G StandardHC -G Standard -G AS_Standard \
-        // --disableDithering --no_cmdline_in_header  -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
-        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testGVCFMode.gatk3.5.alleleSpecific.g.vcf");
+        // -ERC GVCF --out expected.testGVCFMode.gatk3.7.alleleSpecific.g.vcf -G StandardHC -G Standard -G AS_Standard \
+        // --disableDithering --no_cmdline_in_header -dt NONE --maxReadsInRegionPerSample 100000000 --minReadsPerAlignmentStart 100000
+        final File gatk3Output = new File(TEST_FILES_DIR + "expected.testGVCFMode.gatk3.7.alleleSpecific.g.vcf");
 
         final String[] args = {
                 "-I", NA12878_20_21_WGS_bam,
@@ -158,7 +158,7 @@ public class HaplotypeCallerSparkIntegrationTest extends CommandLineProgramTest 
         runCommandLine(args);
 
         final double concordance = HaplotypeCallerIntegrationTest.calculateConcordance(output, gatk3Output);
-        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.5 in AS GVCF mode is < 99% (" +  concordance + ")");
+        Assert.assertTrue(concordance >= 0.99, "Concordance with GATK 3.7 in AS GVCF mode is < 99% (" +  concordance + ")");
     }
 
     @Test
