@@ -129,12 +129,11 @@ public final class ComputableGraphStructure implements Serializable {
         }
 
         /* build the full tags map; the parents inherit the tags of the descendents */
-        nodesByDepthMap.get(maxDepth).forEach(node -> allTagsMap.get(node).addAll(initialTagsMap.get(node)));
-        for (int depth = maxDepth - 1; depth >= 0; depth -= 1) {
-            nodesByDepthMap.get(depth).forEach(node -> {
-                allTagsMap.get(node).addAll(initialTagsMap.get(node));
-                immediateDescendentsMap.get(node).forEach(desc -> allTagsMap.get(node).addAll(initialTagsMap.get(desc)));
-            });
+        nodeKeysSet.forEach(node -> allTagsMap.get(node).addAll(initialTagsMap.get(node)));
+        for (int depth = maxDepth - 1; depth >= 0; depth--) {
+            nodesByDepthMap.get(depth)
+                    .forEach(node -> immediateDescendentsMap.get(node)
+                            .forEach(desc -> allTagsMap.get(node).addAll(allTagsMap.get(desc))));
         }
 
         /* build a nodes-by-tag map and nodeTagsSet */
@@ -218,6 +217,10 @@ public final class ComputableGraphStructure implements Serializable {
     public Set<String> getNodeKeysSet() { return nodeKeysSet; }
 
     public Set<String> getNodeTagsSet() { return nodeTagsSet; }
+
+    public Set<String> getAllTagsForNode(final String nodeKey) {
+        return allTagsMap.get(nodeKey);
+    }
 
     public Set<String> getAllDescendents(@Nonnull final String nodeKey) {
         return allDescendentsMap.get(nodeKey);
