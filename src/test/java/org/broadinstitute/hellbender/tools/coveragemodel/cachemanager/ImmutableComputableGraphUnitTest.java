@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 
 import avro.shaded.com.google.common.collect.ImmutableMap;
 import avro.shaded.com.google.common.collect.Sets;
-import junit.framework.AssertionFailedError;
 import org.apache.commons.lang.RandomStringUtils;
 import org.broadinstitute.hellbender.utils.MathObjectAsserts;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -13,6 +12,7 @@ import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nonnull;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -151,8 +151,46 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         MathObjectAsserts.assertNDArrayEquals(hICG, hExpected);
     }
 
+    private boolean assertIntactReferences(@Nonnull final ImmutableComputableGraph original,
+                                           @Nonnull final ImmutableComputableGraph other,
+                                           @Nonnull final Set<String> unaffectedNodeKeys) {
+        final Set<String> affectedNodeKeys = unaffectedNodeKeys.stream()
+                .filter(nodeKey -> original.getCacheNode(nodeKey) != other.getCacheNode(nodeKey))
+                .collect(Collectors.toSet());
+        if (!affectedNodeKeys.isEmpty()) {
+            throw new AssertionError("Some of the node references have changed but they were supposed to remain" +
+                    " intact: " + affectedNodeKeys.stream().collect(Collectors.joining(", ")));
+        }
+        return true;
+    }
+
+    private boolean assertChangedReferences(@Nonnull final ImmutableComputableGraph original,
+                                            @Nonnull final ImmutableComputableGraph other,
+                                            @Nonnull final Set<String> affectedNodeKeys) {
+        final Set<String> unaffectedNodeKeys = affectedNodeKeys.stream()
+                .filter(nodeKey -> original.getCacheNode(nodeKey) == other.getCacheNode(nodeKey))
+                .collect(Collectors.toSet());
+        if (!unaffectedNodeKeys.isEmpty()) {
+            throw new AssertionError("Some of the node references have not changed but they were supposed to change: " +
+                    unaffectedNodeKeys.stream().collect(Collectors.joining(", ")));
+        }
+        return true;
+    }
+
+    private boolean assertIntactReferences(@Nonnull final ImmutableComputableGraph original,
+                                           @Nonnull final ImmutableComputableGraph other,
+                                           @Nonnull final String... unaffectedNodeKeys) {
+        return assertIntactReferences(original, other, Arrays.stream(unaffectedNodeKeys).collect(Collectors.toSet()));
+    }
+
+    private boolean assertChangedReferences(@Nonnull final ImmutableComputableGraph original,
+                                            @Nonnull final ImmutableComputableGraph other,
+                                            @Nonnull final String... affectedNodeKeys) {
+        return assertChangedReferences(original, other, Arrays.stream(affectedNodeKeys).collect(Collectors.toSet()));
+    }
+
     /**
-     * Tests a fully automated auto-updating ICG
+     * Tests a fully automated auto-updating {@link ImmutableComputableGraph}
      */
     @Test
     public void testAutoUpdateCache() {
@@ -164,7 +202,7 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             final INDArray z = getRandomINDArray();
 
             final Counter startCounts = getCounterInstance();
-            final ImmutableComputableGraph initializedICG = icg
+            ImmutableComputableGraph initializedICG = icg
                     .setValue("x", new DuplicableNDArray(x))
                     .setValue("y", new DuplicableNumber<>(y))
                     .setValue("z", new DuplicableNDArray(z));
@@ -224,7 +262,9 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("f"));
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("g"));
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+            assertIntactReferences(icg_0, icg_tmp, "y", "z", "g");
 
+            ImmutableComputableGraph icg_tmp_old = icg_tmp;
             icg_tmp = icg_tmp.setValue("y", new DuplicableNumber<>(getRandomDouble()));
             Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("x"));
             Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("y"));
@@ -232,7 +272,9 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("f"));
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("g"));
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+            assertIntactReferences(icg_tmp_old, icg_tmp, "x", "z");
 
+            icg_tmp_old = icg_tmp;
             icg_tmp = icg_tmp.setValue("z", new DuplicableNDArray(getRandomINDArray()));
             Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("x"));
             Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("y"));
@@ -240,7 +282,9 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("f"));
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("g"));
             Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+            assertIntactReferences(icg_tmp_old, icg_tmp, "x", "y", "f");
 
+            icg_tmp_old = icg_tmp;
             try {
                 icg_tmp = icg_tmp.updateAllCaches();
             } catch (final Exception ex) {
@@ -250,42 +294,52 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                     icg_tmp = icg_tmp.updateAllCachesIfPossible(); /* this will not throw exception by design */
                 }
             }
+            assertIntactReferences(icg_tmp_old, icg_tmp, "x", "y", "z");
 
-            Assert.assertTrue(!f_caching ||
-                    (f_external && !icg_tmp.isValueDirectlyAvailable("f")) ||
-                    (!f_external && icg_tmp.isValueDirectlyAvailable("f")));
+            Assert.assertTrue((!f_caching && assertIntactReferences(icg_tmp_old, icg_tmp, "f")) ||
+                    (f_external && !icg_tmp.isValueDirectlyAvailable("f") && assertIntactReferences(icg_tmp_old, icg_tmp, "f")) ||
+                    (!f_external && icg_tmp.isValueDirectlyAvailable("f") && assertChangedReferences(icg_tmp_old, icg_tmp, "f")));
 
-            Assert.assertTrue(!g_caching ||
-                    (g_external && !icg_tmp.isValueDirectlyAvailable("g")) ||
-                    (!g_external && icg_tmp.isValueDirectlyAvailable("g")));
+            Assert.assertTrue((!g_caching && assertIntactReferences(icg_tmp_old, icg_tmp, "g")) ||
+                    (g_external && !icg_tmp.isValueDirectlyAvailable("g") && assertIntactReferences(icg_tmp_old, icg_tmp, "g")) ||
+                    (!g_external && icg_tmp.isValueDirectlyAvailable("g") && assertChangedReferences(icg_tmp_old, icg_tmp, "g")));
 
             if (!f_external && !g_external) {
-                Assert.assertTrue(!h_caching ||
-                        (h_external && !icg_tmp.isValueDirectlyAvailable("h")) ||
-                        (!h_external && icg_tmp.isValueDirectlyAvailable("h")));
+                Assert.assertTrue((!h_caching && assertIntactReferences(icg_tmp_old, icg_tmp, "h")) ||
+                        (h_external && !icg_tmp.isValueDirectlyAvailable("h") && assertIntactReferences(icg_tmp_old, icg_tmp, "h")) ||
+                        (!h_external && icg_tmp.isValueDirectlyAvailable("h") && assertChangedReferences(icg_tmp_old, icg_tmp, "h")));
             } else {
-                Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h"));
+                Assert.assertTrue(!icg_tmp.isValueDirectlyAvailable("h") && assertIntactReferences(icg_tmp_old, icg_tmp, "h"));
             }
 
             /* fill in the external values */
             if (f_external) {
+                icg_tmp_old = icg_tmp;
                 icg_tmp = icg_tmp.setValue("f", f_computation_function.apply(
                         ImmutableMap.of("x", icg_tmp.getValueDirect("x"), "y", icg_tmp.getValueDirect("y"))));
                 Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("f"));
+                assertIntactReferences(icg_tmp_old, icg_tmp, "x", "y", "z", "g");
+                assertChangedReferences(icg_tmp_old, icg_tmp, "f", "h");
             }
 
             if (g_external) {
+                icg_tmp_old = icg_tmp;
                 icg_tmp = icg_tmp.setValue("g", g_computation_function.apply(
                         ImmutableMap.of("y", icg_tmp.getValueDirect("y"), "z", icg_tmp.getValueDirect("z"))));
                 Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("g"));
+                assertIntactReferences(icg_tmp_old, icg_tmp, "x", "y", "z", "f");
+                assertChangedReferences(icg_tmp_old, icg_tmp, "g", "h");
             }
 
             if (h_external) {
+                icg_tmp_old = icg_tmp;
                 icg_tmp = icg_tmp.setValue("h", h_computation_function.apply(ImmutableMap.of(
                         "f", icg_tmp.getValueWithRequiredEvaluations("f"),
                         "g", icg_tmp.getValueWithRequiredEvaluations("g"),
                         "x", icg_tmp.getValueDirect("x"))));
                 Assert.assertTrue(icg_tmp.isValueDirectlyAvailable("h"));
+                assertIntactReferences(icg_tmp_old, icg_tmp, "x", "y", "z", "f", "g");
+                assertChangedReferences(icg_tmp_old, icg_tmp, "h");
             }
 
             /* since all externally computed nodes are initialized, a call to updateAllCaches() must succeed */
@@ -429,6 +483,9 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         return ImmutableMap.of("f", fExpected, "g", gExpected, "h", hExpected);
     }
 
+    /**
+     * Tests {@link ImmutableComputableGraph#updateCachesForTag(String)}}
+     */
     @Test(dataProvider = "allPossibleNodeFlags")
     public void testUpdateCachesByTag(final boolean f_caching, final boolean f_external,
                                       final boolean g_caching, final boolean g_external,
@@ -486,6 +543,9 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                 if (!h_external && !f_external && !g_external && h_caching && all_h_tags.contains(tag)) {
                     updatedNodesExpected.add("h");
                 }
+                assertChangedReferences(icg_0, icg_1, updatedNodesExpected);
+                assertIntactReferences(icg_0, icg_1, Sets.difference(ALL_NODES, updatedNodesExpected));
+
                 for (final String nodeKey : updatedNodesExpected) {
                     Assert.assertTrue(icg_1.isValueDirectlyAvailable(nodeKey));
                     MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(icg_1.getValueDirect(nodeKey)),
@@ -517,23 +577,247 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         }
     }
 
-    
-    @Test(enabled = false)
-    public void testUpdateCacheByNode() {
-        throw new AssertionFailedError("Test is not implemented yet");
+    /**
+     * Tests {@link ImmutableComputableGraph#updateCachesForNode(String)}}
+     */
+    @Test(dataProvider = "allPossibleNodeFlags")
+    public void testUpdateCacheByNode(final boolean f_caching, final boolean f_external,
+                                      final boolean g_caching, final boolean g_external,
+                                      final boolean h_caching, final boolean h_external) {
+        for (int i = 0; i < NUM_TRIALS; i++) {
+            final ImmutableComputableGraph icg_empty = getTestICGBuilder(
+                    f_caching, f_external, g_caching, g_external, h_caching, h_external).build();
+
+            final INDArray x = getRandomINDArray();
+            final double y = getRandomDouble();
+            final INDArray z = getRandomINDArray();
+            final ImmutableComputableGraph icg_0 = icg_empty
+                    .setValue("x", new DuplicableNDArray(x))
+                    .setValue("y", new DuplicableNumber<>(y))
+                    .setValue("z", new DuplicableNDArray(z));
+            final Map<String, INDArray> expectedComputableNodeValues = getExpectedComputableNodeValues(
+                    icg_0.getValueDirect("x"), icg_0.getValueDirect("y"), icg_0.getValueDirect("z"));
+
+            for (final String nodeKey : ALL_PRIMITIVE_NODES) {
+                Counter startCounter = getCounterInstance();
+                ImmutableComputableGraph icg_1 = icg_0.updateCachesForNode(nodeKey);
+                final Counter evalCounts = getCounterInstance().diff(startCounter);
+                assertIntactReferences(icg_0, icg_1, ALL_NODES);
+                evalCounts.assertZero();
+            }
+
+            for (final String nodeKey : ALL_COMPUTABLE_NODES) {
+                ImmutableComputableGraph icg_1;
+                Counter startCounter;
+                try {
+                    startCounter = getCounterInstance();
+                    icg_1 = icg_0.updateCachesForNode(nodeKey);
+                } catch (final Exception ex) { /* should fail only if some of the tagged nodes are external */
+                    if (!f_external && !g_external && !h_external) {
+                        throw new AssertionError("Could not update tagged nodes but it should have been possible");
+                    }
+                    startCounter = getCounterInstance();
+                    icg_1 = icg_0.updateCachesForNodeIfPossible(nodeKey);
+                }
+                final Counter evalCounts = getCounterInstance().diff(startCounter);
+
+                final boolean isExternal = icg_1.getCacheNode(nodeKey).isExternallyComputed();
+                final boolean isCaching = ((ComputableCacheNode)icg_1.getCacheNode(nodeKey)).isCaching();
+
+                switch (nodeKey) {
+                    case "f":
+                        assertIntactReferences(icg_0, icg_1, "x", "y", "z", "g");
+                        if (isExternal) {
+                            assertIntactReferences(icg_0, icg_1, ALL_NODES);
+                            evalCounts.assertZero();
+                        } else {
+                            Assert.assertEquals(evalCounts.getCount("f"), 1);
+                            Assert.assertEquals(evalCounts.getCount("g"), 0);
+                            Assert.assertEquals(evalCounts.getCount("h"), 0);
+                            if (isCaching) {
+                                Assert.assertTrue(icg_1.isValueDirectlyAvailable("f"));
+                                MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(icg_1.getValueDirect("f")),
+                                        expectedComputableNodeValues.get("f"));
+                            } else {
+                                final Counter before = getCounterInstance();
+                                Assert.assertTrue(!icg_1.isValueDirectlyAvailable("f"));
+                                MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(icg_1.getValueWithRequiredEvaluations("f")),
+                                        expectedComputableNodeValues.get("f"));
+                                final Counter diff = getCounterInstance().diff(before);
+                                Assert.assertEquals(diff.getCount("f"), 1);
+                                Assert.assertEquals(diff.getCount("g"), 0);
+                                Assert.assertEquals(diff.getCount("h"), 0);
+                            }
+                        }
+                        break;
+
+                    case "g":
+                        assertIntactReferences(icg_0, icg_1, "x", "y", "z", "f");
+                        if (isExternal) {
+                            assertIntactReferences(icg_0, icg_1, ALL_NODES);
+                            evalCounts.assertZero();
+                        } else {
+                            Assert.assertEquals(evalCounts.getCount("f"), 0);
+                            Assert.assertEquals(evalCounts.getCount("g"), 1);
+                            Assert.assertEquals(evalCounts.getCount("h"), 0);
+                            if (isCaching) {
+                                Assert.assertTrue(icg_1.isValueDirectlyAvailable("g"));
+                                MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(icg_1.getValueDirect("g")),
+                                        expectedComputableNodeValues.get("g"));
+                            } else {
+                                Assert.assertTrue(!icg_1.isValueDirectlyAvailable("g"));
+                                final Counter before = getCounterInstance();
+                                MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(icg_1.getValueWithRequiredEvaluations("g")),
+                                        expectedComputableNodeValues.get("g"));
+                                final Counter diff = getCounterInstance().diff(before);
+                                Assert.assertEquals(diff.getCount("f"), 0);
+                                Assert.assertEquals(diff.getCount("g"), 1);
+                                Assert.assertEquals(diff.getCount("h"), 0);
+                            }
+                        }
+                        break;
+
+                    case "h": /* we just check important cases here */
+                        assertIntactReferences(icg_0, icg_1, "x", "y", "z");
+                        if (h_external && f_external && g_external) {
+                            assertIntactReferences(icg_0, icg_1, ALL_NODES);
+                            evalCounts.assertZero();
+                        } else if (!h_external && !f_external && !g_external) {
+                            Assert.assertEquals(evalCounts.getCount("f"), 1);
+                            Assert.assertEquals(evalCounts.getCount("g"), 1);
+                            Assert.assertEquals(evalCounts.getCount("h"), 1);
+                            if (h_caching) {
+                                Assert.assertTrue(icg_1.isValueDirectlyAvailable("h"));
+                                MathObjectAsserts.assertNDArrayEquals(
+                                        DuplicableNDArray.strip(icg_1.getValueDirect("h")),
+                                        expectedComputableNodeValues.get("h"));
+                            } else {
+                                Assert.assertTrue(!icg_1.isValueDirectlyAvailable("h"));
+                                final Counter before = getCounterInstance();
+                                MathObjectAsserts.assertNDArrayEquals(
+                                        DuplicableNDArray.strip(icg_1.getValueWithRequiredEvaluations("h")),
+                                        expectedComputableNodeValues.get("h"));
+                                final Counter diff = getCounterInstance().diff(before);
+                                Assert.assertEquals(diff.getCount("f"), f_caching ? 0 : 1);
+                                Assert.assertEquals(diff.getCount("g"), g_caching ? 0 : 1);
+                                Assert.assertEquals(diff.getCount("h"), 1);
+                            }
+                        }
+                        break;
+                }
+            }
+        }
     }
 
-    @Test(enabled = false)
-    public void testUnchangedNodesSameReferenceAfterUpdate() {
-        throw new AssertionFailedError("Test is not implemented yet");
-    }
-
-    @Test(enabled = false)
+    @Test
     public void testUninitializedPrimitiveNode() {
+        final ImmutableComputableGraph icg = getTestICGBuilder(true, false, true, false, true, false).build()
+                .setValue("x", new DuplicableNDArray(getRandomINDArray()))
+                .setValue("y", new DuplicableNumber<>(getRandomDouble()));
+        boolean failed = false;
+        try {
+            icg.updateAllCaches();
+        } catch (final PrimitiveCacheNode.PrimitiveValueNotInitializedException ex) {
+            failed = true;
+        }
+        if (!failed) {
+            throw new AssertionError("Expected PrimitiveValueNotInitializedException but it was not thrown");
+        }
+
+        icg.updateCachesForNode("f"); /* should not fail */
+
+        failed = false;
+        try {
+            icg.updateCachesForNode("g");
+        } catch (final PrimitiveCacheNode.PrimitiveValueNotInitializedException ex) {
+            failed = true;
+        }
+        if (!failed) {
+            throw new AssertionError("Expected PrimitiveValueNotInitializedException but it was not thrown");
+        }
+
+        failed = false;
+        try {
+            icg.updateCachesForNode("h");
+        } catch (final PrimitiveCacheNode.PrimitiveValueNotInitializedException ex) {
+            failed = true;
+        }
+        if (!failed) {
+            throw new AssertionError("Expected PrimitiveValueNotInitializedException but it was not thrown");
+        }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testUninitializedExternallyComputedNode() {
+        final ImmutableComputableGraph icg = getTestICGBuilder(true, true, true, false, true, false).build()
+                .setValue("x", new DuplicableNDArray(getRandomINDArray()))
+                .setValue("y", new DuplicableNumber<>(getRandomDouble()))
+                .setValue("z", new DuplicableNDArray(getRandomINDArray()));
+        boolean failed = false;
+        try {
+            icg.updateAllCaches();
+        } catch (final ComputableCacheNode.ExternallyComputableNodeValueUnavailableException ex) {
+            failed = true;
+        }
+        if (!failed) {
+            throw new AssertionError("Expected ExternallyComputableNodeValueUnavailableException but it was not thrown");
+        }
+
+        icg.updateCachesForNode("g"); /* should not fail */
+
+        failed = false;
+        try {
+            icg.updateCachesForNode("f");
+        } catch (final ComputableCacheNode.ExternallyComputableNodeValueUnavailableException ex) {
+            failed = true;
+        }
+        if (!failed) {
+            throw new AssertionError("Expected ExternallyComputableNodeValueUnavailableException but it was not thrown");
+        }
+
+        failed = false;
+        try {
+            icg.updateCachesForNode("h");
+        } catch (final ComputableCacheNode.ExternallyComputableNodeValueUnavailableException ex) {
+            failed = true;
+        }
+        if (!failed) {
+            throw new AssertionError("Expected ExternallyComputableNodeValueUnavailableException but it was not thrown");
+        }
+
+        /* supply f */
+        ImmutableComputableGraph icg_1 = icg.setValue("f", f_computation_function.apply(
+                ImmutableMap.of("x", icg.getValueDirect("x"), "y", icg.getValueDirect("y"))));
+        Assert.assertTrue(icg_1.isValueDirectlyAvailable("f"));
+
+        /* cache g */
+        Assert.assertTrue(!icg_1.isValueDirectlyAvailable("g"));
+        Counter before = getCounterInstance();
+        icg_1 = icg_1.updateCachesForNode("g");
+        Assert.assertTrue(icg_1.isValueDirectlyAvailable("g"));
+        Counter diff = getCounterInstance().diff(before);
+        Assert.assertEquals(diff.getCount("f"), 0);
+        Assert.assertEquals(diff.getCount("g"), 1);
+        Assert.assertEquals(diff.getCount("h"), 0);
+
+        /* cache h -- now, it is computable */
+        Assert.assertTrue(!icg_1.isValueDirectlyAvailable("h"));
+        before = getCounterInstance();
+        icg_1 = icg_1.updateCachesForNode("h");
+        Assert.assertTrue(icg_1.isValueDirectlyAvailable("h"));
+        diff = getCounterInstance().diff(before);
+        Assert.assertEquals(diff.getCount("f"), 0);
+        Assert.assertEquals(diff.getCount("g"), 0);
+        Assert.assertEquals(diff.getCount("h"), 1);
+
+        /* updating all caches must have no effect */
+        before = getCounterInstance();
+        ImmutableComputableGraph icg_2 = icg_1.updateAllCaches();
+        getCounterInstance().diff(before).assertZero();
+        Assert.assertTrue(icg_2.isValueDirectlyAvailable("f"));
+        Assert.assertTrue(icg_2.isValueDirectlyAvailable("g"));
+        Assert.assertTrue(icg_2.isValueDirectlyAvailable("h"));
+        assertIntactReferences(icg_1, icg_2, ALL_NODES);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -627,6 +911,10 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             final Map<String, Integer> diffMap = new HashMap<>(getKeys().size());
             getKeys().forEach(key -> diffMap.put(key, getCount(key) - oldCounter.getCount(key)));
             return new Counter(diffMap);
+        }
+
+        public void assertZero() {
+            Assert.assertTrue(counts.values().stream().allMatch(val -> val == 0));
         }
     }
 

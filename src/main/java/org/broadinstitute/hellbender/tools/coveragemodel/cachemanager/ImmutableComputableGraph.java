@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.coveragemodel.cachemanager;
 
-import avro.shaded.com.google.common.collect.ImmutableMap;
 import com.google.common.annotations.VisibleForTesting;
 import org.broadinstitute.hellbender.tools.coveragemodel.cachemanager.ImmutableComputableGraphUtils.ImmutableComputableGraphBuilder;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -182,19 +181,6 @@ public final class ImmutableComputableGraph implements Serializable {
             }
         }
         return out;
-    }
-
-    /**
-     * Nullifies the cached value of a node (both computable and primitive)
-     *
-     * @param nodeKey key of the node to be nullified
-     * @return a new instance of {@link ImmutableComputableGraph}
-     * @throws IllegalArgumentException if the node does not exist
-     */
-    public ImmutableComputableGraph nullifyNode(@Nonnull final String nodeKey)
-            throws IllegalArgumentException {
-        CacheNode oldNode = nodesMap.get(assertNodeExists(nodeKey));
-        return duplicateWithUpdatedNodes(ImmutableMap.of(nodeKey, oldNode.duplicateWithUpdatedValue(null)));
     }
 
     /**
@@ -424,6 +410,11 @@ public final class ImmutableComputableGraph implements Serializable {
     @VisibleForTesting
     ComputableGraphStructure getComputableGraphStructure() {
         return cgs;
+    }
+
+    @VisibleForTesting
+    CacheNode getCacheNode(@Nonnull final String nodeKey) {
+        return nodesMap.get(assertNodeExists(nodeKey));
     }
 
     @Override

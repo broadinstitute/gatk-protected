@@ -1174,13 +1174,8 @@ public final class CoverageModelEMComputeBlock {
      */
     public CoverageModelEMComputeBlock cloneWithUpdatedPrimitive(@Nonnull final CoverageModelICGCacheNode key,
                                                                  @Nullable final INDArray value) {
-        if (value == null) {
-            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
-                    icg.nullifyNode(key.name()), latestMStepSignal);
-        } else {
-            return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
-                    icg.setValue(key.name(), new DuplicableNDArray(value)), latestMStepSignal);
-        }
+        return new CoverageModelEMComputeBlock(targetBlock, numSamples, numLatents, ardEnabled,
+                icg.setValue(key.name(), new DuplicableNDArray(value)), latestMStepSignal);
     }
 
     /**
