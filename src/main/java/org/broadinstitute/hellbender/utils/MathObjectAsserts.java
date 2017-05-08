@@ -24,7 +24,7 @@ public class MathObjectAsserts {
         Assert.assertNotNull(actual);
         ArrayAsserts.assertArrayEquals(actual.shape(), expected.shape());
         final double[] actualAsArray = actual.reshape(1, actual.length()).dup().data().asDouble();
-        final double[] expectedAsArray = actual.reshape(1, actual.length()).dup().data().asDouble();
+        final double[] expectedAsArray = expected.reshape(1, actual.length()).dup().data().asDouble();
         Assert.assertEquals(actualAsArray.length, expected.length());
         for (int i = 0; i < actualAsArray.length; i++) {
             assertDoubleEquals(actualAsArray[i], expectedAsArray[i], relativeTolerance, absoluteTolerance);
