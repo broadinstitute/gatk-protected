@@ -51,9 +51,11 @@ public final class ComputableGraphStructure implements Serializable {
      */
     ComputableGraphStructure(@Nonnull final Set<CacheNode> nodeSet) {
         /* create the set of keys */
+        Utils.nonNull(nodeSet, "The given set of nodes must be non-null");
         nodeKeysSet = nodeSet.stream().map(CacheNode::getKey).collect(Collectors.toSet());
+        nodeTagsSet = nodeSet.stream().map(CacheNode::getTags).flatMap(Collection::stream).collect(Collectors.toSet());
 
-        /* assert that all parents exist */
+        /* assert that all parent keys exist */
         for (final CacheNode node : nodeSet) {
             Utils.validateArg(nodeKeysSet.containsAll(node.getParents()), () -> {
                 final Set<String> undefinedParents = Sets.difference(new HashSet<>(node.getParents()), nodeKeysSet);
@@ -62,46 +64,88 @@ public final class ComputableGraphStructure implements Serializable {
             });
         }
 
-        /* create maps for descendents, parents, and tags */
+        /* initialize the containers */
         immediateDescendentsMap = new HashMap<>();
         immediateParentsMap = new HashMap<>();
-        final Map<String, Set<String>> initialTagsMap = new HashMap<>();
-        nodeKeysSet.forEach(key -> {
-            immediateDescendentsMap.put(key, new HashSet<>());
-            immediateParentsMap.put(key, new HashSet<>());
-            initialTagsMap.put(key, new HashSet<>());
-        });
-
-        /* immediate parents, descendents and tags */
-        nodeSet.forEach(node -> {
-            final String nodeKey = node.getKey();
-            node.getParents().forEach(parent -> immediateDescendentsMap.get(parent).add(nodeKey));
-            immediateParentsMap.get(nodeKey).addAll(node.getParents());
-            initialTagsMap.get(nodeKey).addAll(node.getTags());
-        });
-
-        /* create maps for descendents, parents, and depthsMap */
         allDescendentsMap = new HashMap<>();
         allParentsMap = new HashMap<>();
         depthsMap = new HashMap<>();
         allTagsMap = new HashMap<>();
+        nodesByDepthMap = new HashMap<>();
+        nodesByTagMap = new HashMap<>();
+        topologicalOrderForCompleteEvaluation = new ArrayList<>();
+        topologicalOrderForTagEvaluation = new HashMap<>();
+        topologicalOrderForNodeEvaluation = new HashMap<>();
+        topologicalOrderForNodeMutation = new HashMap<>();
+
+        /* immediate parents, descendents and tags */
+        initializeImmediateDescendentsAndParents(nodeSet);
+
+        /* calculate the depth of each node; nodes with empty immediate parents have depth 0 (these include primitive nodes) */
+        initializeDepthMap();
+
+        initializeAllDescendantsAndParents();
+
+        /* build the full tags map; the parents inherit the tags of the descendents */
+        processTags(nodeSet);
+
+        /* topological order for evaluating a single node */
+        initializeTopologicalOrderForNodeEvaluation();
+
+        /* topological order for evaluating all nodes associated to a tag */
+        initializeTopologicalOrderForTagEvaluation();
+
+        /* topological order for evaluating all nodes */
+        initializeTopologicalOrderForCompleteEvaluation();
+
+        /* topological order for updating the descendents of a mutated node */
+        initializeTopologicalOrderForNodeMutation();
+    }
+
+    private void initializeDepthMap() {
+        nodeKeysSet.forEach(key -> depthsMap.put(key, UNDEFINED_DEPTH));
+        nodeKeysSet.forEach(nodeKey -> updateDepth(nodeKey, 0));
+        final int maxDepth = Collections.max(depthsMap.values());
+        IntStream.range(0, maxDepth + 1).forEach(depth ->
+                nodesByDepthMap.put(depth,
+                        nodeKeysSet.stream().filter(node -> depthsMap.get(node) == depth).collect(Collectors.toSet())));
+    }
+
+    private void initializeImmediateDescendentsAndParents(@Nonnull Set<CacheNode> nodeSet) {
+        nodeKeysSet.forEach(key -> {
+            immediateDescendentsMap.put(key, new HashSet<>());
+            immediateParentsMap.put(key, new HashSet<>());
+        });
+        nodeSet.forEach(node -> {
+            final String nodeKey = node.getKey();
+            node.getParents().forEach(parent -> immediateDescendentsMap.get(parent).add(nodeKey));
+            immediateParentsMap.get(nodeKey).addAll(node.getParents());
+        });
+    }
+
+    private void processTags(@Nonnull Set<CacheNode> nodeSet) {
+        final Map<String, Set<String>> initialTagsMap = nodeSet.stream()
+                .collect(Collectors.toMap(CacheNode::getKey, node -> new HashSet<>(node.getTags())));
+        nodeKeysSet.forEach(key -> allTagsMap.put(key, new HashSet<>()));
+        nodeKeysSet.forEach(node -> allTagsMap.get(node).addAll(initialTagsMap.get(node)));
+        final int maxDepth = Collections.max(depthsMap.values());
+        for (int depth = maxDepth - 1; depth >= 0; depth--) {
+            nodesByDepthMap.get(depth)
+                    .forEach(node -> immediateDescendentsMap.get(node)
+                            .forEach(desc -> allTagsMap.get(node).addAll(allTagsMap.get(desc))));
+        }
+        nodeTagsSet.forEach(tag -> nodesByTagMap.put(tag, new HashSet<>()));
+        nodeKeysSet.forEach(node ->
+                allTagsMap.get(node).forEach(tag ->
+                        nodesByTagMap.get(tag).add(node)));
+    }
+
+    private void initializeAllDescendantsAndParents() {
         nodeKeysSet.forEach(key -> {
             allDescendentsMap.put(key, new HashSet<>());
             allParentsMap.put(key, new HashSet<>());
-            allTagsMap.put(key, new HashSet<>());
-            depthsMap.put(key, UNDEFINED_DEPTH);
         });
-
-        /* calculate the depth of each node; nodes with empty immediate parents have depth 0 (these include primitive nodes) */
-        nodeKeysSet.forEach(nodeKey -> updateDepth(nodeKey, 0));
         final int maxDepth = Collections.max(depthsMap.values());
-
-        /* list of nodes by their depthsMap */
-        nodesByDepthMap = new HashMap<>();
-        IntStream.range(0, maxDepth + 1).forEach(depth -> nodesByDepthMap.put(depth,
-                nodeKeysSet.stream().filter(node -> depthsMap.get(node) == depth).collect(Collectors.toSet())));
-
-        /* all descendents of the deepest nodes (empty set) */
         nodesByDepthMap.get(maxDepth).forEach(node -> allDescendentsMap.put(node, new HashSet<>()));
         /* get all descendents by descending the tree */
         for (int depth = maxDepth - 1; depth >= 0; depth -= 1) {
@@ -114,8 +158,6 @@ public final class ComputableGraphStructure implements Serializable {
                 allDescendentsMap.put(node, nodeAllDescendents);
             }
         }
-
-        /* all parents of the primitive nodes (empty set) */
         nodesByDepthMap.get(0).forEach(node -> allParentsMap.put(node, new HashSet<>()));
         for (int depth = 1; depth <= maxDepth; depth += 1) {
             for (final String node : nodesByDepthMap.get(depth)) {
@@ -127,26 +169,9 @@ public final class ComputableGraphStructure implements Serializable {
                 allParentsMap.put(node, nodeAllParents);
             }
         }
+    }
 
-        /* build the full tags map; the parents inherit the tags of the descendents */
-        nodeKeysSet.forEach(node -> allTagsMap.get(node).addAll(initialTagsMap.get(node)));
-        for (int depth = maxDepth - 1; depth >= 0; depth--) {
-            nodesByDepthMap.get(depth)
-                    .forEach(node -> immediateDescendentsMap.get(node)
-                            .forEach(desc -> allTagsMap.get(node).addAll(allTagsMap.get(desc))));
-        }
-
-        /* build a nodes-by-tag map and nodeTagsSet */
-        nodeTagsSet = initialTagsMap.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
-        nodesByTagMap = new HashMap<>();
-        nodeTagsSet.forEach(tag ->
-                nodesByTagMap.put(tag, new HashSet<>()));
-        nodeKeysSet.forEach(node ->
-                allTagsMap.get(node).forEach(tag ->
-                        nodesByTagMap.get(tag).add(node)));
-
-        /* topological order for evaluating a single node */
-        topologicalOrderForNodeEvaluation = new HashMap<>();
+    private void initializeTopologicalOrderForNodeEvaluation() {
         for (final String node : nodeKeysSet) {
             final List<String> allParentsIncludingTheNode = new ArrayList<>();
             allParentsIncludingTheNode.addAll(allParentsMap.get(node));
@@ -155,9 +180,9 @@ public final class ComputableGraphStructure implements Serializable {
             allParentsIncludingTheNode.sort(Comparator.comparingInt(depthsMap::get));
             topologicalOrderForNodeEvaluation.put(node, allParentsIncludingTheNode);
         }
+    }
 
-        /* topological order for evaluating all nodes associated to a tag */
-        topologicalOrderForTagEvaluation = new HashMap<>();
+    private void initializeTopologicalOrderForTagEvaluation() {
         for (final String tag : nodeTagsSet) {
             final Set<String> allParentsIncludingTheNodesSet = new HashSet<>();
             for (final String node : nodesByTagMap.get(tag)) {
@@ -170,14 +195,14 @@ public final class ComputableGraphStructure implements Serializable {
             allParentsIncludingTheNodesList.sort(Comparator.comparingInt(depthsMap::get));
             topologicalOrderForTagEvaluation.put(tag, allParentsIncludingTheNodesList);
         }
+    }
 
-        /* topological order for evaluating all nodes */
-        topologicalOrderForCompleteEvaluation = new ArrayList<>();
+    private void initializeTopologicalOrderForCompleteEvaluation() {
         topologicalOrderForCompleteEvaluation.addAll(nodeKeysSet);
         topologicalOrderForCompleteEvaluation.sort(Comparator.comparingInt(depthsMap::get));
+    }
 
-        /* topological order for updating the descendents of a mutated node */
-        topologicalOrderForNodeMutation = new HashMap<>();
+    private void initializeTopologicalOrderForNodeMutation() {
         for (final String mutNode : nodeKeysSet) {
             final Set<String> allInvolvedSet = new HashSet<>();
             allInvolvedSet.add(mutNode);
@@ -200,7 +225,7 @@ public final class ComputableGraphStructure implements Serializable {
      */
     private void updateDepth(final String nodeKey, final int recursion) {
         if (recursion > nodeKeysSet.size()) {
-            throw new CyclicGraphException("The graph has cycles");
+            throw new CyclicGraphException("The graph is not acyclic");
         }
         if (immediateParentsMap.get(nodeKey).isEmpty()) {
             depthsMap.put(nodeKey, 0);
