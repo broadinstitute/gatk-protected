@@ -30,8 +30,8 @@ public final class ComputableGraphStructure implements Serializable {
     private final Map<String, Set<String>> immediateParentsMap;
     private final Map<String, Set<String>> allDescendentsMap;
     private final Map<String, Set<String>> allParentsMap;
-    private final Map<String, Integer> depthsMap;
-    private final Map<Integer, Set<String>> nodesByDepthMap;
+    private final Map<String, Integer> topologicalOrderMap;
+    private final Map<Integer, Set<String>> nodesByTopologicalOrderMap;
     private final Map<String, Set<String>> nodesByTagMap;
     private final Map<String, List<String>> topologicalOrderForNodeEvaluation;
     private final Map<String, List<String>> topologicalOrderForNodeMutation;
@@ -41,7 +41,7 @@ public final class ComputableGraphStructure implements Serializable {
     /**
      * An arbitrary negative number to denote the to-be-determined depth of a node
      */
-    private static final int UNDEFINED_DEPTH = -1;
+    private static final int UNDEFINED_ORDER = -1;
 
     /**
      * Package-private constructor from a set of {@link CacheNode}s. The graph is specified by the immediate
@@ -69,9 +69,8 @@ public final class ComputableGraphStructure implements Serializable {
         immediateParentsMap = new HashMap<>();
         allDescendentsMap = new HashMap<>();
         allParentsMap = new HashMap<>();
-        depthsMap = new HashMap<>();
+        topologicalOrderMap = new HashMap<>();
         allTagsMap = new HashMap<>();
-        nodesByDepthMap = new HashMap<>();
         nodesByTagMap = new HashMap<>();
         topologicalOrderForCompleteEvaluation = new ArrayList<>();
         topologicalOrderForTagEvaluation = new HashMap<>();
@@ -82,7 +81,8 @@ public final class ComputableGraphStructure implements Serializable {
         initializeImmediateDescendentsAndParents(nodeSet);
 
         /* calculate the depth of each node; nodes with empty immediate parents have depth 0 (these include primitive nodes) */
-        initializeDepthMap();
+        initializeTopologicalOrder();
+        nodesByTopologicalOrderMap = getNodesByTopologicalOrderMap(topologicalOrderMap, nodeKeysSet);
 
         initializeAllDescendantsAndParents();
 
@@ -102,13 +102,20 @@ public final class ComputableGraphStructure implements Serializable {
         initializeTopologicalOrderForNodeMutation();
     }
 
-    private void initializeDepthMap() {
-        nodeKeysSet.forEach(key -> depthsMap.put(key, UNDEFINED_DEPTH));
+    private void initializeTopologicalOrder() {
+        nodeKeysSet.forEach(key -> topologicalOrderMap.put(key, UNDEFINED_ORDER));
         nodeKeysSet.forEach(nodeKey -> updateDepth(nodeKey, 0));
-        final int maxDepth = Collections.max(depthsMap.values());
+    }
+
+    private static Map<Integer, Set<String>> getNodesByTopologicalOrderMap(Map<String, Integer> topologicalOrderMap,
+                                                                          Set<String> nodeKeysSet) {
+        final int maxDepth = Collections.max(topologicalOrderMap.values());
+        final Map<Integer, Set<String>> nodesByTopologicalOrderMap = new HashMap<>();
         IntStream.range(0, maxDepth + 1).forEach(depth ->
-                nodesByDepthMap.put(depth,
-                        nodeKeysSet.stream().filter(node -> depthsMap.get(node) == depth).collect(Collectors.toSet())));
+                nodesByTopologicalOrderMap.put(depth,
+                        nodeKeysSet.stream().filter(node ->
+                                topologicalOrderMap.get(node) == depth).collect(Collectors.toSet())));
+        return nodesByTopologicalOrderMap;
     }
 
     private void initializeImmediateDescendentsAndParents(@Nonnull Set<CacheNode> nodeSet) {
@@ -128,9 +135,9 @@ public final class ComputableGraphStructure implements Serializable {
                 .collect(Collectors.toMap(CacheNode::getKey, node -> new HashSet<>(node.getTags())));
         nodeKeysSet.forEach(key -> allTagsMap.put(key, new HashSet<>()));
         nodeKeysSet.forEach(node -> allTagsMap.get(node).addAll(initialTagsMap.get(node)));
-        final int maxDepth = Collections.max(depthsMap.values());
+        final int maxDepth = Collections.max(topologicalOrderMap.values());
         for (int depth = maxDepth - 1; depth >= 0; depth--) {
-            nodesByDepthMap.get(depth)
+            nodesByTopologicalOrderMap.get(depth)
                     .forEach(node -> immediateDescendentsMap.get(node)
                             .forEach(desc -> allTagsMap.get(node).addAll(allTagsMap.get(desc))));
         }
@@ -145,11 +152,11 @@ public final class ComputableGraphStructure implements Serializable {
             allDescendentsMap.put(key, new HashSet<>());
             allParentsMap.put(key, new HashSet<>());
         });
-        final int maxDepth = Collections.max(depthsMap.values());
-        nodesByDepthMap.get(maxDepth).forEach(node -> allDescendentsMap.put(node, new HashSet<>()));
+        final int maxDepth = Collections.max(topologicalOrderMap.values());
+        nodesByTopologicalOrderMap.get(maxDepth).forEach(node -> allDescendentsMap.put(node, new HashSet<>()));
         /* get all descendents by descending the tree */
         for (int depth = maxDepth - 1; depth >= 0; depth -= 1) {
-            for (final String node : nodesByDepthMap.get(depth)) {
+            for (final String node : nodesByTopologicalOrderMap.get(depth)) {
                 final Set<String> nodeAllDescendents = new HashSet<>();
                 nodeAllDescendents.addAll(immediateDescendentsMap.get(node));
                 for (final String child : immediateDescendentsMap.get(node)) {
@@ -158,9 +165,9 @@ public final class ComputableGraphStructure implements Serializable {
                 allDescendentsMap.put(node, nodeAllDescendents);
             }
         }
-        nodesByDepthMap.get(0).forEach(node -> allParentsMap.put(node, new HashSet<>()));
+        nodesByTopologicalOrderMap.get(0).forEach(node -> allParentsMap.put(node, new HashSet<>()));
         for (int depth = 1; depth <= maxDepth; depth += 1) {
-            for (final String node : nodesByDepthMap.get(depth)) {
+            for (final String node : nodesByTopologicalOrderMap.get(depth)) {
                 final Set<String> nodeAllParents = new HashSet<>();
                 nodeAllParents.addAll(immediateParentsMap.get(node));
                 for (final String parent : immediateParentsMap.get(node)) {
@@ -177,7 +184,7 @@ public final class ComputableGraphStructure implements Serializable {
             allParentsIncludingTheNode.addAll(allParentsMap.get(node));
             allParentsIncludingTheNode.add(node);
             /* sort by depth */
-            allParentsIncludingTheNode.sort(Comparator.comparingInt(depthsMap::get));
+            allParentsIncludingTheNode.sort(Comparator.comparingInt(topologicalOrderMap::get));
             topologicalOrderForNodeEvaluation.put(node, allParentsIncludingTheNode);
         }
     }
@@ -192,14 +199,14 @@ public final class ComputableGraphStructure implements Serializable {
             final List<String> allParentsIncludingTheNodesList = new ArrayList<>();
             allParentsIncludingTheNodesList.addAll(allParentsIncludingTheNodesSet);
             /* sort by depth */
-            allParentsIncludingTheNodesList.sort(Comparator.comparingInt(depthsMap::get));
+            allParentsIncludingTheNodesList.sort(Comparator.comparingInt(topologicalOrderMap::get));
             topologicalOrderForTagEvaluation.put(tag, allParentsIncludingTheNodesList);
         }
     }
 
     private void initializeTopologicalOrderForCompleteEvaluation() {
         topologicalOrderForCompleteEvaluation.addAll(nodeKeysSet);
-        topologicalOrderForCompleteEvaluation.sort(Comparator.comparingInt(depthsMap::get));
+        topologicalOrderForCompleteEvaluation.sort(Comparator.comparingInt(topologicalOrderMap::get));
     }
 
     private void initializeTopologicalOrderForNodeMutation() {
@@ -213,7 +220,7 @@ public final class ComputableGraphStructure implements Serializable {
             final List<String> allInvolvedList = new ArrayList<>();
             allInvolvedList.addAll(allInvolvedSet);
             /* sort by depth */
-            allInvolvedList.sort(Comparator.comparingInt(depthsMap::get));
+            allInvolvedList.sort(Comparator.comparingInt(topologicalOrderMap::get));
             topologicalOrderForNodeMutation.put(mutNode, allInvolvedList);
         }
     }
@@ -228,14 +235,14 @@ public final class ComputableGraphStructure implements Serializable {
             throw new CyclicGraphException("The graph is not acyclic");
         }
         if (immediateParentsMap.get(nodeKey).isEmpty()) {
-            depthsMap.put(nodeKey, 0);
-        } else if (depthsMap.get(nodeKey) == UNDEFINED_DEPTH) {
+            topologicalOrderMap.put(nodeKey, 0);
+        } else if (topologicalOrderMap.get(nodeKey) == UNDEFINED_ORDER) {
             immediateParentsMap.get(nodeKey).forEach(parentNodeKey -> updateDepth(parentNodeKey, recursion + 1));
             final int maxParentDepth = immediateParentsMap.get(nodeKey).stream()
-                    .map(depthsMap::get)
+                    .map(topologicalOrderMap::get)
                     .max(Integer::compareTo)
                     .get(); /* guaranteed to have a value */
-            depthsMap.put(nodeKey, maxParentDepth + 1);
+            topologicalOrderMap.put(nodeKey, maxParentDepth + 1);
         }
     }
 
@@ -272,7 +279,7 @@ public final class ComputableGraphStructure implements Serializable {
         String status = "";
         for (final String nodeKey : nodeKeysSet) {
             status += "node: " + nodeKey + "\n" +
-                    "\tdepth: " + depthsMap.get(nodeKey) + "\n" +
+                    "\tdepth: " + topologicalOrderMap.get(nodeKey) + "\n" +
                     "\timmediate parents: " +
                     immediateParentsMap.get(nodeKey).stream().collect(Collectors.joining(", ", "[", "]\n")) +
                     "\timmediate descendents: " +
@@ -295,7 +302,7 @@ public final class ComputableGraphStructure implements Serializable {
         for (final String tag : nodeTagsSet) {
             status += "topological order for evaluating tag: " + tag + ", nodes:" +
                     topologicalOrderForTagEvaluation.get(tag).stream().
-                            map(nodeKey -> nodeKey + "(" + depthsMap.get(nodeKey) + ")").
+                            map(nodeKey -> nodeKey + "(" + topologicalOrderMap.get(nodeKey) + ")").
                             collect(Collectors.joining(", ", "[", "]\n"));
         }
 
@@ -303,15 +310,15 @@ public final class ComputableGraphStructure implements Serializable {
         for (final String node : nodeKeysSet) {
             status += "topological order evaluating node: " + node + ", nodes: " +
                     topologicalOrderForNodeEvaluation.get(node).stream().
-                            map(nodeKey -> nodeKey + "(" + depthsMap.get(nodeKey) + ")").
+                            map(nodeKey -> nodeKey + "(" + topologicalOrderMap.get(nodeKey) + ")").
                             collect(Collectors.joining(", ", "[", "]\n"));
         }
 
         status += "\n";
-        for (final String node : nodesByDepthMap.get(0)) {
+        for (final String node : nodesByTopologicalOrderMap.get(0)) {
             status += "topological order for node mutation: " + node + ", nodes: " +
                     topologicalOrderForNodeMutation.get(node).stream().
-                            map(nodeKey -> nodeKey + "(" + depthsMap.get(nodeKey) + ")").
+                            map(nodeKey -> nodeKey + "(" + topologicalOrderMap.get(nodeKey) + ")").
                             collect(Collectors.joining(", ", "[", "]\n"));
         }
         return status;
