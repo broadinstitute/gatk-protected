@@ -590,12 +590,12 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         final Set<String> all_g_tags = Sets.union(g_tags, h_tags);
         final Set<String> all_h_tags = h_tags;
 
-        final Set<String> all_x_tags_actual = icg.getComputableGraphStructure().getAllTagsForNode("x");
-        final Set<String> all_y_tags_actual = icg.getComputableGraphStructure().getAllTagsForNode("y");
-        final Set<String> all_z_tags_actual = icg.getComputableGraphStructure().getAllTagsForNode("z");
-        final Set<String> all_f_tags_actual = icg.getComputableGraphStructure().getAllTagsForNode("f");
-        final Set<String> all_g_tags_actual = icg.getComputableGraphStructure().getAllTagsForNode("g");
-        final Set<String> all_h_tags_actual = icg.getComputableGraphStructure().getAllTagsForNode("h");
+        final Set<String> all_x_tags_actual = icg.getComputableGraphStructure().getInducedTagsForNode("x");
+        final Set<String> all_y_tags_actual = icg.getComputableGraphStructure().getInducedTagsForNode("y");
+        final Set<String> all_z_tags_actual = icg.getComputableGraphStructure().getInducedTagsForNode("z");
+        final Set<String> all_f_tags_actual = icg.getComputableGraphStructure().getInducedTagsForNode("f");
+        final Set<String> all_g_tags_actual = icg.getComputableGraphStructure().getInducedTagsForNode("g");
+        final Set<String> all_h_tags_actual = icg.getComputableGraphStructure().getInducedTagsForNode("h");
 
         Assert.assertTrue(all_x_tags.equals(all_x_tags_actual));
         Assert.assertTrue(all_y_tags.equals(all_y_tags_actual));
@@ -629,12 +629,12 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
                 getRandomSetOfTags().toArray(new String[0]), getRandomSetOfTags().toArray(new String[0]),
                 getRandomSetOfTags().toArray(new String[0]), getRandomSetOfTags().toArray(new String[0])).build();
 
-        final Set<String> all_x_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("x");
-        final Set<String> all_y_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("y");
-        final Set<String> all_z_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("z");
-        final Set<String> all_f_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("f");
-        final Set<String> all_g_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("g");
-        final Set<String> all_h_tags = icg_empty.getComputableGraphStructure().getAllTagsForNode("h");
+        final Set<String> all_x_tags = icg_empty.getComputableGraphStructure().getInducedTagsForNode("x");
+        final Set<String> all_y_tags = icg_empty.getComputableGraphStructure().getInducedTagsForNode("y");
+        final Set<String> all_z_tags = icg_empty.getComputableGraphStructure().getInducedTagsForNode("z");
+        final Set<String> all_f_tags = icg_empty.getComputableGraphStructure().getInducedTagsForNode("f");
+        final Set<String> all_g_tags = icg_empty.getComputableGraphStructure().getInducedTagsForNode("g");
+        final Set<String> all_h_tags = icg_empty.getComputableGraphStructure().getInducedTagsForNode("h");
         final Set<String> all_tags = new HashSet<>();
         all_tags.addAll(all_x_tags); all_tags.addAll(all_y_tags); all_tags.addAll(all_z_tags);
         all_tags.addAll(all_f_tags); all_tags.addAll(all_g_tags); all_tags.addAll(all_h_tags);

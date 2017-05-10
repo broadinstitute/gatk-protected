@@ -169,7 +169,7 @@ public final class ImmutableComputableGraph implements Serializable {
         final Map<String, CacheNode> updatedNodesMap = new HashMap<>();
         updatedNodesMap.put(nodeKey, node.duplicateWithUpdatedValue(newValue));
         final ImmutableComputableGraph out = duplicateWithUpdatedNodes(
-                addDuplicateOfOutdatedDescendents(nodeKey, updatedNodesMap));
+                addDuplicateOfOutdatedDescendants(nodeKey, updatedNodesMap));
         if (cacheAutoUpdate) {
             try { /* try to update caches; it is not guaranteed if some of the nodes are not initialized */
                 final Map<String, Duplicable> accumulatedValues = out.evaluateInTopologicalOrder(
@@ -190,9 +190,9 @@ public final class ImmutableComputableGraph implements Serializable {
      * @param key key of the updated node
      * @param updatedNodesMap a key -> node map
      */
-    private Map<String, CacheNode> addDuplicateOfOutdatedDescendents(@Nonnull final String key,
+    private Map<String, CacheNode> addDuplicateOfOutdatedDescendants(@Nonnull final String key,
                                                                      @Nonnull final Map<String, CacheNode> updatedNodesMap) {
-        for (final String descendant : cgs.getAllDescendents(key)) {
+        for (final String descendant : cgs.getDescendants(key)) {
             CacheNode oldDescendant = nodesMap.get(descendant);
             /* all of the descendants are computable nodes and can be safely up-casted */
             updatedNodesMap.put(descendant, ((ComputableCacheNode)oldDescendant).duplicateWithOutdatedCacheStatus());
