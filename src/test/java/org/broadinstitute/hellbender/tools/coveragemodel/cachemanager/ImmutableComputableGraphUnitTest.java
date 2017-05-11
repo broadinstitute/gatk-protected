@@ -86,6 +86,9 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             "cos", UNARY_FUNCTION_COSINE,
             "id", UNARY_FUNCTION_IDENTITY);
 
+    private static final List<String> EMPTY_STRING_LIST = new ArrayList<>();
+    private static final Map<String, Duplicable> EMPTY_PARENTS = new HashMap<>();
+
     /**
      * Instructions for computing f(x, y) = F[2] ( F[0](x), F[1](x) )
      *
@@ -249,14 +252,14 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
             final String[] x_tags, final String[] y_tags, final String[] z_tags,
             final String[] f_tags, final String[] g_tags, final String[] h_tags) {
         return ImmutableComputableGraph.builder()
-                .addPrimitiveNode("x", x_tags, new DuplicableNDArray())
-                .addPrimitiveNode("y", y_tags, new DuplicableNumber<Double>())
-                .addPrimitiveNode("z", z_tags, new DuplicableNDArray())
-                .addComputableNode("f", f_tags, new String[]{"x", "y"},
+                .primitiveNode("x", x_tags, new DuplicableNDArray())
+                .primitiveNode("y", y_tags, new DuplicableNumber<Double>())
+                .primitiveNode("z", z_tags, new DuplicableNDArray())
+                .computableNode("f", f_tags, new String[]{"x", "y"},
                         f_external ? null : f_computation_function, f_caching)
-                .addComputableNode("g", g_tags, new String[]{"y", "z"},
+                .computableNode("g", g_tags, new String[]{"y", "z"},
                         g_external ? null : g_computation_function, g_caching)
-                .addComputableNode("h", h_tags, new String[]{"f", "g", "x"},
+                .computableNode("h", h_tags, new String[]{"f", "g", "x"},
                         h_external ? null : h_computation_function, h_caching);
     }
 
@@ -330,7 +333,7 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
     @Test(invocationCount = NUM_TRIALS)
     public void testAutoUpdateCache() {
         final ImmutableComputableGraph icg_0 = getTestICGBuilder(true, false, true, false, true, false)
-                .enableCacheAutoUpdate().build();
+                .withCacheAutoUpdate().build();
         generateNewRandomFunctionalComposition();
         final INDArray x = getRandomINDArray();
         final double y = getRandomDouble();
@@ -966,55 +969,124 @@ public class ImmutableComputableGraphUnitTest extends BaseTest {
         assertIntactReferences(icg_1, icg_2, ALL_NODES);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testMissingParents() {
-        ImmutableComputableGraph.builder()
-                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .addPrimitiveNode("y", new String[] {}, new DuplicableNumber<Double>())
-                .addPrimitiveNode("z", new String[] {}, new DuplicableNDArray())
-                /* q is undefined */
-                .addComputableNode("f", new String[] {}, new String[] {"x", "y", "q"}, f_computation_function, true)
-                .addComputableNode("g", new String[] {}, new String[] {"y", "z"}, g_computation_function, true)
-                .addComputableNode("h", new String[] {}, new String[] {"f", "g"}, h_computation_function, true)
-                .build();
+    /**
+     * Asserts that the equality comparison of two {@link CacheNode}s is done just based on their key
+     */
+    @Test
+    public void testEquality() {
+        final List<CacheNode> nodesWithOneKey = getRandomCollectionOfNodesWithTheSameKey("ONE_KEY");
+        final List<CacheNode> nodesWithAnotherKey = getRandomCollectionOfNodesWithTheSameKey("ANOTHER_KEY");
+
+        for (final CacheNode node_0 : nodesWithOneKey) {
+            for (final CacheNode node_1 : nodesWithOneKey) {
+                Assert.assertTrue(node_0.equals(node_1) || (node_0.getClass() != node_1.getClass()));
+            }
+        }
+
+        for (final CacheNode node_0 : nodesWithAnotherKey) {
+            for (final CacheNode node_1 : nodesWithAnotherKey) {
+                Assert.assertTrue(node_0.equals(node_1) || (node_0.getClass() != node_1.getClass()));
+            }
+        }
+
+        for (final CacheNode node_0 : nodesWithOneKey) {
+            for (final CacheNode node_1 : nodesWithAnotherKey) {
+                Assert.assertTrue(!node_0.equals(node_1));
+            }
+        }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testDuplicatePrimitiveNode() {
-        ImmutableComputableGraph.builder()
-                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .build();
+    @Test
+    public void testToString() {
+        final List<CacheNode> nodesWithOneKey = getRandomCollectionOfNodesWithTheSameKey("ONE_KEY");
+        for (final CacheNode node : nodesWithOneKey) {
+            Assert.assertTrue(node.toString().equals("ONE_KEY"));
+        }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testDuplicateComputableNode() {
-        ImmutableComputableGraph.builder()
-                .addComputableNode("x", new String[] {}, new String[] {}, null, true)
-                .addComputableNode("x", new String[] {}, new String[] {}, null, true)
-                .build();
+    private List<CacheNode> getRandomCollectionOfNodesWithTheSameKey(final String key) {
+        final List<CacheNode> collection = new ArrayList<>();
+        collection.add(new PrimitiveCacheNode(key, EMPTY_STRING_LIST, null));
+        collection.add(new PrimitiveCacheNode(key, Arrays.asList("a", "b", "c"), new DuplicableNumber<>(1.0)));
+        collection.add(new ComputableCacheNode(key, EMPTY_STRING_LIST, Arrays.asList("d", "e"),
+                f_computation_function, false));
+        collection.add(new ComputableCacheNode(key, EMPTY_STRING_LIST, EMPTY_STRING_LIST,
+                f_computation_function, false));
+        collection.add(new ComputableCacheNode(key, Arrays.asList("f"), Arrays.asList("g"), null, true));
+        return collection;
     }
 
-    @Test(expectedExceptions = ComputableGraphStructure.CyclicGraphException.class)
-    public void testCyclicGraphException_1() {
-        ImmutableComputableGraph.builder()
-                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .addComputableNode("y", new String[] {}, new String[] {"x", "w"}, null, true) /* cycle */
-                .addComputableNode("z", new String[] {}, new String[] {"y"}, null, true)
-                .addComputableNode("w", new String[] {}, new String[] {"z"}, null, true)
-                .build();
+    @Test(expectedExceptions = UnsupportedOperationException.class)
+    public void testSetValueOfAutomaticallyComputableNode() {
+        new ComputableCacheNode("TEST", EMPTY_STRING_LIST, EMPTY_STRING_LIST, h_computation_function, false)
+                .set(new DuplicableNDArray(getRandomINDArray()));
     }
 
-    @Test(expectedExceptions = ComputableGraphStructure.CyclicGraphException.class)
-    public void testCyclicGraphException_2() {
-        ImmutableComputableGraph.builder()
-                .addPrimitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .addPrimitiveNode("y", new String[] {}, new DuplicableNDArray())
-                .addPrimitiveNode("z", new String[] {}, new DuplicableNDArray())
-                .addComputableNode("f", new String[] {}, new String[] {"x", "y", "h"}, null, true) /* cycle */
-                .addComputableNode("g", new String[] {}, new String[] {"y", "z"}, null, true)
-                .addComputableNode("h", new String[] {}, new String[] {"f", "g"}, null, true)
-                .build();
+    @Test
+    public void testSetValueOfExternallyComputableNode() {
+        final ComputableCacheNode node = new ComputableCacheNode("TEST", EMPTY_STRING_LIST, EMPTY_STRING_LIST, null, true);
+        final INDArray arr = getRandomINDArray();
+        node.set(new DuplicableNDArray(arr));
+        MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(node.get(EMPTY_PARENTS)), arr);
+    }
+
+    @Test
+    public void testSetValueOfPrimitiveNode() {
+        final PrimitiveCacheNode node = new PrimitiveCacheNode("TEST", EMPTY_STRING_LIST, null);
+        final INDArray arr = getRandomINDArray();
+        node.set(new DuplicableNDArray(arr));
+        MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(node.get(EMPTY_PARENTS)), arr);
+    }
+
+    @Test
+    public void testPrimitiveNodeDuplication() {
+        final PrimitiveCacheNode node = new PrimitiveCacheNode("TEST", EMPTY_STRING_LIST,
+                new DuplicableNDArray(getRandomINDArray()));
+        final PrimitiveCacheNode dupNode = node.duplicate();
+        MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(node.get(EMPTY_PARENTS)),
+                DuplicableNDArray.strip(dupNode.get(EMPTY_PARENTS)));
+        Assert.assertTrue(dupNode.hasValue());
+        Assert.assertTrue(dupNode.getKey().equals("TEST"));
+    }
+
+    @Test
+    public void testCachingComputableNodeDuplication() {
+        final INDArray testArray = getRandomINDArray();
+        final Duplicable testDuplicable = new DuplicableNDArray(testArray);
+        final ComputableNodeFunction trivialFunction = parents -> testDuplicable;
+
+        final ComputableCacheNode cachingAutoNodeUncached = new ComputableCacheNode("TEST", EMPTY_STRING_LIST,
+                EMPTY_STRING_LIST, trivialFunction, true);
+        final ComputableCacheNode cachingAutoNodeUncachedDup = cachingAutoNodeUncached.duplicate();
+
+        final ComputableCacheNode cachingAutoNodeCached = cachingAutoNodeUncached.duplicateWithUpdatedValue(testDuplicable);
+        final ComputableCacheNode cachingAutoNodeCachedDup = cachingAutoNodeCached.duplicate();
+
+        final ComputableCacheNode cachingAutoNodeCachedOutdated = cachingAutoNodeCached.duplicateWithOutdatedCacheStatus();
+        final ComputableCacheNode cachingAutoNodeCachedOutdatedDup = cachingAutoNodeCachedOutdated.duplicate();
+
+        Assert.assertTrue(cachingAutoNodeUncached.isCaching());
+        Assert.assertTrue(cachingAutoNodeUncachedDup.isCaching());
+        Assert.assertTrue(!cachingAutoNodeUncached.isExternallyComputed());
+        Assert.assertTrue(!cachingAutoNodeUncachedDup.isExternallyComputed());
+        Assert.assertTrue(!cachingAutoNodeUncached.hasValue());
+        Assert.assertTrue(!cachingAutoNodeUncachedDup.hasValue());
+
+        Assert.assertTrue(cachingAutoNodeCached.isCaching());
+        Assert.assertTrue(cachingAutoNodeCachedDup.isCaching());
+        Assert.assertTrue(!cachingAutoNodeCached.isExternallyComputed());
+        Assert.assertTrue(!cachingAutoNodeCachedDup.isExternallyComputed());
+        Assert.assertTrue(cachingAutoNodeCached.hasValue());
+        Assert.assertTrue(cachingAutoNodeCachedDup.hasValue());
+        MathObjectAsserts.assertNDArrayEquals(DuplicableNDArray.strip(cachingAutoNodeCached.get(EMPTY_PARENTS)),
+                DuplicableNDArray.strip(cachingAutoNodeCachedDup.get(EMPTY_PARENTS)));
+
+        Assert.assertTrue(cachingAutoNodeCachedOutdated.isCaching());
+        Assert.assertTrue(cachingAutoNodeCachedOutdatedDup.isCaching());
+        Assert.assertTrue(!cachingAutoNodeCachedOutdated.isExternallyComputed());
+        Assert.assertTrue(!cachingAutoNodeCachedOutdatedDup.isExternallyComputed());
+        Assert.assertTrue(!cachingAutoNodeCachedOutdated.hasValue()); /* outdated caches must drop out */
+        Assert.assertTrue(!cachingAutoNodeCachedOutdatedDup.hasValue()); /* outdated caches must drop out */
     }
 
     /**

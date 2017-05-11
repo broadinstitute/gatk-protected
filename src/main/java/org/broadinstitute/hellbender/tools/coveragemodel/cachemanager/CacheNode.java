@@ -13,7 +13,7 @@ import java.util.Map;
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public abstract class CacheNode {
+abstract class CacheNode {
     /**
      * A string identifier for the cache node
      */
@@ -36,9 +36,9 @@ public abstract class CacheNode {
      * @param tags the tags associated to this cache node
      * @param parents immediate parents of this cache node
      */
-    public CacheNode(@Nonnull final String key,
-                     @Nonnull final Collection<String> tags,
-                     @Nonnull final Collection<String> parents) {
+    CacheNode(@Nonnull final String key,
+              @Nonnull final Collection<String> tags,
+              @Nonnull final Collection<String> parents) {
         this.key = Utils.nonNull(key, "The key of a cache node can not be null");
         this.tags = Collections.unmodifiableCollection(Utils.nonNull(tags, "The tag collection of a cache node can not be null"));
         this.parents = Collections.unmodifiableCollection(Utils.nonNull(parents, "The immediate parents of a cache node can not be null"));
@@ -50,7 +50,7 @@ public abstract class CacheNode {
      * @param parents parent values (as a map from their string identifiers to their values)
      * @return a {@link Duplicable}; possibly by reference
      */
-    public abstract Duplicable get(@Nonnull final Map<String, Duplicable> parents);
+    abstract Duplicable get(@Nonnull final Map<String, Duplicable> parents);
 
     /**
      * Set the value of the node
@@ -58,22 +58,22 @@ public abstract class CacheNode {
      * @param newValue new value; possibly stored by reference
      * @throws UnsupportedOperationException if the node is automatically computable
      */
-    public abstract void set(@Nullable final Duplicable newValue) throws UnsupportedOperationException;
+    abstract void set(@Nullable final Duplicable newValue) throws UnsupportedOperationException;
 
     /**
      * Is the node primitive?
      */
-    public abstract boolean isPrimitive();
+    abstract boolean isPrimitive();
 
     /**
      * Is the node initialized yet?
      */
-    public abstract boolean hasValue();
+    abstract boolean hasValue();
 
     /**
      * Is the node externally computed?
      */
-    public abstract boolean isExternallyComputed();
+    abstract boolean isExternallyComputed();
 
     /**
      * Duplicate the node with updated value
@@ -82,34 +82,34 @@ public abstract class CacheNode {
      * @return a new {@link CacheNode} with the same key, parents, and tags but with a new value
      * @throws UnsupportedOperationException if the node is automatically computable
      */
-    public abstract CacheNode duplicateWithUpdatedValue(final Duplicable newValue) throws UnsupportedOperationException;
+    abstract CacheNode duplicateWithUpdatedValue(final Duplicable newValue) throws UnsupportedOperationException;
 
     /**
      * Make a deep copy of the node
      *
      * @return a deeply copied instance of {@link CacheNode}
      */
-    public abstract CacheNode duplicate();
+    abstract CacheNode duplicate();
 
     /**
      * Get the string identifier of the node
      * @return a non-null {@link String}
      */
-    public final String getKey() {
+    final String getKey() {
         return key;
     }
 
     /**
      * Get the collection of string identifier of the parents of this node (can be empty)
      */
-    public final Collection<String> getParents() {
+    final Collection<String> getParents() {
         return Collections.unmodifiableCollection(parents);
     }
 
     /**
      * Get the collection of string identifier of the tags associated to this node (can be empty)
      */
-    public final Collection<String> getTags() {
+    final Collection<String> getTags() {
         return Collections.unmodifiableCollection(tags);
     }
 

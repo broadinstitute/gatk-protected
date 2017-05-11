@@ -192,7 +192,7 @@ public final class CoverageModelArgumentCollection {
     public static final String TARGET_SPECIFIC_VARIANCE_SOLVER_NUM_BISECTIONS_SHORT_NAME = "TSVSNB";
     public static final String TARGET_SPECIFIC_VARIANCE_SOLVER_NUM_BISECTIONS_LONG_NAME = "targetSpecificVarianceSolverNumBisections";
 
-    public static final int DEFAULT_TARGET_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH = 3;
+    public static final int DEFAULT_TARGET_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH = 2;
     public static final String TARGET_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH_SHORT_NAME = "TSVSRD";
     public static final String TARGET_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH_LONG_NAME = "targetSpecificVarianceSolverRefinementDepth";
 
@@ -249,7 +249,7 @@ public final class CoverageModelArgumentCollection {
     public static final String SAMPLE_SPECIFIC_VARIANCE_SOLVER_NUM_BISECTIONS_SHORT_NAME = "SSVSNB";
     public static final String SAMPLE_SPECIFIC_VARIANCE_SOLVER_NUM_BISECTIONS_LONG_NAME = "sampleSpecificVarianceSolverNumBisections";
 
-    public static final int DEFAULT_SAMPLE_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH = 3;
+    public static final int DEFAULT_SAMPLE_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH = 2;
     public static final String SAMPLE_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH_SHORT_NAME = "SSVSRD";
     public static final String SAMPLE_SPECIFIC_VARIANCE_SOLVER_REFINEMENT_DEPTH_LONG_NAME = "sampleSpecificVarianceSolverRefinementDepth";
 

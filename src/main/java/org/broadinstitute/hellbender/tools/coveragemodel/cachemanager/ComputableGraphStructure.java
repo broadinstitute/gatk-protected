@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
  * - construction of maps of nodes to their descendants and ancestors
  * - propagation of tags from descendants to ancestors
  * - topological order for evaluating a computable node
- * - topological order for mutating a primitive/externally-computed node
+ * - topological order for mutating a primitive/externally-computed node and updating the caches of all involved nodes
  * - topological order for evaluating all nodes associated to a tag (see {@link ImmutableComputableGraph})
  * - topological order for complete computation of the graph
  *
@@ -106,11 +106,12 @@ public final class ComputableGraphStructure implements Serializable {
     private static void assertParentKeysExist(@Nonnull final Set<CacheNode> nodeSet,
                                               @Nonnull final Set<String> nodeKeysSet) {
         for (final CacheNode node : nodeSet) {
-            Utils.validateArg(nodeKeysSet.containsAll(node.getParents()), () -> {
+            if (!nodeKeysSet.containsAll(node.getParents())) {
                 final Set<String> undefinedParents = Sets.difference(new HashSet<>(node.getParents()), nodeKeysSet);
-                return "Node " + ImmutableComputableGraphUtils.quote(node.getKey()) + " depends on undefined parent(s): " +
-                        undefinedParents.stream().map(ImmutableComputableGraphUtils::quote).collect(Collectors.joining(", "));
-            });
+                throw new NonexistentParentNodeKey("Node " + ImmutableComputableGraphUtils.quote(node.getKey()) +
+                        " depends on undefined parent(s): " + undefinedParents.stream()
+                        .map(ImmutableComputableGraphUtils::quote).collect(Collectors.joining(", ")));
+            }
         }
     }
 
@@ -240,16 +241,16 @@ public final class ComputableGraphStructure implements Serializable {
                                                                                  @Nonnull final Map<String, Set<String>> ancestorsMap) {
         final Map<String, List<String>> topologicalOrderForTagEvaluation = new HashMap<>();
         for (final String tag : nodeTagsSet) {
-            final Set<String> allParentsIncludingTheNodesSet = new HashSet<>();
+            final Set<String> ancestorsIncludingTheTaggedNodesSet = new HashSet<>();
             for (final String node : nodesByTagMap.get(tag)) {
-                allParentsIncludingTheNodesSet.addAll(ancestorsMap.get(node));
-                allParentsIncludingTheNodesSet.add(node);
+                ancestorsIncludingTheTaggedNodesSet.addAll(ancestorsMap.get(node));
+                ancestorsIncludingTheTaggedNodesSet.add(node);
             }
-            final List<String> allParentsIncludingTheNodesList = new ArrayList<>();
-            allParentsIncludingTheNodesList.addAll(allParentsIncludingTheNodesSet);
+            final List<String> ancestorsIncludingTheTaggedNodesList = new ArrayList<>();
+            ancestorsIncludingTheTaggedNodesList.addAll(ancestorsIncludingTheTaggedNodesSet);
             /* sort by depth */
-            allParentsIncludingTheNodesList.sort(Comparator.comparingInt(topologicalOrderMap::get));
-            topologicalOrderForTagEvaluation.put(tag, allParentsIncludingTheNodesList);
+            ancestorsIncludingTheTaggedNodesList.sort(Comparator.comparingInt(topologicalOrderMap::get));
+            topologicalOrderForTagEvaluation.put(tag, ancestorsIncludingTheTaggedNodesList);
         }
         return topologicalOrderForTagEvaluation;
     }
@@ -261,23 +262,28 @@ public final class ComputableGraphStructure implements Serializable {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Topological order for mutating a primitive/externally-computed node and updating the caches of the
+     * involved nodes. These include mutated node, its descendants, and the ancestors of all of its descendants.
+     * The latter is required for updating the caches of the descendants.
+     */
     private static Map<String, List<String>> getTopologicalOrderForNodeMutation(@Nonnull final Set<String> nodeKeysSet,
                                                                                 @Nonnull final Map<String, Set<String>> ancestorsMap,
                                                                                 @Nonnull final Map<String, Set<String>> descendantsMap,
                                                                                 @Nonnull final Map<String, Integer> topologicalOrderMap) {
         final Map<String, List<String>> topologicalOrderForNodeMutation = new HashMap<>();
-        for (final String mutatedNodeKey : nodeKeysSet) {
-            final Set<String> allInvolvedSet = new HashSet<>();
-            allInvolvedSet.add(mutatedNodeKey);
-            for (final String desc : descendantsMap.get(mutatedNodeKey)) {
-                allInvolvedSet.add(desc);
-                allInvolvedSet.addAll(ancestorsMap.get(desc));
+        for (final String nodeKey : nodeKeysSet) {
+            final Set<String> allInvolvedNodesSet = new HashSet<>();
+            allInvolvedNodesSet.add(nodeKey);
+            allInvolvedNodesSet.addAll(descendantsMap.get(nodeKey));
+            for (final String descendantNodeKey : descendantsMap.get(nodeKey)) {
+                allInvolvedNodesSet.add(descendantNodeKey);
+                allInvolvedNodesSet.addAll(ancestorsMap.get(descendantNodeKey));
             }
-            final List<String> allInvolvedList = new ArrayList<>();
-            allInvolvedList.addAll(allInvolvedSet);
-            /* sort by depth */
-            allInvolvedList.sort(Comparator.comparingInt(topologicalOrderMap::get));
-            topologicalOrderForNodeMutation.put(mutatedNodeKey, allInvolvedList);
+            final List<String> allInvolvedNodesList = new ArrayList<>();
+            allInvolvedNodesList.addAll(allInvolvedNodesSet);
+            allInvolvedNodesList.sort(Comparator.comparingInt(topologicalOrderMap::get));
+            topologicalOrderForNodeMutation.put(nodeKey, allInvolvedNodesList);
         }
         return topologicalOrderForNodeMutation;
     }
@@ -306,57 +312,68 @@ public final class ComputableGraphStructure implements Serializable {
         /* do nothing otherwise -- we already have the order for this node */
     }
 
-    public Set<String> getNodeKeysSet() { return nodeKeysSet; }
+    Set<String> getNodeKeysSet() { return nodeKeysSet; }
 
-    public Set<String> getNodeTagsSet() { return nodeTagsSet; }
+    Set<String> getNodeTagsSet() { return nodeTagsSet; }
 
-    public Set<String> getInducedTagsForNode(final String nodeKey) {
+    Set<String> getInducedTagsForNode(final String nodeKey) {
         return inducedTagsMap.get(nodeKey);
     }
 
-    public int getTopologicalOrder(@Nonnull final String nodeKey) {
+    int getTopologicalOrder(@Nonnull final String nodeKey) {
         return topologicalOrderMap.get(nodeKey);
     }
 
-    public Set<String> getChildren(@Nonnull final String nodeKey) {
+    Set<String> getChildren(@Nonnull final String nodeKey) {
         return childrenMap.get(nodeKey);
     }
 
-    public Set<String> getParents(@Nonnull final String nodeKey) {
+    Set<String> getParents(@Nonnull final String nodeKey) {
         return parentsMap.get(nodeKey);
     }
 
-    public Set<String> getAncestors(@Nonnull final String nodeKey) {
+    Set<String> getAncestors(@Nonnull final String nodeKey) {
         return ancestorsMap.get(nodeKey);
     }
 
-    public Set<String> getDescendants(@Nonnull final String nodeKey) {
+    Set<String> getDescendants(@Nonnull final String nodeKey) {
         return descendantsMap.get(nodeKey);
     }
 
-    public List<String> getTopologicalOrderForNodeEvaluation(final String nodeKey) {
+    List<String> getTopologicalOrderForNodeEvaluation(final String nodeKey) {
         return topologicalOrderForNodeEvaluation.get(nodeKey);
     }
 
-    public List<String> getTopologicalOrderForNodeMutation(final String nodeKey) {
+    List<String> getTopologicalOrderForNodeMutation(final String nodeKey) {
         return topologicalOrderForNodeMutation.get(nodeKey);
     }
 
-    public List<String> getTopologicalOrderForTagEvaluation(final String tagKey) {
+    List<String> getTopologicalOrderForTagEvaluation(final String tagKey) {
         return topologicalOrderForTagEvaluation.get(tagKey);
     }
 
-    public List<String> getTopologicalOrderForCompleteEvaluation() {
+    List<String> getTopologicalOrderForCompleteEvaluation() {
         return topologicalOrderForCompleteEvaluation;
     }
 
     /**
      * This exception will be thrown if the graph has loops
      */
-    public static final class CyclicGraphException extends RuntimeException {
+    static final class CyclicGraphException extends RuntimeException {
         private static final long serialVersionUID = 5887360871425098163L;
 
-        public CyclicGraphException(String s) {
+        CyclicGraphException(String s) {
+            super(s);
+        }
+    }
+
+    /**
+     * This exception will be thrown if an alleged parent node key is missing
+     */
+    static final class NonexistentParentNodeKey extends RuntimeException {
+        private static final long serialVersionUID = 586676245552229897L;
+
+        NonexistentParentNodeKey(String s) {
             super(s);
         }
     }

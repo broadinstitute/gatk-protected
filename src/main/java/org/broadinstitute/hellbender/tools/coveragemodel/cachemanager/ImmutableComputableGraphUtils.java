@@ -10,12 +10,19 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
+ * A utilities class for {@link ImmutableComputableGraph}.
+ *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 public final class ImmutableComputableGraphUtils {
 
+    private ImmutableComputableGraphUtils() {}
+
     /**
-     * A simple builder class for {@link ImmutableComputableGraph}
+     * A simple builder class for {@link ImmutableComputableGraph}.
+     *
+     * @implNote Node addition methods must perform node key uniqueness checks. Otherwise, some of the nodes
+     * with the same key will be lost; see {@link CacheNode#equals(Object)}.
      */
     public static class ImmutableComputableGraphBuilder {
         private final Set<CacheNode> nodes;
@@ -28,32 +35,32 @@ public final class ImmutableComputableGraphUtils {
             cacheAutoUpdate = false;
         }
 
-        public ImmutableComputableGraphBuilder addPrimitiveNode(@Nonnull final String key,
-                                                                @Nonnull final String[] tags,
-                                                                @Nonnull Duplicable value) {
+        public ImmutableComputableGraphBuilder primitiveNode(@Nonnull final String key,
+                                                             @Nonnull final String[] tags,
+                                                             @Nonnull Duplicable value) {
             Utils.nonNull(key);
             Utils.nonNull(tags);
             Utils.nonNull(value);
-            Utils.validateArg(!keys.contains(key), "A node with key " + quote(key) + " already exists");
+            assertKeyUniqueness(key);
             nodes.add(new PrimitiveCacheNode(key, Arrays.stream(tags).collect(Collectors.toList()), value));
             keys.add(key);
             return this;
         }
 
 
-        public ImmutableComputableGraphBuilder addNDArrayPrimitiveNode(@Nonnull final String key) {
-            return addPrimitiveNode(key, new String[]{}, new DuplicableNDArray());
+        public ImmutableComputableGraphBuilder primitiveNodeWithEmptyNDArray(@Nonnull final String key) {
+            return primitiveNode(key, new String[]{}, new DuplicableNDArray());
         }
 
-        public ImmutableComputableGraphBuilder addComputableNode(@Nonnull final String key,
-                                                                 @Nonnull final String[] tags,
-                                                                 @Nonnull final String[] parents,
-                                                                 @Nullable final ComputableNodeFunction func,
-                                                                 final boolean cacheEvals) {
+        public ImmutableComputableGraphBuilder computableNode(@Nonnull final String key,
+                                                              @Nonnull final String[] tags,
+                                                              @Nonnull final String[] parents,
+                                                              @Nullable final ComputableNodeFunction func,
+                                                              final boolean cacheEvals) {
             Utils.nonNull(key);
             Utils.nonNull(tags);
             Utils.nonNull(parents);
-            Utils.validateArg(!keys.contains(key), "A node with key " + quote(key) + " already exists");
+            assertKeyUniqueness(key);
             nodes.add(new ComputableCacheNode(key,
                     Arrays.stream(tags).collect(Collectors.toList()),
                     Arrays.stream(parents).collect(Collectors.toList()),
@@ -62,18 +69,24 @@ public final class ImmutableComputableGraphUtils {
             return this;
         }
 
-        public ImmutableComputableGraphBuilder addExternallyComputableNode(@Nonnull final String key) {
-            return addComputableNode(key, new String[] {}, new String[] {}, null, true);
+        public ImmutableComputableGraphBuilder externallyComputableNode(@Nonnull final String key) {
+            return computableNode(key, new String[] {}, new String[] {}, null, true);
         }
 
-        public ImmutableComputableGraphBuilder enableCacheAutoUpdate() {
+        public ImmutableComputableGraphBuilder withCacheAutoUpdate() {
             cacheAutoUpdate = true;
             return this;
         }
 
-        public ImmutableComputableGraphBuilder disableCacheAutoUpdate() {
+        public ImmutableComputableGraphBuilder withoutCacheAutoUpdate() {
             cacheAutoUpdate = false;
             return this;
+        }
+
+        private void assertKeyUniqueness(@Nonnull final String key) {
+            if (keys.contains(key)) {
+                throw new DuplicateNodeKeyException("A node with key " + quote(key) + " already exists");
+            }
         }
 
         public ImmutableComputableGraph build() {
@@ -81,6 +94,17 @@ public final class ImmutableComputableGraphUtils {
                 throw new IllegalStateException("Can not make an empty cache node collection");
             } else {
                 return new ImmutableComputableGraph(nodes, cacheAutoUpdate);
+            }
+        }
+
+        /**
+         * This exception will be thrown if a node with the same key is already added to the builder
+         */
+        static final class DuplicateNodeKeyException extends RuntimeException {
+            private static final long serialVersionUID = 2016242121833170379L;
+
+            DuplicateNodeKeyException(String s) {
+                super(s);
             }
         }
     }

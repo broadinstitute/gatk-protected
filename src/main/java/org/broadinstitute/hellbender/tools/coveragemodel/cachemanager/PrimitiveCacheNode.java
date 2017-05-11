@@ -12,35 +12,35 @@ import java.util.Map;
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class PrimitiveCacheNode extends CacheNode {
+final class PrimitiveCacheNode extends CacheNode {
 
     private Duplicable value = null;
 
     @Override
-    public boolean isPrimitive() { return true; }
+    boolean isPrimitive() { return true; }
 
     @Override
-    public boolean isExternallyComputed() { return true; }
+    boolean isExternallyComputed() { return true; }
 
     @Override
-    public void set(@Nullable final Duplicable val) {
+    void set(@Nullable final Duplicable val) {
         value = val;
     }
 
-    public PrimitiveCacheNode(@Nonnull final String key,
-                              @Nonnull final Collection<String> tags,
-                              @Nullable final Duplicable val) {
+    PrimitiveCacheNode(@Nonnull final String key,
+                       @Nonnull final Collection<String> tags,
+                       @Nullable final Duplicable val) {
         super(key, tags, Collections.emptyList());
         set(val);
     }
 
     @Override
-    public boolean hasValue() {
+    boolean hasValue() {
         return value != null && value.hasValue();
     }
 
     @Override
-    public Duplicable get(@Nullable final Map<String, Duplicable> parentsValues)
+    Duplicable get(@Nullable final Map<String, Duplicable> parentsValues)
             throws PrimitiveValueNotInitializedException {
         if (hasValue()) {
             return value;
@@ -51,8 +51,8 @@ public final class PrimitiveCacheNode extends CacheNode {
     }
 
     @Override
-    public PrimitiveCacheNode duplicate() {
-        if (value != null && value.hasValue()) {
+    PrimitiveCacheNode duplicate() {
+        if (hasValue()) {
             return new PrimitiveCacheNode(getKey(), getTags(), value.duplicate());
         } else {
             return new PrimitiveCacheNode(getKey(), getTags(), null);
@@ -60,7 +60,7 @@ public final class PrimitiveCacheNode extends CacheNode {
     }
 
     @Override
-    public PrimitiveCacheNode duplicateWithUpdatedValue(final Duplicable newValue) {
+    PrimitiveCacheNode duplicateWithUpdatedValue(final Duplicable newValue) {
         return new PrimitiveCacheNode(getKey(), getTags(), newValue);
     }
 

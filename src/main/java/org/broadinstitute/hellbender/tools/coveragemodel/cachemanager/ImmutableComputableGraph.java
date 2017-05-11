@@ -45,8 +45,8 @@ import java.util.stream.Collectors;
  * One must manually identify the common subexpressions and assign a label to each. In the future, this can be
  * streamlined using a CAS library. The evaluation scheme can be conveniently set up using
  * {@link ImmutableComputableGraphBuilder} and its two main methods:
- * {@link ImmutableComputableGraphBuilder#addPrimitiveNode}, and
- * {@link ImmutableComputableGraphBuilder#addComputableNode}.
+ * {@link ImmutableComputableGraphBuilder#primitiveNode}, and
+ * {@link ImmutableComputableGraphBuilder#computableNode}.
  *
  * Primitive nodes live at the top of the DAG and are specified by their key, initial value, and a set of tags.
  *
@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
  *          out of date) based on the provided parents list.
  *
  * One can require the caching computable nodes to be updated and cached automatically after each mutation of a
- * primitive or externally-computed node by invoking {@link ImmutableComputableGraphBuilder#enableCacheAutoUpdate()}.
+ * primitive or externally-computed node by invoking {@link ImmutableComputableGraphBuilder#withCacheAutoUpdate()}.
  * This feature, however, is NOT recommended as one may not need all the caches to be up-to-date at all times
  * (see below for updating caches selectively). This class throws an {@link IllegalStateException} if an old
  * cache is invoked in order to notify the user to update the cache manually.
@@ -295,9 +295,9 @@ public final class ImmutableComputableGraph implements Serializable {
         return duplicateWithUpdatedNodes(
                 accumulatedValues.keySet().stream()
                         /* filter out primitives and caching nodes that are current */
-                        .filter(node -> !nodesMap.get(node).isPrimitive() &&
-                                ((ComputableCacheNode)nodesMap.get(node)).isCaching() &&
-                                !((ComputableCacheNode)nodesMap.get(node)).isCacheCurrent())
+                        .filter(node -> !(nodesMap.get(node).isPrimitive() ||
+                                nodesMap.get(node).hasValue() ||
+                                !((ComputableCacheNode)nodesMap.get(node)).isCaching()))
                         /* collect to a map: key -> duplicated node with updated value */
                         .collect(Collectors.toMap(Function.identity(), node ->
                                 ((ComputableCacheNode)nodesMap.get(node))
@@ -387,12 +387,7 @@ public final class ImmutableComputableGraph implements Serializable {
     }
 
     public boolean isValueDirectlyAvailable(final String nodeKey) {
-        final CacheNode node = nodesMap.get(assertNodeExists(nodeKey));
-        if (node.isPrimitive()) {
-            return node.hasValue();
-        } else {
-            return ((ComputableCacheNode)node).hasValueAndIsCurrent();
-        }
+        return nodesMap.get(assertNodeExists(nodeKey)).hasValue();
     }
 
     private String assertNodeExists(final String nodeKey) {
@@ -431,7 +426,6 @@ public final class ImmutableComputableGraph implements Serializable {
             }
             out += "\tvalue: " + value + "\n";
             if (!nodesMap.get(key).isPrimitive()) {
-                out += "\tup to date: " + ((ComputableCacheNode)nodesMap.get(key)).hasValueAndIsCurrent() + "\n";
                 out += "\tcaches values: " + ((ComputableCacheNode)nodesMap.get(key)).isCaching() + "\n";
                 out += "\thas a value: " + nodesMap.get(key).hasValue() + "\n";
             }

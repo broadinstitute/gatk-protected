@@ -190,26 +190,26 @@ public final class CoverageModelEMComputeBlock {
          */
         cgbuilder
                 /* raw read counts */
-                .addNDArrayPrimitiveNode(CoverageModelICGCacheNode.n_st.name())
+                .primitiveNodeWithEmptyNDArray(CoverageModelICGCacheNode.n_st.name())
                 /* mask */
-                .addNDArrayPrimitiveNode(CoverageModelICGCacheNode.M_st.name())
+                .primitiveNodeWithEmptyNDArray(CoverageModelICGCacheNode.M_st.name())
                 /* mapping error probability */
-                .addNDArrayPrimitiveNode(CoverageModelICGCacheNode.err_st.name());
+                .primitiveNodeWithEmptyNDArray(CoverageModelICGCacheNode.err_st.name());
 
         /*
          * Model parameters
          */
         cgbuilder
                 /* mean log bias */
-                .addNDArrayPrimitiveNode(CoverageModelICGCacheNode.m_t.name())
+                .primitiveNodeWithEmptyNDArray(CoverageModelICGCacheNode.m_t.name())
                 /* unexplained variance */
-                .addNDArrayPrimitiveNode(CoverageModelICGCacheNode.Psi_t.name());
+                .primitiveNodeWithEmptyNDArray(CoverageModelICGCacheNode.Psi_t.name());
 
         /* if ARD is enabled, add a node for ARD coefficients */
         if (ardEnabled) {
             cgbuilder
                     /* precision of bias covariates */
-                    .addNDArrayPrimitiveNode(CoverageModelICGCacheNode.alpha_l.name());
+                    .primitiveNodeWithEmptyNDArray(CoverageModelICGCacheNode.alpha_l.name());
         }
 
         /*
@@ -217,24 +217,24 @@ public final class CoverageModelEMComputeBlock {
          */
         cgbuilder
                 /* E[log(c_{st})] */
-                .addExternallyComputableNode(CoverageModelICGCacheNode.log_c_st.name())
+                .externallyComputableNode(CoverageModelICGCacheNode.log_c_st.name())
                 /* var[log(c_{st})] */
-                .addExternallyComputableNode(CoverageModelICGCacheNode.var_log_c_st.name())
+                .externallyComputableNode(CoverageModelICGCacheNode.var_log_c_st.name())
                 /* E[log(d_s)] */
-                .addExternallyComputableNode(CoverageModelICGCacheNode.log_d_s.name())
+                .externallyComputableNode(CoverageModelICGCacheNode.log_d_s.name())
                 /* var[log(d_s)] */
-                .addExternallyComputableNode(CoverageModelICGCacheNode.var_log_d_s.name())
+                .externallyComputableNode(CoverageModelICGCacheNode.var_log_d_s.name())
                 /* E[\gamma_s] */
-                .addExternallyComputableNode(CoverageModelICGCacheNode.gamma_s.name());
+                .externallyComputableNode(CoverageModelICGCacheNode.gamma_s.name());
 
         if (biasCovariatesEnabled) {
             cgbuilder
                     /* mean of bias covariates */
-                    .addExternallyComputableNode(CoverageModelICGCacheNode.W_tl.name())
+                    .externallyComputableNode(CoverageModelICGCacheNode.W_tl.name())
                     /* E[z_{sm}] */
-                    .addExternallyComputableNode(CoverageModelICGCacheNode.z_sl.name())
+                    .externallyComputableNode(CoverageModelICGCacheNode.z_sl.name())
                     /* E[z_{sm} z_{sn}] */
-                    .addExternallyComputableNode(CoverageModelICGCacheNode.zz_sll.name());
+                    .externallyComputableNode(CoverageModelICGCacheNode.zz_sll.name());
         }
 
         /*
@@ -242,7 +242,7 @@ public final class CoverageModelEMComputeBlock {
          */
         cgbuilder
                 /* log read counts */
-                .addComputableNode(CoverageModelICGCacheNode.log_n_st.name(),
+                .computableNode(CoverageModelICGCacheNode.log_n_st.name(),
                         new String[]{
                                 CoverageModelICGCacheTag.M_STEP_M.name(),
                                 CoverageModelICGCacheTag.E_STEP_D.name()},
@@ -251,26 +251,26 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.M_st.name()},
                         calculate_log_n_st, true)
                 /* Poisson noise */
-                .addComputableNode(CoverageModelICGCacheNode.Sigma_st.name(),
+                .computableNode(CoverageModelICGCacheNode.Sigma_st.name(),
                         new String[]{},
                         new String[]{
                                 CoverageModelICGCacheNode.n_st.name(),
                                 CoverageModelICGCacheNode.M_st.name()},
                         calculate_Sigma_st, true)
                 /* \sum_s M_{st} */
-                .addComputableNode(CoverageModelICGCacheNode.sum_M_t.name(),
+                .computableNode(CoverageModelICGCacheNode.sum_M_t.name(),
                         new String[]{},
                         new String[]{CoverageModelICGCacheNode.M_st.name()},
                         calculate_sum_M_t, true)
                 /* \sum_t M_{st} */
-                .addComputableNode(CoverageModelICGCacheNode.sum_M_s.name(),
+                .computableNode(CoverageModelICGCacheNode.sum_M_s.name(),
                         new String[]{
                                 CoverageModelICGCacheTag.LOGLIKE_UNREG.name(),
                                 CoverageModelICGCacheTag.LOGLIKE_REG.name()},
                         new String[]{CoverageModelICGCacheNode.M_st.name()},
                         calculate_sum_M_s, true)
                 /* \Psi_{st} = \Psi_t + \Sigma_{st} + E[\gamma_s] */
-                .addComputableNode(CoverageModelICGCacheNode.tot_Psi_st.name(),
+                .computableNode(CoverageModelICGCacheNode.tot_Psi_st.name(),
                         new String[]{},
                         new String[]{
                                 CoverageModelICGCacheNode.Sigma_st.name(),
@@ -278,7 +278,7 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.gamma_s.name()},
                         calculate_tot_Psi_st, true)
                 /* log(n_{st}) - E[log(c_{st})] - E[log(d_s)] - m_t */
-                .addComputableNode(CoverageModelICGCacheNode.Delta_st.name(),
+                .computableNode(CoverageModelICGCacheNode.Delta_st.name(),
                         new String[]{CoverageModelICGCacheTag.E_STEP_Z.name()},
                         new String[]{
                                 CoverageModelICGCacheNode.log_n_st.name(),
@@ -287,7 +287,7 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.m_t.name()},
                         calculate_Delta_st, true)
                 /* \sum_{t} M_{st} \log(\Psi_{st}) */
-                .addComputableNode(CoverageModelICGCacheNode.loglike_normalization_s.name(),
+                .computableNode(CoverageModelICGCacheNode.loglike_normalization_s.name(),
                         new String[]{
                                 CoverageModelICGCacheTag.LOGLIKE_REG.name(),
                                 CoverageModelICGCacheTag.LOGLIKE_UNREG.name()},
@@ -297,7 +297,7 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.log_n_st.name()},
                         calculate_loglike_normalization_s, true)
                 /* M_{st} \Psi_{st}^{-1} */
-                .addComputableNode(CoverageModelICGCacheNode.M_Psi_inv_st.name(),
+                .computableNode(CoverageModelICGCacheNode.M_Psi_inv_st.name(),
                         new String[]{
                                 CoverageModelICGCacheTag.E_STEP_W_UNREG.name(),
                                 CoverageModelICGCacheTag.E_STEP_W_REG.name(),
@@ -310,7 +310,7 @@ public final class CoverageModelEMComputeBlock {
                                 CoverageModelICGCacheNode.tot_Psi_st.name()},
                         calculate_M_Psi_inv_st, true)
                 /* log likelihood (w/o regularization) */
-                .addComputableNode(CoverageModelICGCacheNode.loglike_unreg.name(),
+                .computableNode(CoverageModelICGCacheNode.loglike_unreg.name(),
                         new String[]{CoverageModelICGCacheTag.LOGLIKE_UNREG.name()},
                         new String[]{
                                 CoverageModelICGCacheNode.B_st.name(),
@@ -322,7 +322,7 @@ public final class CoverageModelEMComputeBlock {
         if (biasCovariatesEnabled) {
             cgbuilder
                     /* E[W] E[z_s] */
-                    .addComputableNode(CoverageModelICGCacheNode.Wz_st.name(),
+                    .computableNode(CoverageModelICGCacheNode.Wz_st.name(),
                             new String[]{CoverageModelICGCacheTag.M_STEP_M.name(),
                                     CoverageModelICGCacheTag.E_STEP_D.name(),
                                     CoverageModelICGCacheTag.E_STEP_C.name()},
@@ -331,14 +331,14 @@ public final class CoverageModelEMComputeBlock {
                                     CoverageModelICGCacheNode.z_sl.name()},
                             calculate_Wz_st, true)
                     /* (E[z_s z_s^T] E[W W^T])_{tt} */
-                    .addComputableNode(CoverageModelICGCacheNode.WzzWT_st.name(),
+                    .computableNode(CoverageModelICGCacheNode.WzzWT_st.name(),
                             new String[]{},
                             new String[]{
                                     CoverageModelICGCacheNode.W_tl.name(),
                                     CoverageModelICGCacheNode.zz_sll.name()},
                             calculate_WzzWT_st, true)
                     /* v_{t\mu} */
-                    .addComputableNode(CoverageModelICGCacheNode.v_tl.name(),
+                    .computableNode(CoverageModelICGCacheNode.v_tl.name(),
                             new String[]{
                                     CoverageModelICGCacheTag.E_STEP_W_REG.name(),
                                     CoverageModelICGCacheTag.E_STEP_W_UNREG.name()},
@@ -348,7 +348,7 @@ public final class CoverageModelEMComputeBlock {
                                     CoverageModelICGCacheNode.z_sl.name()},
                             calculate_v_tl, false)
                     /* Q_{t\mu\nu} */
-                    .addComputableNode(CoverageModelICGCacheNode.Q_tll.name(),
+                    .computableNode(CoverageModelICGCacheNode.Q_tll.name(),
                             new String[]{
                                     CoverageModelICGCacheTag.E_STEP_W_REG.name(),
                                     CoverageModelICGCacheTag.E_STEP_W_UNREG.name()},
@@ -357,7 +357,7 @@ public final class CoverageModelEMComputeBlock {
                                     CoverageModelICGCacheNode.zz_sll.name()},
                             calculate_Q_tll, false)
                     /* B_{st} */
-                    .addComputableNode(CoverageModelICGCacheNode.B_st.name(),
+                    .computableNode(CoverageModelICGCacheNode.B_st.name(),
                             new String[]{
                                     CoverageModelICGCacheTag.M_STEP_PSI.name(),
                                     CoverageModelICGCacheTag.E_STEP_GAMMA.name()},
@@ -369,7 +369,7 @@ public final class CoverageModelEMComputeBlock {
                                     CoverageModelICGCacheNode.Wz_st.name()},
                             calculate_B_st_with_bias_covariates, true)
                     /* M_{st} . (log(n_{st}) - E[log(c_{st})] - E[log(d_s)]) - mean --- externally computed */
-                    .addComputableNode(CoverageModelICGCacheNode.Delta_PCA_st.name(),
+                    .computableNode(CoverageModelICGCacheNode.Delta_PCA_st.name(),
                             new String[]{},
                             new String[]{
                                     CoverageModelICGCacheNode.log_n_st.name(),
@@ -380,7 +380,7 @@ public final class CoverageModelEMComputeBlock {
         } else { /* no bias covariates */
             cgbuilder
                     /* B_{st} */
-                    .addComputableNode(CoverageModelICGCacheNode.B_st.name(),
+                    .computableNode(CoverageModelICGCacheNode.B_st.name(),
                             new String[]{
                                     CoverageModelICGCacheTag.M_STEP_PSI.name(),
                                     CoverageModelICGCacheTag.E_STEP_GAMMA.name()},
@@ -394,13 +394,13 @@ public final class CoverageModelEMComputeBlock {
         // TODO github/gatk-protected issue #701 -- this class is part of the upcoming CNV-avoiding regularizer
         //
         //            /* FFT[W] */
-        //            .addComputableNode(CoverageModelICGCacheNode.F_W_tl.name(),
+        //            .computableNode(CoverageModelICGCacheNode.F_W_tl.name(),
         //                   new String[]{},
         //                   new String[]{CoverageModelICGCacheNode.W_tl.name()},
         //                   null, true);
         //
         //            /* log likelihood (w/ regularization) */
-        //            .addComputableNode(CoverageModelICGCacheNode.loglike_reg.name(),
+        //            .computableNode(CoverageModelICGCacheNode.loglike_reg.name(),
         //                    new String[]{CoverageModelICGCacheTag.LOGLIKE_REG.name()},
         //                    new String[]{
         //                            CoverageModelICGCacheNode.B_st.name(),
@@ -411,7 +411,7 @@ public final class CoverageModelEMComputeBlock {
         //                            CoverageModelICGCacheNode.zz_sll.name()},
         //                    calculate_loglike_reg, true);
         //            /* \sum_t Q_{t\mu\nu} */
-        //            .addComputableNode(CoverageModelICGCacheNode.sum_Q_ll.name(),
+        //            .computableNode(CoverageModelICGCacheNode.sum_Q_ll.name(),
         //        new String[]{CoverageModelICGCacheTag.E_STEP_W_REG.name()},
         //        new String[]{CoverageModelICGCacheNode.Q_tll.name()},
         //        calculate_sum_Q_ll, true);

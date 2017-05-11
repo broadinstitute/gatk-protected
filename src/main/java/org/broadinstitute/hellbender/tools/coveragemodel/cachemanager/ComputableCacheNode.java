@@ -13,7 +13,7 @@ import java.util.Map;
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
-public final class ComputableCacheNode extends CacheNode {
+final class ComputableCacheNode extends CacheNode {
 
     private final ComputableNodeFunction func;
     private Duplicable cachedValue = null;
@@ -28,11 +28,11 @@ public final class ComputableCacheNode extends CacheNode {
      * @param func a function from a map that (at least) contains parents data to the computed value of this node
      * @param isCaching does it store the value or not
      */
-    public ComputableCacheNode(@Nonnull final String key,
-                               @Nonnull final Collection<String> tags,
-                               @Nonnull final Collection<String> parents,
-                               @Nullable final ComputableNodeFunction func,
-                               final boolean isCaching) {
+    ComputableCacheNode(@Nonnull final String key,
+                        @Nonnull final Collection<String> tags,
+                        @Nonnull final Collection<String> parents,
+                        @Nullable final ComputableNodeFunction func,
+                        final boolean isCaching) {
         super(key, tags, parents);
         this.func = func;
         this.isCaching = isCaching;
@@ -56,14 +56,12 @@ public final class ComputableCacheNode extends CacheNode {
     }
 
     @Override
-    public boolean isPrimitive() { return false; }
+    boolean isPrimitive() { return false; }
 
     @Override
-    public boolean isExternallyComputed() { return func == null; }
+    boolean isExternallyComputed() { return func == null; }
 
-    public boolean isCacheCurrent() { return isCacheCurrent; }
-
-    public boolean isCaching() { return isCaching; }
+    boolean isCaching() { return isCaching; }
 
     /**
      * Available means (1) the node caches its value, and (2) a value is already cached (though may
@@ -72,21 +70,12 @@ public final class ComputableCacheNode extends CacheNode {
      * @return a boolean
      */
     @Override
-    public boolean hasValue() {
+    boolean hasValue() {
         return isCaching && cachedValue != null && cachedValue.hasValue();
     }
 
-    /**
-     * In addition to being available, this methods checks if the cached value is up-to-date
-     *
-     * @return a boolean
-     */
-    public boolean hasValueAndIsCurrent() {
-        return hasValue() && isCacheCurrent();
-    }
-
     @Override
-    public void set(@Nullable final Duplicable val) {
+    void set(@Nullable final Duplicable val) {
         if (isExternallyComputed()) {
             cachedValue = val;
             isCacheCurrent = true;
@@ -106,9 +95,9 @@ public final class ComputableCacheNode extends CacheNode {
      * @throws ComputableNodeFunction.ParentValueNotFoundException if a required parent value is not given
      */
     @Override
-    public Duplicable get(@Nonnull final Map<String, Duplicable> parentsValues)
+    Duplicable get(@Nonnull final Map<String, Duplicable> parentsValues)
             throws ComputableNodeFunction.ParentValueNotFoundException, ExternallyComputableNodeValueUnavailableException {
-        if (hasValueAndIsCurrent()) {
+        if (hasValue()) {
             return cachedValue;
         } else if (!isExternallyComputed()) {
             return func.apply(parentsValues); /* may throw {@link ComputableNodeFunction.ParentValueNotFoundException} */
@@ -118,7 +107,7 @@ public final class ComputableCacheNode extends CacheNode {
     }
 
     @Override
-    public ComputableCacheNode duplicate() {
+    ComputableCacheNode duplicate() {
         if (hasValue()) {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, true, cachedValue.duplicate(), isCacheCurrent);
         } else {
@@ -132,7 +121,7 @@ public final class ComputableCacheNode extends CacheNode {
      * @param newValue the cache value to be replaced with the old value
      * @return a new instance of {@link ComputableCacheNode}
      */
-    public ComputableCacheNode duplicateWithUpdatedValue(final Duplicable newValue) {
+    ComputableCacheNode duplicateWithUpdatedValue(final Duplicable newValue) {
         if (isCaching && newValue != null && newValue.hasValue()) {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, true, newValue, true);
         } else {
@@ -145,7 +134,7 @@ public final class ComputableCacheNode extends CacheNode {
      *
      * @return a function
      */
-    public ComputableNodeFunction getFunction() {
+    ComputableNodeFunction getFunction() {
         return func;
     }
 
@@ -155,7 +144,7 @@ public final class ComputableCacheNode extends CacheNode {
      *
      * @return a new instance of {@link ComputableCacheNode}
      */
-    public ComputableCacheNode duplicateWithOutdatedCacheStatus() {
+    ComputableCacheNode duplicateWithOutdatedCacheStatus() {
         return new ComputableCacheNode(getKey(), getTags(), getParents(), func, isCaching, null, false);
     }
 
