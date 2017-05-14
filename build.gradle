@@ -280,32 +280,37 @@ javadoc {
 }
 
 // Generate GATK Online Doc
-task gatkDoc(type: Javadoc, dependsOn: classes) {
+task gatkDoc(type: Javadoc, dependsOn: ['cleanGatkDoc', classes]) {
+    // A GATK source folder is required to resolve any dependent classes that will be part of the generated doc.
+    final String gatkSourceDir = project.hasProperty('gatkSourceDir') ?
+            project.getProperty('gatkSourceDir') :
+            '../gatk'
     final File gatkDocDir = new File("build/docs/gatkdoc")
-    String gatkSourceDir;
+    final String pathToGATKClasses = gatkSourceDir + '/src/main/java/org/broadinstitute/hellbender/'
+    final String pathToGATKHelpTemplates = gatkSourceDir + '/src/main/resources/org/broadinstitute/hellbender/utils/helpTemplates/'
     doFirst {
         // make sure the output folder exists or we can create it
         if (!gatkDocDir.exists() && !gatkDocDir.mkdirs()) {
-            throw new GradleException(String.format("Failure creating folder (%s) for GATK doc output in task (%s)",
+            throw new InvalidUserDataException(String.format("Failure creating folder (%s) for GATK doc output in task (%s)",
                     gatkDocDir.getAbsolutePath(),
                     it.name));
         }
-        // In order to generate docs for gatk-protected, a GATK source folder is required to resolve any dependent
-        // classes that will be part of the generated doc.
-        gatkSourceDir = project.hasProperty('gatkSourceDir') ?
-                project.getProperty('gatkSourceDir') :
-                '../gatk'
         if (!file(gatkSourceDir).exists()) {
             throw new GradleException("A GATK source directory is required to generate doc for gatk-protected: "
                     + gatkSourceDir + ". Set the gatkSourceDir property to the GATK source directory.")
         }
+        println("Note: The GATK source folder must contain the same version of GATK that is used to build gatk-protected")
     }
 
-    // We need to add the source for any GATK classes that are referenced by the local DocumentedFeatures
-    source = sourceSets.main.allJava +
-            files { file(gatkSourceDir + '/src/main/java/org/broadinstitute/hellbender/cmdline/argumentcollections').listFiles() } +
-            files { file(gatkSourceDir + '/src/main/java/org/broadinstitute/hellbender/cmdline/GATKPlugin/').listFiles() } +
-            files { file(gatkSourceDir + '/src/main/java/org/broadinstitute/hellbender/engine/filters/').listFiles() }
+    //The source set needs to include any GATK classes that are referenced by the local DocumentedFeatures
+    final String gatkArgCollections = pathToGATKClasses + 'cmdline/argumentcollections/'
+    final String gatkPlugins = pathToGATKClasses + 'cmdline/GATKPlugin/'
+    final String gatkFilters = pathToGATKClasses + 'engine/filters/'
+    final FileCollection gatkClassFiles =
+                    files { file(gatkArgCollections).listFiles() } +
+                    files { file(gatkPlugins).listFiles() } +
+                    files { file(gatkFilters).listFiles() }
+    source = sourceSets.main.allJava + gatkClassFiles
 
     // The gatkDoc process instantiates any documented feature classes, so to run it we need the entire
     // runtime classpath, as well as jdk javadoc files such as tools.jar, where com.sun.javadoc lives.
@@ -316,7 +321,7 @@ task gatkDoc(type: Javadoc, dependsOn: classes) {
     outputs.dir(gatkDocDir)
     options.destinationDirectory(gatkDocDir)
 
-    options.addStringOption("settings-dir", "src/main/resources/org/broadinstitute/hellbender/utils/helpTemplates");
+    options.addStringOption("settings-dir", pathToGATKHelpTemplates);
     options.addStringOption("output-file-extension", "html")
     options.addStringOption("absolute-version", getVersion())
     options.addStringOption("build-timestamp", new Date().format("dd-mm-yyyy hh:mm:ss"))
