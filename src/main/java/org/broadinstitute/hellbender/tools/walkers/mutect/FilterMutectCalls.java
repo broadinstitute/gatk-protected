@@ -51,6 +51,8 @@ public final class FilterMutectCalls extends VariantWalker {
         headerLines.add(new VCFFilterHeaderLine(Mutect2FilteringEngine.READ_POSITION_FILTER_NAME, "median distance of alt variants from end of reads"));
         headerLines.add(new VCFFilterHeaderLine(Mutect2FilteringEngine.CONTAMINATION_FILTER_NAME, "contamination"));
         headerLines.addAll(getDefaultToolVCFHeaderLines());
+        headerLines.add(new VCFFilterHeaderLine(Mutect2FilteringEngine.DUPLICATED_EVIDENCE_FILTER_NAME, "evidence for alt allele is overrepresented by apparent duplicates"));
+
         final VCFHeader vcfHeader = new VCFHeader(headerLines, inputHeader.getGenotypeSamples());
         vcfWriter = createVCFWriter(new File(outputVcf));
         vcfWriter.writeHeader(vcfHeader);

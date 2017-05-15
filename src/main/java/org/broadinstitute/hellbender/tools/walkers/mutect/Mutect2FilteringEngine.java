@@ -22,6 +22,7 @@ public class Mutect2FilteringEngine {
     public final static String MEDIAN_FRAGMENT_LENGTH_DIFFERENCE_FILTER_NAME = "fragment_length";
     public final static String READ_POSITION_FILTER_NAME = "read_position";
     public final static String CONTAMINATION_FILTER_NAME = "contamination";
+    public final static String DUPLICATED_EVIDENCE_FILTER_NAME = "duplicate_evidence";
 
     public static final List<String> M_2_FILTER_NAMES = Arrays.asList(GATKVCFConstants.STR_CONTRACTION_FILTER_NAME, GATKVCFConstants.PON_FILTER_NAME,
             GATKVCFConstants.HOMOLOGOUS_MAPPING_EVENT_FILTER_NAME, GATKVCFConstants.CLUSTERED_EVENTS_FILTER_NAME,
@@ -207,10 +208,27 @@ public class Mutect2FilteringEngine {
         }
     }
 
+    // This filter checks for the case in which PCR-duplicates with unique UMIs (which we assume is caused by barcode swap)
+    // amplify the erroneous signal for an alternate allele
+    private void applyDuplicatedAltReadFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final Collection<String> filters) {
+        Genotype tumorGenotype = vc.getGenotype(tumorSample);
+
+        if (!tumorGenotype.hasExtendedAttribute(UniqueAltReadCount.UNIQUE_ALT_READ_SET_COUNT_KEY)) {
+            return;
+        }
+
+        final int uniqueReadSetCount = GATKProtectedVariantContextUtils.getAttributeAsInt(tumorGenotype, UniqueAltReadCount.UNIQUE_ALT_READ_SET_COUNT_KEY, -1);
+
+        if (uniqueReadSetCount <= MTFAC.uniqueAltReadCount) {
+            filters.add(DUPLICATED_EVIDENCE_FILTER_NAME);
+        }
+    }
+
     //TODO: building a list via repeated side effects is ugly
     public Set<String> calculateFilters(final M2FiltersArgumentCollection MTFAC, final VariantContext vc) {
         final Set<String> filters = new HashSet<>();
         applyInsufficientEvidenceFilter(MTFAC, vc, filters);
+        applyDuplicatedAltReadFilter(MTFAC, vc, filters);
         applyEventDistanceFilters(vc, filters);
         applyTriallelicFilter(vc, filters);
         applyPanelOfNormalsFilter(MTFAC, vc, filters);
