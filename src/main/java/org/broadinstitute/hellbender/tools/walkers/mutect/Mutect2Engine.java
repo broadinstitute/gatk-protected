@@ -187,6 +187,7 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         headerInfo.add(new VCFInfoHeaderLine(GermlineProbabilityCalculator.POPULATION_AF_VCF_ATTRIBUTE, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "population allele frequencies of alt alleles"));
         headerInfo.add(new VCFInfoHeaderLine(GermlineProbabilityCalculator.GERMLINE_POSTERIORS_VCF_ATTRIBUTE, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Posterior probability for alt allele to be germline variants"));
         headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.NORMAL_ARTIFACT_LOD_ATTRIBUTE, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "log odds of artifact in normal with same allele fraction as tumor"));
+        headerInfo.add(new VCFInfoHeaderLine(SomaticGenotypingEngine.WELL_MAPPED_READ_COUNT_VCF_ATTRIBUTE, VCFHeaderLineCount.A, VCFHeaderLineType.Integer, "Number of well-mapped reads according to the realigner."));
 
         headerInfo.add(GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.ALLELE_FRACTION_KEY));
 

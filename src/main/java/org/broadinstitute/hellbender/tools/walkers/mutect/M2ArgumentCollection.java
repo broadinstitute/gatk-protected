@@ -114,4 +114,7 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     @Argument(fullName = "group", shortName = "G", doc = "One or more classes/groups of annotations to apply to variant calls", optional = true)
     public List<String> annotationGroupsToUse = new ArrayList<>(Arrays.asList(new String[]{}));
 
+    @Argument(fullName = "alignerIndexFile", shortName = "alignerIndex", doc = "Reference index file as produced by BwaMemIndexImageCreator", optional = false)
+    protected String alignerIndex = null;
+
 }

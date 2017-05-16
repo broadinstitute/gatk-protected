@@ -18,6 +18,9 @@ import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.AssemblyBased
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.AssemblyBasedCallerUtils;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.AssemblyResultSet;
 import org.broadinstitute.hellbender.utils.*;
+import org.broadinstitute.hellbender.utils.bwa.BwaMemAligner;
+import org.broadinstitute.hellbender.utils.bwa.BwaMemIndex;
+import org.broadinstitute.hellbender.utils.bwa.BwaMemIndexSingleton;
 import org.broadinstitute.hellbender.utils.genotyper.LikelihoodMatrix;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
 import org.broadinstitute.hellbender.utils.genotyper.SampleList;
@@ -37,6 +40,7 @@ import static org.broadinstitute.hellbender.utils.OptimizationUtils.argmax;
 
 public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine {
 
+    public static final String WELL_MAPPED_READ_COUNT_VCF_ATTRIBUTE = "WMR";
     public static final String IN_PON_VCF_ATTRIBUTE = "IN_PON";
     public static final String NORMAL_ARTIFACT_LOD_ATTRIBUTE = "N_ART_LOD";
 
@@ -46,6 +50,8 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
     private final String matchedNormalSampleName;
     final boolean hasNormal;
 
+    private final BwaMemAligner realigner;
+
     //Mutect2 does not run in GGA mode
     private static final List<VariantContext> NO_GIVEN_ALLELES = Collections.emptyList();
 
@@ -54,8 +60,6 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
         @Override
         public AFCalculator getInstance(final int ploidy, final int maximumAltAlleles) { return null; }
     };
-
-    private static final Logger logger = Logger.getLogger(SomaticGenotypingEngine.class);
 
     @Override
     protected String callSourceString() {
@@ -71,8 +75,7 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
         this.tumorSampleName = tumorSampleName;
         this.matchedNormalSampleName = matchedNormalSampleName;
         hasNormal = matchedNormalSampleName != null;
-
-        final double errorProbability = QualityUtils.qualToErrorProb(MTAC.POWER_CONSTANT_QSCORE);
+        realigner = MTAC.alignerIndex == null ? null : new BwaMemAligner(BwaMemIndexSingleton.getInstance(MTAC.alignerIndex));
     }
 
     /**
@@ -134,6 +137,10 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
                     .filter(allele -> !hasNormal || normalLog10Odds.get().getAlt(allele) > MTAC.NORMAL_LOD_THRESHOLD)
                     .collect(Collectors.toList());
             final List<Allele> allSomaticAlleles = ListUtils.union(Arrays.asList(mergedVC.getReference()), somaticAltAlleles);
+
+            final Optional<PerAlleleCollection<Integer>> uniquelyMappedSupportingReadCounts = realigner == null ? Optional.empty()
+                    : Optional.of(countUniquelyMappedSupportingReads(log10Likelihoods));
+
             if (somaticAltAlleles.isEmpty()) {
                 continue;
             }
@@ -152,6 +159,7 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
 
             normalLog10Odds.ifPresent(values -> callVcb.attribute(GATKVCFConstants.NORMAL_LOD_KEY, values.asDoubleArray(somaticAltAlleles)));
             normalArtifactLog10Odds.ifPresent(values -> callVcb.attribute(NORMAL_ARTIFACT_LOD_ATTRIBUTE, values.asDoubleArray(somaticAltAlleles)));
+            uniquelyMappedSupportingReadCounts.ifPresent(values -> callVcb.attribute(WELL_MAPPED_READ_COUNT_VCF_ATTRIBUTE, values.asDoubleArray(somaticAltAlleles)));
 
             if (!featureContext.getValues(MTAC.pon, mergedVC.getStart()).isEmpty()) {
                 callVcb.attribute(IN_PON_VCF_ATTRIBUTE, true);
@@ -299,5 +307,21 @@ public class SomaticGenotypingEngine extends AssemblyBasedCallerGenotypingEngine
 
     private <E> Optional<E> getForNormal(final Supplier<E> supplier) {
         return hasNormal ? Optional.of(supplier.get()) : Optional.empty();
+    }
+
+    private PerAlleleCollection<Integer> countUniquelyMappedSupportingReads(final ReadLikelihoods<Allele> likelihoods) {
+        final PerAlleleCollection<Integer> result = new PerAlleleCollection<>(PerAlleleCollection.Type.ALT_ONLY);
+
+        likelihoods.bestAlleles().stream()
+                .filter(ba -> ba.isInformative())
+                .filter(ba -> ba.allele.isNonReference())
+
+        realigner.alignSeqs()
+        for (final ReadLikelihoods<Allele>.BestAllele best : likelihoods.bestAlleles()) {
+            if (best.isInformative()) {
+
+            }
+        }
+        return result;
     }
 }
