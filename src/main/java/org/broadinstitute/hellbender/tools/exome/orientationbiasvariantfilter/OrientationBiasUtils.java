@@ -90,8 +90,7 @@ public class OrientationBiasUtils {
         Utils.nonNull(g, "Genotype cannot be null");
         Utils.nonNull(transition, "Artifact mode cannot be null");
 
-        return IntStream.range(1,g.getAlleles().size()).anyMatch(i -> g.getAllele(0).getDisplayString().equals(String.valueOf(transition.ref())) &&
-                g.getAllele(i).getDisplayString().equals(String.valueOf(transition.call())));
+        return IntStream.range(1,g.getAlleles().size()).anyMatch(i -> g.getAllele(0).basesMatch(g.getAllele(i)));
     }
 
     /** See {@link #isGenotypeInTransition}, except that this will take into account complements.
@@ -105,15 +104,7 @@ public class OrientationBiasUtils {
         Utils.nonNull(g, "Genotype cannot be null");
         Utils.nonNull(transition, "Transition cannot be null");
 
-        final boolean isInTransition = isGenotypeInTransition(g, transition);
-
-        if (isInTransition) {
-            return true;
-        }
-
-        final Transition transitionComplement = transition.complement();
-        return isGenotypeInTransition(g, transitionComplement);
-
+        return isGenotypeInTransition(g, transition) || isGenotypeInTransition(g, transition.complement());
     }
 
     /** Is this genotype in any of the specified artifact modes (or complements)
