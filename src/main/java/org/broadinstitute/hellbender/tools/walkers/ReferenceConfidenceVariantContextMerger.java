@@ -4,6 +4,8 @@ import com.google.common.annotations.VisibleForTesting;
 import htsjdk.samtools.util.Locatable;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.VCFConstants;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.genotyper.GenotypeLikelihoodCalculators;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -21,6 +23,8 @@ import java.util.stream.Stream;
  */
 @SuppressWarnings({"rawtypes","unchecked"}) //TODO fix uses of untyped Comparable.
 final class ReferenceConfidenceVariantContextMerger {
+
+    private static final Logger logger = LogManager.getLogger(ReferenceConfidenceVariantContextMerger.class);
 
     private final GenotypeLikelihoodCalculators calculators;
 
@@ -368,8 +372,9 @@ final class ReferenceConfidenceVariantContextMerger {
                     values.add(Integer.parseInt(stringValue));
                 }
             } catch (final NumberFormatException e) {
-                // nothing to do
-                //TODO This comes directly from gatk3, we should determine if we should log this or if it happens so much it is not useful to log
+                final String baseMsg = "Remaining (non-reducible) annotations are assumed to be ints or doubles, but " + value + " doesn't parse and will not be annotated in the final VC.";
+                final String msg = value.toString().contains("|") ? baseMsg + " Add -G Standard -G AS_Standard to the command to annotate in the final VC." : baseMsg;
+                logger.warn(msg);
             }
         }
     }
