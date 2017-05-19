@@ -1,9 +1,11 @@
 package org.broadinstitute.hellbender.tools.exome.orientationbiasvariantfilter;
 
 import com.google.cloud.dataflow.sdk.repackaged.com.google.common.annotations.VisibleForTesting;
+import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFConstants;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,9 +18,7 @@ import org.broadinstitute.hellbender.utils.tsv.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -90,7 +90,8 @@ public class OrientationBiasUtils {
         Utils.nonNull(g, "Genotype cannot be null");
         Utils.nonNull(transition, "Artifact mode cannot be null");
 
-        return IntStream.range(1,g.getAlleles().size()).anyMatch(i -> g.getAllele(0).basesMatch(g.getAllele(i)));
+        return IntStream.range(1,g.getAlleles().size()).anyMatch(i -> g.getAllele(0).basesMatch(Allele.create((byte) transition.ref(), true)) &&
+                g.getAllele(i).basesMatch(Allele.create((byte) transition.call())));
     }
 
     /** See {@link #isGenotypeInTransition}, except that this will take into account complements.
