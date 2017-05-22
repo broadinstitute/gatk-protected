@@ -49,12 +49,12 @@ public final class IntegerCopyNumberState implements AlleleMetadataProducer, Cal
     }
 
     /**
-     * TODO github/gatk-protected issue #855 -- this is required for VCF creation
+     * TODO github/gatk-protected issue #1057 -- this is required for VCF creation
      * @param header an instance of {@link VCFHeader}
      */
     @Override
     public void addHeaderLineTo(@Nonnull VCFHeader header) {
-        throw new UnsupportedOperationException("github/gatk-protected issue #855");
+        throw new UnsupportedOperationException("github/gatk-protected issue #1057");
     }
 
     @Override

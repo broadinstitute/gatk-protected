@@ -32,8 +32,7 @@ import java.util.stream.IntStream;
  * This class represents an immutable block of data containers, query methods and cloners corresponding to
  * a partition of the target space.
  *
- * TODO github/gatk-protected issue #853 -- logging in spark mode (log4j is not serializable)
- * TODO github/gatk-protected issue #853 -- use instrumentation to measure memory consumption
+ * TODO github/gatk-protected issue #1059
  *
  * @implNote Methods that manipulate INDArrays must make sure to leave queried values from
  * {@link CoverageModelEMComputeBlock#icg} unchanged. For example, to calculate the A.B.C + D,

@@ -493,6 +493,7 @@ public final class CoverageModelEMWorkspace<STATE extends AlleleMetadataProducer
     }
 
     /**
+     * TODO github/gatk-protected issue #1055 -- consider adding more filters
      * Process read counts and filter targets and/or samples as follows:
      *
      * <dl>
@@ -502,11 +503,6 @@ public final class CoverageModelEMWorkspace<STATE extends AlleleMetadataProducer
      *
      * @implNote it is best to keep this filter static and functional in design for robustness/clarity.
      *
-     * TODO github/gatk-protected issue #855 -- consider adding more filters
-     * - remove targets with very high and very low GC content (can be done externally)
-     * - remove targets with lots of repeats (can be done externally)
-     * - in the learning mode, remove a target if too many are masked across the samples (in that case, max likelihood
-     *   parameter estimation is unreliable)
      */
     private static ReadCountCollection processReadCountCollection(@Nonnull final ReadCountCollection rawReadCounts,
                                                                   @Nonnull final CoverageModelArgumentCollection args,
@@ -622,7 +618,7 @@ public final class CoverageModelEMWorkspace<STATE extends AlleleMetadataProducer
                     .map(idx -> isMaskedForLearning(rawReadCountBlock[idx], germlinePloidyBlock[idx], config.getMinLearningReadCount()) ? 0 : 1)
                     .toArray();
 
-            /* TODO github/gatk-protected issue #855 -- in the future, this must be replaced with a sample-
+            /* TODO github/gatk-protected issue #748 -- in the future, this must be replaced with a sample-
              * and target-specific value calculated from the mapping quality distribution of each target */
             final double[] mappingErrorRateBlock = IntStream.range(0, rawReadCountBlock.length)
                     .mapToDouble(idx -> config.getMappingErrorRate())
@@ -2629,7 +2625,7 @@ public final class CoverageModelEMWorkspace<STATE extends AlleleMetadataProducer
     /**
      * Saves copy-ratio-related posteriors to disk.
      *
-     * TODO github/gatk-protected issue #855 -- write local copy ratio posteriors as well
+     * TODO github/gatk-protected issue #1056 -- write local copy ratio posteriors as well?
      *
      * @param outputPath the output path
      */

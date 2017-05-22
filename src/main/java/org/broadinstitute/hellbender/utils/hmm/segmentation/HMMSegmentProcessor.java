@@ -28,8 +28,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * TODO github/gatk-protected issue #855 -- this is a last-minute fork of {@link HMMPostProcessor}.
- * It just does segmentation (no VCF creation)
+ * This class generates constant copy number segments from Viterbi states, calculates segment summary
+ * statistics from forward-backward results, and write the output as .seg files.
+ *
+ * TODO github/gatk-protected issue #1056 -- Viterbi vs. local posteriors
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */

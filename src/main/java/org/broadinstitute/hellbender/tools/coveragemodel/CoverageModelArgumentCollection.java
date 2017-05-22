@@ -998,10 +998,7 @@ public final class CoverageModelArgumentCollection {
     /**
      * Validate parameters.
      *
-     * TODO github/gatk-protected issue #843 -- more validations
-     *      positive/negative values
-     *      Maxes greater than mins
-     *
+     * TODO github/gatk-protected issue #1058
      */
     public void validate() {
 

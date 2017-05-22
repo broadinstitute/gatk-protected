@@ -102,8 +102,6 @@ import java.util.stream.Collectors;
  * Otherwise, only the cache status will go out of date. Unchanged nodes are passed as reference to the new instance.
  * JVM's garbage collector will free up the memory for old cached nodes in sequential computations.
  *
- * TODO github/gatk-protected issue # 999 --- Improve ImmutableComputableGraph
- *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
 public final class ImmutableComputableGraph implements Serializable {

@@ -53,8 +53,6 @@ public final class CoverageModelGlobalConstants implements Serializable {
     public static final double RANDOM_UNEXPLAINED_VARIANCE_MAX = 0.0;
 
     /**
-     * TODO -- either estimate this from data for expose to user
-     *
      * Gaussian random standard deviation for bias covariates
      */
     public static final double RANDOM_BIAS_COVARIATES_STD = 0.1;
