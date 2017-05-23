@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.walkers;
 
+import htsjdk.samtools.util.Locatable;
 import htsjdk.tribble.Tribble;
 import htsjdk.tribble.readers.LineIterator;
 import htsjdk.tribble.readers.PositionalBufferedStream;
@@ -79,7 +80,7 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
                 {getTestFile("spanningDel.delOnly.g.vcf"), getTestFile( "spanningDel.delOnly.gatk3.7_30_ga4f720357.expected.vcf"), NO_EXTRA_ARGS, b37_reference_20_21},
                 {getTestFile("spanningDel.depr.delOnly.g.vcf"), getTestFile( "spanningDel.depr.delOnly.gatk3.7_30_ga4f720357.expected.vcf" ), NO_EXTRA_ARGS, b37_reference_20_21},
                 {getTestFile("ad-bug-input.vcf"), getTestFile( "ad-bug-gatk3.7_30_ga4f720357-output.vcf"), NO_EXTRA_ARGS, b37_reference_20_21}, //Bad AD Propagation Haploid Bug
-                {getTestFile(CEUTRIO_20_21_GATK3_4_G_VCF), getTestFile(CEUTRIO_20_21_EXPECTED_VCF), Arrays.asList("--dbsnp", "src/test/resources/large/dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
+                {getTestFile(CEUTRIO_20_21_GATK3_4_G_VCF), getTestFile(CEUTRIO_20_21_EXPECTED_VCF), Arrays.asList("--dbsnp", largeFileTestDir + "dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
                 {getTestFile("CEUTrio.20.21.missingIndel.g.vcf"), getTestFile( "CEUTrio.20.21.missingIndel.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("--dbsnp", "src/test/resources/large/dbsnp_138.b37.20.21.vcf"), b37_reference_20_21},
                 {new File(largeFileTestDir + "gvcfs/gatk3.7_30_ga4f720357.24_sample.21.g.vcf"), new File( largeFileTestDir + "gvcfs/gatk3.7_30_ga4f720357.24_sample.21.expected.vcf"), NO_EXTRA_ARGS, b38_reference_20_21},
                 {getTestFile("chr21.bad.pl.g.vcf"), getTestFile( "chr21.bad.pl.gatk3.7_30_ga4f720357.expected.vcf"), Arrays.asList("-L", "chr21:28341770-28341790"), b38_reference_20_21},
@@ -165,20 +166,11 @@ public class GenotypeGVCFsIntegrationTest extends CommandLineProgramTest {
 
 
     @Test(dataProvider = "getGVCFsForGenomicsDB")
-    public void assertMatchingGenotypesFromTileDB(File input, File expected, htsjdk.samtools.util.Locatable interval, String reference) throws IOException {
+    public void assertMatchingGenotypesFromTileDB(File input, File expected, Locatable interval, String reference) throws IOException {
         final File tempGenomicsDB = GenomicsDBTestUtils.createTempGenomicsDB(input, interval);
         final String genomicsDBUri = GenomicsDBTestUtils.makeGenomicsDBUri(tempGenomicsDB);
         runGenotypeGVCFSAndAssertSomething(genomicsDBUri, expected, NO_EXTRA_ARGS, VariantContextTestUtils::assertVariantContextsHaveSameGenotypes, reference);
     }
-
-    //this currently fails due to https://github.com/broadinstitute/gatk/issues/2636
-    @Test(dataProvider = "getGVCFsForGenomicsDB", enabled = false)
-    public void assertMatchingVariantsContextsFromTileDB(File input, File expected, htsjdk.samtools.util.Locatable interval, String reference) throws IOException {
-        final File tempGenomicsDB = GenomicsDBTestUtils.createTempGenomicsDB(input, interval);
-        final String genomicsDBUri = GenomicsDBTestUtils.makeGenomicsDBUri(tempGenomicsDB);
-        runGenotypeGVCFSAndAssertSomething(genomicsDBUri, expected, NO_EXTRA_ARGS, (a, e) -> VariantContextTestUtils.assertVariantContextsAreEqual(a, e, ATTRIBUTES_TO_IGNORE), reference);
-    }
-
 
     @Test(dataProvider = "gvcfsToGenotype")
     public void testEntireVariantContext(File input, File expected, List<String> extraArgs, String reference) throws IOException {
