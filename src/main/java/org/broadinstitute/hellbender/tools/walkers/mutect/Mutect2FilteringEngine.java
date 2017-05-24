@@ -90,14 +90,14 @@ public class Mutect2FilteringEngine {
     private void applyMedianBaseQualityDifferenceFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final Collection<String> filters) {
         final int[] baseQualityByAllele = getIntArrayTumorField(vc, BaseQuality.KEY);
         if (baseQualityByAllele != null && baseQualityByAllele[0] - baseQualityByAllele[1] > MTFAC.maxMedianBaseQualityDifference) {
-            filters.add(MEDIAN_CLIPPING_DIFFERENCE_FILTER_NAME);
+            filters.add(MEDIAN_BASE_QUALITY_DIFFERENCE_FILTER_NAME);
         }
     }
 
     private void applyMedianMappingQualityDifferenceFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final Collection<String> filters) {
         final int[] mappingQualityByAllele = getIntArrayTumorField(vc, MappingQuality.KEY);
         if (mappingQualityByAllele != null && mappingQualityByAllele[0] - mappingQualityByAllele[1] > MTFAC.maxMedianMappingQualityDifference) {
-            filters.add(MEDIAN_CLIPPING_DIFFERENCE_FILTER_NAME);
+            filters.add(MEDIAN_MAPPING_QUALITY_DIFFERENCE_FILTER_NAME);
         }
     }
 
@@ -122,13 +122,6 @@ public class Mutect2FilteringEngine {
             if (insertionSize + readPositionByAllele[1] < MTFAC.minMedianReadPosition) {
                 filters.add(READ_POSITION_FILTER_NAME);
             }
-        }
-
-        // since read position is measured relative to the reference, this can unfairly penalize long indels
-        // thus we add the insertion length
-        final int insertionSize =  Math.max(vc.getAltAlleleWithHighestAlleleCount().getBases().length - vc.getReference().getBases().length, 0);
-        if (insertionSize + vc.getAttributeAsInt(ReadPosition.KEY, 100) < MTFAC.minMedianReadPosition) {
-            filters.add(READ_POSITION_FILTER_NAME);
         }
     }
 

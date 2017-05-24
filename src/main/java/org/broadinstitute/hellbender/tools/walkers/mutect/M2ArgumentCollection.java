@@ -67,22 +67,22 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public int minVariantsInPileup = 2;
 
     /**
-     * How many standard deviations above the expected number of variant reads due to error we require for a tumor pielup to be considered active
-     */
-    @Argument(fullName = "tumorStandardDeviationsThreshold", optional = true, doc = "How many standard deviations above the expected number of variant reads due to error we require for a tumor pielup to be considered active.")
-    public int tumorStandardDeviationsThreshold = 2;
-
-    /**
-     * Minimum allele fraction of variant reads in normal for a pileup to be considered inactive
-     */
-    @Argument(fullName = "minNormalVariantFraction", optional = true, doc = "Minimum number of reads in pileup to be considered active region.")
-    public double minNormalVariantFraction = 0.1;
-
-    /**
      * Only variants with tumor LODs exceeding this threshold can pass filtering.
      */
     @Argument(fullName = "tumor_lod_to_emit", optional = true, doc = "LOD threshold for emit tumor variant")
     public double emissionLodThreshold = 3.0;
+
+    /**
+     * log10 odds that variant is present in a pileup required to proceed with computation
+     */
+    @Argument(fullName="initial_tumor_lod", doc="log10 odds that variant is present in a pileup required to proceed with computation", optional = true)
+    public double initialTumorLog10OddsThreshold = 2.0;
+
+    /**
+     * log10 odds that variant is present in a normal pileup required to abort computation
+     */
+    @Argument(fullName="initial_normal_lod", doc="log10 odds that variant is present in the normal pileup required to abort computation", optional = true)
+    public double initialNormalLog10OddsThreshold = 6.0;
 
     /**
      * This is a measure of the minimum evidence to support that a variant observed in the tumor is not also present in the normal.

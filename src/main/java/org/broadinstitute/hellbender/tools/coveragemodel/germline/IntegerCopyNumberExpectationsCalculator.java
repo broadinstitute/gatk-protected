@@ -137,14 +137,14 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                             FastMath.pow(logCopyRatioPosteriorMeans[ti], 2))
                 .toArray();
 
-        if (CHECK_FOR_BAD_VALUES) {
+        /*if (CHECK_FOR_BAD_VALUES) {
             checkForBadValues(targetList, Arrays.stream(logCopyRatioPosteriorMeans).boxed().collect(Collectors.toList()),
                     d -> Double.isInfinite(d) || Double.isNaN(d),
                     "log copy ratio posterior means");
             checkForBadValues(targetList, Arrays.stream(logCopyRatioPosteriorVariances).boxed().collect(Collectors.toList()),
                     d -> Double.isInfinite(d) || Double.isNaN(d),
                     "log copy ratio posterior variances");
-        }
+        }*/
 
         /* calculate chain posterior log probability */
         final double logChainPosteriorProbability = result.logChainPosteriorProbability();
@@ -217,14 +217,14 @@ public final class IntegerCopyNumberExpectationsCalculator implements
                         FastMath.pow(logCopyRatioPriorMeans[ti], 2))
                 .toArray();
 
-        if (CHECK_FOR_BAD_VALUES) {
+        /*if (CHECK_FOR_BAD_VALUES) {
             checkForBadValues(targetList, Arrays.stream(logCopyRatioPriorMeans).boxed().collect(Collectors.toList()),
                     d -> Double.isInfinite(d) || Double.isNaN(d),
                     "log copy ratio prior means");
             checkForBadValues(targetList, Arrays.stream(logCopyRatioPriorVariances).boxed().collect(Collectors.toList()),
                     d -> Double.isInfinite(d) || Double.isNaN(d),
                     "log copy ratio prior variances");
-        }
+        }*/
 
         /* calculate chain posterior log probability */
         final double logChainPriorProbability = CALCULATE_PRIOR_LOG_PROBABILITY

@@ -127,7 +127,7 @@ public final class CoverageModelSparkUtils {
                 " or contains overlapping elements");
         final List<INDArray> sortedBlocks = blocksCollection.stream()
                 /* sort according to begin index of each target-space partition */
-                .sorted(Comparator.comparingInt(p -> p.getKey().getBegIndex()))
+                //.sorted(Comparator.comparingInt(p -> p.getKey().getBegIndex()))
                 /* remove the keys */
                 .map(Pair<LinearlySpacedIndexBlock, INDArray>::getValue)
                 /* collect to a list */
@@ -156,7 +156,7 @@ public final class CoverageModelSparkUtils {
                 " or contains overlapping elements");
         return blockifiedCollection.stream()
                 /* sort by block begin index */
-                .sorted(Comparator.comparingInt(p -> p.getKey().getBegIndex()))
+                //.sorted(Comparator.comparingInt(p -> p.getKey().getBegIndex()))
                 /* get rid of keys */
                 .map(Pair<LinearlySpacedIndexBlock, List<T>>::getValue)
                 /* flat map each list and collect to a single list */

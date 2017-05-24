@@ -5,6 +5,7 @@ import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.vcf.*;
+import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.engine.*;
@@ -28,6 +29,7 @@ import org.broadinstitute.hellbender.utils.genotyper.SampleList;
 import org.broadinstitute.hellbender.utils.haplotype.Haplotype;
 import org.broadinstitute.hellbender.utils.haplotype.HaplotypeBAMWriter;
 import org.broadinstitute.hellbender.utils.pileup.PileupElement;
+import org.broadinstitute.hellbender.utils.pileup.ReadPileup;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
@@ -79,6 +81,8 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         }
     };
 
+    final SomaticActiveRegionTriager somaticActiveRegionTriager;
+
     /**
      * Create and initialize a new HaplotypeCallerEngine given a collection of HaplotypeCaller arguments, a reads header,
      * and a reference file
@@ -92,6 +96,7 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         this.header = Utils.nonNull(header);
         Utils.nonNull(reference);
         referenceReader = AssemblyBasedCallerUtils.createReferenceReader(reference);
+        somaticActiveRegionTriager = new SomaticActiveRegionTriager(MTAC);
         initialize();
     }
 
@@ -286,18 +291,18 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
 
     @Override
     public ActivityProfileState isActive(final AlignmentContext context, final ReferenceContext ref, final FeatureContext featureContext) {
-        final byte refBase = ref.getBase();
-        final SimpleInterval refInterval = ref.getInterval();
+
         if( context == null || context.getBasePileup().isEmpty() ) {
-            return new ActivityProfileState(refInterval, 0.0);
+            return inactiveState(ref);
         }
+
+        final byte refBase = ref.getBase();
 
         // because new pileups must be allocated when getting the tumor and normal pileups, we first
         // opportunistically check whether the combined pileup has no evidence of variation, which we will define as
         // having at most one variant read
-        final int totalNonRef = countNonRef(refBase, context);
-        if (totalNonRef < MTAC.minVariantsInPileup) {
-            return new ActivityProfileState(refInterval, 0.0);
+        if (countNonRef(refBase, context) < MTAC.minVariantsInPileup) {
+            return inactiveState(ref);
         }
 
         final Map<String, AlignmentContext> splitContexts = context.splitContextBySampleName(header);
@@ -305,31 +310,15 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         final AlignmentContext normalContext = splitContexts.get(MTAC.normalSampleName);
 
         // if there are no tumor reads... there is no activity!
-        if (tumorContext == null) {
-            return new ActivityProfileState(refInterval, 0);
+        if (tumorContext == null || countNonRef(refBase, tumorContext) < MTAC.minVariantsInPileup) {
+            return inactiveState(ref);
         }
 
-        final int tumorNonRef = countNonRef(refBase, tumorContext);
-        if (tumorNonRef < MTAC.minVariantsInPileup) {
-            return new ActivityProfileState(refInterval, 0.0);
-        }
+        final boolean isActive = hasNormal() && normalContext != null ? somaticActiveRegionTriager.isActive(tumorContext.getBasePileup(), normalContext.getBasePileup(), refBase)
+                : somaticActiveRegionTriager.isActive(tumorContext.getBasePileup(), refBase);
 
-        // since errors are rare, the number of errors (if reads are independent) is approximately a Poisson random variable,
-        // with mean equal to its variance
-        final double expectedTumorNonRefDueToError = StreamSupport.stream(tumorContext.getBasePileup().spliterator(), false)
-                .mapToDouble(pe -> QualityUtils.qualToErrorProb(pe.getQual()))
-                .sum();
-        final double tumorNonRefStdev = Math.sqrt(expectedTumorNonRefDueToError);
+        return isActive ? activeState(ref) : inactiveState(ref);
 
-        if (tumorNonRef < expectedTumorNonRefDueToError + MTAC.tumorStandardDeviationsThreshold * tumorNonRefStdev) {
-            return new ActivityProfileState(refInterval, 0.0);
-        }
-
-        if (hasNormal() && normalContext != null && countNonRef(refBase, normalContext) > normalContext.getBasePileup().size() * MTAC.minNormalVariantFraction) {
-            return new ActivityProfileState(refInterval, 0.0);
-        }
-
-        return new ActivityProfileState( refInterval, 1.0, ActivityProfileState.Type.NONE, null);
     }
 
     private boolean isNonRef(final byte refBase, final PileupElement p) {
@@ -339,4 +328,9 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
     private int countNonRef(byte refBase, AlignmentContext context) {
         return context.getBasePileup().getNumberOfElements(p -> isNonRef(refBase, p));
     }
+
+    private ActivityProfileState inactiveState(final ReferenceContext ref) { return new ActivityProfileState(ref.getInterval(), 0.0); }
+    private ActivityProfileState activeState(final ReferenceContext ref) { return new ActivityProfileState(ref.getInterval(), 1.0); }
+
+
 }
