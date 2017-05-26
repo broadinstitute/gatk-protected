@@ -126,7 +126,7 @@ public class TargetCoverageSexGenotyper extends CommandLineProgram {
     protected File outputSampleGenotypesFile;
 
     @Argument(
-            doc = "Input contig annotations file. For an example file for the human reference, see the GATK Resource Bundle.",
+            doc = "Input contig annotations file. For an example file, see the GATK Resource Bundle.",
             fullName = INPUT_CONTIG_ANNOTS_LONG_NAME,
             shortName = INPUT_CONTIG_ANNOTS_SHORT_NAME,
             optional = false
