@@ -13,7 +13,7 @@
 # 4.  Compare Mutect calls to the truth data and output a table of true positives and false negatives along with
 #     annotations from the truth VCF prepared in steps 1 and 2.
 
-# Here we implement steps 1 and 2.
+# Here we implement steps 1 and 2 for several replicates of a single plex, eg several replicates of the 10-plex pool.
 
 # Uses select_variants to create a VCF that is subsetted by sample and by interval list
 task CreateSubVcf {
@@ -23,22 +23,20 @@ task CreateSubVcf {
     File sample_file
     File? intervals           # the primary intervals to restrict to
     File dbsnp_intervals                # to filter out false positives.  Note that dbSNP contains indels!
+    File hc_vcf         # hapmap variants confirmed by HaplotypeCaller to reduce false positives
+    File hc_vcf_idx
 
     command {
         # subsampling and restriction to biallelics and intervals
         java -jar ${gatk_jar} SelectVariants -V ${hapmap} -O sub.vcf \
             -restrictAllelesTo BIALLELIC --sample_name ${sample_file} \
             -L ${dbsnp_intervals} ${"-L " + intervals} --interval_set_rule INTERSECTION \
-             -excludeNonVariants
+            --concordance ${hc_vcf} \
+            --excludeNonVariants
 
-        #SNPs
-        java -jar ${gatk_jar} SelectVariants -V sub.vcf -O snps.vcf  -selectType SNP
-
-        #indels
-        java -jar ${gatk_jar} SelectVariants -V sub.vcf -O indels.vcf -selectType INDEL
-
-        #recombine SNPs and indel
-        java -jar ${gatk_jar} MergeVcfs -I snps.vcf -I indels.vcf -O subsampled_hapmap.vcf
+         #remove NEGATIVE_TRAIN_SITE variants and re-index
+         grep -v NEGATIVE_TRAIN_SITE sub.vcf > subsampled_hapmap.vcf
+         java -jar ${gatk_jar} IndexFeatureFile -F subsampled_hapmap.vcf
     }
 
     output {
@@ -69,9 +67,13 @@ task AnnotateVcfWithBamDepth {
     File input_vcf_idx
     File bam
     File bam_idx
+    Int max_depth   #ignore sites with depth greater than this because they are alignment artifacts
 
     command {
         java -jar ${gatk_jar} AnnotateVcfWithBamDepth -V ${input_vcf} -I ${bam} -O "bam_depth.vcf"
+        java -jar ${gatk_jar} SelectVariants -V bam_depth.vcf --select "BAM_DEPTH < ${max_depth}" -O tmp.vcf
+        mv tmp.vcf bam_depth.vcf
+        java -jar ${gatk_jar} IndexFeatureFile -F bam_depth.vcf
     }
 
     output {
@@ -117,12 +119,15 @@ workflow HapmapSensitivityTruth {
     File gatk_jar
     File hapmap
     File hapmap_idx
-    File pooled_bam
-    File pooled_bam_idx
+    File pooled_bams_list
+    Array[Array[String]] bams_and_index = read_tsv(pooled_bams_list)
     File sample_file
     File? intervals
     File dbsnp_intervals
     Int min_indel_spacing
+    File hc_vcf         # hapmap variants confirmed by HaplotypeCaller to reduce false positives
+    File hc_vcf_idx
+    Int max_depth
 
 
     call CreateSubVcf {
@@ -133,6 +138,8 @@ workflow HapmapSensitivityTruth {
             sample_file = sample_file,
             intervals = intervals,
             dbsnp_intervals = dbsnp_intervals,
+            hc_vcf = hc_vcf,
+            hc_vcf_idx = hc_vcf_idx
     }
 
     call RemoveNearbyIndels {
@@ -143,36 +150,41 @@ workflow HapmapSensitivityTruth {
             min_indel_spacing = min_indel_spacing
     }
 
-    call AnnotateVcfWithBamDepth {
-        input:
-            gatk_jar = gatk_jar,
-            input_vcf = RemoveNearbyIndels.output_vcf,
-            input_vcf_idx = RemoveNearbyIndels.output_vcf_idx,
-            bam = pooled_bam,
-            bam_idx = pooled_bam_idx
-    }
+    scatter(row in bams_and_index) {
+        File bam = row[0]
+        File index = row[1]
 
-    call CalculateMixingFractions {
-        input:
-            gatk_jar = gatk_jar,
-            input_vcf = CreateSubVcf.output_vcf,
-            input_vcf_idx = CreateSubVcf.output_vcf_idx,
-            bam = pooled_bam,
-            bam_idx = pooled_bam_idx
-    }
+        call CalculateMixingFractions {
+            input:
+                gatk_jar = gatk_jar,
+                input_vcf = CreateSubVcf.output_vcf,
+                input_vcf_idx = CreateSubVcf.output_vcf_idx,
+                bam = bam,
+                bam_idx = index
+        }
 
-    call AnnotateVcfWithExpectedAlleleFraction {
-        input:
-            gatk_jar = gatk_jar,
-            input_vcf = AnnotateVcfWithBamDepth.output_vcf,
-            input_vcf_idx = AnnotateVcfWithBamDepth.output_vcf_idx,
-            mixing_fractions_table = CalculateMixingFractions.output_table,
+        call AnnotateVcfWithExpectedAlleleFraction {
+            input:
+                gatk_jar = gatk_jar,
+                input_vcf = RemoveNearbyIndels.output_vcf,
+                input_vcf_idx = RemoveNearbyIndels.output_vcf_idx,
+                mixing_fractions_table = CalculateMixingFractions.output_table,
+        }
+
+        call AnnotateVcfWithBamDepth {
+                input:
+                    gatk_jar = gatk_jar,
+                    input_vcf = AnnotateVcfWithExpectedAlleleFraction.output_vcf,
+                    input_vcf_idx = AnnotateVcfWithExpectedAlleleFraction.output_vcf_idx,
+                    bam = bam,
+                    bam_idx = index,
+                    max_depth = max_depth
+            }
     }
 
     output {
-        File mixing_fractions_table = CalculateMixingFractions.output_table
-        File output_vcf = AnnotateVcfWithExpectedAlleleFraction.output_vcf
+        Array[File] mixing_fractions_table = CalculateMixingFractions.output_table
+        Array[File] output_vcf = AnnotateVcfWithBamDepth.output_vcf
     }
-
 }
 

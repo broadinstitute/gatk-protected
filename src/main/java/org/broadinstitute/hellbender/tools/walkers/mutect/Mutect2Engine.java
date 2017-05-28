@@ -148,17 +148,12 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         return filters;
     }
 
-
-    final Predicate<GATKRead> isInReadGroupsToKeep = read ->  MTAC.keepRG == null || read.getReadGroup().equals(MTAC.keepRG);
-
-
-    public void writeHeader(final VariantContextWriter vcfWriter, final SAMSequenceDictionary sequenceDictionary,
-                            final Set<VCFHeaderLine>  defaultToolHeaderLines) {
+    public void writeHeader(final VariantContextWriter vcfWriter, final SAMSequenceDictionary sequenceDictionary) {
         final Set<VCFHeaderLine> headerInfo = new HashSet<>();
 
         // all annotation fields from VariantAnnotatorEngine
         headerInfo.addAll(annotationEngine.getVCFAnnotationDescriptions());
-        headerInfo.addAll(defaultToolHeaderLines);
+        //headerInfo.addAll(defaultToolHeaderLines);
 
         // all callers need to add these standard FORMAT field header lines
         VCFStandardHeaderLines.addStandardFormatLines(headerInfo, true,
