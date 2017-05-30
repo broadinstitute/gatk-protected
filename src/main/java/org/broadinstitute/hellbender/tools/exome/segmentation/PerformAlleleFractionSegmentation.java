@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.tools.exome.segmentation;
 import org.apache.commons.io.FilenameUtils;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
+import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
 import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CopyNumberProgramGroup;
@@ -15,13 +16,30 @@ import java.io.File;
 import java.util.List;
 
 /**
- * Created by davidben on 5/23/16.
+ * Groups contiguous targets with the same minor allele fraction for a single sample.
+ *
+ * <p>
+ *     The --tumorHets file is from {@link org.broadinstitute.hellbender.tools.exome.GetHetCoverage}.
+ *     For example,
+ * </p>
+ *
+ * <pre>
+ *     CONTIG	POSITION	REF_COUNT	ALT_COUNT
+ *     1	881918	14	21
+ *     1	909238	13	11
+ *     1	934940	14	0
+ *     1	949608	20	14
+ *     1	1021415	2	10
+ * </pre>
+ *
+ * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
         summary = "Segment genomic data into regions of constant minor allele fraction.  Only supports one sample input.",
         oneLineSummary = "Segment genomic data into regions of constant minor allele fraction",
         programGroup = CopyNumberProgramGroup.class
 )
+@DocumentedFeature
 public final class PerformAlleleFractionSegmentation extends CommandLineProgram {
     protected static final String INITIAL_NUM_STATES_LONG_NAME = "initialNumberOfStates";
     protected static final String INITIAL_NUM_STATES_SHORT_NAME = "initialNumStates";
