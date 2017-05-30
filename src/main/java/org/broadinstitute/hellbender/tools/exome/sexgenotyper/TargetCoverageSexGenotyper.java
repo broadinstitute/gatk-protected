@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Infers sex genotypes from raw target coverage and contig annotations.
+ * Infers sex genotypes from raw target coverage data and germline contig ploidy annotations.
  *
  * <p>
  *     In addition to the raw target coverage file, the user must provide a tab-separated contig
@@ -81,7 +81,7 @@ import java.util.List;
  *   --input combined_read_counts.tsv \
  *   --contigAnnotations grch37_contig_annotations.tsv \
  *   --targets targets.tsv \
- *   --output SEX_GENOTYPES.tsv
+ *   --output inferred_sex_genotypes.tsv
  * </pre>
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
@@ -126,7 +126,7 @@ public class TargetCoverageSexGenotyper extends CommandLineProgram {
     protected File outputSampleGenotypesFile;
 
     @Argument(
-            doc = "Input contig annotations file. For an example file, see the GATK Resource Bundle.",
+            doc = "Input germline contig ploidy annotations file. For an example file, see the GATK Resource Bundle.",
             fullName = INPUT_CONTIG_ANNOTS_LONG_NAME,
             shortName = INPUT_CONTIG_ANNOTS_SHORT_NAME,
             optional = false
