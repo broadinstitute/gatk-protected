@@ -61,8 +61,8 @@ import java.util.stream.Stream;
  * <h3>Example</h3>
  *
  * <pre>
- * java -jar $gatk_jar ConvertGSVariantsToSegments
- *   --variant genomestrip.vcf.gz
+ * java -jar $gatk_jar ConvertGSVariantsToSegments \
+ *   --variant genomestrip.vcf.gz \
  *   --output copynumbertristate.seg
  * </pre>
  *
