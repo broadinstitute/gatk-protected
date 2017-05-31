@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Group contiguous regions of constant copy ratio per sample.
+ * Groups contiguous regions of constant copy ratio per sample.
  *
  * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
  */
