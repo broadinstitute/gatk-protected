@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * 2. targets file containing GC content annotation as produced by {@link AnnotateTargets}.  Every target in the input
  *    read counts must be present in the targets file but the reverse need not be true.
  *
- * The resulting read counts file has the same targets (rows) and samples (columns) as the input and GC-bias-corrected coverage.
+ * The resulting read counts file has the same targets (rows) and samples (columns) as the input, with entries denoting GC-bias-corrected coverage.
  * Coverage is represented by doubles in {@link ReadCountCollection}.
  * </p>
  *
@@ -42,9 +42,9 @@ import java.util.stream.Collectors;
  * @author David Benjamin &lt;davidben@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        oneLineSummary = "Correct for per-target GC bias effects",
-        summary = "Correct coverage in read counts by estimating per-sample bias as a function of per-target GC " +
-                "content and by dividing input coverage by derived bias curves.",
+        oneLineSummary = "Correct for sample-specific GC bias",
+        summary = "Correct coverage in read counts by (i) estimating per-sample bias as a function of per-target GC " +
+                "content and (ii) dividing input coverage by derived bias curves.",
         programGroup = CopyNumberProgramGroup.class
 )
 @DocumentedFeature
