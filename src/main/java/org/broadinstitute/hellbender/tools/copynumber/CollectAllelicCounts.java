@@ -5,7 +5,6 @@ import htsjdk.samtools.util.IntervalList;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.ArgumentCollection;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
-import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
 import org.broadinstitute.hellbender.cmdline.ExomeStandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
@@ -33,7 +32,6 @@ import java.io.File;
         oneLineSummary = "Collects ref/alt counts at sites",
         programGroup = CopyNumberProgramGroup.class
 )
-@DocumentedFeature
 public final class CollectAllelicCounts extends CommandLineProgram {
 
     @ArgumentCollection
