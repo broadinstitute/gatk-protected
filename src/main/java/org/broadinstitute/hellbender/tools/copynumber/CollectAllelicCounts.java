@@ -33,7 +33,6 @@ import java.io.File;
         oneLineSummary = "Collects ref/alt counts at sites",
         programGroup = CopyNumberProgramGroup.class
 )
-
 public final class CollectAllelicCounts extends CommandLineProgram {
 
     @ArgumentCollection
