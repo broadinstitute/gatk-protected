@@ -24,13 +24,13 @@ final class ComputableCacheNode extends CacheNode {
      * Public constructor
      *
      * @param key the key of the node
-     * @param parents immediate parents of the node
+     * @param parents parents of the node
      * @param func a function from a map that (at least) contains parents data to the computed value of this node
      * @param isCaching does it store the value or not
      */
-    ComputableCacheNode(@Nonnull final String key,
-                        @Nonnull final Collection<String> tags,
-                        @Nonnull final Collection<String> parents,
+    ComputableCacheNode(@Nonnull final NodeKey key,
+                        @Nonnull final Collection<NodeTag> tags,
+                        @Nonnull final Collection<NodeKey> parents,
                         @Nullable final ComputableNodeFunction func,
                         final boolean isCaching) {
         super(key, tags, parents);
@@ -41,9 +41,9 @@ final class ComputableCacheNode extends CacheNode {
         isCacheCurrent = false;
     }
 
-    private ComputableCacheNode(@Nonnull final String key,
-                                @Nonnull final Collection<String> tags,
-                                @Nonnull final Collection<String> parents,
+    private ComputableCacheNode(@Nonnull final NodeKey key,
+                                @Nonnull final Collection<NodeTag> tags,
+                                @Nonnull final Collection<NodeKey> parents,
                                 @Nullable final ComputableNodeFunction func,
                                 final boolean isCaching,
                                 final Duplicable cachedValue,
@@ -95,7 +95,7 @@ final class ComputableCacheNode extends CacheNode {
      * @throws ComputableNodeFunction.ParentValueNotFoundException if a required parent value is not given
      */
     @Override
-    Duplicable get(@Nonnull final Map<String, Duplicable> parentsValues)
+    Duplicable get(@Nonnull final Map<NodeKey, Duplicable> parentsValues)
             throws ComputableNodeFunction.ParentValueNotFoundException, ExternallyComputableNodeValueUnavailableException {
         if (hasValue()) {
             return cachedValue;
@@ -121,6 +121,7 @@ final class ComputableCacheNode extends CacheNode {
      * @param newValue the cache value to be replaced with the old value
      * @return a new instance of {@link ComputableCacheNode}
      */
+    @Override
     ComputableCacheNode duplicateWithUpdatedValue(final Duplicable newValue) {
         if (isCaching && newValue != null && newValue.hasValue()) {
             return new ComputableCacheNode(getKey(), getTags(), getParents(), func, true, newValue, true);
@@ -155,7 +156,7 @@ final class ComputableCacheNode extends CacheNode {
             implements Serializable {
         private static final long serialVersionUID = 9056196660803073912L;
 
-        private ExternallyComputableNodeValueUnavailableException(final String nodeKey) {
+        private ExternallyComputableNodeValueUnavailableException(final NodeKey nodeKey) {
             super(String.format("Either the externally mutable node \"%s\" is not initialized or is outdated",
                     nodeKey));
         }

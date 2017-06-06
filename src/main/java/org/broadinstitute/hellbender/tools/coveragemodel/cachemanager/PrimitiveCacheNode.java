@@ -27,8 +27,8 @@ final class PrimitiveCacheNode extends CacheNode {
         value = val;
     }
 
-    PrimitiveCacheNode(@Nonnull final String key,
-                       @Nonnull final Collection<String> tags,
+    PrimitiveCacheNode(@Nonnull final NodeKey key,
+                       @Nonnull final Collection<NodeTag> tags,
                        @Nullable final Duplicable val) {
         super(key, tags, Collections.emptyList());
         set(val);
@@ -40,13 +40,12 @@ final class PrimitiveCacheNode extends CacheNode {
     }
 
     @Override
-    Duplicable get(@Nullable final Map<String, Duplicable> parentsValues)
+    Duplicable get(@Nullable final Map<NodeKey, Duplicable> parentsValues)
             throws PrimitiveValueNotInitializedException {
         if (hasValue()) {
             return value;
         } else {
-            throw new PrimitiveValueNotInitializedException(String.format(
-                    "The primitive cache \"%s\" is not initialized yet", getKey()));
+            throw new PrimitiveValueNotInitializedException(getKey());
         }
     }
 
@@ -70,8 +69,9 @@ final class PrimitiveCacheNode extends CacheNode {
     static final class PrimitiveValueNotInitializedException extends RuntimeException implements Serializable {
         private static final long serialVersionUID = 6036472510998845566L;
 
-        private PrimitiveValueNotInitializedException(String s) {
-            super(s);
+        PrimitiveValueNotInitializedException(final NodeKey nodeKey) {
+            super("The primitive cache " + ImmutableComputableGraphUtils.quote(nodeKey.toString()) +
+                    " is not initialized yet");
         }
     }
 }

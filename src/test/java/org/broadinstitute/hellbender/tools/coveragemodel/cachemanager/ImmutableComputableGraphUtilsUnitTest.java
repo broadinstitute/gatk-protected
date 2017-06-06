@@ -10,19 +10,22 @@ import org.testng.annotations.Test;
  */
 public class ImmutableComputableGraphUtilsUnitTest extends BaseTest {
 
+    private static final CacheNode.NodeKey X_KEY = new CacheNode.NodeKey("x");
+    private static final CacheNode.NodeKey Y_KEY = new CacheNode.NodeKey("y");
+
     @Test(expectedExceptions = ImmutableComputableGraphUtils.ImmutableComputableGraphBuilder.DuplicateNodeKeyException.class)
     public void testDuplicatePrimitiveNode() {
         ImmutableComputableGraph.builder()
-                .primitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .primitiveNode("x", new String[] {}, new DuplicableNDArray())
+                .primitiveNode(X_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .primitiveNode(X_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
                 .build();
     }
 
     @Test(expectedExceptions = ImmutableComputableGraphUtils.ImmutableComputableGraphBuilder.DuplicateNodeKeyException.class)
     public void testDuplicateComputableNode() {
         ImmutableComputableGraph.builder()
-                .computableNode("x", new String[] {}, new String[] {}, null, true)
-                .computableNode("x", new String[] {}, new String[] {}, null, true)
+                .computableNode(X_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {}, null, true)
+                .computableNode(X_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {}, null, true)
                 .build();
     }
 }

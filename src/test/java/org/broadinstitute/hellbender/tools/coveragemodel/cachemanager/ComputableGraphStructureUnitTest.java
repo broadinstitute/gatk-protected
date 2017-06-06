@@ -26,37 +26,46 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
     private static final int MAX_PARENTS_PER_NODE = 10;
     private static final int NUM_TRIALS = 10;
 
+    private static final CacheNode.NodeKey X_KEY = new CacheNode.NodeKey("x");
+    private static final CacheNode.NodeKey Y_KEY = new CacheNode.NodeKey("y");
+    private static final CacheNode.NodeKey Z_KEY = new CacheNode.NodeKey("z");
+    private static final CacheNode.NodeKey F_KEY = new CacheNode.NodeKey("f");
+    private static final CacheNode.NodeKey G_KEY = new CacheNode.NodeKey("g");
+    private static final CacheNode.NodeKey H_KEY = new CacheNode.NodeKey("h");
+
     @Test(expectedExceptions = ComputableGraphStructure.NonexistentParentNodeKey.class)
     public void testMissingParents() {
+        final CacheNode.NodeKey Q_KEY = new CacheNode.NodeKey("q");
         ImmutableComputableGraph.builder()
-                .primitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .primitiveNode("y", new String[] {}, new DuplicableNumber<Double>())
-                .primitiveNode("z", new String[] {}, new DuplicableNDArray())
-                .computableNode("f", new String[] {}, new String[] {"x", "y", "q"}, null, true) /* q is undefined */
-                .computableNode("g", new String[] {}, new String[] {"y", "z"}, null, true)
-                .computableNode("h", new String[] {}, new String[] {"f", "g"}, null, true)
+                .primitiveNode(X_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .primitiveNode(Y_KEY, new CacheNode.NodeTag[] {}, new DuplicableNumber<Double>())
+                .primitiveNode(Z_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .computableNode(F_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {X_KEY, Y_KEY, Z_KEY, Q_KEY}, null, true) /* q is undefined */
+                .computableNode(G_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {Y_KEY, Z_KEY}, null, true)
+                .computableNode(H_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {F_KEY, G_KEY}, null, true)
                 .build();
     }
 
     @Test(expectedExceptions = ComputableGraphStructure.CyclicGraphException.class)
     public void testCyclicGraphException_1() {
+        final CacheNode.NodeKey W_KEY = new CacheNode.NodeKey("w");
         ImmutableComputableGraph.builder()
-                .primitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .computableNode("y", new String[] {}, new String[] {"x", "w"}, null, true) /* cycle */
-                .computableNode("z", new String[] {}, new String[] {"y"}, null, true)
-                .computableNode("w", new String[] {}, new String[] {"z"}, null, true)
+                .primitiveNode(X_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .computableNode(Y_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {X_KEY, W_KEY}, null, true) /* cycle */
+                .computableNode(Z_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {Y_KEY}, null, true)
+                .computableNode(W_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {Z_KEY}, null, true)
                 .build();
     }
 
     @Test(expectedExceptions = ComputableGraphStructure.CyclicGraphException.class)
     public void testCyclicGraphException_2() {
         ImmutableComputableGraph.builder()
-                .primitiveNode("x", new String[] {}, new DuplicableNDArray())
-                .primitiveNode("y", new String[] {}, new DuplicableNDArray())
-                .primitiveNode("z", new String[] {}, new DuplicableNDArray())
-                .computableNode("f", new String[] {}, new String[] {"x", "y", "h"}, null, true) /* cycle */
-                .computableNode("g", new String[] {}, new String[] {"y", "z"}, null, true)
-                .computableNode("h", new String[] {}, new String[] {"f", "g"}, null, true)
+                .primitiveNode(X_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .primitiveNode(Y_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .primitiveNode(Z_KEY, new CacheNode.NodeTag[] {}, new DuplicableNDArray())
+                .computableNode(F_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {X_KEY, Y_KEY, H_KEY}, null, true) /* cycle */
+                .computableNode(G_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {Y_KEY, Z_KEY}, null, true)
+                .computableNode(H_KEY, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {F_KEY, G_KEY}, null, true)
                 .build();
     }
 
@@ -64,10 +73,10 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
     public void testNodeTagsAndKeys() {
         final RandomDAG dag = RandomDAG.getRandomDAG();
         final ComputableGraphStructure cgs = new ComputableGraphStructure(dag.getEquivalentCacheNodeSet());
-        final Set<String> cgsNodeTagsSet = cgs.getNodeTagsSet();
-        final Set<String> dagNodeTagsSet = dag.tagsSet;
-        final Set<String> cgsNodeKeysSet = cgs.getNodeKeysSet();
-        final Set<String> dagNodeKeysSet = dag.nodeKeysSet;
+        final Set<CacheNode.NodeTag> cgsNodeTagsSet = cgs.getNodeTagsSet();
+        final Set<CacheNode.NodeTag> dagNodeTagsSet = dag.tagsSet;
+        final Set<CacheNode.NodeKey> cgsNodeKeysSet = cgs.getNodeKeysSet();
+        final Set<CacheNode.NodeKey> dagNodeKeysSet = dag.nodeKeysSet;
         Assert.assertTrue(cgsNodeKeysSet.equals(dagNodeKeysSet));
         Assert.assertTrue(cgsNodeTagsSet.equals(dagNodeTagsSet));
     }
@@ -143,7 +152,7 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
     public void testTopologicalOrderForCompleteEvaluation() {
         final RandomDAG dag = RandomDAG.getRandomDAG();
         final ComputableGraphStructure cgs = new ComputableGraphStructure(dag.getEquivalentCacheNodeSet());
-        final List<String> orderedNodes = new ArrayList<>(dag.nodeKeysSet);
+        final List<CacheNode.NodeKey> orderedNodes = new ArrayList<>(dag.nodeKeysSet);
         orderedNodes.sort(Comparator.comparingInt(dag.topologicalOrderMap::get));
         Assert.assertTrue(isTopologicallyEquivalent(cgs.getTopologicalOrderForCompleteEvaluation(), orderedNodes,
                 dag.topologicalOrderMap));
@@ -181,12 +190,12 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
         private static final int TAG_LENGTH = 32;
         private static final int NODE_KEY_LENGTH = 32;
 
-        final Map<Integer, Set<String>> nodesByTopologicalOrder;
-        final Map<String, Integer> topologicalOrderMap;
-        final Map<String, Set<String>> parentsMap;
-        final Map<String, Set<String>> tagsMap;
-        final Set<String> nodeKeysSet;
-        final Set<String> tagsSet;
+        final Map<Integer, Set<CacheNode.NodeKey>> nodesByTopologicalOrder;
+        final Map<CacheNode.NodeKey, Integer> topologicalOrderMap;
+        final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> parentsMap;
+        final Map<CacheNode.NodeKey, Set<CacheNode.NodeTag>> tagsMap;
+        final Set<CacheNode.NodeKey> nodeKeysSet;
+        final Set<CacheNode.NodeTag> tagsSet;
 
         private RandomDAG(final int depth, final int maxNodesPerLayer, final int maxParentsPerNode, final int maxTagsPerNode) {
             Utils.validateArg(depth >= 0, "DAG depth must be  >= 0");
@@ -200,20 +209,20 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
             nodeKeysSet = new HashSet<>();
 
             for (int d = 0; d <= depth; d++) {
-                final Set<String> randomNodes = getRandomNodeKeys(maxNodesPerLayer);
+                final Set<CacheNode.NodeKey> randomNodes = getRandomNodeKeys(maxNodesPerLayer);
                 nodeKeysSet.addAll(randomNodes);
                 nodesByTopologicalOrder.put(d, randomNodes);
                 randomNodes.forEach(nodeKey -> tagsMap.put(nodeKey, getRandomTags(maxTagsPerNode)));
                 randomNodes.forEach(nodeKey -> parentsMap.put(nodeKey, new HashSet<>()));
                 if (d > 0) {
-                    final Set<String> possibleAncestors = IntStream.range(0, d)
+                    final Set<CacheNode.NodeKey> possibleAncestors = IntStream.range(0, d)
                             .mapToObj(nodesByTopologicalOrder::get)
                             .flatMap(Set::stream)
                             .collect(Collectors.toSet());
-                    for (final String nodeKey : randomNodes) {
-                        final String randomParent = getRandomElement(nodesByTopologicalOrder.get(d - 1));
+                    for (final CacheNode.NodeKey nodeKey : randomNodes) {
+                        final CacheNode.NodeKey randomParent = getRandomElement(nodesByTopologicalOrder.get(d - 1));
                         final int numParents = rng.nextInt(maxParentsPerNode);
-                        final Set<String> randomAncestors = IntStream.range(0, numParents)
+                        final Set<CacheNode.NodeKey> randomAncestors = IntStream.range(0, numParents)
                                 .mapToObj(i -> getRandomElement(possibleAncestors))
                                 .collect(Collectors.toSet());
                         parentsMap.put(nodeKey, new HashSet<>());
@@ -235,15 +244,15 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
                     1 + rng.nextInt(MAX_TAGS_PER_NODE));
         }
 
-        Set<String> getParents(final String nodeKey) {
+        Set<CacheNode.NodeKey> getParents(final CacheNode.NodeKey nodeKey) {
             return parentsMap.get(nodeKey);
         }
 
         /**
          * Brute-force method
          */
-        Set<String> getAncestors(final String nodeKey) {
-            final Set<String> parents = getParents(nodeKey);
+        Set<CacheNode.NodeKey> getAncestors(final CacheNode.NodeKey nodeKey) {
+            final Set<CacheNode.NodeKey> parents = getParents(nodeKey);
             return Sets.union(parents, parents.stream()
                     .map(this::getAncestors)
                     .flatMap(Set::stream)
@@ -253,7 +262,7 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
         /**
          * Brute-force method
          */
-        Set<String> getChildren(final String nodeKey) {
+        Set<CacheNode.NodeKey> getChildren(final CacheNode.NodeKey nodeKey) {
             return nodeKeysSet.stream()
                     .filter(key -> getParents(key).contains(nodeKey))
                     .collect(Collectors.toSet());
@@ -262,24 +271,24 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
         /**
          * Brute-force method
          */
-        Set<String> getDescendents(final String nodeKey) {
-            final Set<String> children = getChildren(nodeKey);
+        Set<CacheNode.NodeKey> getDescendents(final CacheNode.NodeKey nodeKey) {
+            final Set<CacheNode.NodeKey> children = getChildren(nodeKey);
             return Sets.union(children, children.stream()
                     .map(this::getDescendents)
                     .flatMap(Set::stream)
                     .collect(Collectors.toSet()));
         }
 
-        Set<String> getInducedTags(final String nodeKey) {
-            final Set<String> allNodes = Sets.union(getDescendents(nodeKey), Collections.singleton(nodeKey));
+        Set<CacheNode.NodeTag> getInducedTags(final CacheNode.NodeKey nodeKey) {
+            final Set<CacheNode.NodeKey> allNodes = Sets.union(getDescendents(nodeKey), Collections.singleton(nodeKey));
             return allNodes.stream()
                     .map(tagsMap::get)
                     .flatMap(Set::stream)
                     .collect(Collectors.toSet());
         }
 
-        List<String> getTopologicalOrderForNodeEvaluation(final String nodeKey) {
-            final List<String> sortedNodes = new ArrayList<>(Sets.union(getAncestors(nodeKey),
+        List<CacheNode.NodeKey> getTopologicalOrderForNodeEvaluation(final CacheNode.NodeKey nodeKey) {
+            final List<CacheNode.NodeKey> sortedNodes = new ArrayList<>(Sets.union(getAncestors(nodeKey),
                     Collections.singleton(nodeKey)));
             sortedNodes.sort(Comparator.comparingInt(topologicalOrderMap::get));
             return sortedNodes;
@@ -288,16 +297,16 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
         /**
          * Brute-force method
          */
-        List<String> getTopologicalOrderForNodeMutation(final String nodeKey) {
-            final Set<String> mutatedNodeAndDescendants = Sets.union(getDescendents(nodeKey),
+        List<CacheNode.NodeKey> getTopologicalOrderForNodeMutation(final CacheNode.NodeKey nodeKey) {
+            final Set<CacheNode.NodeKey> mutatedNodeAndDescendants = Sets.union(getDescendents(nodeKey),
                     Collections.singleton(nodeKey));
-            final Set<String> ancestorsOfDescendants = getDescendents(nodeKey)
+            final Set<CacheNode.NodeKey> ancestorsOfDescendants = getDescendents(nodeKey)
                     .stream()
                     .map(this::getAncestors)
                     .flatMap(Set::stream)
                     .collect(Collectors.toSet());
-            final Set<String> involvedNodes = Sets.union(mutatedNodeAndDescendants, ancestorsOfDescendants);
-            final List<String> topologicallySortedInvolvedNodes = new ArrayList<>(involvedNodes);
+            final Set<CacheNode.NodeKey> involvedNodes = Sets.union(mutatedNodeAndDescendants, ancestorsOfDescendants);
+            final List<CacheNode.NodeKey> topologicallySortedInvolvedNodes = new ArrayList<>(involvedNodes);
             topologicallySortedInvolvedNodes.sort(Comparator.comparingInt(topologicalOrderMap::get));
             return topologicallySortedInvolvedNodes;
         }
@@ -305,22 +314,23 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
         /**
          * Brute-force method
          */
-        List<String> getTopologicalOrderForTagEvaluation(final String tag) {
-            final Set<String> taggedNodes = nodeKeysSet.stream()
+        List<CacheNode.NodeKey> getTopologicalOrderForTagEvaluation(final CacheNode.NodeTag tag) {
+            final Set<CacheNode.NodeKey> taggedNodes = nodeKeysSet.stream()
                     .filter(nodeKey -> getInducedTags(nodeKey).contains(tag))
                     .collect(Collectors.toSet());
-            final Set<String> taggedNodesAndTheirAncestors = Sets.union(taggedNodes,
+            final Set<CacheNode.NodeKey> taggedNodesAndTheirAncestors = Sets.union(taggedNodes,
                     taggedNodes.stream()
                             .map(this::getAncestors)
                             .flatMap(Set::stream)
                             .collect(Collectors.toSet()));
-            final List<String> topologicallySortedtaggedNodesAndTheirAncestors = new ArrayList<>(taggedNodesAndTheirAncestors);
+            final List<CacheNode.NodeKey> topologicallySortedtaggedNodesAndTheirAncestors =
+                    new ArrayList<>(taggedNodesAndTheirAncestors);
             topologicallySortedtaggedNodesAndTheirAncestors.sort(Comparator.comparingInt(topologicalOrderMap::get));
             return topologicallySortedtaggedNodesAndTheirAncestors;
         }
 
         Set<CacheNode> getEquivalentCacheNodeSet() {
-            final List<String> shuffledNodeList = new ArrayList<>(nodeKeysSet);
+            final List<CacheNode.NodeKey> shuffledNodeList = new ArrayList<>(nodeKeysSet);
             Collections.shuffle(shuffledNodeList, rng);
             return shuffledNodeList.stream()
                     .map(nodeKey -> topologicalOrderMap.get(nodeKey) == 0
@@ -329,26 +339,26 @@ public class ComputableGraphStructureUnitTest extends BaseTest {
                     .collect(Collectors.toSet());
         }
 
-        private static Set<String> getRandomNodeKeys(final int maxNodes) {
+        private static Set<CacheNode.NodeKey> getRandomNodeKeys(final int maxNodes) {
             return IntStream.range(0, rng.nextInt(maxNodes) + 1)
-                    .mapToObj(i -> "NODE_KEY_" + RandomStringUtils.randomAlphanumeric(NODE_KEY_LENGTH))
+                    .mapToObj(i -> new CacheNode.NodeKey("NODE_KEY_" + RandomStringUtils.randomAlphanumeric(NODE_KEY_LENGTH)))
                     .collect(Collectors.toSet());
         }
 
-        private static Set<String> getRandomTags(final int maxTags) {
+        private static Set<CacheNode.NodeTag> getRandomTags(final int maxTags) {
             return IntStream.range(0, rng.nextInt(maxTags))
-                    .mapToObj(i -> "TAG_" + RandomStringUtils.randomAlphanumeric(TAG_LENGTH))
+                    .mapToObj(i -> new CacheNode.NodeTag("TAG_" + RandomStringUtils.randomAlphanumeric(TAG_LENGTH)))
                     .collect(Collectors.toSet());
         }
 
-        private static String getRandomElement(final Set<String> set) {
-            final List<String> list = new ArrayList<>(set);
+        private static <T> T getRandomElement(final Set<T> set) {
+            final List<T> list = new ArrayList<>(set);
             return list.get(rng.nextInt(list.size()));
         }
     }
 
-    private boolean isTopologicallyEquivalent(final List<String> actual, final List<String> expected,
-                                              final Map<String, Integer> topologicalOrderMap) {
+    private static <T> boolean isTopologicallyEquivalent(final List<T> actual, final List<T> expected,
+                                              final Map<T, Integer> topologicalOrderMap) {
         if (actual == null || expected == null || !(new HashSet<>(actual).equals(new HashSet<>(expected)))) {
             return false;
         }

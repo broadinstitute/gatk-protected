@@ -26,7 +26,7 @@ public final class ImmutableComputableGraphUtils {
      */
     public static class ImmutableComputableGraphBuilder {
         private final Set<CacheNode> nodes;
-        private final Set<String> keys;
+        private final Set<CacheNode.NodeKey> keys;
         private boolean cacheAutoUpdate;
 
         ImmutableComputableGraphBuilder() {
@@ -35,8 +35,8 @@ public final class ImmutableComputableGraphUtils {
             cacheAutoUpdate = false;
         }
 
-        public ImmutableComputableGraphBuilder primitiveNode(@Nonnull final String key,
-                                                             @Nonnull final String[] tags,
+        public ImmutableComputableGraphBuilder primitiveNode(@Nonnull final CacheNode.NodeKey key,
+                                                             @Nonnull final CacheNode.NodeTag[] tags,
                                                              @Nonnull Duplicable value) {
             Utils.nonNull(key);
             Utils.nonNull(tags);
@@ -48,13 +48,13 @@ public final class ImmutableComputableGraphUtils {
         }
 
 
-        public ImmutableComputableGraphBuilder primitiveNodeWithEmptyNDArray(@Nonnull final String key) {
-            return primitiveNode(key, new String[]{}, new DuplicableNDArray());
+        public ImmutableComputableGraphBuilder primitiveNodeWithEmptyNDArray(@Nonnull final CacheNode.NodeKey key) {
+            return primitiveNode(key, new CacheNode.NodeTag[] {}, new DuplicableNDArray());
         }
 
-        public ImmutableComputableGraphBuilder computableNode(@Nonnull final String key,
-                                                              @Nonnull final String[] tags,
-                                                              @Nonnull final String[] parents,
+        public ImmutableComputableGraphBuilder computableNode(@Nonnull final CacheNode.NodeKey key,
+                                                              @Nonnull final CacheNode.NodeTag[] tags,
+                                                              @Nonnull final CacheNode.NodeKey[] parents,
                                                               @Nullable final ComputableNodeFunction func,
                                                               final boolean cacheEvals) {
             Utils.nonNull(key);
@@ -69,8 +69,8 @@ public final class ImmutableComputableGraphUtils {
             return this;
         }
 
-        public ImmutableComputableGraphBuilder externallyComputableNode(@Nonnull final String key) {
-            return computableNode(key, new String[] {}, new String[] {}, null, true);
+        public ImmutableComputableGraphBuilder externallyComputableNode(@Nonnull final CacheNode.NodeKey key) {
+            return computableNode(key, new CacheNode.NodeTag[] {}, new CacheNode.NodeKey[] {}, null, true);
         }
 
         public ImmutableComputableGraphBuilder withCacheAutoUpdate() {
@@ -83,9 +83,9 @@ public final class ImmutableComputableGraphUtils {
             return this;
         }
 
-        private void assertKeyUniqueness(@Nonnull final String key) {
+        private void assertKeyUniqueness(@Nonnull final CacheNode.NodeKey key) {
             if (keys.contains(key)) {
-                throw new DuplicateNodeKeyException("A node with key " + quote(key) + " already exists");
+                throw new DuplicateNodeKeyException("A node with key " + quote(key.toString()) + " already exists");
             }
         }
 

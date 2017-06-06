@@ -57,13 +57,13 @@ import java.util.stream.Collectors;
  *      (1) Caching: these nodes may store the values they evaluate for future lookup
  *      (2) Non-caching: these nodes are compute-on-demand
  *      (3) Externally-computed: these nodes are constructed using a {@code null} evaluation function. The user is
- *          responsible for evaluating these nodes when required and using {@link #setValue(String, Duplicable)}
+ *          responsible for evaluating these nodes when required and using {@link #setValue(CacheNode.NodeKey, Duplicable)}
  *          to update them. This class performs the bookkeeping of the status of their values (up to date or
  *          out of date) based on the provided parents list.
  *
  * One can require the caching computable nodes to be updated and cached automatically after each mutation of a
  * primitive or externally-computed node by invoking {@link ImmutableComputableGraphBuilder#withCacheAutoUpdate()}.
- * This feature, however, is NOT recommended as one may not need all the caches to be up-to-date at all times
+ * This feature, however, is <b>not</b> recommended as one may not need all the caches to be up-to-date at all times
  * (see below for updating caches selectively). This class throws an {@link IllegalStateException} if an old
  * cache is invoked in order to notify the user to update the cache manually.
  *
@@ -71,7 +71,7 @@ import java.util.stream.Collectors;
  * ================
  *
  * If cache auto update is not enabled, the user is responsible for updating the caches by calling
- * either {@link #updateAllCaches()}, {@link #updateCachesForNode(String)}, or {@link #updateCachesForTag(String)}.
+ * either {@link #updateAllCaches()}, {@link #updateCachesForNode(CacheNode.NodeKey)}, or {@link #updateCachesForTag(CacheNode.NodeTag)}.
  *
  * Tags:
  * =====
@@ -79,7 +79,7 @@ import java.util.stream.Collectors;
  * Tags are arbitrary names used for grouping nodes that are semantically related. The user may want to update the
  * nodes associated to the same tag simultaneously, for example, when performing an operation that requires updated
  * values for all nodes that denote subexpressions of a larger expression. In this case, the user will tag all nodes
- * that appear in the larger expression with a common name and calls {@link #updateCachesForTag(String)}.
+ * that appear in the larger expression with a common name and calls {@link #updateCachesForTag(CacheNode.NodeTag)}.
  *
  * Tags are inherited from descendents to parents. In the above example, if Q_2 is tagged with {"FOO"}, Q_1 is tagged
  * with {"BAR"}, then X and Y both inherit {"FOO", "BAR"} tags whereas Z inherits {"FOO"}.
@@ -87,8 +87,8 @@ import java.util.stream.Collectors;
  * Querying:
  * =========
  *
- * The graph is queried either by calling {@link #getValueDirect(String)} or
- * {@link #getValueWithRequiredEvaluations(String)}. The former only fetches the values and throws an exception
+ * The graph is queried either by calling {@link #getValueDirect(CacheNode.NodeKey)} or
+ * {@link #getValueWithRequiredEvaluations(CacheNode.NodeKey)}. The former only fetches the values and throws an exception
  * if the some of the required caches are out of date, or a non-caching computable node is encountered.
  * The latter performs the required evaluations along the way.
  *
@@ -98,7 +98,7 @@ import java.util.stream.Collectors;
  * Mutation:
  * =========
  *
- * The primitive values can be mutated by calling {@link ImmutableComputableGraph#setValue(String, Duplicable)}.
+ * The primitive values can be mutated by calling {@link ImmutableComputableGraph#setValue(CacheNode.NodeKey, Duplicable)}.
  * The mutations do not occur in place; rather, a new instance of {@link ImmutableComputableGraph} is created along
  * with new instances for the updated nodes. Immutability is desired, for instance, if this class is used as elements
  * of a {@link org.apache.spark.api.java.JavaRDD}. If cache auto update is enabled, the affected nodes will be evaluated.
@@ -113,9 +113,9 @@ public final class ImmutableComputableGraph implements Serializable {
 
     private static final long serialVersionUID = -1162776031416105027L;
 
-    private static Map<String, Duplicable> EMPTY_MAP = new HashMap<>();
+    private static Map<CacheNode.NodeKey, Duplicable> EMPTY_NODE_KEY_VALUE_MAP = new HashMap<>();
 
-    private final Map<String, CacheNode> nodesMap;
+    private final Map<CacheNode.NodeKey, CacheNode> nodesMap;
     private final boolean cacheAutoUpdate;
     private final ComputableGraphStructure cgs;
 
@@ -142,7 +142,7 @@ public final class ImmutableComputableGraph implements Serializable {
      * @param nodesMap a previously constructed key -> {@link CacheNode} map
      * @param cgs a previously constructed {@link ComputableGraphStructure}
      */
-    private ImmutableComputableGraph(@Nonnull final Map<String, CacheNode> nodesMap,
+    private ImmutableComputableGraph(@Nonnull final Map<CacheNode.NodeKey, CacheNode> nodesMap,
                                      @Nonnull final ComputableGraphStructure cgs,
                                      final boolean cacheAutoUpdate) {
         this.nodesMap = nodesMap;
@@ -159,20 +159,20 @@ public final class ImmutableComputableGraph implements Serializable {
      * @throws IllegalArgumentException if the node does not exist
      * @throws UnsupportedOperationException if the node is non-primitive
      */
-    public ImmutableComputableGraph setValue(@Nonnull final String nodeKey,
+    public ImmutableComputableGraph setValue(@Nonnull final CacheNode.NodeKey nodeKey,
                                              @Nonnull final Duplicable newValue)
             throws IllegalArgumentException, UnsupportedOperationException {
         CacheNode node = nodesMap.get(assertNodeExists(nodeKey));
         if (!node.isExternallyComputed()) {
             throw new UnsupportedOperationException("Can not explicitly set the value of a non-primitive cache node.");
         }
-        final Map<String, CacheNode> updatedNodesMap = new HashMap<>();
+        final Map<CacheNode.NodeKey, CacheNode> updatedNodesMap = new HashMap<>();
         updatedNodesMap.put(nodeKey, node.duplicateWithUpdatedValue(newValue));
         final ImmutableComputableGraph out = duplicateWithUpdatedNodes(
                 addDuplicateOfOutdatedDescendants(nodeKey, updatedNodesMap));
         if (cacheAutoUpdate) {
             try { /* try to update caches; it is not guaranteed if some of the nodes are not initialized */
-                final Map<String, Duplicable> accumulatedValues = out.evaluateInTopologicalOrder(
+                final Map<CacheNode.NodeKey, Duplicable> accumulatedValues = out.evaluateInTopologicalOrder(
                         cgs.getTopologicalOrderForNodeMutation(nodeKey));
                 return out.updateCachesFromAccumulatedValues(accumulatedValues);
             } catch (final PrimitiveCacheNode.PrimitiveValueNotInitializedException |
@@ -190,9 +190,10 @@ public final class ImmutableComputableGraph implements Serializable {
      * @param key key of the updated node
      * @param updatedNodesMap a key -> node map
      */
-    private Map<String, CacheNode> addDuplicateOfOutdatedDescendants(@Nonnull final String key,
-                                                                     @Nonnull final Map<String, CacheNode> updatedNodesMap) {
-        for (final String descendant : cgs.getDescendants(key)) {
+    private Map<CacheNode.NodeKey, CacheNode> addDuplicateOfOutdatedDescendants(
+            @Nonnull final CacheNode.NodeKey key,
+            @Nonnull final Map<CacheNode.NodeKey, CacheNode> updatedNodesMap) {
+        for (final CacheNode.NodeKey descendant : cgs.getDescendants(key)) {
             CacheNode oldDescendant = nodesMap.get(descendant);
             /* all of the descendants are computable nodes and can be safely up-casted */
             updatedNodesMap.put(descendant, ((ComputableCacheNode)oldDescendant).duplicateWithOutdatedCacheStatus());
@@ -214,8 +215,9 @@ public final class ImmutableComputableGraph implements Serializable {
      *                               not initialized
      * @throws IllegalArgumentException if the node does not exist
      */
-    public Duplicable getValueDirect(@Nonnull final String nodeKey) throws IllegalStateException, IllegalArgumentException {
-        return nodesMap.get(assertNodeExists(nodeKey)).get(EMPTY_MAP);
+    public Duplicable getValueDirect(@Nonnull final CacheNode.NodeKey nodeKey)
+            throws IllegalStateException, IllegalArgumentException {
+        return nodesMap.get(assertNodeExists(nodeKey)).get(EMPTY_NODE_KEY_VALUE_MAP);
     }
 
     /**
@@ -224,7 +226,7 @@ public final class ImmutableComputableGraph implements Serializable {
      * @return value of the node
      * @throws IllegalArgumentException if the node does not exist
      */
-    public Duplicable getValueWithRequiredEvaluations(@Nonnull final String nodeKey)
+    public Duplicable getValueWithRequiredEvaluations(@Nonnull final CacheNode.NodeKey nodeKey)
             throws IllegalStateException, IllegalArgumentException {
         return evaluateInTopologicalOrder(cgs.getTopologicalOrderForNodeEvaluation(assertNodeExists(nodeKey))).get(nodeKey);
     }
@@ -250,9 +252,10 @@ public final class ImmutableComputableGraph implements Serializable {
      *         initialized
      * @return a map from node keys to their values accumulated during computation
      */
-    private Map<String, Duplicable> evaluateInTopologicalOrder(@Nonnull final List<String> topologicallyOrderedNodeKeys) {
-        final Map<String, Duplicable> accumulatedValues = new HashMap<>();
-        for (final String nodeKey : topologicallyOrderedNodeKeys) {
+    private Map<CacheNode.NodeKey, Duplicable> evaluateInTopologicalOrder(
+            @Nonnull final List<CacheNode.NodeKey> topologicallyOrderedNodeKeys) {
+        final Map<CacheNode.NodeKey, Duplicable> accumulatedValues = new HashMap<>();
+        for (final CacheNode.NodeKey nodeKey : topologicallyOrderedNodeKeys) {
             accumulatedValues.put(nodeKey, nodesMap.get(nodeKey).get(accumulatedValues));
         }
         return accumulatedValues;
@@ -266,9 +269,10 @@ public final class ImmutableComputableGraph implements Serializable {
      * @param topologicallyOrderedNodeKeys topologically sorted list of nodes
      * @return a map from node keys to their values accumulated during computation
      */
-    private Map<String, Duplicable> evaluateInTopologicalOrderIfPossible(@Nonnull final List<String> topologicallyOrderedNodeKeys) {
-        final Map<String, Duplicable> accumulatedValues = new HashMap<>();
-        for (final String nodeKey : topologicallyOrderedNodeKeys) {
+    private Map<CacheNode.NodeKey, Duplicable> evaluateInTopologicalOrderIfPossible(
+            @Nonnull final List<CacheNode.NodeKey> topologicallyOrderedNodeKeys) {
+        final Map<CacheNode.NodeKey, Duplicable> accumulatedValues = new HashMap<>();
+        for (final CacheNode.NodeKey nodeKey : topologicallyOrderedNodeKeys) {
             Duplicable value = null;
             try {
                 value = nodesMap.get(nodeKey).get(accumulatedValues);
@@ -289,7 +293,8 @@ public final class ImmutableComputableGraph implements Serializable {
      * @param accumulatedValues a nodekey -> duplicable map for possibly affected nodes
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
-    private ImmutableComputableGraph updateCachesFromAccumulatedValues(final Map<String, Duplicable> accumulatedValues) {
+    private ImmutableComputableGraph updateCachesFromAccumulatedValues(
+            @Nonnull final Map<CacheNode.NodeKey, Duplicable> accumulatedValues) {
         /* since accumulatedValues may contain unchanged values (by reference), we filter and only update
          * the affected nodes */
         return duplicateWithUpdatedNodes(
@@ -309,7 +314,7 @@ public final class ImmutableComputableGraph implements Serializable {
      *
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
-    public ImmutableComputableGraph updateCachesForNode(@Nonnull final String nodeKey) {
+    public ImmutableComputableGraph updateCachesForNode(@Nonnull final CacheNode.NodeKey nodeKey) {
         return evaluateAndUpdateCaches(this::evaluateInTopologicalOrder,
                 cgs.getTopologicalOrderForNodeEvaluation(assertNodeExists(nodeKey)));
     }
@@ -319,7 +324,7 @@ public final class ImmutableComputableGraph implements Serializable {
      *
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
-    public ImmutableComputableGraph updateCachesForNodeIfPossible(@Nonnull final String nodeKey) {
+    public ImmutableComputableGraph updateCachesForNodeIfPossible(@Nonnull final CacheNode.NodeKey nodeKey) {
         return evaluateAndUpdateCaches(this::evaluateInTopologicalOrderIfPossible,
                 cgs.getTopologicalOrderForNodeEvaluation(assertNodeExists(nodeKey)));
     }
@@ -329,7 +334,7 @@ public final class ImmutableComputableGraph implements Serializable {
      *
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
-    public ImmutableComputableGraph updateCachesForTag(final String tagKey) {
+    public ImmutableComputableGraph updateCachesForTag(final CacheNode.NodeTag tagKey) {
         return evaluateAndUpdateCaches(this::evaluateInTopologicalOrder,
                 cgs.getTopologicalOrderForTagEvaluation(assertTagExists(tagKey)));
     }
@@ -339,7 +344,7 @@ public final class ImmutableComputableGraph implements Serializable {
      *
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
-    public ImmutableComputableGraph updateCachesForTagIfPossible(final String tagKey) {
+    public ImmutableComputableGraph updateCachesForTagIfPossible(final CacheNode.NodeTag tagKey) {
         return evaluateAndUpdateCaches(this::evaluateInTopologicalOrderIfPossible,
                 cgs.getTopologicalOrderForTagEvaluation(assertTagExists(tagKey)));
     }
@@ -363,8 +368,8 @@ public final class ImmutableComputableGraph implements Serializable {
     }
 
     private ImmutableComputableGraph evaluateAndUpdateCaches(
-            @Nonnull final Function<List<String>, Map<String, Duplicable>> topologicalEvaluator,
-            @Nonnull final List<String> topologicallyOrderedNodeKeys) {
+            @Nonnull final Function<List<CacheNode.NodeKey>, Map<CacheNode.NodeKey, Duplicable>> topologicalEvaluator,
+            @Nonnull final List<CacheNode.NodeKey> topologicallyOrderedNodeKeys) {
         return updateCachesFromAccumulatedValues(topologicalEvaluator.apply(topologicallyOrderedNodeKeys));
     }
 
@@ -374,9 +379,9 @@ public final class ImmutableComputableGraph implements Serializable {
      * @param updatedNodesMap nodes to be replaced and their new values
      * @return a new instance of {@link ImmutableComputableGraph} with new instances of updated nodes
      */
-    private ImmutableComputableGraph duplicateWithUpdatedNodes(final Map<String, CacheNode> updatedNodesMap) {
-        final Map<String, CacheNode> newNodesMap = new HashMap<>();
-        final Set<String> updatedNodeKeys = updatedNodesMap.keySet();
+    private ImmutableComputableGraph duplicateWithUpdatedNodes(final Map<CacheNode.NodeKey, CacheNode> updatedNodesMap) {
+        final Map<CacheNode.NodeKey, CacheNode> newNodesMap = new HashMap<>();
+        final Set<CacheNode.NodeKey> updatedNodeKeys = updatedNodesMap.keySet();
         /* intact nodes */
         cgs.getNodeKeysSet().stream()
                 .filter(node -> !updatedNodeKeys.contains(node))
@@ -386,19 +391,21 @@ public final class ImmutableComputableGraph implements Serializable {
         return new ImmutableComputableGraph(newNodesMap, cgs, cacheAutoUpdate);
     }
 
-    public boolean isValueDirectlyAvailable(final String nodeKey) {
+    public boolean isValueDirectlyAvailable(final CacheNode.NodeKey nodeKey) {
         return nodesMap.get(assertNodeExists(nodeKey)).hasValue();
     }
 
-    private String assertNodeExists(final String nodeKey) {
+    private CacheNode.NodeKey assertNodeExists(final CacheNode.NodeKey nodeKey) {
         Utils.nonNull(nodeKey, "The node key must be non-null");
-        Utils.validateArg(cgs.getNodeKeysSet().contains(nodeKey), "The node" + ImmutableComputableGraphUtils.quote(nodeKey) + " does not exist.");
+        Utils.validateArg(cgs.getNodeKeysSet().contains(nodeKey), "The node" +
+                ImmutableComputableGraphUtils.quote(nodeKey.toString()) + " does not exist.");
         return nodeKey;
     }
 
-    private String assertTagExists(final String tagKey) {
+    private CacheNode.NodeTag assertTagExists(final CacheNode.NodeTag tagKey) {
         Utils.nonNull(tagKey, "The tag key must be non-null");
-        Utils.validateArg(cgs.getNodeTagsSet().contains(tagKey), "The tag " + ImmutableComputableGraphUtils.quote(tagKey) + " does not exist.");
+        Utils.validateArg(cgs.getNodeTagsSet().contains(tagKey), "The tag " +
+                ImmutableComputableGraphUtils.quote(tagKey.toString()) + " does not exist.");
         return tagKey;
     }
 
@@ -408,14 +415,14 @@ public final class ImmutableComputableGraph implements Serializable {
     }
 
     @VisibleForTesting
-    CacheNode getCacheNode(@Nonnull final String nodeKey) {
+    CacheNode getCacheNode(@Nonnull final CacheNode.NodeKey nodeKey) {
         return nodesMap.get(assertNodeExists(nodeKey));
     }
 
     @Override
     public String toString() {
         String out = "";
-        for (final String key : cgs.getNodeKeysSet()) {
+        for (final CacheNode.NodeKey key : cgs.getNodeKeysSet()) {
             out += "node: " + key + "\n";
             out += "\ttype: " + (nodesMap.get(key).isPrimitive() ? "primitive" : "computable") + "\n";
             String value;

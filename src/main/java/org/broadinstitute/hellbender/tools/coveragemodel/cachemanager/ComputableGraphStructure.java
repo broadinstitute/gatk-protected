@@ -16,11 +16,16 @@ import java.util.stream.IntStream;
  *
  * - assertion for existence of no cycles
  * - construction of maps of nodes to their descendants and ancestors
- * - propagation of tags from descendants to ancestors
+ * - propagation of tags from descendants to ancestors (tags are instances of {@link CacheNode.NodeTag} that are used
+ *   for marking one or more cache nodes that are required for a specific computation; for example, see the javadoc
+ *   of {@link ImmutableComputableGraph} for a concrete use case)
  * - topological order for evaluating a computable node
  * - topological order for mutating a primitive/externally-computed node and updating the caches of all involved nodes
  * - topological order for evaluating all nodes associated to a tag (see {@link ImmutableComputableGraph})
- * - topological order for complete computation of the graph
+ * - topological order for evaluating all nodes in the graph
+ *
+ * @implNote the implementation of some of the algorithms in this class, while being fast for small graphs, are not
+ * optimized for large graphs and can run into {@link StackOverflowError}.
  *
  * @author Mehrtash Babadi &lt;mehrtash@broadinstitute.org&gt;
  */
@@ -28,18 +33,18 @@ public final class ComputableGraphStructure implements Serializable {
 
     private static final long serialVersionUID = -3124293279477371159L;
 
-    private final Set<String> nodeKeysSet;
-    private final Set<String> nodeTagsSet;
-    private final Map<String, Set<String>> inducedTagsMap;
-    private final Map<String, Set<String>> descendantsMap;
-    private final Map<String, Set<String>> childrenMap;
-    private final Map<String, Set<String>> parentsMap;
-    private final Map<String, Set<String>> ancestorsMap;
-    private final Map<String, Integer> topologicalOrderMap;
-    private final Map<String, List<String>> topologicalOrderForNodeEvaluation;
-    private final Map<String, List<String>> topologicalOrderForNodeMutation;
-    private final Map<String, List<String>> topologicalOrderForTagEvaluation;
-    private final List<String> topologicalOrderForCompleteEvaluation;
+    private final Set<CacheNode.NodeKey> nodeKeysSet;
+    private final Set<CacheNode.NodeTag> nodeTagsSet;
+    private final Map<CacheNode.NodeKey, Set<CacheNode.NodeTag>> inducedTagsMap;
+    private final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> descendantsMap;
+    private final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> childrenMap;
+    private final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> parentsMap;
+    private final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> ancestorsMap;
+    private final Map<CacheNode.NodeKey, Integer> topologicalOrderMap;
+    private final Map<CacheNode.NodeKey, List<CacheNode.NodeKey>> topologicalOrderForNodeEvaluation;
+    private final Map<CacheNode.NodeKey, List<CacheNode.NodeKey>> topologicalOrderForNodeMutation;
+    private final Map<CacheNode.NodeTag, List<CacheNode.NodeKey>> topologicalOrderForTagEvaluation;
+    private final List<CacheNode.NodeKey> topologicalOrderForCompleteEvaluation;
 
     /**
      * An arbitrary negative number to denote the to-be-determined topological order a node
@@ -53,114 +58,111 @@ public final class ComputableGraphStructure implements Serializable {
      * @param nodeSet a set of {@link CacheNode}s
      */
     ComputableGraphStructure(@Nonnull final Set<CacheNode> nodeSet) {
-
-        /* create the set of keys */
         Utils.nonNull(nodeSet, "The given set of nodes must be non-null");
         nodeKeysSet = extractKeys(nodeSet);
         nodeTagsSet = extractTags(nodeSet);
         assertParentKeysExist(nodeSet, nodeKeysSet);
 
-        /* nodeKey -> set of parents' keys */
         parentsMap = getParentsMap(nodeSet);
-
-        /* nodeKey -> set of children's keys */
         childrenMap = getChildrenMap(nodeSet);
-
-        /* nodeKey -> topological order */
         topologicalOrderMap = getTopologicalOrderMap(parentsMap, nodeKeysSet);
-
-        /* topological order -> set of node keys */
-        final Map<Integer, Set<String>> nodesByTopologicalOrderMap = getNodesByTopologicalOrderMap(topologicalOrderMap,
-                nodeKeysSet);
-
-        /* nodeKey -> set of descendants' keys */
+        final Map<Integer, Set<CacheNode.NodeKey>> nodesByTopologicalOrderMap =
+                getNodesByTopologicalOrderMap(topologicalOrderMap, nodeKeysSet);
         descendantsMap = getDescendantsMap(childrenMap, nodesByTopologicalOrderMap);
-
-        /* nodeKey -> set of ancestors' keys */
         ancestorsMap = getAncestorsMap(parentsMap, nodesByTopologicalOrderMap);
-
-        /* nodeKey -> set of upward-propagated tags */
         inducedTagsMap = getInducedTagsMap(nodeSet, nodesByTopologicalOrderMap, ancestorsMap);
-
-        /* tag -> set of tagged nodes, including upward-propagation */
-        final Map<String, Set<String>> nodesByInducedTagMap = getNodesByInducedTagMap(inducedTagsMap, nodeKeysSet,
-                nodeTagsSet);
-
-        /* topological order for evaluating a single node */
+        final Map<CacheNode.NodeTag, Set<CacheNode.NodeKey>> nodesByInducedTagMap =
+                getNodesByInducedTagMap(inducedTagsMap, nodeKeysSet, nodeTagsSet);
         topologicalOrderForNodeEvaluation = getTopologicalOrderForNodeEvaluation(nodeKeysSet, topologicalOrderMap,
                 ancestorsMap);
-
-        /* topological order for evaluating all nodes associated to a tag */
         topologicalOrderForTagEvaluation = getTopologicalOrderForTagEvaluation(nodeTagsSet, topologicalOrderMap,
                 nodesByInducedTagMap, ancestorsMap);
-
-        /* topological order for evaluating all nodes */
         topologicalOrderForCompleteEvaluation = getTopologicalOrderForCompleteEvaluation(nodeKeysSet,
                 topologicalOrderMap);
-
-        /* topological order for updating the descendants of a mutated node */
         topologicalOrderForNodeMutation = getTopologicalOrderForNodeMutation(nodeKeysSet, ancestorsMap,
                 descendantsMap, topologicalOrderMap);
     }
 
     private static void assertParentKeysExist(@Nonnull final Set<CacheNode> nodeSet,
-                                              @Nonnull final Set<String> nodeKeysSet) {
+                                              @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet) {
         for (final CacheNode node : nodeSet) {
             if (!nodeKeysSet.containsAll(node.getParents())) {
-                final Set<String> undefinedParents = Sets.difference(new HashSet<>(node.getParents()), nodeKeysSet);
-                throw new NonexistentParentNodeKey("Node " + ImmutableComputableGraphUtils.quote(node.getKey()) +
+                final Set<CacheNode.NodeKey> undefinedParents = Sets.difference(new HashSet<>(node.getParents()), nodeKeysSet);
+                throw new NonexistentParentNodeKey("Node " + ImmutableComputableGraphUtils.quote(node.getKey().toString()) +
                         " depends on undefined parent(s): " + undefinedParents.stream()
+                        .map(CacheNode.NodeKey::toString)
                         .map(ImmutableComputableGraphUtils::quote).collect(Collectors.joining(", ")));
             }
         }
     }
 
-    private static Set<String> extractTags(@Nonnull Set<CacheNode> nodeSet) {
+    private static Set<CacheNode.NodeTag> extractTags(@Nonnull Set<CacheNode> nodeSet) {
         return nodeSet.stream().map(CacheNode::getTags).flatMap(Collection::stream).collect(Collectors.toSet());
     }
 
-    private static Set<String> extractKeys(@Nonnull Set<CacheNode> nodeSet) {
+    private static Set<CacheNode.NodeKey> extractKeys(@Nonnull Set<CacheNode> nodeSet) {
         return nodeSet.stream().map(CacheNode::getKey).collect(Collectors.toSet());
     }
 
-    private static Map<String, Integer> getTopologicalOrderMap(@Nonnull final Map<String,Set<String>> immediateParentsMap,
-                                                               @Nonnull final Set<String> nodeKeysSet) {
-        final Map<String, Integer> topologicalOrderMap = new HashMap<>();
+    /**
+     * Sorts nodes by topological order using depth-first search. The output is a map from node keys to
+     * their depth (root nodes have 0 depth).
+     */
+    private static Map<CacheNode.NodeKey, Integer> getTopologicalOrderMap(
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> parentsMap,
+            @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet) {
+        final Map<CacheNode.NodeKey, Integer> topologicalOrderMap = new HashMap<>();
         nodeKeysSet.forEach(key -> topologicalOrderMap.put(key, UNDEFINED_TOPOLOGICAL_ORDER));
-        nodeKeysSet.forEach(nodeKey -> updateDepth(nodeKey, 0, nodeKeysSet, immediateParentsMap, topologicalOrderMap));
+        nodeKeysSet.forEach(nodeKey -> updateDepth(nodeKey, 0, nodeKeysSet, parentsMap, topologicalOrderMap));
         return topologicalOrderMap;
     }
 
-    private static Map<Integer, Set<String>> getNodesByTopologicalOrderMap(Map<String, Integer> topologicalOrderMap,
-                                                                          Set<String> nodeKeysSet) {
+    /**
+     * Generates a (topological order -> set of node keys) map. The map clusters the nodes at the
+     * same depth (root nodes have 0 depth).
+     */
+    private static Map<Integer, Set<CacheNode.NodeKey>> getNodesByTopologicalOrderMap(
+            @Nonnull final Map<CacheNode.NodeKey, Integer> topologicalOrderMap,
+            @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet) {
         final int maxDepth = Collections.max(topologicalOrderMap.values());
-        final Map<Integer, Set<String>> nodesByTopologicalOrderMap = new HashMap<>();
-        IntStream.range(0, maxDepth + 1).forEach(depth ->
-                nodesByTopologicalOrderMap.put(depth,
-                        nodeKeysSet.stream().filter(node ->
-                                topologicalOrderMap.get(node) == depth).collect(Collectors.toSet())));
+        final Map<Integer, Set<CacheNode.NodeKey>> nodesByTopologicalOrderMap = new HashMap<>();
+        IntStream.range(0, maxDepth + 1)
+                .forEach(depth -> nodesByTopologicalOrderMap.put(depth,
+                        nodeKeysSet.stream()
+                                .filter(node -> topologicalOrderMap.get(node) == depth)
+                                .collect(Collectors.toSet())));
         return nodesByTopologicalOrderMap;
     }
 
-    private static Map<String, Set<String>> getParentsMap(@Nonnull final Set<CacheNode> nodeSet) {
+    /**
+     * Generates a (nodeKey -> set of parents' keys) map.
+     */
+    private static Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> getParentsMap(@Nonnull final Set<CacheNode> nodeSet) {
         return nodeSet.stream()
                 .collect(Collectors.toMap(CacheNode::getKey, node -> new HashSet<>(node.getParents())));
     }
 
-    private static Map<String, Set<String>> getChildrenMap(@Nonnull final Set<CacheNode> nodeSet) {
-        final Map<String, Set<String>> childrenMap = nodeSet.stream()
-                .collect(Collectors.toMap(CacheNode::getKey, node -> new HashSet<String>()));
+    /**
+     * Generates a (nodeKey -> set of children's keys) map.
+     */
+    private static Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> getChildrenMap(@Nonnull final Set<CacheNode> nodeSet) {
+        final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> childrenMap = nodeSet.stream()
+                .collect(Collectors.toMap(CacheNode::getKey, node -> new HashSet<CacheNode.NodeKey>()));
         nodeSet.forEach(node -> node.getParents().forEach(parentKey -> childrenMap.get(parentKey)
                 .add(node.getKey())));
         return childrenMap;
     }
 
-    private static Map<String, Set<String>> getInducedTagsMap(@Nonnull final Set<CacheNode> nodeSet,
-                                                              @Nonnull final Map<Integer, Set<String>> nodesByTopologicalOrderMap,
-                                                              @Nonnull final Map<String, Set<String>> allParentsMap) {
+    /**
+     * Generates a (nodeKey -> set of upward-propagated tags) map.
+     */
+    private static Map<CacheNode.NodeKey, Set<CacheNode.NodeTag>> getInducedTagsMap(
+            @Nonnull final Set<CacheNode> nodeSet,
+            @Nonnull final Map<Integer, Set<CacheNode.NodeKey>> nodesByTopologicalOrderMap,
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> allParentsMap) {
         final int maxDepth = Collections.max(nodesByTopologicalOrderMap.keySet());
         /* initialize with given tags */
-        final Map<String, Set<String>> allTagsMap = nodeSet.stream()
+        final Map<CacheNode.NodeKey, Set<CacheNode.NodeTag>> allTagsMap = nodeSet.stream()
                 .collect(Collectors.toMap(CacheNode::getKey, node -> new HashSet<>(node.getTags())));
         /* propagate tags to all parents */
         for (int depth = maxDepth; depth >= 0; depth--) {
@@ -171,29 +173,37 @@ public final class ComputableGraphStructure implements Serializable {
         return allTagsMap;
     }
 
-    private static Map<String, Set<String>> getNodesByInducedTagMap(@Nonnull final Map<String, Set<String>> allTagsMap,
-                                                                    @Nonnull final Set<String> nodeKeysSet,
-                                                                    @Nonnull final Set<String> nodeTagsSet) {
-        final Map<String, Set<String>> nodesByTagMap = nodeTagsSet.stream()
-                .collect(Collectors.toMap(Function.identity(), tag -> new HashSet<String>()));
+    /**
+     * Generates a (tag -> set of tagged nodes, including upward-propagation) map.
+     */
+    private static Map<CacheNode.NodeTag, Set<CacheNode.NodeKey>> getNodesByInducedTagMap(
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeTag>> allTagsMap,
+            @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet,
+            @Nonnull final Set<CacheNode.NodeTag> nodeTagsSet) {
+        final Map<CacheNode.NodeTag, Set<CacheNode.NodeKey>> nodesByTagMap = nodeTagsSet.stream()
+                .collect(Collectors.toMap(Function.identity(), tag -> new HashSet<CacheNode.NodeKey>()));
         nodeKeysSet.forEach(nodeKey ->
                 allTagsMap.get(nodeKey).forEach(tag ->
                         nodesByTagMap.get(tag).add(nodeKey)));
         return nodesByTagMap;
     }
 
-    private static Map<String, Set<String>> getDescendantsMap(@Nonnull final Map<String, Set<String>> childrenMap,
-                                                              @Nonnull final Map<Integer, Set<String>> nodesByTopologicalOrderMap) {
-        final Map<String, Set<String>> descendantsMap = new HashMap<>();
+    /**
+     * Generates a (nodeKey -> set of descendants' keys) map.
+     */
+    private static Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> getDescendantsMap(
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> childrenMap,
+            @Nonnull final Map<Integer, Set<CacheNode.NodeKey>> nodesByTopologicalOrderMap) {
+        final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> descendantsMap = new HashMap<>();
         final int maxDepth = Collections.max(nodesByTopologicalOrderMap.keySet());
         /* deepest nodes have no descendants */
         nodesByTopologicalOrderMap.get(maxDepth).forEach(node -> descendantsMap.put(node, new HashSet<>()));
         /* get all descendants by ascending the tree */
         for (int depth = maxDepth - 1; depth >= 0; depth -= 1) {
-            for (final String node : nodesByTopologicalOrderMap.get(depth)) {
-                final Set<String> nodeDescendants = new HashSet<>();
+            for (final CacheNode.NodeKey node : nodesByTopologicalOrderMap.get(depth)) {
+                final Set<CacheNode.NodeKey> nodeDescendants = new HashSet<>();
                 nodeDescendants.addAll(childrenMap.get(node));
-                for (final String child : childrenMap.get(node)) {
+                for (final CacheNode.NodeKey child : childrenMap.get(node)) {
                     nodeDescendants.addAll(descendantsMap.get(child));
                 }
                 descendantsMap.put(node, nodeDescendants);
@@ -202,16 +212,20 @@ public final class ComputableGraphStructure implements Serializable {
         return descendantsMap;
     }
 
-    private static Map<String, Set<String>> getAncestorsMap(@Nonnull final Map<String, Set<String>> parentsMap,
-                                                            @Nonnull final Map<Integer, Set<String>> nodesByTopologicalOrderMap) {
-        final Map<String, Set<String>> ancestorsMap = new HashMap<>();
+    /**
+     * Generates a (nodeKey -> set of ancestors' keys) map.
+     */
+    private static Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> getAncestorsMap(
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> parentsMap,
+            @Nonnull final Map<Integer, Set<CacheNode.NodeKey>> nodesByTopologicalOrderMap) {
+        final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> ancestorsMap = new HashMap<>();
         final int maxDepth = Collections.max(nodesByTopologicalOrderMap.keySet());
         nodesByTopologicalOrderMap.get(0).forEach(node -> ancestorsMap.put(node, new HashSet<>()));
         for (int depth = 1; depth <= maxDepth; depth += 1) {
-            for (final String node : nodesByTopologicalOrderMap.get(depth)) {
-                final Set<String> nodeAncestors = new HashSet<>();
+            for (final CacheNode.NodeKey node : nodesByTopologicalOrderMap.get(depth)) {
+                final Set<CacheNode.NodeKey> nodeAncestors = new HashSet<>();
                 nodeAncestors.addAll(parentsMap.get(node));
-                for (final String parent : parentsMap.get(node)) {
+                for (final CacheNode.NodeKey parent : parentsMap.get(node)) {
                     nodeAncestors.addAll(ancestorsMap.get(parent));
                 }
                 ancestorsMap.put(node, nodeAncestors);
@@ -220,12 +234,17 @@ public final class ComputableGraphStructure implements Serializable {
         return ancestorsMap;
     }
 
-    private static Map<String, List<String>> getTopologicalOrderForNodeEvaluation(@Nonnull final Set<String> nodeKeysSet,
-                                                                                  @Nonnull final Map<String, Integer> topologicalOrderMap,
-                                                                                  @Nonnull final Map<String, Set<String>> ancestorsMap) {
-        final Map<String, List<String>> topologicalOrderForNodeEvaluation = new HashMap<>();
-        for (final String nodeKey : nodeKeysSet) {
-            final List<String> allParentsIncludingTheNode = new ArrayList<>();
+    /**
+     * Generates the topological order for evaluating a single node as a (nodeKey -> list of topologically-ordered
+     * node keys) map.
+     */
+    private static Map<CacheNode.NodeKey, List<CacheNode.NodeKey>> getTopologicalOrderForNodeEvaluation(
+            @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet,
+            @Nonnull final Map<CacheNode.NodeKey, Integer> topologicalOrderMap,
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> ancestorsMap) {
+        final Map<CacheNode.NodeKey, List<CacheNode.NodeKey>> topologicalOrderForNodeEvaluation = new HashMap<>();
+        for (final CacheNode.NodeKey nodeKey : nodeKeysSet) {
+            final List<CacheNode.NodeKey> allParentsIncludingTheNode = new ArrayList<>();
             allParentsIncludingTheNode.addAll(ancestorsMap.get(nodeKey));
             allParentsIncludingTheNode.add(nodeKey);
             /* sort by depth */
@@ -235,18 +254,23 @@ public final class ComputableGraphStructure implements Serializable {
         return topologicalOrderForNodeEvaluation;
     }
 
-    private static Map<String, List<String>> getTopologicalOrderForTagEvaluation(@Nonnull final Set<String> nodeTagsSet,
-                                                                                 @Nonnull final Map<String, Integer> topologicalOrderMap,
-                                                                                 @Nonnull final Map<String, Set<String>> nodesByTagMap,
-                                                                                 @Nonnull final Map<String, Set<String>> ancestorsMap) {
-        final Map<String, List<String>> topologicalOrderForTagEvaluation = new HashMap<>();
-        for (final String tag : nodeTagsSet) {
-            final Set<String> ancestorsIncludingTheTaggedNodesSet = new HashSet<>();
-            for (final String node : nodesByTagMap.get(tag)) {
+    /**
+     * Generates the topological order for evaluating all nodes associated to a tag as a (nodeKey -> list of
+     * topologically-ordered node keys) map.
+     */
+    private static Map<CacheNode.NodeTag, List<CacheNode.NodeKey>> getTopologicalOrderForTagEvaluation(
+            @Nonnull final Set<CacheNode.NodeTag> nodeTagsSet,
+            @Nonnull final Map<CacheNode.NodeKey, Integer> topologicalOrderMap,
+            @Nonnull final Map<CacheNode.NodeTag, Set<CacheNode.NodeKey>> nodesByTagMap,
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> ancestorsMap) {
+        final Map<CacheNode.NodeTag, List<CacheNode.NodeKey>> topologicalOrderForTagEvaluation = new HashMap<>();
+        for (final CacheNode.NodeTag tag : nodeTagsSet) {
+            final Set<CacheNode.NodeKey> ancestorsIncludingTheTaggedNodesSet = new HashSet<>();
+            for (final CacheNode.NodeKey node : nodesByTagMap.get(tag)) {
                 ancestorsIncludingTheTaggedNodesSet.addAll(ancestorsMap.get(node));
                 ancestorsIncludingTheTaggedNodesSet.add(node);
             }
-            final List<String> ancestorsIncludingTheTaggedNodesList = new ArrayList<>();
+            final List<CacheNode.NodeKey> ancestorsIncludingTheTaggedNodesList = new ArrayList<>();
             ancestorsIncludingTheTaggedNodesList.addAll(ancestorsIncludingTheTaggedNodesSet);
             /* sort by depth */
             ancestorsIncludingTheTaggedNodesList.sort(Comparator.comparingInt(topologicalOrderMap::get));
@@ -255,32 +279,38 @@ public final class ComputableGraphStructure implements Serializable {
         return topologicalOrderForTagEvaluation;
     }
 
-    private static List<String> getTopologicalOrderForCompleteEvaluation(@Nonnull final Set<String> nodeKeysSet,
-                                                                         @Nonnull final Map<String, Integer> topologicalOrderMap) {
+    /**
+     * Generates topological order for evaluating all nodes in the graph as a (nodeKey -> list of topologically-ordered
+     * node keys) map.
+     */
+    private static List<CacheNode.NodeKey> getTopologicalOrderForCompleteEvaluation(
+            @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet,
+            @Nonnull final Map<CacheNode.NodeKey, Integer> topologicalOrderMap) {
         return new ArrayList<>(nodeKeysSet).stream()
                 .sorted(Comparator.comparingInt(topologicalOrderMap::get))
                 .collect(Collectors.toList());
     }
 
     /**
-     * Topological order for mutating a primitive/externally-computed node and updating the caches of the
+     * Generate topological order for mutating a primitive/externally-computed node and updating the caches of the
      * involved nodes. These include mutated node, its descendants, and the ancestors of all of its descendants.
      * The latter is required for updating the caches of the descendants.
      */
-    private static Map<String, List<String>> getTopologicalOrderForNodeMutation(@Nonnull final Set<String> nodeKeysSet,
-                                                                                @Nonnull final Map<String, Set<String>> ancestorsMap,
-                                                                                @Nonnull final Map<String, Set<String>> descendantsMap,
-                                                                                @Nonnull final Map<String, Integer> topologicalOrderMap) {
-        final Map<String, List<String>> topologicalOrderForNodeMutation = new HashMap<>();
-        for (final String nodeKey : nodeKeysSet) {
-            final Set<String> allInvolvedNodesSet = new HashSet<>();
+    private static Map<CacheNode.NodeKey, List<CacheNode.NodeKey>> getTopologicalOrderForNodeMutation(
+            @Nonnull final Set<CacheNode.NodeKey> nodeKeysSet,
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> ancestorsMap,
+            @Nonnull final Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> descendantsMap,
+            @Nonnull final Map<CacheNode.NodeKey, Integer> topologicalOrderMap) {
+        final Map<CacheNode.NodeKey, List<CacheNode.NodeKey>> topologicalOrderForNodeMutation = new HashMap<>();
+        for (final CacheNode.NodeKey nodeKey : nodeKeysSet) {
+            final Set<CacheNode.NodeKey> allInvolvedNodesSet = new HashSet<>();
             allInvolvedNodesSet.add(nodeKey);
             allInvolvedNodesSet.addAll(descendantsMap.get(nodeKey));
-            for (final String descendantNodeKey : descendantsMap.get(nodeKey)) {
+            for (final CacheNode.NodeKey descendantNodeKey : descendantsMap.get(nodeKey)) {
                 allInvolvedNodesSet.add(descendantNodeKey);
                 allInvolvedNodesSet.addAll(ancestorsMap.get(descendantNodeKey));
             }
-            final List<String> allInvolvedNodesList = new ArrayList<>();
+            final List<CacheNode.NodeKey> allInvolvedNodesList = new ArrayList<>();
             allInvolvedNodesList.addAll(allInvolvedNodesSet);
             allInvolvedNodesList.sort(Comparator.comparingInt(topologicalOrderMap::get));
             topologicalOrderForNodeMutation.put(nodeKey, allInvolvedNodesList);
@@ -290,11 +320,12 @@ public final class ComputableGraphStructure implements Serializable {
 
     /**
      * Updates the depth of a node recursively
-     * */
-    private static void updateDepth(@Nonnull final String nodeKey, final int recursion,
-                                    @Nonnull Set<String> nodeKeysSet,
-                                    @Nonnull Map<String, Set<String>> parentsMap,
-                                    @Nonnull Map<String, Integer> topologicalOrderMap) {
+     */
+    private static void updateDepth(@Nonnull final CacheNode.NodeKey nodeKey,
+                                    final int recursion,
+                                    @Nonnull Set<CacheNode.NodeKey> nodeKeysSet,
+                                    @Nonnull Map<CacheNode.NodeKey, Set<CacheNode.NodeKey>> parentsMap,
+                                    @Nonnull Map<CacheNode.NodeKey, Integer> topologicalOrderMap) {
         if (recursion > nodeKeysSet.size()) {
             throw new CyclicGraphException("The graph is not acyclic");
         }
@@ -312,47 +343,52 @@ public final class ComputableGraphStructure implements Serializable {
         /* do nothing otherwise -- we already have the order for this node */
     }
 
-    Set<String> getNodeKeysSet() { return nodeKeysSet; }
+    Set<CacheNode.NodeKey> getNodeKeysSet() { return nodeKeysSet; }
 
-    Set<String> getNodeTagsSet() { return nodeTagsSet; }
+    Set<CacheNode.NodeTag> getNodeTagsSet() { return nodeTagsSet; }
 
-    Set<String> getInducedTagsForNode(final String nodeKey) {
+    Set<CacheNode.NodeTag> getInducedTagsForNode(final CacheNode.NodeKey nodeKey) {
         return inducedTagsMap.get(nodeKey);
     }
 
-    int getTopologicalOrder(@Nonnull final String nodeKey) {
+    /**
+     * Return the topological order for a node. Note: nodes at the same depth have the same topological order.
+     * @param nodeKey node key
+     * @return (integer) topological order
+     */
+    int getTopologicalOrder(@Nonnull final CacheNode.NodeKey nodeKey) {
         return topologicalOrderMap.get(nodeKey);
     }
 
-    Set<String> getChildren(@Nonnull final String nodeKey) {
+    Set<CacheNode.NodeKey> getChildren(@Nonnull final CacheNode.NodeKey nodeKey) {
         return childrenMap.get(nodeKey);
     }
 
-    Set<String> getParents(@Nonnull final String nodeKey) {
+    Set<CacheNode.NodeKey> getParents(@Nonnull final CacheNode.NodeKey nodeKey) {
         return parentsMap.get(nodeKey);
     }
 
-    Set<String> getAncestors(@Nonnull final String nodeKey) {
+    Set<CacheNode.NodeKey> getAncestors(@Nonnull final CacheNode.NodeKey nodeKey) {
         return ancestorsMap.get(nodeKey);
     }
 
-    Set<String> getDescendants(@Nonnull final String nodeKey) {
+    Set<CacheNode.NodeKey> getDescendants(@Nonnull final CacheNode.NodeKey nodeKey) {
         return descendantsMap.get(nodeKey);
     }
 
-    List<String> getTopologicalOrderForNodeEvaluation(final String nodeKey) {
+    List<CacheNode.NodeKey> getTopologicalOrderForNodeEvaluation(final CacheNode.NodeKey nodeKey) {
         return topologicalOrderForNodeEvaluation.get(nodeKey);
     }
 
-    List<String> getTopologicalOrderForNodeMutation(final String nodeKey) {
+    List<CacheNode.NodeKey> getTopologicalOrderForNodeMutation(final CacheNode.NodeKey nodeKey) {
         return topologicalOrderForNodeMutation.get(nodeKey);
     }
 
-    List<String> getTopologicalOrderForTagEvaluation(final String tagKey) {
+    List<CacheNode.NodeKey> getTopologicalOrderForTagEvaluation(final CacheNode.NodeTag tagKey) {
         return topologicalOrderForTagEvaluation.get(tagKey);
     }
 
-    List<String> getTopologicalOrderForCompleteEvaluation() {
+    List<CacheNode.NodeKey> getTopologicalOrderForCompleteEvaluation() {
         return topologicalOrderForCompleteEvaluation;
     }
 
