@@ -1,6 +1,9 @@
-[![Build Status](https://travis-ci.org/broadinstitute/gatk-protected.svg?branch=master)](https://travis-ci.org/broadinstitute/gatk-protected)
-[![Coverage Status](https://coveralls.io/repos/broadinstitute/gatk-protected/badge.svg?branch=master&service=github)](https://coveralls.io/github/broadinstitute/gatk-protected?branch=master)
-[![License (3-Clause BSD)](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+## THIS CODEBASE HAS BEEN DEPRECATED - WE ARE NO LONGER MAINTAINING IT. 
+## PLEASE SEE https://github.com/broadinstitute/gatk INSTEAD
+
+![DEPRECATION NOTICE](https://raw.githubusercontent.com/gilt/Cleanroom/master/Assets/deprecated-banner.png "Deprecation notice")
+
+---------
 
 GATK4-Protected (codename Hellbender-protected)
 ===============================================
