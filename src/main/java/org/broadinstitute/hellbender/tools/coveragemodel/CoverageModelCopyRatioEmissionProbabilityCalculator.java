@@ -234,7 +234,7 @@ public final class CoverageModelCopyRatioEmissionProbabilityCalculator implement
     }
 
     /**
-     * TODO github/gatk-protected issue #855 -- rewrite using org.broadinstitute.hellbender.utils.Utils.stream
+     * TODO github/gatk-protected issue #853 -- rewrite using org.broadinstitute.hellbender.utils.Utils.stream
      */
     private static double[] loadDoubleArrayTable(final InputStream inputStream) {
         final Scanner reader = new Scanner(inputStream);
@@ -246,7 +246,7 @@ public final class CoverageModelCopyRatioEmissionProbabilityCalculator implement
     }
 
     /**
-     * TODO github/gatk-protected issue #855 -- rewrite using org.broadinstitute.hellbender.utils.Utils.stream
+     * TODO github/gatk-protected issue #853 -- rewrite using org.broadinstitute.hellbender.utils.Utils.stream
      */
     private static double[][] loadDouble2DArrayTable(final InputStream inputStream) {
         final Scanner reader = new Scanner(inputStream);
