@@ -1,0 +1,3 @@
+Sample	Chromosome	Start	End	Segment_Call	Num_Targets	Segment_Mean	Segment_Std	Exact_Quality	Some_Quality	Start_Quality	End_Quality	Event_Quality
+SM-74NEG	20	68099	983059	2	93	1.9996	0.0207	16.8000	2682.9000	54.5000	59.9000	0.1000
+SM-74NEG	X	200603	619814	2	36	2.0000	0.0041	34.4000	660.1000	0.0000	40.6000	0.0000
