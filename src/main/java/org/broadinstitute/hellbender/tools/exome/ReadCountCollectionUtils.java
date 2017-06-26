@@ -156,9 +156,7 @@ public final class ReadCountCollectionUtils {
             @Override
             protected void composeLine(final ReadCountRecord record, final DataLine dataLine) {
                 final SimpleInterval interval = record.getTarget().getInterval();
-                if (interval == null) {
-                    throw new IllegalStateException("invalid combination of targets with and without intervals defined");
-                }
+                Utils.validate(interval != null, "invalid combination of targets with and without intervals defined");
                 dataLine.append(interval.getContig())
                         .append(interval.getStart())
                         .append(interval.getEnd())

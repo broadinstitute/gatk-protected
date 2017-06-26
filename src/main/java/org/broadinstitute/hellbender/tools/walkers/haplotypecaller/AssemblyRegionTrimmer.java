@@ -69,10 +69,7 @@ public final class AssemblyRegionTrimmer {
      * @throws CommandLineException.BadArgumentValue if any of the user argument values is invalid.
      */
     public void initialize(final AssemblyRegionTrimmerArgumentCollection assemblyRegionTrimmerArgs, final SAMSequenceDictionary sequenceDictionary, final boolean debug, final boolean isGGA, final boolean emitReferenceConfidence) {
-        if (this.assemblyRegionTrimmerArgs != null) {
-            throw new IllegalStateException(getClass().getSimpleName() + " instance initialized twice");
-        }
-
+        Utils.validate(this.assemblyRegionTrimmerArgs == null, () -> getClass().getSimpleName() + " instance initialized twice");
         this.assemblyRegionTrimmerArgs = Utils.nonNull(assemblyRegionTrimmerArgs);;
         this.sequenceDictionary = sequenceDictionary;
 

@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * Call germline SNPs and indels via local re-assembly of haplotypes
@@ -179,13 +178,8 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             //HaplotypeCallerEngine isn't serializable but is expensive to instantiate, so construct and reuse one for every partition
             final ReferenceMultiSourceAdapter referenceReader = new ReferenceMultiSourceAdapter(referenceBroadcast.getValue(), authHolder);
             final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceReader);
-            return iteratorToStream(regionAndIntervals).flatMap(regionToVariants(hcEngine)).iterator();
+            return Utils.stream(regionAndIntervals).flatMap(regionToVariants(hcEngine)).iterator();
         };
-    }
-
-    private static <T> Stream<T> iteratorToStream(Iterator<T> iterator) {
-        Iterable<T> regionsIterable = () -> iterator;
-        return StreamSupport.stream(regionsIterable.spliterator(), false);
     }
 
     private static Function<Tuple2<AssemblyRegion, SimpleInterval>, Stream<? extends VariantContext>> regionToVariants(HaplotypeCallerEngine hcEngine) {
@@ -259,7 +253,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
             final ReferenceMultiSourceAdapter referenceSource = new ReferenceMultiSourceAdapter(referenceMultiSource, authHolder);
             final HaplotypeCallerEngine hcEngine = new HaplotypeCallerEngine(hcArgsBroadcast.value(), header, referenceSource);
 
-            return iteratorToStream(shards).flatMap(shardToRegion(assemblyArgs, header, referenceSource, hcEngine)).iterator();
+            return Utils.stream(shards).flatMap(shardToRegion(assemblyArgs, header, referenceSource, hcEngine)).iterator();
         };
     }
 
@@ -280,8 +274,7 @@ public final class HaplotypeCallerSpark extends GATKSparkTool {
                     assemblyArgs.assemblyRegionPadding, assemblyArgs.activeProbThreshold,
                     assemblyArgs.maxProbPropagationDistance);
 
-            return StreamSupport.stream(assemblyRegions.spliterator(), false)
-                    .map(a -> new Tuple2<>(a, shard.getInterval()));
+            return Utils.stream(assemblyRegions).map(a -> new Tuple2<>(a, shard.getInterval()));
         };
     }
 

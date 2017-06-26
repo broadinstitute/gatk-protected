@@ -1,16 +1,20 @@
 package org.broadinstitute.hellbender.tools.walkers.validation;
 
+import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.vcf.*;
+import htsjdk.variant.vcf.VCFConstants;
 import org.apache.commons.lang.mutable.MutableLong;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
-import org.broadinstitute.hellbender.engine.*;
-
+import org.broadinstitute.hellbender.engine.FeatureContext;
+import org.broadinstitute.hellbender.engine.ReadsContext;
+import org.broadinstitute.hellbender.engine.ReferenceContext;
+import org.broadinstitute.hellbender.engine.VariantWalker;
 import org.broadinstitute.hellbender.utils.GATKProtectedVariantContextUtils;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.locusiterator.AlignmentStateMachine;
 import org.broadinstitute.hellbender.utils.pileup.ReadPileup;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
@@ -18,7 +22,6 @@ import org.broadinstitute.hellbender.utils.read.GATKRead;
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Given a VCF of known variants from multiple samples, calculate how much each sample
@@ -77,9 +80,9 @@ public class CalculateMixingFractions extends VariantWalker {
             return;
         }
 
-        final Optional<String> variantSample = StreamSupport.stream(vc.getGenotypes().spliterator(), false)
-                .filter(genotype -> genotype.isHet())
-                .map(genotype -> genotype.getSampleName())
+        final Optional<String> variantSample = Utils.stream(vc.getGenotypes())
+                .filter(Genotype::isHet)
+                .map(Genotype::getSampleName)
                 .findFirst();
 
         if (!variantSample.isPresent()) {
@@ -107,9 +110,7 @@ public class CalculateMixingFractions extends VariantWalker {
         final ReadPileup pileup = new ReadPileup(vc, reads, offsets);
 
         final byte altBase = vc.getAlternateAllele(0).getBases()[0];
-        final long altCount = StreamSupport.stream(pileup.spliterator(), false)
-                .filter(pe -> pe.getBase() == altBase)
-                .count();
+        final long altCount = Utils.stream(pileup).filter(pe -> pe.getBase() == altBase).count();
         final long totalCount = pileup.size();
         sampleCounts.get(variantSample.get()).addCounts(altCount, totalCount);
     }

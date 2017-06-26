@@ -521,9 +521,7 @@ public final class ReferenceConfidenceModel {
         Utils.nonNull(paddedReferenceLoc, "null paddedReferenceLoc");
 
         final int alignmentStart = activeRegion.getExtendedSpan().getStart() - paddedReferenceLoc.getStart();
-        if ( alignmentStart < 0 ) {
-            throw new IllegalStateException("Bad alignment start in createReferenceHaplotype " + alignmentStart);
-        }
+        Utils.validate( alignmentStart >= 0, () -> "Bad alignment start in createReferenceHaplotype " + alignmentStart);
         final Haplotype refHaplotype = new Haplotype(refBases, true);
         refHaplotype.setAlignmentStartHapwrtRef(alignmentStart);
         final Cigar c = new Cigar();

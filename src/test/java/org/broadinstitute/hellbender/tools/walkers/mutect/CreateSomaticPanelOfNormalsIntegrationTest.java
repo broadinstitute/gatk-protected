@@ -3,8 +3,8 @@ package org.broadinstitute.hellbender.tools.walkers.mutect;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.commons.io.FileUtils;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
-import org.broadinstitute.hellbender.Main;
 import org.broadinstitute.hellbender.engine.FeatureDataSource;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -13,9 +13,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static org.testng.Assert.*;
 
 /**
  * Created by David Benjamin on 2/17/17.
@@ -67,9 +64,7 @@ public class CreateSomaticPanelOfNormalsIntegrationTest extends CommandLineProgr
 
         runCommandLine(args);
 
-        final List<VariantContext> ponVariants =
-                StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false)
-                .collect(Collectors.toList());
+        final List<VariantContext> ponVariants = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf)).collect(Collectors.toList());
 
         Assert.assertEquals(ponVariants.size(), 5);
         final VariantContext vc1 = ponVariants.get(0);

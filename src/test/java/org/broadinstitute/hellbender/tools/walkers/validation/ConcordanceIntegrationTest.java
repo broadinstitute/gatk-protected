@@ -2,16 +2,15 @@ package org.broadinstitute.hellbender.tools.walkers.validation;
 
 import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
-import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.AbstractConcordanceWalker;
 import org.broadinstitute.hellbender.engine.FeatureDataSource;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Created by Takuto Sato on 1/31/17.
@@ -87,11 +86,9 @@ public class ConcordanceIntegrationTest extends CommandLineProgramTest{
         Assert.assertEquals(indelRecord.getFalseNegatives(), 0);
 
         // Test the output vcfs
-        final List<VariantContext> truePositivesAndFalseNegatives =
-                StreamSupport.stream(new FeatureDataSource<VariantContext>(tpfn).spliterator(), false)
+        final List<VariantContext> truePositivesAndFalseNegatives = Utils.stream(new FeatureDataSource<VariantContext>(tpfn))
                 .collect(Collectors.toList());
-        final List<VariantContext> truePositivesAndFalsePositives =
-                StreamSupport.stream(new FeatureDataSource<VariantContext>(tpfp).spliterator(), false)
+        final List<VariantContext> truePositivesAndFalsePositives = Utils.stream(new FeatureDataSource<VariantContext>(tpfp))
                         .collect(Collectors.toList());
 
         Assert.assertEquals(truePositivesAndFalseNegatives.size(), 10);

@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Created by davidben on 9/1/16.
@@ -122,7 +121,7 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         new Main().instanceMain(makeCommandLineArgs(Arrays.asList("-V", unfilteredVcf.getAbsolutePath(), "-O", filteredVcf.getAbsolutePath()), "FilterMutectCalls"));
 
 
-        final long numVariants = StreamSupport.stream(new FeatureDataSource<VariantContext>(filteredVcf).spliterator(), false)
+        final long numVariants = Utils.stream(new FeatureDataSource<VariantContext>(filteredVcf))
                 .filter(vc -> vc.getFilters().isEmpty()).count();
 
         Assert.assertEquals(numVariants, 0);
@@ -152,7 +151,7 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         };
 
         runCommandLine(args);
-        final long numVariants = StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false).count();
+        final long numVariants = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf)).count();
         Assert.assertTrue(numVariants < 4);
     }
 
@@ -179,9 +178,9 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         new Main().instanceMain(makeCommandLineArgs(Arrays.asList("-V", unfilteredVcf.getAbsolutePath(), "-O", filteredVcf.getAbsolutePath()), "FilterMutectCalls"));
 
 
-        final long numVariantsBeforeFiltering = StreamSupport.stream(new FeatureDataSource<VariantContext>(filteredVcf).spliterator(), false).count();
+        final long numVariantsBeforeFiltering = Utils.stream(new FeatureDataSource<VariantContext>(filteredVcf)).count();
 
-        final long numVariantsPassingFilters = StreamSupport.stream(new FeatureDataSource<VariantContext>(filteredVcf).spliterator(), false)
+        final long numVariantsPassingFilters = Utils.stream(new FeatureDataSource<VariantContext>(filteredVcf))
                 .filter(vc -> vc.getFilters().isEmpty()).count();
 
         // just a sanity check that this bam has some germline variants on this interval so that our test doesn't pass trivially!
@@ -227,11 +226,11 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
 
     //TODO: bring this to HaplotypeCallerIntegrationTest
     private Pair<Double, Double> calculateConcordance(final File outputVcf, final File truthVcf ) {
-        final Set<String> outputKeys = StreamSupport.stream(new FeatureDataSource<VariantContext>(outputVcf).spliterator(), false)
+        final Set<String> outputKeys = Utils.stream(new FeatureDataSource<VariantContext>(outputVcf))
                 .filter(vc -> vc.getFilters().isEmpty())
                 .filter(vc -> ! vc.isSymbolicOrSV())
                 .map(vc -> keyForVariant(vc)).collect(Collectors.toSet());
-        final Set<String> truthKeys = StreamSupport.stream(new FeatureDataSource<VariantContext>(truthVcf).spliterator(), false)
+        final Set<String> truthKeys = Utils.stream(new FeatureDataSource<VariantContext>(truthVcf))
                 .filter(vc -> vc.getFilters().isEmpty())
                 .filter(vc -> ! vc.isSymbolicOrSV())
                 .map(vc -> keyForVariant(vc)).collect(Collectors.toSet());

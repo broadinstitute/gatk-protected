@@ -83,9 +83,7 @@ public final class SexGenotypeDataCollection {
      * @param dataWriter an instance of {@link Writer}
      */
     public void write(@Nonnull final Writer dataWriter) {
-        if (sexGenotypeDataList.isEmpty()) {
-            throw new IllegalStateException("The sex genotype data collection is empty");
-        }
+        Utils.validate(!sexGenotypeDataList.isEmpty(), "The sex genotype data collection is empty");
         /* check if extended genotyping information is available; first, check for nulls */
         boolean extended = true;
         if (sexGenotypeDataList.stream().filter(dat -> !dat.hasExtendedGenotypingInfo()).count() > 0) {

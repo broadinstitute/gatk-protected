@@ -432,15 +432,10 @@ public final class ReadErrorCorrector {
          * @param base                            base to be added to list of corrections at this offset
          */
         public void add(final int offset, final byte base) {
-            if (offset >= size || offset < 0) {
-                throw new IllegalStateException("Bad entry into CorrectionSet: offset > size");
+            Utils.validate(offset < size && offset >= 0, "Bad entry into CorrectionSet: offset > size");
+            if (BaseUtils.isRegularBase(base)) {
+                corrections.get(offset).add(base);
             }
-            if (!BaseUtils.isRegularBase(base)) {
-                return; // no irregular base correction
-            }
-
-            final List<Byte> storedBytes = corrections.get(offset);
-            storedBytes.add(base);
         }
 
         /**
